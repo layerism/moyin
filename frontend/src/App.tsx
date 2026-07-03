@@ -759,7 +759,12 @@ function TopBar({
     <header className="topbar">
       <div className="topbar-left">
         <span className="home-dot" />
-        <button className="chrome-button" onClick={onHome}>
+        <button
+          aria-label="返回首页"
+          className="chrome-button"
+          onClick={onHome}
+          title="返回首页"
+        >
           ⌂
         </button>
         <button className="chrome-button">+</button>
