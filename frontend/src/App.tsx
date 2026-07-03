@@ -9,6 +9,14 @@ type HomeMenu =
   | { kind: "cloud"; x: number; y: number }
   | { folder: string; kind: "folder"; x: number; y: number };
 type FolderDialog = { mode: "create" } | { mode: "rename"; target: string };
+type HomeFile = {
+  action: "编辑" | "学生填写";
+  editedAt: string;
+  folder: string | null;
+  name: string;
+  owner: string;
+  size: string;
+};
 
 type Student = {
   name: string;
@@ -406,13 +414,15 @@ function HomeView({
   stats: Stats;
 }) {
   const [folders, setFolders] = useState<string[]>([]);
-  const [files, setFiles] = useState([
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [files, setFiles] = useState<HomeFile[]>([
     {
       name: "密码学期末考试答题过程提交",
       owner: "我",
       editedAt: "2025-12-18 我",
       size: "190.88 MB",
       action: "编辑",
+      folder: null,
     },
     {
       name: "密码学作业提交",
@@ -420,6 +430,7 @@ function HomeView({
       editedAt: "2025-12-10 我",
       size: "459.93 MB",
       action: "学生填写",
+      folder: null,
     },
   ]);
   const [menu, setMenu] = useState<HomeMenu | null>(null);
@@ -458,6 +469,7 @@ function HomeView({
         editedAt: "刚刚 我",
         size: "-",
         action: "编辑",
+        folder: activeFolder,
       },
     ]);
     setMenu(null);
@@ -486,8 +498,15 @@ function HomeView({
 
   const deleteFolder = (folder: string) => {
     setFolders((current) => current.filter((item) => item !== folder));
+    setFiles((current) => current.filter((file) => file.folder !== folder));
+    if (activeFolder === folder) {
+      setActiveFolder(null);
+    }
     setMenu(null);
   };
+
+  const visibleFiles = files.filter((file) => file.folder === activeFolder);
+  const currentTitle = activeFolder ?? "云盘";
 
   return (
     <main className="home-page" onClick={() => setMenu(null)}>
@@ -504,11 +523,14 @@ function HomeView({
         </button>
         <nav className="drive-nav" aria-label="首页导航">
           <button className="selected">⌂ 首页</button>
-          <button onContextMenu={openCloudMenu}>▾ 云盘</button>
+          <button onClick={() => setActiveFolder(null)} onContextMenu={openCloudMenu}>
+            ▾ 云盘
+          </button>
           {folders.map((folder) => (
             <button
-              className={folder === "2023 软件工程" ? "folder active" : "folder"}
+              className={folder === activeFolder ? "folder active" : "folder"}
               key={folder}
+              onClick={() => setActiveFolder(folder)}
               onContextMenu={(event) => openFolderMenu(folder, event)}
             >
               <span>▸</span>
@@ -531,8 +553,8 @@ function HomeView({
         <section className="drive-panel">
           <div className="drive-breadcrumb">
             <span>云盘</span>
-            <span>›</span>
-            <strong>2023 软件工程</strong>
+            {activeFolder && <span>›</span>}
+            <strong>{currentTitle}</strong>
           </div>
           <div className="drive-tools">
             <button>筛选</button>
@@ -546,7 +568,7 @@ function HomeView({
               <span>文档大小</span>
               <span>操作</span>
             </div>
-            {files.map((file) => (
+            {visibleFiles.map((file) => (
               <div className="file-row" role="row" key={file.name}>
                 <button className="file-name" onClick={onAdminDemo}>
                   <span className="file-icon">✓</span>
@@ -563,6 +585,11 @@ function HomeView({
                 </button>
               </div>
             ))}
+            {visibleFiles.length === 0 && (
+              <div className="empty-folder">
+                {activeFolder ? "当前文件夹为空，可右键云盘新建文件夹，或在当前目录新建收集表。" : "云盘根目录暂无收集表。"}
+              </div>
+            )}
           </div>
           <footer className="drive-summary">
             <span>名单 {stats.total} 人</span>

@@ -235,6 +235,15 @@ button {
   font-weight: 900;
 }
 
+.empty-folder {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  border-bottom: 1px solid #edf0f5;
+  color: #7b8494;
+  font-size: 15px;
+}
+
 .drive-summary {
   position: absolute;
   right: 44px;
