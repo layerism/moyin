@@ -8,6 +8,7 @@ type CheckStatus = "-" | "待检查" | "检查中" | "检查成功" | "检查失
 type HomeMenu =
   | { kind: "cloud"; x: number; y: number }
   | { folder: string; kind: "folder"; x: number; y: number };
+type FolderDialog = { mode: "create" } | { mode: "rename"; target: string };
 
 type Student = {
   name: string;
@@ -404,14 +405,7 @@ function HomeView({
   onLogin: () => void;
   stats: Stats;
 }) {
-  const [folders, setFolders] = useState([
-    "2022 软件工程",
-    "2023 大数据",
-    "2023 人工智能",
-    "2023 软件工程",
-    "2024 软件工程",
-    "2025 软件工程",
-  ]);
+  const [folders, setFolders] = useState<string[]>([]);
   const [files, setFiles] = useState([
     {
       name: "密码学期末考试答题过程提交",
@@ -429,12 +423,30 @@ function HomeView({
     },
   ]);
   const [menu, setMenu] = useState<HomeMenu | null>(null);
-  const [renameTarget, setRenameTarget] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
+  const [folderDialog, setFolderDialog] = useState<FolderDialog | null>(null);
+  const [folderNameValue, setFolderNameValue] = useState("");
 
-  const createFolder = () => {
-    setFolders((current) => [...current, `新建文件夹 ${current.length + 1}`]);
+  const startCreateFolder = () => {
+    setFolderDialog({ mode: "create" });
+    setFolderNameValue("");
     setMenu(null);
+  };
+
+  const confirmFolderName = () => {
+    const nextName = folderNameValue.trim();
+    if (!folderDialog || !nextName) {
+      return;
+    }
+
+    if (folderDialog.mode === "create") {
+      setFolders((current) => [...current, nextName]);
+    } else {
+      setFolders((current) =>
+        current.map((item) => (item === folderDialog.target ? nextName : item)),
+      );
+    }
+    setFolderDialog(null);
+    setFolderNameValue("");
   };
 
   const createFile = () => {
@@ -467,19 +479,9 @@ function HomeView({
   };
 
   const startRenameFolder = (folder: string) => {
-    setRenameTarget(folder);
-    setRenameValue(folder);
+    setFolderDialog({ mode: "rename", target: folder });
+    setFolderNameValue(folder);
     setMenu(null);
-  };
-
-  const confirmRenameFolder = () => {
-    const nextName = renameValue.trim();
-    if (!renameTarget || !nextName) {
-      return;
-    }
-    setFolders((current) => current.map((item) => (item === renameTarget ? nextName : item)));
-    setRenameTarget(null);
-    setRenameValue("");
   };
 
   const deleteFolder = (folder: string) => {
@@ -578,7 +580,7 @@ function HomeView({
         >
           {menu.kind === "cloud" && (
             <>
-              <button onClick={createFolder}>新建文件夹</button>
+              <button onClick={startCreateFolder}>新建文件夹</button>
               <button onClick={createFile}>新建收集表</button>
             </>
           )}
@@ -593,23 +595,24 @@ function HomeView({
           )}
         </div>
       )}
-      {renameTarget && (
-        <div className="modal-backdrop" onClick={() => setRenameTarget(null)}>
+      {folderDialog && (
+        <div className="modal-backdrop" onClick={() => setFolderDialog(null)}>
           <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
-            <h2>重命名文件夹</h2>
+            <h2>{folderDialog.mode === "create" ? "新建文件夹" : "重命名文件夹"}</h2>
             <input
               autoFocus
-              value={renameValue}
-              onChange={(event) => setRenameValue(event.target.value)}
+              placeholder="请输入文件夹名称"
+              value={folderNameValue}
+              onChange={(event) => setFolderNameValue(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  confirmRenameFolder();
+                  confirmFolderName();
                 }
               }}
             />
             <div className="dialog-actions">
-              <button onClick={() => setRenameTarget(null)}>取消</button>
-              <button className="primary small" onClick={confirmRenameFolder}>
+              <button onClick={() => setFolderDialog(null)}>取消</button>
+              <button className="primary small" onClick={confirmFolderName}>
                 确定
               </button>
             </div>
