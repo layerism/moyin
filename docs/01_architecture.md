@@ -1,199 +1,341 @@
-# 材料收集应用架构草案
+# 腾讯文档收集表简化版架构草案
 
-## 目标
+## 需求定位
 
-系统面向材料收集场景，提供一个类似腾讯文档的简化版 Web 应用。管理员创建材料收集任务，用户在线填写基本信息并上传若干 `.docx` 文档。系统在提交后将材料归档到阿里云 OSS，并记录提交状态、文件清单和检查结果。
+本项目不是通用网盘，也不是单纯的 DOCX 上传系统，而是构建“腾讯文档收集表”的简化实现。核心目标是让管理员像创建在线问卷或收集表一样，配置一个材料收集页面；填报用户打开链接后填写基础信息、上传指定材料，并提交到系统归档。
 
-系统的特殊能力是“文档格式检查与自动批注”。该能力不在平台内部硬编码具体规则，而是允许管理员为不同材料任务配置一个自动编辑 `.docx` 的 Python 脚本。系统在安全隔离环境中运行该脚本，对上传文档进行格式检查、自动批注，并生成带批注的检查版本。
+在标准收集表能力之外，系统增加一个专用能力：对用户上传的 `.docx` 文档执行 AI 格式检测、自动评语填写、批注生成和结果归档。该能力由管理员上传若干个 Python 脚本实现。平台负责任务编排、文件调度、脚本运行隔离、结果入库和 OSS 归档；具体检测规则、AI 调用逻辑和评语生成逻辑由脚本提供。
+
+## 产品形态
+
+系统参考腾讯文档收集表的基本交互，保留三个核心工作区：
+
+| 工作区 | 作用 |
+| --- | --- |
+| 编辑 | 创建收集表，添加题目，配置上传材料项，配置 AI 检查脚本 |
+| 统计 | 查看提交人数、提交明细、文件状态、检查结果、导出数据 |
+| 设置 | 配置权限、截止时间、是否允许重复提交、结果可见性 |
+
+第一版不追求完整复刻腾讯文档，只实现收集表闭环和 DOCX AI 增强能力。
 
 ## 用户角色
 
 | 角色 | 主要能力 |
 | --- | --- |
-| 管理员 | 创建收集任务、配置字段、配置需上传的文档类型、配置 DOCX 检查脚本、查看提交结果 |
-| 提交用户 | 填写基本信息、上传 DOCX 材料、查看检查结果、重新提交材料 |
-| 审核人员 | 查看归档材料、下载原始文档和批注文档、确认材料是否合格 |
+| 管理员 | 创建收集表、配置题目、配置 DOCX 上传项、上传 Python 脚本、查看统计结果 |
+| 填报用户 | 打开收集表链接，填写基础信息，上传 DOCX 文档，查看提交和检查状态 |
+| 审核人员 | 查看提交记录，下载原始文档、批注文档和检查报告，标记审核状态 |
+
+## 收集表题型
+
+第一版支持最小但完整的题型集合：
+
+| 题型 | 用途 | 是否必需 |
+| --- | --- | --- |
+| 单行文本 | 姓名、学号、班级、手机号等短文本 | 是 |
+| 多行文本 | 备注、说明、补充材料说明 | 可选 |
+| 单选题 | 固定分类选择 | 可选 |
+| 多选题 | 多标签或多项选择 | 可选 |
+| 日期题 | 提交日期、材料时间 | 可选 |
+| 文件题 | 上传 DOCX 材料 | 是 |
+
+文件题是本项目的关键题型。管理员可以为每个文件题配置：
+
+1. 文件名称，例如“毕业论文正文”“实习材料”“课程设计报告”。
+2. 是否必传。
+3. 文件数量上限。
+4. 文件大小上限。
+5. 允许的文件类型，第一版限定为 `.docx`。
+6. 绑定的 AI 检查脚本集合。
+
+## 核心功能边界
+
+第一版需要完成以下闭环：
+
+1. 管理员创建一个收集表。
+2. 管理员添加基础题目和若干 DOCX 文件题。
+3. 管理员上传一个或多个 Python 脚本，并绑定到指定文件题。
+4. 管理员发布收集表，生成可访问链接。
+5. 填报用户打开链接，填写必填项并上传必需 DOCX 文档。
+6. 系统在前端和后端同时校验必填项、文件类型、文件数量和文件大小。
+7. 校验通过后生成提交记录。
+8. 系统将原始 DOCX 上传到阿里云 OSS。
+9. 系统异步运行绑定的 Python 脚本，执行 AI 格式检测和自动评语填写。
+10. 系统保存检查结果 JSON、带批注 DOCX、自动评语和运行日志。
+11. 管理员在统计页查看提交状态、检查状态和审核状态。
+12. 审核人员下载原始文档、批注文档和检查报告。
+
+## 非目标
+
+第一版暂不实现以下功能：
+
+1. 多人实时协同编辑收集表。
+2. 类似在线 Word 的正文编辑器。
+3. 通用文件格式检查。
+4. 任意脚本无约束运行。
+5. 复杂工作流审批引擎。
+6. 完整 AI Agent 平台。
 
 ## 核心模块
 
-| 模块 | 职责 | 当前状态 |
-| --- | --- | --- |
-| 认证与权限 | 用户登录、角色区分、任务访问控制 | 待实现 |
-| 收集任务管理 | 创建任务，配置截止时间、基础字段、材料清单和提交规则 | 待实现 |
-| 在线填写 | 用户填写姓名、学号、联系方式等基础信息 | 待实现 |
-| 文档上传 | 上传多个 `.docx` 文档，校验文件类型、大小和数量 | 待实现 |
-| OSS 归档 | 将原始文档、批注文档和元数据归档到阿里云 OSS | 待实现 |
-| 脚本配置 | 管理员上传或选择 Python 检查脚本，并绑定到收集任务 | 待实现 |
-| 格式检查与自动批注 | 运行脚本检查 DOCX 格式，生成检查结果和带批注文档 | 待实现 |
-| 审核与状态 | 展示提交状态、检查状态、审核状态和退回原因 | 待实现 |
+| 模块 | 职责 |
+| --- | --- |
+| 认证与权限 | 登录、角色区分、收集表访问控制 |
+| 收集表编辑器 | 管理题目、分组、必填规则、文件题配置 |
+| 发布与填写 | 生成填写链接，渲染收集表，处理用户提交 |
+| 提交校验 | 校验必填项、字段格式、文件数量、文件类型和大小 |
+| 文件归档 | 将原始文档、批注文档和报告归档到阿里云 OSS |
+| 脚本管理 | 上传、版本化、校验和启停 Python 脚本 |
+| AI DOCX 检查 | 编排脚本运行，执行格式检测、评语填写和批注生成 |
+| 统计与审核 | 展示提交明细、检查结果、审核状态和导出数据 |
 
-## 最小功能边界
+## 数据流
 
-第一版应保证以下闭环：
+### 收集表创建流程
 
-1. 管理员创建一个材料收集任务。
-2. 管理员配置基础信息字段，例如姓名、学号、班级、联系方式。
-3. 管理员配置需要上传的 DOCX 材料清单。
-4. 管理员为任务配置一个 Python DOCX 检查脚本。
-5. 用户进入任务页面，填写基础信息并上传全部必需文档。
-6. 系统强制校验必填信息和必传文档，未完成则不允许提交。
-7. 提交后，系统将原始文档上传到阿里云 OSS。
-8. 后端触发 DOCX 检查脚本，生成检查结果和带批注文档。
-9. 系统将批注文档和检查 JSON 结果上传到 OSS。
-10. 管理员或审核人员查看提交记录、下载材料并确认状态。
+1. 管理员新建收集表。
+2. 管理员配置标题、说明、截止时间和提交规则。
+3. 管理员添加基础题目和 DOCX 文件题。
+4. 管理员上传 Python 脚本，并将脚本绑定到指定 DOCX 文件题。
+5. 系统校验脚本输入输出协议。
+6. 管理员发布收集表。
 
-## 推荐数据流
+### 用户提交流程
 
-1. 管理员创建材料收集任务。
-2. 管理员配置基础字段、必传文档清单和 DOCX 检查脚本。
-3. 用户打开任务页面，填写基础信息并上传 DOCX 文档。
-4. 前端校验必填字段和必传文件是否完整。
-5. 后端再次校验任务规则，生成提交记录。
-6. 后端将原始 DOCX 上传到阿里云 OSS。
-7. 后端异步触发格式检查任务。
-8. 检查任务下载原始 DOCX，运行管理员配置的 Python 脚本。
-9. 脚本输出检查结果 JSON，并生成带批注的 DOCX。
-10. 后端将批注文档和检查结果上传到 OSS。
-11. 系统更新提交状态，供用户和审核人员查看。
+1. 用户打开收集表链接。
+2. 前端根据表单 schema 渲染题目。
+3. 用户填写基础信息并上传 DOCX。
+4. 前端执行必填和文件规则校验。
+5. 后端再次校验表单 schema 与上传文件。
+6. 后端创建提交记录。
+7. 后端上传原始 DOCX 到阿里云 OSS。
+8. 后端创建 AI DOCX 检查任务。
+9. Worker 下载原始 DOCX，运行绑定脚本。
+10. Worker 上传批注文档、评语结果和检查报告。
+11. 系统更新提交状态和统计结果。
 
-## DOCX 检查脚本机制
+## AI DOCX 检查与自动评语填写
 
-管理员配置的 Python 脚本应遵循统一约定，便于平台调度。
+AI DOCX 能力由若干 Python 脚本组合实现。脚本可以完成以下任务：
 
-### 输入约定
+1. 读取 DOCX，检查标题、字体、字号、段落、页边距、页眉页脚、表格格式等规则。
+2. 调用指定 AI 模型，对正文内容、摘要、结论、格式说明等进行评估。
+3. 根据检测结果生成自动评语。
+4. 将评语写入 DOCX 指定位置，或以批注、修订痕迹、附录形式写入。
+5. 输出结构化 JSON，供统计页展示。
 
-脚本接收以下输入：
+### 脚本绑定方式
+
+一个 DOCX 文件题可以绑定多个脚本。脚本按顺序执行：
+
+```text
+原始 DOCX
+  -> 脚本 A：基础格式检测
+  -> 脚本 B：AI 内容评估
+  -> 脚本 C：自动评语填写
+  -> 批注文档 + 检查报告
+```
+
+每个脚本应声明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `name` | 脚本名称 |
+| `version` | 脚本版本 |
+| `entrypoint` | 入口文件 |
+| `required_env` | 需要的环境变量，例如 AI API Key |
+| `input_contract` | 输入文件和元数据约定 |
+| `output_contract` | 输出 DOCX、JSON 和日志约定 |
+| `timeout_seconds` | 最大运行时间 |
+
+### 脚本输入
+
+平台向脚本提供统一输入：
 
 | 参数 | 含义 |
 | --- | --- |
-| `input_docx` | 原始 DOCX 文件路径 |
-| `output_docx` | 带批注或修订痕迹的输出 DOCX 路径 |
-| `output_json` | 检查结果 JSON 文件路径 |
-| `metadata_json` | 当前提交的基础信息和任务配置 |
+| `input_docx` | 当前待处理 DOCX 文件路径 |
+| `output_docx` | 当前脚本输出 DOCX 文件路径 |
+| `output_json` | 当前脚本输出 JSON 文件路径 |
+| `metadata_json` | 收集表、题目、提交用户和脚本配置 |
+| `workdir` | 当前脚本可读写工作目录 |
 
-### 输出约定
+### 脚本输出
 
-脚本必须输出：
-
-1. 一个 `.docx` 文件：包含自动批注、标记或格式调整结果。
-2. 一个 `.json` 文件：包含检查项、是否通过、问题位置、问题说明和建议。
-
-示例 JSON 结构：
+每个脚本至少输出一个 JSON 文件。需要修改或批注文档时，同时输出 DOCX。
 
 ```json
 {
   "passed": false,
+  "summary": "文档存在格式问题，已生成修改建议。",
+  "comments": [
+    {
+      "target": "第 1 页标题",
+      "comment": "标题字号应调整为三号黑体。"
+    }
+  ],
   "issues": [
     {
-      "code": "font_size_error",
+      "code": "title_font_size_error",
       "level": "warning",
-      "location": "第 2 页第 3 段",
-      "message": "正文字号不符合要求",
-      "suggestion": "正文建议使用小四号字体"
+      "location": "第 1 页标题",
+      "message": "标题字号不符合要求",
+      "suggestion": "建议改为三号黑体"
     }
-  ]
+  ],
+  "artifacts": {
+    "output_docx": "output.docx"
+  }
 }
 ```
 
-### 安全边界
+## 脚本安全边界
 
-脚本执行必须采用隔离策略：
+用户上传的 Python 脚本必须运行在隔离环境中：
 
-1. 禁止脚本直接访问业务数据库。
-2. 禁止脚本读取任务目录之外的文件。
-3. 限制运行时间、内存和输出文件大小。
-4. 通过白名单方式控制可用 Python 依赖。
-5. 脚本运行失败时保留错误日志，并将检查状态标记为失败。
+1. 默认禁止访问业务数据库。
+2. 默认禁止访问任务目录之外的文件。
+3. 默认禁止访问内网服务。
+4. 限制运行时间、内存、CPU 和输出文件大小。
+5. AI API Key 通过受控环境变量注入，不写入脚本文档。
+6. 脚本运行失败时，不影响原始提交归档，只将检查状态标记为失败。
+7. 每次运行保留脚本版本、输入文件 hash、输出文件 hash 和错误日志。
 
 ## OSS 归档设计
 
-建议使用确定性路径组织 OSS 文件：
+OSS 保存所有大文件，数据库只保存元数据和 object key。
 
 ```text
-materials/{task_id}/{submission_id}/raw/{document_key}.docx
-materials/{task_id}/{submission_id}/annotated/{document_key}.docx
-materials/{task_id}/{submission_id}/reports/{document_key}.json
+forms/{form_id}/submissions/{submission_id}/raw/{field_key}/{filename}.docx
+forms/{form_id}/submissions/{submission_id}/ai/{field_key}/{run_id}/annotated.docx
+forms/{form_id}/submissions/{submission_id}/ai/{field_key}/{run_id}/report.json
+forms/{form_id}/submissions/{submission_id}/ai/{field_key}/{run_id}/logs.txt
+scripts/{script_id}/{version}/package.zip
 ```
-
-数据库只保存 OSS object key、文件哈希、文件大小和检查状态，不直接保存大文件。
 
 ## 推荐数据表
 
-### 收集任务表：`collection_tasks`
+### 收集表：`forms`
 
 | 字段 | 说明 |
 | --- | --- |
-| `id` | 任务 ID |
-| `title` | 任务标题 |
-| `description` | 任务说明 |
-| `field_schema` | 基础信息字段配置 |
-| `document_schema` | 必传文档清单配置 |
-| `script_id` | 绑定的 DOCX 检查脚本 ID |
+| `id` | 收集表 ID |
+| `title` | 标题 |
+| `description` | 说明 |
+| `status` | 草稿、已发布、已关闭 |
 | `deadline_at` | 截止时间 |
-| `status` | 任务状态 |
+| `allow_resubmit` | 是否允许重复提交 |
+| `created_by` | 创建人 |
 | `created_at` | 创建时间 |
 | `updated_at` | 更新时间 |
 
-### 检查脚本表：`docx_check_scripts`
+### 表单题目：`form_fields`
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 题目 ID |
+| `form_id` | 收集表 ID |
+| `field_key` | 字段唯一标识 |
+| `field_type` | 题型，例如 text、textarea、select、file |
+| `label` | 题目标题 |
+| `required` | 是否必填 |
+| `options` | 选项配置 JSON |
+| `validation_rules` | 校验规则 JSON |
+| `sort_order` | 排序 |
+
+### AI 脚本：`ai_docx_scripts`
 
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 脚本 ID |
 | `name` | 脚本名称 |
 | `version` | 脚本版本 |
-| `script_path` | 脚本存储路径 |
-| `config_schema` | 脚本配置项 |
-| `status` | 是否启用 |
+| `package_oss_key` | 脚本包 OSS key |
+| `entrypoint` | 入口文件 |
+| `runtime_config` | 运行配置 JSON |
+| `status` | 启用状态 |
+| `created_by` | 上传人 |
 | `created_at` | 创建时间 |
 
-### 提交记录表：`submissions`
+### 文件题脚本绑定：`field_script_bindings`
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 绑定 ID |
+| `field_id` | 文件题 ID |
+| `script_id` | AI 脚本 ID |
+| `run_order` | 执行顺序 |
+| `config` | 该绑定的脚本参数 JSON |
+| `enabled` | 是否启用 |
+
+### 提交记录：`submissions`
 
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 提交 ID |
-| `task_id` | 任务 ID |
-| `user_id` | 提交用户 ID |
-| `form_data` | 基础信息 JSON |
+| `form_id` | 收集表 ID |
+| `user_id` | 填报用户 ID |
+| `form_data` | 非文件题答案 JSON |
 | `submit_status` | 提交状态 |
-| `check_status` | 检查状态 |
+| `ai_status` | AI 检查总体状态 |
 | `review_status` | 审核状态 |
 | `submitted_at` | 提交时间 |
-| `updated_at` | 更新时间 |
 
-### 提交文件表：`submission_files`
+### 提交文件：`submission_files`
 
 | 字段 | 说明 |
 | --- | --- |
 | `id` | 文件 ID |
 | `submission_id` | 提交 ID |
-| `document_key` | 文档类型标识 |
+| `field_id` | 文件题 ID |
 | `original_filename` | 原始文件名 |
-| `raw_oss_key` | 原始文档 OSS key |
-| `annotated_oss_key` | 批注文档 OSS key |
-| `report_oss_key` | 检查报告 OSS key |
+| `raw_oss_key` | 原始 DOCX OSS key |
 | `file_hash` | 文件哈希 |
-| `check_result` | 检查摘要 JSON |
+| `file_size` | 文件大小 |
+| `ai_status` | AI 检查状态 |
 | `created_at` | 创建时间 |
+
+### AI 检查运行记录：`ai_docx_runs`
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 运行 ID |
+| `submission_file_id` | 提交文件 ID |
+| `script_id` | 脚本 ID |
+| `run_order` | 执行顺序 |
+| `status` | pending、running、success、failed |
+| `input_oss_key` | 输入 DOCX OSS key |
+| `output_docx_oss_key` | 输出 DOCX OSS key |
+| `report_oss_key` | 检查报告 OSS key |
+| `log_oss_key` | 运行日志 OSS key |
+| `summary` | 检查摘要 |
+| `started_at` | 开始时间 |
+| `finished_at` | 结束时间 |
 
 ## 推荐接口
 
 | 接口 | 方法 | 功能 |
 | --- | --- | --- |
-| `/api/tasks` | `POST` | 创建材料收集任务 |
-| `/api/tasks/{task_id}` | `GET` | 获取任务配置 |
-| `/api/tasks/{task_id}/submissions` | `POST` | 提交基础信息和文档 |
+| `/api/forms` | `POST` | 创建收集表 |
+| `/api/forms/{form_id}` | `GET` | 获取收集表配置 |
+| `/api/forms/{form_id}/fields` | `POST` | 添加题目 |
+| `/api/forms/{form_id}/publish` | `POST` | 发布收集表 |
+| `/api/forms/{form_id}/submissions` | `POST` | 提交收集表 |
+| `/api/forms/{form_id}/stats` | `GET` | 查看统计结果 |
 | `/api/submissions/{submission_id}` | `GET` | 查看提交详情 |
-| `/api/submissions/{submission_id}/files/{file_id}` | `GET` | 获取文件下载地址 |
-| `/api/scripts` | `POST` | 上传 DOCX 检查脚本 |
-| `/api/scripts/{script_id}/validate` | `POST` | 校验脚本输入输出是否符合约定 |
+| `/api/submission-files/{file_id}/download` | `GET` | 下载原始或批注文档 |
+| `/api/ai-docx-scripts` | `POST` | 上传 AI DOCX 脚本 |
+| `/api/ai-docx-scripts/{script_id}/validate` | `POST` | 校验脚本协议 |
+| `/api/ai-docx-runs/{run_id}` | `GET` | 查看脚本运行结果 |
 
 ## 部署形态
 
 生产环境建议采用：
 
-- Nginx 提供前端静态资源与 `/api` 反向代理。
-- FastAPI 提供业务 API。
-- PostgreSQL 保存任务配置、提交记录和文件元数据。
-- 阿里云 OSS 保存原始文档、批注文档和检查报告。
-- Redis + Celery 或 RQ 执行异步 DOCX 检查任务。
-- 脚本运行环境采用容器或受限子进程，避免用户配置脚本影响主服务。
+1. Nginx：提供前端静态资源与 `/api` 反向代理。
+2. FastAPI：提供收集表、提交、文件、脚本和认证接口。
+3. PostgreSQL：保存用户、表单、提交、脚本和运行记录。
+4. Redis：保存异步任务队列、限流计数和临时状态。
+5. Worker：运行 AI DOCX 检查任务。
+6. 阿里云 OSS：保存原始文件、批注文档、报告、日志和脚本包。
+7. 隔离脚本运行环境：容器或受限子进程，避免脚本影响主服务。

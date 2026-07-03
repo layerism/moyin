@@ -2,29 +2,29 @@
 
 ## 目标
 
-本文档定义材料收集应用的组件依赖、数据库依赖、对象存储依赖与运行环境。系统核心功能包括用户登录、材料收集任务配置、基础信息填写、多个 `.docx` 文档上传、阿里云 OSS 归档，以及基于 Python 脚本的 DOCX 格式检查与自动批注。
+本文档定义腾讯文档收集表简化版的组件依赖、数据库依赖、对象存储依赖与运行环境。系统核心功能包括用户登录、收集表创建、题目配置、基础信息填写、多个 `.docx` 文档上传、阿里云 OSS 归档，以及基于多个 Python 脚本的 AI DOCX 格式检测、自动评语填写和批注生成。
 
 ## 总体技术栈
 
 | 层级 | 推荐组件 | 作用 |
 | --- | --- | --- |
-| 前端框架 | React + TypeScript | 构建材料填写、上传、审核与管理界面 |
+| 前端框架 | React + TypeScript | 构建收集表编辑、填写、统计、审核与管理界面 |
 | 构建工具 | Vite | 前端开发服务器与生产构建 |
 | UI 组件 | Ant Design 或 shadcn/ui | 表单、上传、表格、弹窗、状态提示 |
 | 表单校验 | react-hook-form + zod | 动态字段渲染、必填校验、格式校验 |
-| 后端框架 | FastAPI | 提供任务、提交、文件、脚本与认证接口 |
+| 后端框架 | FastAPI | 提供收集表、提交、文件、AI 脚本与认证接口 |
 | ORM | SQLAlchemy 2.x | 数据模型与数据库访问 |
 | 数据库迁移 | Alembic | 管理数据库结构变更 |
-| 数据库 | PostgreSQL 15+ | 保存用户、任务、提交记录、文件元数据 |
+| 数据库 | PostgreSQL 15+ | 保存用户、收集表、提交记录、文件元数据 |
 | 缓存与队列 | Redis 7+ | 异步任务队列、临时状态、限流计数 |
-| 异步任务 | Celery 或 RQ | 执行 DOCX 检查、批注生成、OSS 上传后处理 |
+| 异步任务 | Celery 或 RQ | 执行 AI DOCX 检测、评语填写、批注生成、OSS 上传后处理 |
 | 对象存储 | 阿里云 OSS | 存储原始 DOCX、批注文档、检查报告 |
 | 反向代理 | Nginx | HTTPS 终止、静态资源托管、API 反向代理 |
 | 部署 | Docker Compose | 本地与中小规模部署编排 |
 
 ## 前端依赖
 
-前端应重点支持动态表单、文件上传、任务状态展示与审核列表。
+前端应重点支持收集表编辑、动态表单渲染、文件上传、统计面板、AI 检查状态展示与审核列表。
 
 | 依赖 | 用途 |
 | --- | --- |
@@ -41,14 +41,15 @@
 最小页面依赖：
 
 1. 登录页。
-2. 材料收集任务填写页。
+2. 收集表编辑页。
 3. 提交结果页。
-4. 管理员任务配置页。
-5. 审核列表与详情页。
+4. 收集表填写页。
+5. 统计页。
+6. 审核列表与详情页。
 
 ## 后端依赖
 
-后端负责认证、任务配置、提交校验、文件元数据管理、OSS 归档和异步 DOCX 检查任务调度。
+后端负责认证、收集表配置、提交校验、文件元数据管理、OSS 归档和异步 AI DOCX 检查任务调度。
 
 | 依赖 | 用途 |
 | --- | --- |
@@ -66,10 +67,11 @@
 | `oss2` | 阿里云 OSS SDK |
 | `python-docx` | DOCX 读取、修改与基础批注能力 |
 | `lxml` | 处理 DOCX 内部 XML 结构 |
+| `openai` 或兼容 SDK | 脚本调用 AI 模型，按实际模型供应商选择 |
 
-## DOCX 检查脚本环境
+## AI DOCX 脚本环境
 
-DOCX 检查与自动批注由管理员配置 Python 脚本实现。平台应提供受限、稳定、可复现的脚本运行环境。
+AI DOCX 格式检测、内容评估、自动评语填写与批注生成由管理员上传的多个 Python 脚本实现。平台应提供受限、稳定、可复现的脚本运行环境。
 
 | 组件 | 要求 |
 | --- | --- |
@@ -79,7 +81,7 @@ DOCX 检查与自动批注由管理员配置 Python 脚本实现。平台应提�
 | 输出目录 | 仅允许生成批注文档与 JSON 检查报告 |
 | 超时限制 | 建议 60-180 秒 |
 | 内存限制 | 建议 512 MB-2 GB |
-| 网络访问 | 默认禁止 |
+| 网络访问 | 默认禁止；如脚本需要调用 AI API，应通过白名单放行指定 endpoint |
 | 数据库访问 | 禁止 |
 
 建议预装依赖：
@@ -89,11 +91,12 @@ DOCX 检查与自动批注由管理员配置 Python 脚本实现。平台应提�
 | `python-docx` | DOCX 文档结构读取与修改 |
 | `lxml` | 低层 XML 操作 |
 | `pydantic` | 脚本输入输出结构校验 |
+| `openai` 或兼容 SDK | 调用 AI 模型生成检测结论和评语 |
 
 脚本执行的最小命令约定：
 
 ```bash
-python check_docx.py \
+python ai_docx_script.py \
   --input-docx input.docx \
   --output-docx output.docx \
   --output-json result.json \
@@ -110,10 +113,13 @@ python check_docx.py \
 | --- | --- |
 | `users` | 用户、管理员、审核人员账号 |
 | `student_accounts` | 学生账号与登录信息 |
-| `collection_tasks` | 材料收集任务 |
-| `docx_check_scripts` | DOCX 检查脚本配置 |
+| `forms` | 收集表 |
+| `form_fields` | 收集表题目 |
+| `ai_docx_scripts` | AI DOCX 脚本配置 |
+| `field_script_bindings` | 文件题与脚本绑定关系 |
 | `submissions` | 用户提交记录 |
 | `submission_files` | 提交文件元数据与 OSS 路径 |
+| `ai_docx_runs` | AI DOCX 脚本运行记录 |
 | `password_reset_tokens` | 密码重置凭证 |
 | `login_logs` | 登录审计日志 |
 
@@ -136,14 +142,15 @@ python check_docx.py \
 | `OSS_BUCKET` | 存储 bucket |
 | `OSS_ACCESS_KEY_ID` | 访问密钥 ID |
 | `OSS_ACCESS_KEY_SECRET` | 访问密钥 Secret |
-| `OSS_BASE_PREFIX` | 项目文件根路径，例如 `materials/` |
+| `OSS_BASE_PREFIX` | 项目文件根路径，例如 `forms/` |
 
 推荐路径：
 
 ```text
-materials/{task_id}/{submission_id}/raw/{document_key}.docx
-materials/{task_id}/{submission_id}/annotated/{document_key}.docx
-materials/{task_id}/{submission_id}/reports/{document_key}.json
+forms/{form_id}/submissions/{submission_id}/raw/{field_key}/{filename}.docx
+forms/{form_id}/submissions/{submission_id}/ai/{field_key}/{run_id}/annotated.docx
+forms/{form_id}/submissions/{submission_id}/ai/{field_key}/{run_id}/report.json
+scripts/{script_id}/{version}/package.zip
 ```
 
 ## 本地开发环境
@@ -167,10 +174,10 @@ materials/{task_id}/{submission_id}/reports/{document_key}.json
 1. 一台 Web/API 服务节点：运行 Nginx、前端静态文件、FastAPI。
 2. 一个 PostgreSQL 实例：保存业务元数据。
 3. 一个 Redis 实例：支持异步任务和限流。
-4. 一个 Worker 服务：运行 DOCX 检查与自动批注任务。
+4. 一个 Worker 服务：运行 AI DOCX 检测、自动评语填写与批注生成任务。
 5. 一个阿里云 OSS Bucket：保存所有文档文件。
 
-对于 DOCX 检查脚本，生产环境应单独运行 Worker，避免用户配置脚本影响主 API 服务。
+对于 AI DOCX 脚本，生产环境应单独运行 Worker，避免用户上传脚本影响主 API 服务。
 
 ## 环境变量
 
@@ -184,8 +191,10 @@ materials/{task_id}/{submission_id}/reports/{document_key}.json
 | `OSS_BUCKET` | OSS bucket |
 | `OSS_ACCESS_KEY_ID` | OSS AccessKey ID |
 | `OSS_ACCESS_KEY_SECRET` | OSS AccessKey Secret |
-| `DOCX_WORKER_TIMEOUT_SECONDS` | DOCX 检查脚本超时时间 |
-| `DOCX_WORKER_MAX_MEMORY_MB` | DOCX 检查脚本内存上限 |
+| `AI_API_BASE_URL` | AI 模型服务地址，按需配置 |
+| `AI_API_KEY` | AI 模型服务密钥，按需配置 |
+| `DOCX_WORKER_TIMEOUT_SECONDS` | AI DOCX 脚本超时时间 |
+| `DOCX_WORKER_MAX_MEMORY_MB` | AI DOCX 脚本内存上限 |
 
 ## 最小可运行依赖
 
@@ -199,4 +208,4 @@ materials/{task_id}/{submission_id}/reports/{document_key}.json
 6. Python 3.11 + `python-docx` + `lxml`。
 7. Nginx。
 
-该组合可以覆盖用户登录、材料任务配置、必填校验、多 DOCX 上传、OSS 归档、异步格式检查与自动批注。
+该组合可以覆盖用户登录、收集表配置、必填校验、多 DOCX 上传、OSS 归档、异步 AI 格式检测、自动评语填写与批注生成。
