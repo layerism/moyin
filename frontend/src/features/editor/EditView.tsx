@@ -347,7 +347,14 @@ function renderQuestionBody({
     return <input accept="image/*" type="file" />;
   }
   if (question.kind === "文件题") {
-    return <input type="file" />;
+    return (
+      <label className="file-upload-designer">
+        <input type="file" />
+        <span className="file-upload-icon">↑</span>
+        <strong>点击上传文件</strong>
+        <small>支持 docx、pdf、zip 等材料文件</small>
+      </label>
+    );
   }
   if (question.kind === "下拉选择") {
     return (

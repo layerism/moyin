@@ -968,6 +968,49 @@ button {
   color: #7a8494;
 }
 
+.file-upload-designer {
+  min-height: 118px;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 18px;
+  border: 1px dashed #9db7e7;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.file-upload-designer:hover {
+  border-color: #2b74ff;
+  background: #f1f7ff;
+}
+
+.file-upload-designer input {
+  display: none;
+}
+
+.file-upload-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #e8f1ff;
+  color: #2b74ff;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.file-upload-designer strong {
+  font-size: 16px;
+}
+
+.file-upload-designer small {
+  color: #667085;
+  font-size: 13px;
+}
+
 .question-table {
   width: 100%;
   border-collapse: collapse;
