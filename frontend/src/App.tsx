@@ -7,6 +7,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { readSheet } from "read-excel-file/browser";
 
 type Screen = "home" | "login" | "reset" | "changePassword" | "workspace";
 type Tab = "edit" | "stats" | "settings" | "fill";
@@ -1266,7 +1267,65 @@ function TopBar({
   );
 }
 
+const rosterColumnAliases = {
+  班级: ["班级", "行政班", "专业班级", "class", "Class"],
+  学号: ["学号", "学生学号", "student_no", "studentNo", "学籍号"],
+  姓名: ["姓名", "学生姓名", "name", "Name"],
+};
+
+function matchRosterColumn(headers: string[], aliases: string[]) {
+  return headers.find((header) =>
+    aliases.some((alias) => header.trim().toLowerCase() === alias.toLowerCase()),
+  );
+}
+
 function EditView() {
+  const [rosterFileName, setRosterFileName] = useState("");
+  const [rosterColumns, setRosterColumns] = useState<Record<"班级" | "学号" | "姓名", string>>({
+    班级: "",
+    学号: "",
+    姓名: "",
+  });
+  const [rosterError, setRosterError] = useState("");
+
+  const updateRosterColumns = (headers: string[]) => {
+    setRosterColumns({
+      班级: matchRosterColumn(headers, rosterColumnAliases.班级) ?? "",
+      学号: matchRosterColumn(headers, rosterColumnAliases.学号) ?? "",
+      姓名: matchRosterColumn(headers, rosterColumnAliases.姓名) ?? "",
+    });
+  };
+
+  const handleRosterFile = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    setRosterFileName(file.name);
+    setRosterError("");
+
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      void readSheet(file)
+        .then((rows) => {
+          updateRosterColumns((rows[0] ?? []).map((header) => String(header ?? "").trim()));
+        })
+        .catch(() => setRosterError("名单解析失败，请检查 Excel 表头"));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const firstLine = String(reader.result ?? "").split(/\r?\n/)[0] ?? "";
+        updateRosterColumns(firstLine.split(",").map((header) => header.trim()));
+      } catch {
+        setRosterError("名单解析失败，请检查 Excel 表头");
+      }
+    };
+    reader.onerror = () => setRosterError("名单读取失败");
+    reader.readAsText(file);
+  };
+
   return (
     <main className="editor-layout">
       <aside className="question-panel">
@@ -1283,6 +1342,29 @@ function EditView() {
         <div className="form-canvas">
           <section className="hero-card">
             <input className="title-input" aria-label="收集表标题" placeholder="请输入标题" />
+          </section>
+          <section className="roster-import-card">
+            <div>
+              <h3>学生名单采集</h3>
+              <p>上传 Excel 名单，系统按表头识别班级、学号、姓名。</p>
+            </div>
+            <label className="roster-upload">
+              <input
+                accept=".xlsx,.csv"
+                type="file"
+                onChange={(event) => handleRosterFile(event.target.files?.[0] ?? null)}
+              />
+              选择 Excel 名单
+            </label>
+            <div className="roster-result">
+              <strong>{rosterFileName || "未选择文件"}</strong>
+              {(["班级", "学号", "姓名"] as const).map((field) => (
+                <span className={rosterColumns[field] ? "matched" : ""} key={field}>
+                  {field}：{rosterColumns[field] || "待识别"}
+                </span>
+              ))}
+              {rosterError && <em>{rosterError}</em>}
+            </div>
           </section>
 
           <QuestionCard

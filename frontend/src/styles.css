@@ -659,7 +659,8 @@ button {
 .list-card,
 .ai-card,
 .settings-card,
-.fill-card {
+.fill-card,
+.roster-import-card {
   border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
@@ -687,6 +688,70 @@ button {
 
 .title-input::placeholder {
   color: #a3adbb;
+}
+
+.roster-import-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  margin-top: 12px;
+  padding: 22px 28px;
+}
+
+.roster-import-card h3 {
+  margin: 0;
+  color: #232b38;
+  font-size: 18px;
+}
+
+.roster-import-card p {
+  margin: 8px 0 0;
+  color: #7a8494;
+  font-size: 14px;
+}
+
+.roster-upload {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 5px;
+  background: #2773f6;
+  color: #ffffff;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.roster-upload input {
+  display: none;
+}
+
+.roster-result {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #667085;
+  font-size: 14px;
+}
+
+.roster-result strong,
+.roster-result span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #f3f6fa;
+}
+
+.roster-result .matched {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.roster-result em {
+  color: #b42318;
+  font-style: normal;
 }
 
 .hero-card p {
