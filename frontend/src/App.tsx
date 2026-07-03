@@ -403,70 +403,93 @@ function HomeView({
 }) {
   return (
     <main className="home-page">
-      <header className="home-header">
-        <div>
-          <span className="product-mark">材料收集</span>
-          <h1>密码学作业提交</h1>
+      <aside className="drive-sidebar">
+        <div className="drive-logo">
+          <span className="logo-mark">T</span>
+          <strong>材料收集</strong>
         </div>
-        <div className="home-actions">
-          <button onClick={onAdminDemo}>管理员演示</button>
-          <button className="primary small" onClick={onLogin}>
-            学生登录
-          </button>
-        </div>
-      </header>
+        <button className="drive-primary" onClick={onAdminDemo}>
+          + 新建
+        </button>
+        <button className="drive-secondary" onClick={onAdminDemo}>
+          上传
+        </button>
+        <nav className="drive-nav" aria-label="首页导航">
+          <button className="selected">⌂ 首页</button>
+          <button>▾ 云盘</button>
+          {["2022 软件工程", "2023 大数据", "2023 人工智能", "2023 软件工程", "2024 软件工程", "2025 软件工程"].map(
+            (folder) => (
+              <button className={folder === "2023 软件工程" ? "folder active" : "folder"} key={folder}>
+                <span>▸</span>
+                <span>📁</span>
+                {folder}
+              </button>
+            ),
+          )}
+        </nav>
+      </aside>
 
-      <section className="home-hero">
-        <div>
-          <span className="eyebrow">腾讯文档收集表简化实现</span>
-          <h2>名单内学生登录后提交 DOCX，重复提交自动覆盖。</h2>
-          <p>
-            管理员配置学生名单、收集题项、截止时间和文件命名规则；学生端只保留姓名、学号、密码认证和材料上传。
-          </p>
-          <div className="home-cta">
-            <button className="primary" onClick={onLogin}>
-              进入学生登录
-            </button>
-            <button onClick={onAdminDemo}>查看编辑台</button>
+      <section className="drive-main">
+        <header className="drive-topbar">
+          <label className="drive-search">
+            <span>⌕</span>
+            <input placeholder="搜索收集表、文件夹、学生材料" />
+          </label>
+          <button className="avatar">卢</button>
+        </header>
+
+        <section className="drive-panel">
+          <div className="drive-breadcrumb">
+            <span>云盘</span>
+            <span>›</span>
+            <strong>2023 软件工程</strong>
           </div>
-        </div>
-        <div className="collection-preview" aria-label="收集表概览">
-          <div className="preview-title">
-            <strong>密码学作业提交</strong>
+          <div className="drive-tools">
+            <button>筛选</button>
+            <button>更多</button>
+          </div>
+          <div className="file-table" role="table" aria-label="收集表列表">
+            <div className="file-row file-head" role="row">
+              <span>名称</span>
+              <span>所有者</span>
+              <span>最近编辑</span>
+              <span>文档大小</span>
+              <span>操作</span>
+            </div>
+            <div className="file-row" role="row">
+              <button className="file-name" onClick={onAdminDemo}>
+                <span className="file-icon">✓</span>
+                <span>密码学期末考试答题过程提交</span>
+              </button>
+              <span>我</span>
+              <span>2025-12-18 我</span>
+              <span>190.88 MB</span>
+              <button className="link-button" onClick={onAdminDemo}>
+                编辑
+              </button>
+            </div>
+            <div className="file-row" role="row">
+              <button className="file-name" onClick={onAdminDemo}>
+                <span className="file-icon">✓</span>
+                <span>密码学作业提交</span>
+              </button>
+              <span>我</span>
+              <span>2025-12-10 我</span>
+              <span>459.93 MB</span>
+              <button className="link-button" onClick={onLogin}>
+                学生填写
+              </button>
+            </div>
+          </div>
+          <footer className="drive-summary">
+            <span>名单 {stats.total} 人</span>
+            <span>已提交 {stats.submitted}</span>
+            <span>未提交 {stats.unsubmitted}</span>
             <span>截止 {deadline}</span>
-          </div>
-          <div className="preview-row">
-            <span>名单人数</span>
-            <strong>{stats.total}</strong>
-          </div>
-          <div className="preview-row">
-            <span>已提交</span>
-            <strong>{stats.submitted}</strong>
-          </div>
-          <div className="preview-row">
-            <span>未提交</span>
-            <strong>{stats.unsubmitted}</strong>
-          </div>
-          <div className="preview-upload">+ 上传 DOCX 材料</div>
-        </div>
-      </section>
-
-      <section className="home-grid" aria-label="核心能力">
-        <FeatureCard title="名单准入" text="只允许学生名单内姓名与学号匹配的用户填写。" />
-        <FeatureCard title="覆盖提交" text="同一学生再次提交时覆盖旧版本，并在统计页保留覆盖状态。" />
-        <FeatureCard title="自动命名" text="管理员设置文件命名变量，上传后统一归档命名。" />
-        <FeatureCard title="AI 文档检查" text="后续接入用户配置的 Python 脚本处理 DOCX 格式检查和评语填写。" />
+          </footer>
+        </section>
       </section>
     </main>
-  );
-}
-
-function FeatureCard({ text, title }: { text: string; title: string }) {
-  return (
-    <article className="feature-card">
-      <h3>{title}</h3>
-      <p>{text}</p>
-    </article>
   );
 }
 
