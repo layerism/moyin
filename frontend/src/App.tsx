@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 
 type Screen = "home" | "login" | "reset" | "changePassword" | "workspace";
 type Tab = "edit" | "stats" | "settings" | "fill";
@@ -401,8 +401,58 @@ function HomeView({
   onLogin: () => void;
   stats: Stats;
 }) {
+  const [folders, setFolders] = useState([
+    "2022 软件工程",
+    "2023 大数据",
+    "2023 人工智能",
+    "2023 软件工程",
+    "2024 软件工程",
+    "2025 软件工程",
+  ]);
+  const [files, setFiles] = useState([
+    {
+      name: "密码学期末考试答题过程提交",
+      owner: "我",
+      editedAt: "2025-12-18 我",
+      size: "190.88 MB",
+      action: "编辑",
+    },
+    {
+      name: "密码学作业提交",
+      owner: "我",
+      editedAt: "2025-12-10 我",
+      size: "459.93 MB",
+      action: "学生填写",
+    },
+  ]);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+
+  const createFolder = () => {
+    setFolders((current) => [...current, `新建文件夹 ${current.length + 1}`]);
+    setMenu(null);
+  };
+
+  const createFile = () => {
+    setFiles((current) => [
+      ...current,
+      {
+        name: `新建收集表 ${current.length + 1}`,
+        owner: "我",
+        editedAt: "刚刚 我",
+        size: "-",
+        action: "编辑",
+      },
+    ]);
+    setMenu(null);
+  };
+
+  const openCloudMenu = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setMenu({ x: event.clientX, y: event.clientY });
+  };
+
   return (
-    <main className="home-page">
+    <main className="home-page" onClick={() => setMenu(null)}>
       <aside className="drive-sidebar">
         <div className="drive-logo">
           <span className="logo-mark">T</span>
@@ -416,16 +466,14 @@ function HomeView({
         </button>
         <nav className="drive-nav" aria-label="首页导航">
           <button className="selected">⌂ 首页</button>
-          <button>▾ 云盘</button>
-          {["2022 软件工程", "2023 大数据", "2023 人工智能", "2023 软件工程", "2024 软件工程", "2025 软件工程"].map(
-            (folder) => (
-              <button className={folder === "2023 软件工程" ? "folder active" : "folder"} key={folder}>
-                <span>▸</span>
-                <span>📁</span>
-                {folder}
-              </button>
-            ),
-          )}
+          <button onContextMenu={openCloudMenu}>▾ 云盘</button>
+          {folders.map((folder) => (
+            <button className={folder === "2023 软件工程" ? "folder active" : "folder"} key={folder}>
+              <span>▸</span>
+              <span>📁</span>
+              {folder}
+            </button>
+          ))}
         </nav>
       </aside>
 
@@ -456,30 +504,23 @@ function HomeView({
               <span>文档大小</span>
               <span>操作</span>
             </div>
-            <div className="file-row" role="row">
-              <button className="file-name" onClick={onAdminDemo}>
-                <span className="file-icon">✓</span>
-                <span>密码学期末考试答题过程提交</span>
-              </button>
-              <span>我</span>
-              <span>2025-12-18 我</span>
-              <span>190.88 MB</span>
-              <button className="link-button" onClick={onAdminDemo}>
-                编辑
-              </button>
-            </div>
-            <div className="file-row" role="row">
-              <button className="file-name" onClick={onAdminDemo}>
-                <span className="file-icon">✓</span>
-                <span>密码学作业提交</span>
-              </button>
-              <span>我</span>
-              <span>2025-12-10 我</span>
-              <span>459.93 MB</span>
-              <button className="link-button" onClick={onLogin}>
-                学生填写
-              </button>
-            </div>
+            {files.map((file) => (
+              <div className="file-row" role="row" key={file.name}>
+                <button className="file-name" onClick={onAdminDemo}>
+                  <span className="file-icon">✓</span>
+                  <span>{file.name}</span>
+                </button>
+                <span>{file.owner}</span>
+                <span>{file.editedAt}</span>
+                <span>{file.size}</span>
+                <button
+                  className="link-button"
+                  onClick={file.action === "学生填写" ? onLogin : onAdminDemo}
+                >
+                  {file.action}
+                </button>
+              </div>
+            ))}
           </div>
           <footer className="drive-summary">
             <span>名单 {stats.total} 人</span>
@@ -489,6 +530,16 @@ function HomeView({
           </footer>
         </section>
       </section>
+      {menu && (
+        <div
+          className="context-menu"
+          onClick={(event) => event.stopPropagation()}
+          style={{ left: menu.x, top: menu.y }}
+        >
+          <button onClick={createFolder}>新建文件夹</button>
+          <button onClick={createFile}>新建收集表</button>
+        </div>
+      )}
     </main>
   );
 }
