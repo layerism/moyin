@@ -1,4 +1,12 @@
-import { useMemo, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
+import {
+  useMemo,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 
 type Screen = "home" | "login" | "reset" | "changePassword" | "workspace";
 type Tab = "edit" | "stats" | "settings" | "fill";
@@ -130,6 +138,9 @@ export function App() {
   const [students, setStudents] = useState<Student[]>(initialStudents);
   const [accounts, setAccounts] = useState<StudentAccount[]>(initialAccounts);
   const [activeUser, setActiveUser] = useState<StudentAccount | null>(null);
+  const [homeFolders, setHomeFolders] = useState<string[]>([]);
+  const [homeActiveFolder, setHomeActiveFolder] = useState<string | null>(null);
+  const [homeFiles, setHomeFiles] = useState<HomeFile[]>([]);
   const [fileNamePattern, setFileNamePattern] = useState("学号-姓名-材料名称.docx");
   const [deadline, setDeadline] = useState("2026-07-20 23:59");
   const [draftStudent, setDraftStudent] = useState<DraftStudent>({
@@ -311,8 +322,14 @@ export function App() {
   if (screen === "home") {
     return (
       <HomeView
+        activeFolder={homeActiveFolder}
         deadline={deadline}
+        files={homeFiles}
+        folders={homeFolders}
         onAdminDemo={() => openWorkspace("edit", null)}
+        onActiveFolderChange={setHomeActiveFolder}
+        onFilesChange={setHomeFiles}
+        onFoldersChange={setHomeFolders}
         onLogin={() => setScreen("login")}
         stats={stats}
       />
@@ -406,19 +423,28 @@ export function App() {
 }
 
 function HomeView({
+  activeFolder,
   deadline,
+  files,
+  folders,
   onAdminDemo,
+  onActiveFolderChange,
+  onFilesChange,
+  onFoldersChange,
   onLogin,
   stats,
 }: {
+  activeFolder: string | null;
   deadline: string;
+  files: HomeFile[];
+  folders: string[];
   onAdminDemo: () => void;
+  onActiveFolderChange: Dispatch<SetStateAction<string | null>>;
+  onFilesChange: Dispatch<SetStateAction<HomeFile[]>>;
+  onFoldersChange: Dispatch<SetStateAction<string[]>>;
   onLogin: () => void;
   stats: Stats;
 }) {
-  const [folders, setFolders] = useState<string[]>([]);
-  const [activeFolder, setActiveFolder] = useState<string | null>(null);
-  const [files, setFiles] = useState<HomeFile[]>([]);
   const [menu, setMenu] = useState<HomeMenu | null>(null);
   const [folderDialog, setFolderDialog] = useState<FolderDialog | null>(null);
   const [folderNameValue, setFolderNameValue] = useState("");
@@ -439,9 +465,9 @@ function HomeView({
     }
 
     if (folderDialog.mode === "create") {
-      setFolders((current) => [...current, nextName]);
+      onFoldersChange((current) => [...current, nextName]);
     } else {
-      setFolders((current) =>
+      onFoldersChange((current) =>
         current.map((item) => (item === folderDialog.target ? nextName : item)),
       );
     }
@@ -450,7 +476,7 @@ function HomeView({
   };
 
   const createFile = () => {
-    setFiles((current) => [
+    onFilesChange((current) => [
       ...current,
       {
         id: `file-${Date.now()}`,
@@ -466,7 +492,7 @@ function HomeView({
   };
 
   const createAiCollection = () => {
-    setFiles((current) => [
+    onFilesChange((current) => [
       ...current,
       {
         id: `ai-${Date.now()}`,
@@ -496,7 +522,7 @@ function HomeView({
   };
 
   const moveFolder = (folder: string) => {
-    setFolders((current) => [...current.filter((item) => item !== folder), folder]);
+    onFoldersChange((current) => [...current.filter((item) => item !== folder), folder]);
     setMenu(null);
   };
 
@@ -507,10 +533,10 @@ function HomeView({
   };
 
   const deleteFolder = (folder: string) => {
-    setFolders((current) => current.filter((item) => item !== folder));
-    setFiles((current) => current.filter((file) => file.folder !== folder));
+    onFoldersChange((current) => current.filter((item) => item !== folder));
+    onFilesChange((current) => current.filter((file) => file.folder !== folder));
     if (activeFolder === folder) {
-      setActiveFolder(null);
+      onActiveFolderChange(null);
     }
     setMenu(null);
   };
@@ -530,7 +556,7 @@ function HomeView({
     if (!fileDialog || fileDialog.mode !== "rename" || !nextName) {
       return;
     }
-    setFiles((current) =>
+    onFilesChange((current) =>
       current.map((file) => (file.id === fileDialog.fileId ? { ...file, name: nextName } : file)),
     );
     setFileDialog(null);
@@ -552,7 +578,7 @@ function HomeView({
       return;
     }
     const nextFolder = moveTarget === "__root__" ? null : moveTarget;
-    setFiles((current) =>
+    onFilesChange((current) =>
       current.map((file) =>
         file.id === fileDialog.fileId ? { ...file, folder: nextFolder } : file,
       ),
@@ -561,7 +587,7 @@ function HomeView({
   };
 
   const deleteFile = (fileId: string) => {
-    setFiles((current) => current.filter((file) => file.id !== fileId));
+    onFilesChange((current) => current.filter((file) => file.id !== fileId));
     setMenu(null);
   };
 
@@ -583,14 +609,14 @@ function HomeView({
         </button>
         <nav className="drive-nav" aria-label="首页导航">
           <button className="selected">⌂ 首页</button>
-          <button onClick={() => setActiveFolder(null)} onContextMenu={openCloudMenu}>
+          <button onClick={() => onActiveFolderChange(null)} onContextMenu={openCloudMenu}>
             ▾ 云盘
           </button>
           {folders.map((folder) => (
             <button
               className={folder === activeFolder ? "folder active" : "folder"}
               key={folder}
-              onClick={() => setActiveFolder(folder)}
+              onClick={() => onActiveFolderChange(folder)}
               onContextMenu={(event) => openFolderMenu(folder, event)}
             >
               <span>▸</span>
