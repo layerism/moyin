@@ -613,7 +613,7 @@ function HomeView({
   };
 
   const visibleFiles = files.filter((file) => file.folder === activeFolder);
-  const currentTitle = activeFolder ?? "云盘";
+  const currentTitle = activeFolder ?? "OSS 云盘";
   const allVisibleSelected =
     visibleFiles.length > 0 && visibleFiles.every((file) => selectedFileIds.includes(file.id));
 
@@ -659,7 +659,7 @@ function HomeView({
             }}
             onContextMenu={openCloudMenu}
           >
-            {cloudExpanded ? "▾" : "▸"} 云盘
+            {cloudExpanded ? "▾" : "▸"} OSS 云盘
           </button>
           {cloudExpanded &&
             folders.map((folder) => (
@@ -688,7 +688,7 @@ function HomeView({
 
         <section className="drive-panel">
           <div className="drive-breadcrumb">
-            <span>云盘</span>
+            <span>OSS 云盘</span>
             {activeFolder && <span>›</span>}
             <strong>{currentTitle}</strong>
           </div>
@@ -743,8 +743,8 @@ function HomeView({
             {visibleFiles.length === 0 && (
               <div className="empty-folder">
                 {activeFolder
-                  ? "当前文件夹为空，可新建 AI 收集表，或右键云盘新建文件夹。"
-                  : "云盘根目录暂无收集表，可新建 AI 收集表。"}
+                  ? "当前文件夹为空，可新建 AI 收集表，或右键 OSS 云盘新建文件夹。"
+                  : "OSS 云盘根目录暂无收集表，可新建 AI 收集表。"}
               </div>
             )}
           </div>
@@ -883,7 +883,7 @@ function HomeView({
           <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
             <h2>移动收集表</h2>
             <select value={moveTarget} onChange={(event) => setMoveTarget(event.target.value)}>
-              <option value="__root__">云盘根目录</option>
+              <option value="__root__">OSS 云盘根目录</option>
               {folders.map((folder) => (
                 <option key={folder} value={folder}>
                   {folder}
