@@ -41,6 +41,10 @@ export function EditView() {
     ]);
   };
 
+  const deleteQuestion = (id: string) => {
+    setQuestions((current) => current.filter((question) => question.id !== id));
+  };
+
   const handleRosterFile = (file: File | null) => {
     if (!file) {
       return;
@@ -83,6 +87,7 @@ export function EditView() {
               body={renderQuestionBody(question.kind)}
               index={String(index + 1).padStart(2, "0")}
               key={question.id}
+              onDelete={() => deleteQuestion(question.id)}
               required={question.required}
               title={question.title}
             />
@@ -327,20 +332,27 @@ function renderQuestionBody(kind: string) {
 function QuestionCard({
   body,
   index,
+  onDelete,
   required = false,
   title,
 }: {
   body: ReactNode;
   index: string;
+  onDelete: () => void;
   required?: boolean;
   title: string;
 }) {
   return (
     <section className="question-card">
-      <h3>
-        {required && <span>*</span>}
-        {index} {title}
-      </h3>
+      <div className="question-card-head">
+        <h3>
+          {required && <span>*</span>}
+          {index} {title}
+        </h3>
+        <button aria-label={`删除 ${index} ${title}`} onClick={onDelete} type="button">
+          ×
+        </button>
+      </div>
       <div className="question-body">{body}</div>
     </section>
   );

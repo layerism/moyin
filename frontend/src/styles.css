@@ -815,15 +815,38 @@ button {
   padding: 22px 28px;
 }
 
-.question-card h3 {
-  margin: 0 0 18px;
+.question-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.question-card-head h3 {
+  margin: 0;
   color: #232b38;
   font-size: 18px;
 }
 
-.question-card h3 span {
+.question-card-head h3 span {
   margin-right: 2px;
   color: #f1424d;
+}
+
+.question-card-head button {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: transparent;
+  color: #8a94a5;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.question-card-head button:hover {
+  background: #fee2e2;
+  color: #b42318;
 }
 
 .question-body input,
