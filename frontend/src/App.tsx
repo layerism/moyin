@@ -646,7 +646,6 @@ function HomeView({
             <button className="ai-create" onClick={createAiCollection}>
               新建 AI 收集表
             </button>
-            <button>筛选</button>
             <button>更多</button>
           </div>
           <div className="file-table" role="table" aria-label="收集表列表">
