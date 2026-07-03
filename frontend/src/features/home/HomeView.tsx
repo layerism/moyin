@@ -21,6 +21,7 @@ export function HomeView({
   folders,
   onAdminDemo,
   onActiveFolderChange,
+  onAcademicFlow,
   onFilesChange,
   onFoldersChange,
   onLogin,
@@ -30,6 +31,7 @@ export function HomeView({
   folders: string[];
   onAdminDemo: (collectionTitle?: string) => void;
   onActiveFolderChange: StateSetter<string | null>;
+  onAcademicFlow: () => void;
   onFilesChange: StateSetter<HomeFile[]>;
   onFoldersChange: StateSetter<string[]>;
   onLogin: () => void;
@@ -260,6 +262,7 @@ export function HomeView({
         </button>
         <nav className="drive-nav" aria-label="首页导航">
           <button className="selected">⌂ 首页</button>
+          <button onClick={onAcademicFlow}>教务流程</button>
           <button
             onClick={() => {
               setCloudExpanded((current) => !current);
@@ -431,6 +434,44 @@ export function HomeView({
           }
         />
       )}
+    </main>
+  );
+}
+
+export function AcademicFlowView({ onHome }: { onHome: () => void }) {
+  return (
+    <main className="home-page">
+      <aside className="drive-sidebar">
+        <div className="drive-logo">
+          <span className="logo-mark">T</span>
+          <strong>材料收集</strong>
+        </div>
+        <button className="drive-primary">+ 新建</button>
+        <button className="drive-secondary">上传</button>
+        <nav className="drive-nav" aria-label="首页导航">
+          <button onClick={onHome}>⌂ 首页</button>
+          <button className="selected">教务流程</button>
+          <button>▾ OSS 云盘</button>
+        </nav>
+      </aside>
+
+      <section className="drive-main">
+        <header className="drive-topbar">
+          <label className="drive-search">
+            <span>⌕</span>
+            <input placeholder="搜索教务流程" />
+          </label>
+          <button className="avatar">卢</button>
+        </header>
+
+        <section className="drive-panel academic-flow-panel" aria-label="教务流程">
+          <div className="drive-breadcrumb">
+            <span>首页</span>
+            <span>›</span>
+            <strong>教务流程</strong>
+          </div>
+        </section>
+      </section>
     </main>
   );
 }

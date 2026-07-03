@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
 import { EditView } from "./features/editor/EditView";
-import { HomeView } from "./features/home/HomeView";
+import { AcademicFlowView, HomeView } from "./features/home/HomeView";
 import { TopBar } from "./features/workspace/TopBar";
 import { LoginView, PasswordChangeView, PasswordResetView } from "./features/auth/AuthViews";
 import { initialAccounts, initialStudents } from "./data/mockData";
@@ -207,11 +207,16 @@ export function App() {
           openWorkspace("edit", null);
         }}
         onActiveFolderChange={setHomeActiveFolder}
+        onAcademicFlow={() => setScreen("academicFlow")}
         onFilesChange={setHomeFiles}
         onFoldersChange={setHomeFolders}
         onLogin={() => setScreen("login")}
       />
     );
+  }
+
+  if (screen === "academicFlow") {
+    return <AcademicFlowView onHome={() => setScreen("home")} />;
   }
 
   if (screen === "login") {
