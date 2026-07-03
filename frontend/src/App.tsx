@@ -475,6 +475,20 @@ function HomeView({
     setMenu(null);
   };
 
+  const createAiCollection = () => {
+    setFiles((current) => [
+      ...current,
+      {
+        name: `AI 收集表 ${current.length + 1}`,
+        owner: "我",
+        editedAt: "刚刚 我",
+        size: "-",
+        action: "编辑",
+        folder: activeFolder,
+      },
+    ]);
+  };
+
   const openCloudMenu = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     setMenu({ kind: "cloud", x: event.clientX, y: event.clientY });
@@ -557,6 +571,9 @@ function HomeView({
             <strong>{currentTitle}</strong>
           </div>
           <div className="drive-tools">
+            <button className="ai-create" onClick={createAiCollection}>
+              新建 AI 收集表
+            </button>
             <button>筛选</button>
             <button>更多</button>
           </div>
@@ -587,7 +604,9 @@ function HomeView({
             ))}
             {visibleFiles.length === 0 && (
               <div className="empty-folder">
-                {activeFolder ? "当前文件夹为空，可右键云盘新建文件夹，或在当前目录新建收集表。" : "云盘根目录暂无收集表。"}
+                {activeFolder
+                  ? "当前文件夹为空，可新建 AI 收集表，或右键云盘新建文件夹。"
+                  : "云盘根目录暂无收集表，可新建 AI 收集表。"}
               </div>
             )}
           </div>
