@@ -827,10 +827,12 @@ button {
 }
 
 .question-body input,
+.question-body select,
+.question-body textarea,
 .settings-card input,
 .fill-card input {
   width: 100%;
-  height: 42px;
+  min-height: 42px;
   padding: 0 12px;
   border: 1px solid #d7dce5;
   border-radius: 5px;
@@ -839,10 +841,82 @@ button {
 }
 
 .question-body input:focus,
+.question-body select:focus,
+.question-body textarea:focus,
 .settings-card input:focus,
 .fill-card input:focus {
   border-color: #2b74ff;
   box-shadow: 0 0 0 3px rgba(43, 116, 255, 0.12);
+}
+
+.question-body textarea {
+  padding-top: 10px;
+  resize: vertical;
+}
+
+.option-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.option-stack label,
+.rating-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #3d4655;
+}
+
+.option-stack input,
+.rating-row input,
+.question-table input[type="radio"] {
+  width: 16px;
+  min-height: 16px;
+}
+
+.inline-controls,
+.scale-row,
+.rating-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.inline-controls select {
+  flex: 1;
+}
+
+.scale-row input {
+  flex: 1;
+  padding: 0;
+}
+
+.signature-box {
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #b8c0ce;
+  border-radius: 5px;
+  color: #7a8494;
+}
+
+.question-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: #3d4655;
+}
+
+.question-table th,
+.question-table td {
+  padding: 10px;
+  border: 1px solid #d7dce5;
+  text-align: left;
+}
+
+.section-title-preview {
+  margin: 0;
+  color: #667085;
+  font-size: 15px;
 }
 
 .upload-box {

@@ -1,11 +1,23 @@
 import { useState, type ReactNode } from "react";
 
-import { advancedTypes, commonTypes, questionTypes } from "../../data/mockData";
+import { advancedTypes, questionTypes } from "../../data/mockData";
 import {
   matchRosterColumns,
   parseRosterHeaders,
   type RosterColumns,
 } from "../../utils/roster";
+
+type EditorQuestion = {
+  id: string;
+  kind: string;
+  required?: boolean;
+  title: string;
+};
+
+const defaultQuestions: EditorQuestion[] = [
+  { id: "default-name", kind: "姓名", required: true, title: "姓名" },
+  { id: "default-student-no", kind: "学号", required: true, title: "学号" },
+];
 
 export function EditView() {
   const [isRosterDialogOpen, setIsRosterDialogOpen] = useState(false);
@@ -16,6 +28,18 @@ export function EditView() {
     姓名: "",
   });
   const [rosterError, setRosterError] = useState("");
+  const [questions, setQuestions] = useState<EditorQuestion[]>(defaultQuestions);
+
+  const addQuestion = (kind: string) => {
+    setQuestions((current) => [
+      ...current,
+      {
+        id: `${kind}-${Date.now()}`,
+        kind,
+        title: kind,
+      },
+    ]);
+  };
 
   const handleRosterFile = (file: File | null) => {
     if (!file) {
@@ -36,9 +60,8 @@ export function EditView() {
           <button className="selected">添加问题</button>
           <button>大纲</button>
         </div>
-        <QuestionGroup title="基础题型" items={questionTypes} />
-        <QuestionGroup title="高级题型" items={advancedTypes} />
-        <QuestionGroup title="常用题库" items={commonTypes} compact />
+        <QuestionGroup title="基础题型" items={questionTypes} onAdd={addQuestion} />
+        <QuestionGroup title="高级题型" items={advancedTypes} onAdd={addQuestion} />
       </aside>
 
       <section className="canvas-area">
@@ -55,18 +78,15 @@ export function EditView() {
             <span>{rosterFileName ? "已上传名单" : "上传 Excel 名单"}</span>
           </button>
 
-          <QuestionCard
-            index="01"
-            title="姓名"
-            required
-            body={<input aria-label="姓名示例" placeholder="待填写人输入姓名" />}
-          />
-          <QuestionCard
-            index="02"
-            title="学号"
-            required
-            body={<input aria-label="学号示例" placeholder="待填写人输入学号" />}
-          />
+          {questions.map((question, index) => (
+            <QuestionCard
+              body={renderQuestionBody(question.kind)}
+              index={String(index + 1).padStart(2, "0")}
+              key={question.id}
+              required={question.required}
+              title={question.title}
+            />
+          ))}
         </div>
         <div className="bottom-bar">
           <button>预览</button>
@@ -135,10 +155,12 @@ function RosterImportDialog({
 function QuestionGroup({
   compact = false,
   items,
+  onAdd,
   title,
 }: {
   compact?: boolean;
   items: string[];
+  onAdd: (kind: string) => void;
   title: string;
 }) {
   return (
@@ -146,11 +168,160 @@ function QuestionGroup({
       <h3>{title}</h3>
       <div className={compact ? "type-grid compact" : "type-grid"}>
         {items.map((item) => (
-          <button key={item}>{item}</button>
+          <button key={item} onClick={() => onAdd(item)} type="button">
+            {item}
+          </button>
         ))}
       </div>
     </section>
   );
+}
+
+function renderQuestionBody(kind: string) {
+  if (kind === "姓名") {
+    return <input aria-label="姓名示例" placeholder="待填写人输入姓名" />;
+  }
+  if (kind === "学号") {
+    return <input aria-label="学号示例" placeholder="待填写人输入学号" />;
+  }
+  if (kind === "问答题") {
+    return <textarea placeholder="待填写人输入文字回答" rows={3} />;
+  }
+  if (kind === "单选题") {
+    return (
+      <div className="option-stack">
+        {["选项 A", "选项 B", "选项 C"].map((option) => (
+          <label key={option}>
+            <input name="single-demo" type="radio" />
+            {option}
+          </label>
+        ))}
+      </div>
+    );
+  }
+  if (kind === "多选题") {
+    return (
+      <div className="option-stack">
+        {["选项 A", "选项 B", "选项 C"].map((option) => (
+          <label key={option}>
+            <input type="checkbox" />
+            {option}
+          </label>
+        ))}
+      </div>
+    );
+  }
+  if (kind === "时间题") {
+    return <input type="datetime-local" />;
+  }
+  if (kind === "图片题") {
+    return <input accept="image/*" type="file" />;
+  }
+  if (kind === "文件题") {
+    return <input type="file" />;
+  }
+  if (kind === "下拉选择") {
+    return (
+      <select defaultValue="">
+        <option value="" disabled>
+          请选择
+        </option>
+        <option>选项 A</option>
+        <option>选项 B</option>
+        <option>选项 C</option>
+      </select>
+    );
+  }
+  if (kind === "签名题") {
+    return <div className="signature-box">签名区域</div>;
+  }
+  if (kind === "多级选项") {
+    return (
+      <div className="inline-controls">
+        <select defaultValue="">
+          <option value="" disabled>
+            一级选项
+          </option>
+          <option>类别 A</option>
+          <option>类别 B</option>
+        </select>
+        <select defaultValue="">
+          <option value="" disabled>
+            二级选项
+          </option>
+          <option>子项 1</option>
+          <option>子项 2</option>
+        </select>
+      </div>
+    );
+  }
+  if (kind === "量表题") {
+    return (
+      <div className="scale-row">
+        <span>低</span>
+        <input max="5" min="1" type="range" />
+        <span>高</span>
+      </div>
+    );
+  }
+  if (kind === "评分题") {
+    return (
+      <div className="rating-row">
+        {[1, 2, 3, 4, 5].map((score) => (
+          <label key={score}>
+            <input name="rating-demo" type="radio" />
+            {score}
+          </label>
+        ))}
+      </div>
+    );
+  }
+  if (kind === "表格题") {
+    return (
+      <table className="question-table">
+        <tbody>
+          <tr>
+            <td>字段</td>
+            <td>
+              <input placeholder="填写内容" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
+  if (kind === "矩阵题") {
+    return (
+      <table className="question-table">
+        <thead>
+          <tr>
+            <th />
+            <th>满意</th>
+            <th>一般</th>
+            <th>不满意</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>项目 A</td>
+            <td>
+              <input name="matrix-demo" type="radio" />
+            </td>
+            <td>
+              <input name="matrix-demo" type="radio" />
+            </td>
+            <td>
+              <input name="matrix-demo" type="radio" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
+  if (kind === "分节标题") {
+    return <p className="section-title-preview">分节说明文字</p>;
+  }
+  return <input placeholder="待填写人输入内容" />;
 }
 
 function QuestionCard({

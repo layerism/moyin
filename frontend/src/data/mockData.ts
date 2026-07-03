@@ -12,7 +12,6 @@ export const questionTypes = [
 ];
 
 export const advancedTypes = ["多级选项", "量表题", "评分题", "表格题", "矩阵题", "分节标题"];
-export const commonTypes = ["姓名", "学号", "手机号", "班级"];
 
 export const initialStudents: Student[] = [
   {
