@@ -415,24 +415,7 @@ function HomeView({
 }) {
   const [folders, setFolders] = useState<string[]>([]);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
-  const [files, setFiles] = useState<HomeFile[]>([
-    {
-      name: "密码学期末考试答题过程提交",
-      owner: "我",
-      editedAt: "2025-12-18 我",
-      size: "190.88 MB",
-      action: "编辑",
-      folder: null,
-    },
-    {
-      name: "密码学作业提交",
-      owner: "我",
-      editedAt: "2025-12-10 我",
-      size: "459.93 MB",
-      action: "学生填写",
-      folder: null,
-    },
-  ]);
+  const [files, setFiles] = useState<HomeFile[]>([]);
   const [menu, setMenu] = useState<HomeMenu | null>(null);
   const [folderDialog, setFolderDialog] = useState<FolderDialog | null>(null);
   const [folderNameValue, setFolderNameValue] = useState("");
