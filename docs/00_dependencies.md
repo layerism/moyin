@@ -19,8 +19,8 @@
 | 队列托管 | PostgreSQL 任务表 | 使用 `ai_docx_runs` 保存异步任务状态 |
 | 异步任务 | Python Worker | 轮询并领取 PostgreSQL 中的 AI DOCX 待处理任务 |
 | 对象存储 | 阿里云 OSS | 存储原始 DOCX、批注文档、检查报告 |
-| 反向代理 | Nginx | HTTPS 终止、静态资源托管、API 反向代理 |
-| 部署 | Docker Compose | 本地与中小规模部署编排 |
+| Web 入口 | 可选 Nginx、云平台入口代理或 FastAPI 直连 | 静态资源托管与 API 访问入口 |
+| 部署 | systemd 用户服务或普通进程 | 适配无 Docker 的云虚拟机部署 |
 
 ## 前端依赖
 
@@ -74,7 +74,7 @@ AI DOCX 格式检测、内容评估、自动评语填写与批注生成由管理
 | 组件 | 要求 |
 | --- | --- |
 | Python | 3.11+ |
-| 运行方式 | 容器或受限子进程 |
+| 运行方式 | 受限子进程 |
 | 输入目录 | 仅包含本次待检查文档与元数据 |
 | 输出目录 | 仅允许生成批注文档与 JSON 检查报告 |
 | 超时限制 | 建议 60-180 秒 |
@@ -178,29 +178,44 @@ forms/{form_id}/submissions/{submission_id}/ai/{field_key}/{run_id}/report.json
 scripts/{script_id}/{version}/package.zip
 ```
 
-## 本地开发环境
+## 无 Docker 部署环境
 
-本地开发建议使用 Docker Compose 启动基础设施。
+目标环境是一台普通云虚拟机，不依赖 Docker。推荐将后端、Worker 和前端构建产物部署在用户目录下，数据库使用云虚拟机本机 PostgreSQL 或云厂商托管 PostgreSQL。
 
 | 服务 | 默认端口 | 说明 |
 | --- | ---: | --- |
-| Frontend | `5173` | Vite 开发服务 |
+| Frontend | `5173` | 开发阶段 Vite 服务；生产阶段构建为静态文件 |
 | Backend | `8000` | FastAPI API 服务 |
 | PostgreSQL | `5432` | 业务数据库 |
-| MinIO | `9000` / `9001` | 本地 OSS 替代服务 |
 
-本地开发可用 MinIO 模拟 OSS；生产环境切换为阿里云 OSS。
+文件存储直接使用阿里云 OSS，不在云虚拟机上部署 MinIO。
 
 ## 生产环境依赖
 
 生产环境建议最小部署为：
 
-1. 一台 Web/API 服务节点：运行 Nginx、前端静态文件、FastAPI。
+1. 一台 Web/API 服务节点：运行前端静态文件、FastAPI 和 Worker；如已有 Web 服务，可不单独安装 Nginx。
 2. 一个 PostgreSQL 实例：保存业务元数据。
 3. 一个 Worker 服务：轮询 PostgreSQL 任务表，运行 AI DOCX 检测、自动评语填写与批注生成任务。
 4. 一个阿里云 OSS Bucket：保存所有文档文件。
 
 对于 AI DOCX 脚本，生产环境应单独运行 Worker，避免用户上传脚本影响主 API 服务。
+
+## 低权限安装策略
+
+尽量避免通过 `sudo apt install` 安装项目运行依赖。推荐策略如下：
+
+| 依赖 | 推荐方式 |
+| --- | --- |
+| Python | 使用系统已有 Python，或在用户目录安装 `pyenv` |
+| Python 包 | 安装到项目 `.venv` |
+| Node.js | 使用 `nvm` 安装到用户目录 |
+| 前端依赖 | 安装到项目 `node_modules` |
+| PostgreSQL | 优先使用云厂商托管 PostgreSQL；如必须本机安装，则需要一次性系统安装 |
+| 文件存储 | 直接使用阿里云 OSS |
+| 进程管理 | 使用 `systemd --user`、`nohup`、`tmux` 或 `supervisord` 用户态部署 |
+
+如果云虚拟机没有 PostgreSQL 且无法使用 `sudo` 安装数据库，建议直接使用云数据库 PostgreSQL。这样应用服务器只需要运行 Python、Node.js 和 Worker，不需要维护本机数据库服务。
 
 ## 环境变量
 
@@ -228,6 +243,6 @@ scripts/{script_id}/{version}/package.zip
 4. Python Worker + PostgreSQL 任务表。
 5. 阿里云 OSS SDK `oss2`。
 6. Python 3.11 + `python-docx` + `lxml`。
-7. Nginx。
+7. 可选反向代理；若云平台已有入口代理，可不安装 Nginx。
 
 该组合可以覆盖用户登录、收集表配置、必填校验、多 DOCX 上传、OSS 归档、异步 AI 格式检测、自动评语填写与批注生成。
