@@ -5,6 +5,9 @@ type Tab = "edit" | "stats" | "settings" | "fill";
 type Source = "导入" | "临时添加";
 type SubmitStatus = "未提交" | "已提交" | "已覆盖";
 type CheckStatus = "-" | "待检查" | "检查中" | "检查成功" | "检查失败";
+type HomeMenu =
+  | { kind: "cloud"; x: number; y: number }
+  | { folder: string; kind: "folder"; x: number; y: number };
 
 type Student = {
   name: string;
@@ -425,7 +428,7 @@ function HomeView({
       action: "学生填写",
     },
   ]);
-  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<HomeMenu | null>(null);
 
   const createFolder = () => {
     setFolders((current) => [...current, `新建文件夹 ${current.length + 1}`]);
@@ -448,7 +451,29 @@ function HomeView({
 
   const openCloudMenu = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    setMenu({ x: event.clientX, y: event.clientY });
+    setMenu({ kind: "cloud", x: event.clientX, y: event.clientY });
+  };
+
+  const openFolderMenu = (folder: string, event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setMenu({ folder, kind: "folder", x: event.clientX, y: event.clientY });
+  };
+
+  const moveFolder = (folder: string) => {
+    setFolders((current) => [...current.filter((item) => item !== folder), folder]);
+    setMenu(null);
+  };
+
+  const renameFolder = (folder: string) => {
+    setFolders((current) =>
+      current.map((item) => (item === folder ? `${folder}（已重命名）` : item)),
+    );
+    setMenu(null);
+  };
+
+  const deleteFolder = (folder: string) => {
+    setFolders((current) => current.filter((item) => item !== folder));
+    setMenu(null);
   };
 
   return (
@@ -468,7 +493,11 @@ function HomeView({
           <button className="selected">⌂ 首页</button>
           <button onContextMenu={openCloudMenu}>▾ 云盘</button>
           {folders.map((folder) => (
-            <button className={folder === "2023 软件工程" ? "folder active" : "folder"} key={folder}>
+            <button
+              className={folder === "2023 软件工程" ? "folder active" : "folder"}
+              key={folder}
+              onContextMenu={(event) => openFolderMenu(folder, event)}
+            >
               <span>▸</span>
               <span>📁</span>
               {folder}
@@ -536,8 +565,21 @@ function HomeView({
           onClick={(event) => event.stopPropagation()}
           style={{ left: menu.x, top: menu.y }}
         >
-          <button onClick={createFolder}>新建文件夹</button>
-          <button onClick={createFile}>新建收集表</button>
+          {menu.kind === "cloud" && (
+            <>
+              <button onClick={createFolder}>新建文件夹</button>
+              <button onClick={createFile}>新建收集表</button>
+            </>
+          )}
+          {menu.kind === "folder" && (
+            <>
+              <button onClick={() => moveFolder(menu.folder)}>移动</button>
+              <button onClick={() => renameFolder(menu.folder)}>重命名</button>
+              <button className="danger" onClick={() => deleteFolder(menu.folder)}>
+                删除
+              </button>
+            </>
+          )}
         </div>
       )}
     </main>
