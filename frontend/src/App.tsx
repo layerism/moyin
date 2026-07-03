@@ -18,7 +18,9 @@ type HomeMenu =
   | { fileId: string; kind: "file"; x: number; y: number }
   | { folder: string; kind: "folder"; x: number; y: number };
 type FolderDialog = { mode: "create" } | { mode: "rename"; target: string };
-type FileDialog = { fileId: string; mode: "move" | "rename" } | { mode: "createAi" };
+type FileDialog =
+  | { fileId: string; mode: "move" | "rename" }
+  | { mode: "createAi" | "createNormal" };
 type HomeFile = {
   action: "编辑" | "学生填写";
   editedAt: string;
@@ -451,6 +453,8 @@ function HomeView({
   const [fileDialog, setFileDialog] = useState<FileDialog | null>(null);
   const [fileNameValue, setFileNameValue] = useState("");
   const [moveTarget, setMoveTarget] = useState("__root__");
+  const [cloudExpanded, setCloudExpanded] = useState(true);
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
 
   const startCreateFolder = () => {
     setFolderDialog({ mode: "create" });
@@ -475,12 +479,22 @@ function HomeView({
     setFolderNameValue("");
   };
 
-  const createFile = () => {
+  const startCreateFile = () => {
+    setFileDialog({ mode: "createNormal" });
+    setFileNameValue("");
+    setMenu(null);
+  };
+
+  const confirmCreateFile = () => {
+    const nextName = fileNameValue.trim();
+    if (!fileDialog || fileDialog.mode !== "createNormal" || !nextName) {
+      return;
+    }
     onFilesChange((current) => [
       ...current,
       {
         id: `file-${Date.now()}`,
-        name: `新建收集表 ${current.length + 1}`,
+        name: nextName,
         owner: "我",
         editedAt: "刚刚 我",
         size: "-",
@@ -488,7 +502,8 @@ function HomeView({
         folder: activeFolder,
       },
     ]);
-    setMenu(null);
+    setFileDialog(null);
+    setFileNameValue("");
   };
 
   const startCreateAiCollection = () => {
@@ -599,11 +614,34 @@ function HomeView({
 
   const deleteFile = (fileId: string) => {
     onFilesChange((current) => current.filter((file) => file.id !== fileId));
+    setSelectedFileIds((current) => current.filter((id) => id !== fileId));
     setMenu(null);
   };
 
   const visibleFiles = files.filter((file) => file.folder === activeFolder);
   const currentTitle = activeFolder ?? "云盘";
+  const allVisibleSelected =
+    visibleFiles.length > 0 && visibleFiles.every((file) => selectedFileIds.includes(file.id));
+
+  const toggleFileSelection = (fileId: string) => {
+    setSelectedFileIds((current) =>
+      current.includes(fileId) ? current.filter((id) => id !== fileId) : [...current, fileId],
+    );
+  };
+
+  const toggleAllVisibleFiles = () => {
+    if (allVisibleSelected) {
+      setSelectedFileIds((current) =>
+        current.filter((id) => !visibleFiles.some((file) => file.id === id)),
+      );
+      return;
+    }
+
+    setSelectedFileIds((current) => [
+      ...current,
+      ...visibleFiles.filter((file) => !current.includes(file.id)).map((file) => file.id),
+    ]);
+  };
 
   return (
     <main className="home-page" onClick={() => setMenu(null)}>
@@ -612,7 +650,7 @@ function HomeView({
           <span className="logo-mark">T</span>
           <strong>材料收集</strong>
         </div>
-        <button className="drive-primary" onClick={createFile}>
+        <button className="drive-primary" onClick={startCreateFile}>
           + 新建
         </button>
         <button className="drive-secondary" onClick={onAdminDemo}>
@@ -620,21 +658,28 @@ function HomeView({
         </button>
         <nav className="drive-nav" aria-label="首页导航">
           <button className="selected">⌂ 首页</button>
-          <button onClick={() => onActiveFolderChange(null)} onContextMenu={openCloudMenu}>
-            ▾ 云盘
+          <button
+            onClick={() => {
+              setCloudExpanded((current) => !current);
+              onActiveFolderChange(null);
+            }}
+            onContextMenu={openCloudMenu}
+          >
+            {cloudExpanded ? "▾" : "▸"} 云盘
           </button>
-          {folders.map((folder) => (
-            <button
-              className={folder === activeFolder ? "folder active" : "folder"}
-              key={folder}
-              onClick={() => onActiveFolderChange(folder)}
-              onContextMenu={(event) => openFolderMenu(folder, event)}
-            >
-              <span>▸</span>
-              <span>📁</span>
-              {folder}
-            </button>
-          ))}
+          {cloudExpanded &&
+            folders.map((folder) => (
+              <button
+                className={folder === activeFolder ? "folder active" : "folder"}
+                key={folder}
+                onClick={() => onActiveFolderChange(folder)}
+                onContextMenu={(event) => openFolderMenu(folder, event)}
+              >
+                <span>▸</span>
+                <span>📁</span>
+                {folder}
+              </button>
+            ))}
         </nav>
       </aside>
 
@@ -661,6 +706,12 @@ function HomeView({
           </div>
           <div className="file-table" role="table" aria-label="收集表列表">
             <div className="file-row file-head" role="row">
+              <input
+                aria-label="选择当前目录全部收集表"
+                checked={allVisibleSelected}
+                onChange={toggleAllVisibleFiles}
+                type="checkbox"
+              />
               <span>名称</span>
               <span>所有者</span>
               <span>最近编辑</span>
@@ -674,6 +725,12 @@ function HomeView({
                 onContextMenu={(event) => openFileMenu(file.id, event)}
                 role="row"
               >
+                <input
+                  aria-label={`选择 ${file.name}`}
+                  checked={selectedFileIds.includes(file.id)}
+                  onChange={() => toggleFileSelection(file.id)}
+                  type="checkbox"
+                />
                 <button className="file-name" onClick={onAdminDemo}>
                   <span className="file-icon">✓</span>
                   <span>{file.name}</span>
@@ -714,7 +771,7 @@ function HomeView({
           {menu.kind === "cloud" && (
             <>
               <button onClick={startCreateFolder}>新建文件夹</button>
-              <button onClick={createFile}>新建收集表</button>
+              <button onClick={startCreateFile}>新建收集表</button>
             </>
           )}
           {menu.kind === "folder" && (
@@ -803,6 +860,30 @@ function HomeView({
             <div className="dialog-actions">
               <button onClick={() => setFileDialog(null)}>取消</button>
               <button className="primary small" onClick={confirmCreateAiCollection}>
+                确定
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {fileDialog && fileDialog.mode === "createNormal" && (
+        <div className="modal-backdrop" onClick={() => setFileDialog(null)}>
+          <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>新建收集表</h2>
+            <input
+              autoFocus
+              placeholder="请输入收集表名称"
+              value={fileNameValue}
+              onChange={(event) => setFileNameValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  confirmCreateFile();
+                }
+              }}
+            />
+            <div className="dialog-actions">
+              <button onClick={() => setFileDialog(null)}>取消</button>
+              <button className="primary small" onClick={confirmCreateFile}>
                 确定
               </button>
             </div>

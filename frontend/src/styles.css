@@ -203,12 +203,19 @@ button {
 .file-row {
   min-height: 72px;
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) 150px 180px 140px 110px;
+  grid-template-columns: 28px minmax(300px, 1fr) 150px 180px 140px 110px;
   align-items: center;
   gap: 16px;
   border-bottom: 1px solid #edf0f5;
   color: #4b5565;
   font-size: 15px;
+}
+
+.file-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #2773f6;
 }
 
 .file-head {
