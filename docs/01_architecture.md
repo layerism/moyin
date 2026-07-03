@@ -109,8 +109,8 @@
 5. 后端再次校验表单 schema 与上传文件。
 6. 后端创建提交记录。
 7. 后端上传原始 DOCX 到阿里云 OSS。
-8. 后端创建 AI DOCX 检查任务。
-9. Worker 下载原始 DOCX，运行绑定脚本。
+8. 后端在 `ai_docx_runs` 表中创建 AI DOCX 检查任务。
+9. Worker 从 PostgreSQL 任务表领取任务，下载原始 DOCX，运行绑定脚本。
 10. Worker 上传批注文档、评语结果和检查报告。
 11. 系统更新提交状态和统计结果。
 
@@ -335,7 +335,7 @@ scripts/{script_id}/{version}/package.zip
 1. Nginx：提供前端静态资源与 `/api` 反向代理。
 2. FastAPI：提供收集表、提交、文件、脚本和认证接口。
 3. PostgreSQL：保存用户、表单、提交、脚本和运行记录。
-4. Redis：保存异步任务队列、限流计数和临时状态。
-5. Worker：运行 AI DOCX 检查任务。
+4. PostgreSQL 任务表：使用 `ai_docx_runs` 托管 AI DOCX 异步任务。
+5. Worker：轮询并领取 PostgreSQL 中的待处理任务，运行 AI DOCX 检查。
 6. 阿里云 OSS：保存原始文件、批注文档、报告、日志和脚本包。
 7. 隔离脚本运行环境：容器或受限子进程，避免脚本影响主服务。

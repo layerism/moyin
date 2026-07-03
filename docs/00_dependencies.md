@@ -16,8 +16,8 @@
 | ORM | SQLAlchemy 2.x | 数据模型与数据库访问 |
 | 数据库迁移 | Alembic | 管理数据库结构变更 |
 | 数据库 | PostgreSQL 15+ | 保存用户、收集表、提交记录、文件元数据 |
-| 缓存与队列 | Redis 7+ | 异步任务队列、临时状态、限流计数 |
-| 异步任务 | Celery 或 RQ | 执行 AI DOCX 检测、评语填写、批注生成、OSS 上传后处理 |
+| 队列托管 | PostgreSQL 任务表 | 使用 `ai_docx_runs` 保存异步任务状态 |
+| 异步任务 | Python Worker | 轮询并领取 PostgreSQL 中的 AI DOCX 待处理任务 |
 | 对象存储 | 阿里云 OSS | 存储原始 DOCX、批注文档、检查报告 |
 | 反向代理 | Nginx | HTTPS 终止、静态资源托管、API 反向代理 |
 | 部署 | Docker Compose | 本地与中小规模部署编排 |
@@ -62,8 +62,6 @@
 | `python-multipart` | 文件上传 |
 | `passlib[bcrypt]` 或 `argon2-cffi` | 密码哈希 |
 | `python-jose` 或 `pyjwt` | JWT 令牌 |
-| `redis` | Redis 客户端 |
-| `celery` 或 `rq` | 异步任务 |
 | `oss2` | 阿里云 OSS SDK |
 | `python-docx` | DOCX 读取、修改与基础批注能力 |
 | `lxml` | 处理 DOCX 内部 XML 结构 |
@@ -130,6 +128,33 @@ python ai_docx_script.py \
 | `pgcrypto` | 生成 UUID 或哈希辅助 |
 | `uuid-ossp` | UUID 主键生成，按需启用 |
 
+## 队列托管方式
+
+第一版不引入额外队列中间件。AI DOCX 异步任务直接由 PostgreSQL 托管，使用 `ai_docx_runs` 作为任务表。
+
+基本机制：
+
+1. 用户提交 DOCX 后，后端为每个待执行脚本写入一条 `ai_docx_runs` 记录，状态为 `pending`。
+2. Worker 定时查询 `pending` 任务，并使用数据库行锁领取任务。
+3. Worker 将任务状态更新为 `running`，记录 `started_at`。
+4. 脚本执行完成后，Worker 写入输出文件 OSS key、检查摘要、日志路径和 `finished_at`。
+5. 成功任务标记为 `success`，失败任务标记为 `failed`。
+
+领取任务时建议使用 PostgreSQL 的 `FOR UPDATE SKIP LOCKED`，避免多个 Worker 重复处理同一任务。
+
+示例 SQL：
+
+```sql
+SELECT id
+FROM ai_docx_runs
+WHERE status = 'pending'
+ORDER BY id
+FOR UPDATE SKIP LOCKED
+LIMIT 1;
+```
+
+该方式适合当前低并发场景，部署组件更少，运维成本更低。若后续出现大量并发提交、复杂重试策略或跨节点调度需求，再考虑引入专用队列服务。
+
 ## 对象存储依赖
 
 使用阿里云 OSS 存储上传文档、批注文档和检查报告。
@@ -162,7 +187,6 @@ scripts/{script_id}/{version}/package.zip
 | Frontend | `5173` | Vite 开发服务 |
 | Backend | `8000` | FastAPI API 服务 |
 | PostgreSQL | `5432` | 业务数据库 |
-| Redis | `6379` | 队列与缓存 |
 | MinIO | `9000` / `9001` | 本地 OSS 替代服务 |
 
 本地开发可用 MinIO 模拟 OSS；生产环境切换为阿里云 OSS。
@@ -173,9 +197,8 @@ scripts/{script_id}/{version}/package.zip
 
 1. 一台 Web/API 服务节点：运行 Nginx、前端静态文件、FastAPI。
 2. 一个 PostgreSQL 实例：保存业务元数据。
-3. 一个 Redis 实例：支持异步任务和限流。
-4. 一个 Worker 服务：运行 AI DOCX 检测、自动评语填写与批注生成任务。
-5. 一个阿里云 OSS Bucket：保存所有文档文件。
+3. 一个 Worker 服务：轮询 PostgreSQL 任务表，运行 AI DOCX 检测、自动评语填写与批注生成任务。
+4. 一个阿里云 OSS Bucket：保存所有文档文件。
 
 对于 AI DOCX 脚本，生产环境应单独运行 Worker，避免用户上传脚本影响主 API 服务。
 
@@ -185,7 +208,6 @@ scripts/{script_id}/{version}/package.zip
 | --- | --- |
 | `APP_ENV` | 运行环境，如 `development`、`production` |
 | `DATABASE_URL` | PostgreSQL 连接串 |
-| `REDIS_URL` | Redis 连接串 |
 | `JWT_SECRET_KEY` | JWT 签名密钥 |
 | `OSS_ENDPOINT` | 阿里云 OSS endpoint |
 | `OSS_BUCKET` | OSS bucket |
@@ -203,7 +225,7 @@ scripts/{script_id}/{version}/package.zip
 1. React + TypeScript + Vite。
 2. FastAPI + SQLAlchemy + Alembic。
 3. PostgreSQL。
-4. Redis + Celery 或 RQ。
+4. Python Worker + PostgreSQL 任务表。
 5. 阿里云 OSS SDK `oss2`。
 6. Python 3.11 + `python-docx` + `lxml`。
 7. Nginx。
