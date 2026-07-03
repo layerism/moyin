@@ -429,6 +429,8 @@ function HomeView({
     },
   ]);
   const [menu, setMenu] = useState<HomeMenu | null>(null);
+  const [renameTarget, setRenameTarget] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const createFolder = () => {
     setFolders((current) => [...current, `新建文件夹 ${current.length + 1}`]);
@@ -464,11 +466,20 @@ function HomeView({
     setMenu(null);
   };
 
-  const renameFolder = (folder: string) => {
-    setFolders((current) =>
-      current.map((item) => (item === folder ? `${folder}（已重命名）` : item)),
-    );
+  const startRenameFolder = (folder: string) => {
+    setRenameTarget(folder);
+    setRenameValue(folder);
     setMenu(null);
+  };
+
+  const confirmRenameFolder = () => {
+    const nextName = renameValue.trim();
+    if (!renameTarget || !nextName) {
+      return;
+    }
+    setFolders((current) => current.map((item) => (item === renameTarget ? nextName : item)));
+    setRenameTarget(null);
+    setRenameValue("");
   };
 
   const deleteFolder = (folder: string) => {
@@ -574,12 +585,35 @@ function HomeView({
           {menu.kind === "folder" && (
             <>
               <button onClick={() => moveFolder(menu.folder)}>移动</button>
-              <button onClick={() => renameFolder(menu.folder)}>重命名</button>
+              <button onClick={() => startRenameFolder(menu.folder)}>重命名</button>
               <button className="danger" onClick={() => deleteFolder(menu.folder)}>
                 删除
               </button>
             </>
           )}
+        </div>
+      )}
+      {renameTarget && (
+        <div className="modal-backdrop" onClick={() => setRenameTarget(null)}>
+          <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>重命名文件夹</h2>
+            <input
+              autoFocus
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  confirmRenameFolder();
+                }
+              }}
+            />
+            <div className="dialog-actions">
+              <button onClick={() => setRenameTarget(null)}>取消</button>
+              <button className="primary small" onClick={confirmRenameFolder}>
+                确定
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </main>
