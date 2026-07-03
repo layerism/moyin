@@ -1,5 +1,6 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 
+type Screen = "home" | "login" | "reset" | "changePassword" | "workspace";
 type Tab = "edit" | "stats" | "settings" | "fill";
 type Source = "导入" | "临时添加";
 type SubmitStatus = "未提交" | "已提交" | "已覆盖";
@@ -20,6 +21,12 @@ type DraftStudent = {
   name: string;
   studentNo: string;
   className: string;
+};
+
+type StudentAccount = {
+  name: string;
+  password: string;
+  studentNo: string;
 };
 
 type Stats = {
@@ -86,6 +93,12 @@ const initialStudents: Student[] = [
   },
 ];
 
+const initialAccounts: StudentAccount[] = initialStudents.map((student) => ({
+  name: student.name,
+  studentNo: student.studentNo,
+  password: `${student.studentNo.slice(-4)}Aa`,
+}));
+
 function makeFileName(pattern: string, student: Student, materialName: string) {
   return [
     ["学号", student.studentNo],
@@ -97,8 +110,11 @@ function makeFileName(pattern: string, student: Student, materialName: string) {
 }
 
 export function App() {
+  const [screen, setScreen] = useState<Screen>("home");
   const [tab, setTab] = useState<Tab>("edit");
   const [students, setStudents] = useState<Student[]>(initialStudents);
+  const [accounts, setAccounts] = useState<StudentAccount[]>(initialAccounts);
+  const [activeUser, setActiveUser] = useState<StudentAccount | null>(null);
   const [fileNamePattern, setFileNamePattern] = useState("学号-姓名-材料名称.docx");
   const [deadline, setDeadline] = useState("2026-07-20 23:59");
   const [draftStudent, setDraftStudent] = useState<DraftStudent>({
@@ -149,8 +165,94 @@ export function App() {
         submitCount: 0,
       },
     ]);
+    setAccounts((current) => [
+      ...current,
+      {
+        name: draftStudent.name.trim(),
+        studentNo: draftStudent.studentNo.trim(),
+        password: `${draftStudent.studentNo.trim().slice(-4)}Aa`,
+      },
+    ]);
     setDraftStudent({ name: "", studentNo: "", className: "" });
     setNotice("已临时添加学生");
+  };
+
+  const openWorkspace = (nextTab: Tab, user: StudentAccount | null = activeUser) => {
+    setActiveUser(user);
+    if (user) {
+      setSubmitter({ name: user.name, studentNo: user.studentNo });
+    }
+    setTab(nextTab);
+    setScreen("workspace");
+  };
+
+  const login = (name: string, studentNo: string, password: string) => {
+    const account = accounts.find(
+      (item) => item.name === name.trim() && item.studentNo === studentNo.trim(),
+    );
+
+    if (!account || account.password !== password) {
+      setNotice("姓名、学号或密码不正确");
+      return false;
+    }
+
+    setNotice(`${account.name} 已登录`);
+    openWorkspace("fill", account);
+    return true;
+  };
+
+  const resetPassword = (name: string, studentNo: string, password: string) => {
+    const exists = accounts.some(
+      (item) => item.name === name.trim() && item.studentNo === studentNo.trim(),
+    );
+
+    if (!exists) {
+      setNotice("未找到匹配的学生账号");
+      return false;
+    }
+
+    setAccounts((current) =>
+      current.map((item) =>
+        item.studentNo === studentNo.trim() ? { ...item, password } : item,
+      ),
+    );
+    setNotice("密码已重置，请重新登录");
+    setScreen("login");
+    return true;
+  };
+
+  const changePassword = (
+    name: string,
+    studentNo: string,
+    oldPassword: string,
+    newPassword: string,
+  ) => {
+    const account = accounts.find(
+      (item) => item.name === name.trim() && item.studentNo === studentNo.trim(),
+    );
+
+    if (!account || account.password !== oldPassword) {
+      setNotice("原密码不正确");
+      return false;
+    }
+
+    const nextAccount = { ...account, password: newPassword };
+    setAccounts((current) =>
+      current.map((item) => (item.studentNo === account.studentNo ? nextAccount : item)),
+    );
+    setActiveUser((current) =>
+      current?.studentNo === account.studentNo ? nextAccount : current,
+    );
+    setNotice("密码已修改");
+    openWorkspace("fill", nextAccount);
+    return true;
+  };
+
+  const logout = () => {
+    setActiveUser(null);
+    setSelectedFile(null);
+    setScreen("home");
+    setNotice("已退出登录");
   };
 
   const submitForm = () => {
@@ -191,9 +293,59 @@ export function App() {
     setTab("stats");
   };
 
+  if (screen === "home") {
+    return (
+      <HomeView
+        deadline={deadline}
+        onAdminDemo={() => openWorkspace("edit", null)}
+        onLogin={() => setScreen("login")}
+        stats={stats}
+      />
+    );
+  }
+
+  if (screen === "login") {
+    return (
+      <LoginView
+        notice={notice}
+        onBack={() => setScreen("home")}
+        onChangePassword={() => setScreen("changePassword")}
+        onLogin={login}
+        onReset={() => setScreen("reset")}
+      />
+    );
+  }
+
+  if (screen === "reset") {
+    return (
+      <PasswordResetView
+        notice={notice}
+        onBack={() => setScreen("login")}
+        onResetPassword={resetPassword}
+      />
+    );
+  }
+
+  if (screen === "changePassword") {
+    return (
+      <PasswordChangeView
+        activeUser={activeUser}
+        notice={notice}
+        onBack={() => setScreen(activeUser ? "workspace" : "login")}
+        onChangePassword={changePassword}
+      />
+    );
+  }
+
   return (
     <div className="workspace">
-      <TopBar notice={notice} />
+      <TopBar
+        activeUser={activeUser}
+        notice={notice}
+        onChangePassword={() => setScreen("changePassword")}
+        onHome={() => setScreen("home")}
+        onLogout={logout}
+      />
       <nav className="tabs" aria-label="工作区">
         <button className={tab === "edit" ? "active" : ""} onClick={() => setTab("edit")}>
           编辑
@@ -225,6 +377,7 @@ export function App() {
       )}
       {tab === "fill" && (
         <FillView
+          activeUser={activeUser}
           fileNamePattern={fileNamePattern}
           onFileChange={setSelectedFile}
           onSubmit={submitForm}
@@ -237,12 +390,378 @@ export function App() {
   );
 }
 
-function TopBar({ notice }: { notice: string }) {
+function HomeView({
+  deadline,
+  onAdminDemo,
+  onLogin,
+  stats,
+}: {
+  deadline: string;
+  onAdminDemo: () => void;
+  onLogin: () => void;
+  stats: Stats;
+}) {
+  return (
+    <main className="home-page">
+      <header className="home-header">
+        <div>
+          <span className="product-mark">材料收集</span>
+          <h1>密码学作业提交</h1>
+        </div>
+        <div className="home-actions">
+          <button onClick={onAdminDemo}>管理员演示</button>
+          <button className="primary small" onClick={onLogin}>
+            学生登录
+          </button>
+        </div>
+      </header>
+
+      <section className="home-hero">
+        <div>
+          <span className="eyebrow">腾讯文档收集表简化实现</span>
+          <h2>名单内学生登录后提交 DOCX，重复提交自动覆盖。</h2>
+          <p>
+            管理员配置学生名单、收集题项、截止时间和文件命名规则；学生端只保留姓名、学号、密码认证和材料上传。
+          </p>
+          <div className="home-cta">
+            <button className="primary" onClick={onLogin}>
+              进入学生登录
+            </button>
+            <button onClick={onAdminDemo}>查看编辑台</button>
+          </div>
+        </div>
+        <div className="collection-preview" aria-label="收集表概览">
+          <div className="preview-title">
+            <strong>密码学作业提交</strong>
+            <span>截止 {deadline}</span>
+          </div>
+          <div className="preview-row">
+            <span>名单人数</span>
+            <strong>{stats.total}</strong>
+          </div>
+          <div className="preview-row">
+            <span>已提交</span>
+            <strong>{stats.submitted}</strong>
+          </div>
+          <div className="preview-row">
+            <span>未提交</span>
+            <strong>{stats.unsubmitted}</strong>
+          </div>
+          <div className="preview-upload">+ 上传 DOCX 材料</div>
+        </div>
+      </section>
+
+      <section className="home-grid" aria-label="核心能力">
+        <FeatureCard title="名单准入" text="只允许学生名单内姓名与学号匹配的用户填写。" />
+        <FeatureCard title="覆盖提交" text="同一学生再次提交时覆盖旧版本，并在统计页保留覆盖状态。" />
+        <FeatureCard title="自动命名" text="管理员设置文件命名变量，上传后统一归档命名。" />
+        <FeatureCard title="AI 文档检查" text="后续接入用户配置的 Python 脚本处理 DOCX 格式检查和评语填写。" />
+      </section>
+    </main>
+  );
+}
+
+function FeatureCard({ text, title }: { text: string; title: string }) {
+  return (
+    <article className="feature-card">
+      <h3>{title}</h3>
+      <p>{text}</p>
+    </article>
+  );
+}
+
+function LoginView({
+  notice,
+  onBack,
+  onChangePassword,
+  onLogin,
+  onReset,
+}: {
+  notice: string;
+  onBack: () => void;
+  onChangePassword: () => void;
+  onLogin: (name: string, studentNo: string, password: string) => boolean;
+  onReset: () => void;
+}) {
+  const [form, setForm] = useState({ name: "", password: "", studentNo: "" });
+  const [error, setError] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.name.trim() || !form.studentNo.trim() || !form.password) {
+      setError("请填写姓名、学号和密码");
+      return;
+    }
+    setError(onLogin(form.name, form.studentNo, form.password) ? "" : "姓名、学号或密码不正确");
+  };
+
+  return (
+    <AuthShell title="学生登录" subtitle="使用名单内姓名、学号和密码进入材料提交页面。">
+      <form className="auth-card" onSubmit={submit}>
+        <label>
+          <span>姓名</span>
+          <input
+            value={form.name}
+            onChange={(event) => setForm({ ...form, name: event.target.value })}
+            placeholder="例如：李四"
+          />
+        </label>
+        <label>
+          <span>学号</span>
+          <input
+            value={form.studentNo}
+            onChange={(event) => setForm({ ...form, studentNo: event.target.value })}
+            placeholder="例如：20240002"
+          />
+        </label>
+        <label>
+          <span>密码</span>
+          <input
+            type="password"
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
+            placeholder="演示默认：学号后四位 + Aa"
+          />
+        </label>
+        <StatusLine message={error || notice} />
+        <button className="primary submit" type="submit">
+          登录并填写
+        </button>
+        <div className="auth-links">
+          <button type="button" onClick={onReset}>
+            忘记密码
+          </button>
+          <button type="button" onClick={onChangePassword}>
+            修改密码
+          </button>
+          <button type="button" onClick={onBack}>
+            返回首页
+          </button>
+        </div>
+      </form>
+    </AuthShell>
+  );
+}
+
+function PasswordResetView({
+  notice,
+  onBack,
+  onResetPassword,
+}: {
+  notice: string;
+  onBack: () => void;
+  onResetPassword: (name: string, studentNo: string, password: string) => boolean;
+}) {
+  const [form, setForm] = useState({ confirm: "", name: "", password: "", studentNo: "" });
+  const [error, setError] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.name.trim() || !form.studentNo.trim() || !form.password) {
+      setError("请填写姓名、学号和新密码");
+      return;
+    }
+    if (form.password !== form.confirm) {
+      setError("两次输入的新密码不一致");
+      return;
+    }
+    if (form.password.length < 6) {
+      setError("演示密码至少 6 位");
+      return;
+    }
+    setError(onResetPassword(form.name, form.studentNo, form.password) ? "" : "未找到匹配账号");
+  };
+
+  return (
+    <AuthShell title="重置密码" subtitle="通过姓名和学号确认名单身份后设置新密码。">
+      <form className="auth-card" onSubmit={submit}>
+        <AuthInput
+          label="姓名"
+          value={form.name}
+          onChange={(value) => setForm({ ...form, name: value })}
+        />
+        <AuthInput
+          label="学号"
+          value={form.studentNo}
+          onChange={(value) => setForm({ ...form, studentNo: value })}
+        />
+        <AuthInput
+          label="新密码"
+          type="password"
+          value={form.password}
+          onChange={(value) => setForm({ ...form, password: value })}
+        />
+        <AuthInput
+          label="确认新密码"
+          type="password"
+          value={form.confirm}
+          onChange={(value) => setForm({ ...form, confirm: value })}
+        />
+        <StatusLine message={error || notice} />
+        <button className="primary submit" type="submit">
+          重置密码
+        </button>
+        <button className="secondary-submit" type="button" onClick={onBack}>
+          返回登录
+        </button>
+      </form>
+    </AuthShell>
+  );
+}
+
+function PasswordChangeView({
+  activeUser,
+  notice,
+  onBack,
+  onChangePassword,
+}: {
+  activeUser: StudentAccount | null;
+  notice: string;
+  onBack: () => void;
+  onChangePassword: (
+    name: string,
+    studentNo: string,
+    oldPassword: string,
+    newPassword: string,
+  ) => boolean;
+}) {
+  const [form, setForm] = useState({
+    confirm: "",
+    name: activeUser?.name ?? "",
+    newPassword: "",
+    oldPassword: "",
+    studentNo: activeUser?.studentNo ?? "",
+  });
+  const [error, setError] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!form.name.trim() || !form.studentNo.trim() || !form.oldPassword || !form.newPassword) {
+      setError("请填写账号信息、原密码和新密码");
+      return;
+    }
+    if (form.newPassword !== form.confirm) {
+      setError("两次输入的新密码不一致");
+      return;
+    }
+    if (form.newPassword === form.oldPassword) {
+      setError("新密码不能与原密码相同");
+      return;
+    }
+    setError(
+      onChangePassword(form.name, form.studentNo, form.oldPassword, form.newPassword)
+        ? ""
+        : "原密码不正确",
+    );
+  };
+
+  return (
+    <AuthShell title="修改密码" subtitle="输入原密码后更新当前学生账号密码。">
+      <form className="auth-card" onSubmit={submit}>
+        <AuthInput
+          label="姓名"
+          value={form.name}
+          onChange={(value) => setForm({ ...form, name: value })}
+        />
+        <AuthInput
+          label="学号"
+          value={form.studentNo}
+          onChange={(value) => setForm({ ...form, studentNo: value })}
+        />
+        <AuthInput
+          label="原密码"
+          type="password"
+          value={form.oldPassword}
+          onChange={(value) => setForm({ ...form, oldPassword: value })}
+        />
+        <AuthInput
+          label="新密码"
+          type="password"
+          value={form.newPassword}
+          onChange={(value) => setForm({ ...form, newPassword: value })}
+        />
+        <AuthInput
+          label="确认新密码"
+          type="password"
+          value={form.confirm}
+          onChange={(value) => setForm({ ...form, confirm: value })}
+        />
+        <StatusLine message={error || notice} />
+        <button className="primary submit" type="submit">
+          保存新密码
+        </button>
+        <button className="secondary-submit" type="button" onClick={onBack}>
+          返回
+        </button>
+      </form>
+    </AuthShell>
+  );
+}
+
+function AuthShell({
+  children,
+  subtitle,
+  title,
+}: {
+  children: ReactNode;
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <main className="auth-shell">
+      <section className="auth-intro">
+        <span className="product-mark">材料收集</span>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </section>
+      {children}
+    </main>
+  );
+}
+
+function AuthInput({
+  label,
+  onChange,
+  type = "text",
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  type?: string;
+  value: string;
+}) {
+  return (
+    <label>
+      <span>{label}</span>
+      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function StatusLine({ message }: { message: string }) {
+  return <p className="status-line">{message}</p>;
+}
+
+function TopBar({
+  activeUser,
+  notice,
+  onChangePassword,
+  onHome,
+  onLogout,
+}: {
+  activeUser: StudentAccount | null;
+  notice: string;
+  onChangePassword: () => void;
+  onHome: () => void;
+  onLogout: () => void;
+}) {
   return (
     <header className="topbar">
       <div className="topbar-left">
         <span className="home-dot" />
-        <button className="chrome-button">⌂</button>
+        <button className="chrome-button" onClick={onHome}>
+          ⌂
+        </button>
         <button className="chrome-button">+</button>
         <h1>密码学作业提交</h1>
         <span className="star">☆</span>
@@ -250,8 +769,17 @@ function TopBar({ notice }: { notice: string }) {
         <span className="save-state">○ {notice}</span>
       </div>
       <div className="topbar-right">
+        {activeUser && <span className="save-state">{activeUser.name}</span>}
+        {activeUser && (
+          <button className="topbar-text-button" onClick={onChangePassword}>
+            改密
+          </button>
+        )}
+        <button className="topbar-text-button" onClick={onLogout}>
+          退出
+        </button>
         <button className="chrome-button">☰</button>
-        <button className="avatar">卢</button>
+        <button className="avatar">{activeUser?.name.slice(0, 1) ?? "卢"}</button>
       </div>
     </header>
   );
@@ -519,6 +1047,7 @@ function StudentTable({ showFiles = false, students }: { showFiles?: boolean; st
 }
 
 function FillView({
+  activeUser,
   fileNamePattern,
   onFileChange,
   onSubmit,
@@ -526,6 +1055,7 @@ function FillView({
   selectedFile,
   submitter,
 }: {
+  activeUser: StudentAccount | null;
   fileNamePattern: string;
   onFileChange: (file: File | null) => void;
   onSubmit: () => void;
@@ -538,6 +1068,11 @@ function FillView({
       <section className="fill-card">
         <h2>密码学作业提交</h2>
         <p>仅名单内学生可提交；重复提交将覆盖上一版。</p>
+        {activeUser && (
+          <p className="login-note">
+            当前登录：{activeUser.name}（{activeUser.studentNo}）
+          </p>
+        )}
         <label>
           <span>*01 姓名</span>
           <input
