@@ -1280,6 +1280,7 @@ function matchRosterColumn(headers: string[], aliases: string[]) {
 }
 
 function EditView() {
+  const [isRosterDialogOpen, setIsRosterDialogOpen] = useState(false);
   const [rosterFileName, setRosterFileName] = useState("");
   const [rosterColumns, setRosterColumns] = useState<Record<"班级" | "学号" | "姓名", string>>({
     班级: "",
@@ -1343,29 +1344,14 @@ function EditView() {
           <section className="hero-card">
             <input className="title-input" aria-label="收集表标题" placeholder="请输入标题" />
           </section>
-          <section className="roster-import-card">
-            <div>
-              <h3>学生名单采集</h3>
-              <p>上传 Excel 名单，系统按表头识别班级、学号、姓名。</p>
-            </div>
-            <label className="roster-upload">
-              <input
-                accept=".xlsx,.csv"
-                type="file"
-                onChange={(event) => handleRosterFile(event.target.files?.[0] ?? null)}
-              />
-              选择 Excel 名单
-            </label>
-            <div className="roster-result">
-              <strong>{rosterFileName || "未选择文件"}</strong>
-              {(["班级", "学号", "姓名"] as const).map((field) => (
-                <span className={rosterColumns[field] ? "matched" : ""} key={field}>
-                  {field}：{rosterColumns[field] || "待识别"}
-                </span>
-              ))}
-              {rosterError && <em>{rosterError}</em>}
-            </div>
-          </section>
+          <button
+            className="roster-trigger"
+            type="button"
+            onClick={() => setIsRosterDialogOpen(true)}
+          >
+            学生名单采集
+            <span>{rosterFileName ? "已上传名单" : "上传 Excel 名单"}</span>
+          </button>
 
           <QuestionCard
             index="01"
@@ -1385,6 +1371,40 @@ function EditView() {
           <button className="primary">发布</button>
         </div>
       </section>
+
+      {isRosterDialogOpen && (
+        <div className="modal-backdrop" onClick={() => setIsRosterDialogOpen(false)}>
+          <section
+            className="rename-dialog roster-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2>学生名单采集</h2>
+            <p>上传 Excel 名单，系统按表头自动识别班级、学号、姓名。</p>
+            <label className="roster-upload">
+              <input
+                accept=".xlsx,.csv"
+                type="file"
+                onChange={(event) => handleRosterFile(event.target.files?.[0] ?? null)}
+              />
+              选择 Excel 名单
+            </label>
+            <div className="roster-result">
+              <strong>{rosterFileName || "未选择文件"}</strong>
+              {(["班级", "学号", "姓名"] as const).map((field) => (
+                <span className={rosterColumns[field] ? "matched" : ""} key={field}>
+                  {field}：{rosterColumns[field] || "待识别"}
+                </span>
+              ))}
+              {rosterError && <em>{rosterError}</em>}
+            </div>
+            <div className="dialog-actions">
+              <button type="button" onClick={() => setIsRosterDialogOpen(false)}>
+                关闭
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

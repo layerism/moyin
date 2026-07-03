@@ -659,8 +659,7 @@ button {
 .list-card,
 .ai-card,
 .settings-card,
-.fill-card,
-.roster-import-card {
+.fill-card {
   border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
@@ -690,24 +689,36 @@ button {
   color: #a3adbb;
 }
 
-.roster-import-card {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
-  gap: 16px;
+.roster-trigger {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-top: 12px;
-  padding: 22px 28px;
-}
-
-.roster-import-card h3 {
-  margin: 0;
+  padding: 0 28px;
+  border-radius: 10px;
+  background: #ffffff;
   color: #232b38;
   font-size: 18px;
+  font-weight: 750;
+  text-align: left;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
 }
 
-.roster-import-card p {
-  margin: 8px 0 0;
-  color: #7a8494;
+.roster-trigger span {
+  color: #6b7585;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.roster-dialog {
+  width: min(560px, calc(100vw - 48px));
+}
+
+.roster-dialog p {
+  margin: -6px 0 18px;
+  color: #667085;
   font-size: 14px;
 }
 
@@ -729,10 +740,10 @@ button {
 }
 
 .roster-result {
-  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  margin-top: 16px;
   color: #667085;
   font-size: 14px;
 }
