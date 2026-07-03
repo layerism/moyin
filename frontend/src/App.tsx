@@ -7,12 +7,15 @@ type SubmitStatus = "未提交" | "已提交" | "已覆盖";
 type CheckStatus = "-" | "待检查" | "检查中" | "检查成功" | "检查失败";
 type HomeMenu =
   | { kind: "cloud"; x: number; y: number }
+  | { fileId: string; kind: "file"; x: number; y: number }
   | { folder: string; kind: "folder"; x: number; y: number };
 type FolderDialog = { mode: "create" } | { mode: "rename"; target: string };
+type FileDialog = { fileId: string; mode: "move" | "rename" };
 type HomeFile = {
   action: "编辑" | "学生填写";
   editedAt: string;
   folder: string | null;
+  id: string;
   name: string;
   owner: string;
   size: string;
@@ -419,6 +422,9 @@ function HomeView({
   const [menu, setMenu] = useState<HomeMenu | null>(null);
   const [folderDialog, setFolderDialog] = useState<FolderDialog | null>(null);
   const [folderNameValue, setFolderNameValue] = useState("");
+  const [fileDialog, setFileDialog] = useState<FileDialog | null>(null);
+  const [fileNameValue, setFileNameValue] = useState("");
+  const [moveTarget, setMoveTarget] = useState("__root__");
 
   const startCreateFolder = () => {
     setFolderDialog({ mode: "create" });
@@ -447,6 +453,7 @@ function HomeView({
     setFiles((current) => [
       ...current,
       {
+        id: `file-${Date.now()}`,
         name: `新建收集表 ${current.length + 1}`,
         owner: "我",
         editedAt: "刚刚 我",
@@ -462,6 +469,7 @@ function HomeView({
     setFiles((current) => [
       ...current,
       {
+        id: `ai-${Date.now()}`,
         name: `AI 收集表 ${current.length + 1}`,
         owner: "我",
         editedAt: "刚刚 我",
@@ -482,6 +490,11 @@ function HomeView({
     setMenu({ folder, kind: "folder", x: event.clientX, y: event.clientY });
   };
 
+  const openFileMenu = (fileId: string, event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setMenu({ fileId, kind: "file", x: event.clientX, y: event.clientY });
+  };
+
   const moveFolder = (folder: string) => {
     setFolders((current) => [...current.filter((item) => item !== folder), folder]);
     setMenu(null);
@@ -499,6 +512,56 @@ function HomeView({
     if (activeFolder === folder) {
       setActiveFolder(null);
     }
+    setMenu(null);
+  };
+
+  const startRenameFile = (fileId: string) => {
+    const file = files.find((item) => item.id === fileId);
+    if (!file) {
+      return;
+    }
+    setFileDialog({ fileId, mode: "rename" });
+    setFileNameValue(file.name);
+    setMenu(null);
+  };
+
+  const confirmRenameFile = () => {
+    const nextName = fileNameValue.trim();
+    if (!fileDialog || fileDialog.mode !== "rename" || !nextName) {
+      return;
+    }
+    setFiles((current) =>
+      current.map((file) => (file.id === fileDialog.fileId ? { ...file, name: nextName } : file)),
+    );
+    setFileDialog(null);
+    setFileNameValue("");
+  };
+
+  const startMoveFile = (fileId: string) => {
+    const file = files.find((item) => item.id === fileId);
+    if (!file) {
+      return;
+    }
+    setFileDialog({ fileId, mode: "move" });
+    setMoveTarget(file.folder ?? "__root__");
+    setMenu(null);
+  };
+
+  const confirmMoveFile = () => {
+    if (!fileDialog || fileDialog.mode !== "move") {
+      return;
+    }
+    const nextFolder = moveTarget === "__root__" ? null : moveTarget;
+    setFiles((current) =>
+      current.map((file) =>
+        file.id === fileDialog.fileId ? { ...file, folder: nextFolder } : file,
+      ),
+    );
+    setFileDialog(null);
+  };
+
+  const deleteFile = (fileId: string) => {
+    setFiles((current) => current.filter((file) => file.id !== fileId));
     setMenu(null);
   };
 
@@ -569,7 +632,12 @@ function HomeView({
               <span>操作</span>
             </div>
             {visibleFiles.map((file) => (
-              <div className="file-row" role="row" key={file.name}>
+              <div
+                className="file-row"
+                key={file.id}
+                onContextMenu={(event) => openFileMenu(file.id, event)}
+                role="row"
+              >
                 <button className="file-name" onClick={onAdminDemo}>
                   <span className="file-icon">✓</span>
                   <span>{file.name}</span>
@@ -622,6 +690,15 @@ function HomeView({
               </button>
             </>
           )}
+          {menu.kind === "file" && (
+            <>
+              <button onClick={() => startMoveFile(menu.fileId)}>移动</button>
+              <button onClick={() => startRenameFile(menu.fileId)}>重命名</button>
+              <button className="danger" onClick={() => deleteFile(menu.fileId)}>
+                删除
+              </button>
+            </>
+          )}
         </div>
       )}
       {folderDialog && (
@@ -642,6 +719,51 @@ function HomeView({
             <div className="dialog-actions">
               <button onClick={() => setFolderDialog(null)}>取消</button>
               <button className="primary small" onClick={confirmFolderName}>
+                确定
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {fileDialog && fileDialog.mode === "rename" && (
+        <div className="modal-backdrop" onClick={() => setFileDialog(null)}>
+          <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>重命名收集表</h2>
+            <input
+              autoFocus
+              placeholder="请输入收集表名称"
+              value={fileNameValue}
+              onChange={(event) => setFileNameValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  confirmRenameFile();
+                }
+              }}
+            />
+            <div className="dialog-actions">
+              <button onClick={() => setFileDialog(null)}>取消</button>
+              <button className="primary small" onClick={confirmRenameFile}>
+                确定
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {fileDialog && fileDialog.mode === "move" && (
+        <div className="modal-backdrop" onClick={() => setFileDialog(null)}>
+          <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>移动收集表</h2>
+            <select value={moveTarget} onChange={(event) => setMoveTarget(event.target.value)}>
+              <option value="__root__">云盘根目录</option>
+              {folders.map((folder) => (
+                <option key={folder} value={folder}>
+                  {folder}
+                </option>
+              ))}
+            </select>
+            <div className="dialog-actions">
+              <button onClick={() => setFileDialog(null)}>取消</button>
+              <button className="primary small" onClick={confirmMoveFile}>
                 确定
               </button>
             </div>
