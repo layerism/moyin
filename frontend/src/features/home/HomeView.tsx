@@ -28,7 +28,7 @@ export function HomeView({
   activeFolder: string | null;
   files: HomeFile[];
   folders: string[];
-  onAdminDemo: () => void;
+  onAdminDemo: (collectionTitle?: string) => void;
   onActiveFolderChange: StateSetter<string | null>;
   onFilesChange: StateSetter<HomeFile[]>;
   onFoldersChange: StateSetter<string[]>;
@@ -255,7 +255,7 @@ export function HomeView({
         <button className="drive-primary" onClick={startCreateFile}>
           + 新建
         </button>
-        <button className="drive-secondary" onClick={onAdminDemo}>
+        <button className="drive-secondary" onClick={() => onAdminDemo()}>
           上传
         </button>
         <nav className="drive-nav" aria-label="首页导航">
@@ -333,7 +333,7 @@ export function HomeView({
                   onChange={() => toggleFileSelection(file.id)}
                   type="checkbox"
                 />
-                <button className="file-name" onClick={onAdminDemo}>
+                <button className="file-name" onClick={() => onAdminDemo(file.name)}>
                   <span className="file-icon">✓</span>
                   <span>{file.name}</span>
                 </button>
@@ -342,7 +342,7 @@ export function HomeView({
                 <span>{file.size}</span>
                 <button
                   className="link-button"
-                  onClick={file.action === "学生填写" ? onLogin : onAdminDemo}
+                  onClick={file.action === "学生填写" ? onLogin : () => onAdminDemo(file.name)}
                 >
                   {file.action}
                 </button>

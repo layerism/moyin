@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 
 import { advancedTypes, questionTypes } from "../../data/mockData";
 import {
@@ -8,8 +8,10 @@ import {
 } from "../../utils/roster";
 
 type EditorQuestion = {
+  content?: string;
   id: string;
   kind: string;
+  options?: string[];
   required?: boolean;
   title: string;
 };
@@ -19,7 +21,13 @@ const defaultQuestions: EditorQuestion[] = [
   { id: "default-student-no", kind: "学号", required: true, title: "学号" },
 ];
 
-export function EditView() {
+export function EditView({
+  collectionTitle,
+  onCollectionTitleChange,
+}: {
+  collectionTitle: string;
+  onCollectionTitleChange: (title: string) => void;
+}) {
   const [isRosterDialogOpen, setIsRosterDialogOpen] = useState(false);
   const [rosterFileName, setRosterFileName] = useState("");
   const [rosterColumns, setRosterColumns] = useState<RosterColumns>({
@@ -34,8 +42,10 @@ export function EditView() {
     setQuestions((current) => [
       ...current,
       {
+        content: "",
         id: `${kind}-${Date.now()}`,
         kind,
+        options: ["单选题", "多选题"].includes(kind) ? ["选项 A", "选项 B", "选项 C"] : undefined,
         title: kind,
       },
     ]);
@@ -43,6 +53,64 @@ export function EditView() {
 
   const deleteQuestion = (id: string) => {
     setQuestions((current) => current.filter((question) => question.id !== id));
+  };
+
+  const updateQuestion = (id: string, value: Partial<EditorQuestion>) => {
+    setQuestions((current) =>
+      current.map((question) => (question.id === id ? { ...question, ...value } : question)),
+    );
+  };
+
+  const updateQuestionOption = (id: string, optionIndex: number, value: string) => {
+    setQuestions((current) =>
+      current.map((question) => {
+        if (question.id !== id) {
+          return question;
+        }
+        return {
+          ...question,
+          options: (question.options ?? []).map((option, index) =>
+            index === optionIndex ? value : option,
+          ),
+        };
+      }),
+    );
+  };
+
+  const addQuestionOption = (id: string) => {
+    setQuestions((current) =>
+      current.map((question) =>
+        question.id === id
+          ? {
+              ...question,
+              options: [...(question.options ?? []), `选项 ${(question.options ?? []).length + 1}`],
+            }
+          : question,
+      ),
+    );
+  };
+
+  const deleteQuestionOption = (id: string, optionIndex: number) => {
+    setQuestions((current) =>
+      current.map((question) =>
+        question.id === id
+          ? {
+              ...question,
+              options: (question.options ?? []).filter((_, index) => index !== optionIndex),
+            }
+          : question,
+      ),
+    );
+  };
+
+  const appendMarkdown = (id: string, token: string) => {
+    setQuestions((current) =>
+      current.map((question) =>
+        question.id === id
+          ? { ...question, content: `${question.content ?? ""}${token}` }
+          : question,
+      ),
+    );
   };
 
   const handleRosterFile = (file: File | null) => {
@@ -71,7 +139,13 @@ export function EditView() {
       <section className="canvas-area">
         <div className="form-canvas">
           <section className="hero-card">
-            <input className="title-input" aria-label="收集表标题" placeholder="请输入标题" />
+            <input
+              className="title-input"
+              aria-label="收集表标题"
+              placeholder="请输入标题"
+              value={collectionTitle}
+              onChange={(event) => onCollectionTitleChange(event.target.value)}
+            />
           </section>
           <button
             className="roster-trigger"
@@ -84,10 +158,17 @@ export function EditView() {
 
           {questions.map((question, index) => (
             <QuestionCard
-              body={renderQuestionBody(question.kind)}
+              question={question}
+              onAddOption={() => addQuestionOption(question.id)}
+              onAppendMarkdown={(token) => appendMarkdown(question.id, token)}
+              onContentChange={(content) => updateQuestion(question.id, { content })}
               index={String(index + 1).padStart(2, "0")}
               key={question.id}
               onDelete={() => deleteQuestion(question.id)}
+              onDeleteOption={(optionIndex) => deleteQuestionOption(question.id, optionIndex)}
+              onOptionChange={(optionIndex, value) =>
+                updateQuestionOption(question.id, optionIndex, value)
+              }
               required={question.required}
               title={question.title}
             />
@@ -182,50 +263,93 @@ function QuestionGroup({
   );
 }
 
-function renderQuestionBody(kind: string) {
-  if (kind === "姓名") {
+function renderQuestionBody({
+  onAddOption,
+  onAppendMarkdown,
+  onContentChange,
+  onDeleteOption,
+  onOptionChange,
+  question,
+}: {
+  onAddOption: () => void;
+  onAppendMarkdown: (token: string) => void;
+  onContentChange: (content: string) => void;
+  onDeleteOption: (optionIndex: number) => void;
+  onOptionChange: (optionIndex: number, value: string) => void;
+  question: EditorQuestion;
+}) {
+  if (question.kind === "姓名") {
     return <input aria-label="姓名示例" placeholder="待填写人输入姓名" />;
   }
-  if (kind === "学号") {
+  if (question.kind === "学号") {
     return <input aria-label="学号示例" placeholder="待填写人输入学号" />;
   }
-  if (kind === "问答题") {
-    return <textarea placeholder="待填写人输入文字回答" rows={3} />;
-  }
-  if (kind === "单选题") {
+  if (question.kind === "问答题") {
     return (
-      <div className="option-stack">
-        {["选项 A", "选项 B", "选项 C"].map((option) => (
-          <label key={option}>
-            <input name="single-demo" type="radio" />
-            {option}
-          </label>
-        ))}
+      <div className="markdown-editor">
+        <div className="markdown-toolbar" aria-label="Markdown 编辑工具">
+          <button type="button" onClick={() => onAppendMarkdown("**加粗文字**")}>
+            B
+          </button>
+          <button type="button" onClick={() => onAppendMarkdown("*斜体文字*")}>
+            I
+          </button>
+          <button type="button" onClick={() => onAppendMarkdown("\n## 小标题\n")}>
+            H
+          </button>
+          <button type="button" onClick={() => onAppendMarkdown("[链接文字](https://)")}>
+            Link
+          </button>
+          <button type="button" onClick={() => onAppendMarkdown("\n- 列表项\n")}>
+            List
+          </button>
+          <button type="button" onClick={() => onAppendMarkdown("`代码`")}>
+            Code
+          </button>
+        </div>
+        <textarea
+          placeholder="待填写人输入文字回答，支持基础 Markdown"
+          rows={4}
+          value={question.content ?? ""}
+          onChange={(event) => onContentChange(event.target.value)}
+        />
       </div>
     );
   }
-  if (kind === "多选题") {
+  if (question.kind === "单选题") {
     return (
-      <div className="option-stack">
-        {["选项 A", "选项 B", "选项 C"].map((option) => (
-          <label key={option}>
-            <input type="checkbox" />
-            {option}
-          </label>
-        ))}
-      </div>
+      <EditableOptions
+        inputType="radio"
+        name={question.id}
+        onAddOption={onAddOption}
+        onDeleteOption={onDeleteOption}
+        onOptionChange={onOptionChange}
+        options={question.options ?? []}
+      />
     );
   }
-  if (kind === "时间题") {
+  if (question.kind === "多选题") {
+    return (
+      <EditableOptions
+        inputType="checkbox"
+        name={question.id}
+        onAddOption={onAddOption}
+        onDeleteOption={onDeleteOption}
+        onOptionChange={onOptionChange}
+        options={question.options ?? []}
+      />
+    );
+  }
+  if (question.kind === "时间题") {
     return <input type="datetime-local" />;
   }
-  if (kind === "图片题") {
+  if (question.kind === "图片题") {
     return <input accept="image/*" type="file" />;
   }
-  if (kind === "文件题") {
+  if (question.kind === "文件题") {
     return <input type="file" />;
   }
-  if (kind === "下拉选择") {
+  if (question.kind === "下拉选择") {
     return (
       <select defaultValue="">
         <option value="" disabled>
@@ -237,10 +361,10 @@ function renderQuestionBody(kind: string) {
       </select>
     );
   }
-  if (kind === "签名题") {
+  if (question.kind === "签名题") {
     return <div className="signature-box">签名区域</div>;
   }
-  if (kind === "多级选项") {
+  if (question.kind === "多级选项") {
     return (
       <div className="inline-controls">
         <select defaultValue="">
@@ -260,7 +384,7 @@ function renderQuestionBody(kind: string) {
       </div>
     );
   }
-  if (kind === "量表题") {
+  if (question.kind === "量表题") {
     return (
       <div className="scale-row">
         <span>低</span>
@@ -269,19 +393,19 @@ function renderQuestionBody(kind: string) {
       </div>
     );
   }
-  if (kind === "评分题") {
+  if (question.kind === "评分题") {
     return (
       <div className="rating-row">
         {[1, 2, 3, 4, 5].map((score) => (
           <label key={score}>
-            <input name="rating-demo" type="radio" />
+            <input name={`rating-${question.id}`} type="radio" />
             {score}
           </label>
         ))}
       </div>
     );
   }
-  if (kind === "表格题") {
+  if (question.kind === "表格题") {
     return (
       <table className="question-table">
         <tbody>
@@ -295,7 +419,7 @@ function renderQuestionBody(kind: string) {
       </table>
     );
   }
-  if (kind === "矩阵题") {
+  if (question.kind === "矩阵题") {
     return (
       <table className="question-table">
         <thead>
@@ -310,35 +434,87 @@ function renderQuestionBody(kind: string) {
           <tr>
             <td>项目 A</td>
             <td>
-              <input name="matrix-demo" type="radio" />
+              <input name={`matrix-${question.id}`} type="radio" />
             </td>
             <td>
-              <input name="matrix-demo" type="radio" />
+              <input name={`matrix-${question.id}`} type="radio" />
             </td>
             <td>
-              <input name="matrix-demo" type="radio" />
+              <input name={`matrix-${question.id}`} type="radio" />
             </td>
           </tr>
         </tbody>
       </table>
     );
   }
-  if (kind === "分节标题") {
+  if (question.kind === "分节标题") {
     return <p className="section-title-preview">分节说明文字</p>;
   }
   return <input placeholder="待填写人输入内容" />;
 }
 
+function EditableOptions({
+  inputType,
+  name,
+  onAddOption,
+  onDeleteOption,
+  onOptionChange,
+  options,
+}: {
+  inputType: "checkbox" | "radio";
+  name: string;
+  onAddOption: () => void;
+  onDeleteOption: (optionIndex: number) => void;
+  onOptionChange: (optionIndex: number, value: string) => void;
+  options: string[];
+}) {
+  return (
+    <div className="option-stack">
+      {options.map((option, index) => (
+        <label key={`${name}-${index}`}>
+          <input name={name} type={inputType} />
+          <input
+            className="option-text-input"
+            value={option}
+            onChange={(event) => onOptionChange(index, event.target.value)}
+          />
+          <button
+            aria-label={`删除选项 ${index + 1}`}
+            className="option-delete"
+            type="button"
+            onClick={() => onDeleteOption(index)}
+          >
+            ×
+          </button>
+        </label>
+      ))}
+      <button className="option-add" type="button" onClick={onAddOption}>
+        + 添加选项
+      </button>
+    </div>
+  );
+}
+
 function QuestionCard({
-  body,
   index,
+  onAddOption,
+  onAppendMarkdown,
+  onContentChange,
   onDelete,
+  onDeleteOption,
+  onOptionChange,
+  question,
   required = false,
   title,
 }: {
-  body: ReactNode;
   index: string;
+  onAddOption: () => void;
+  onAppendMarkdown: (token: string) => void;
+  onContentChange: (content: string) => void;
   onDelete: () => void;
+  onDeleteOption: (optionIndex: number) => void;
+  onOptionChange: (optionIndex: number, value: string) => void;
+  question: EditorQuestion;
   required?: boolean;
   title: string;
 }) {
@@ -353,7 +529,16 @@ function QuestionCard({
           ×
         </button>
       </div>
-      <div className="question-body">{body}</div>
+      <div className="question-body">
+        {renderQuestionBody({
+          onAddOption,
+          onAppendMarkdown,
+          onContentChange,
+          onDeleteOption,
+          onOptionChange,
+          question,
+        })}
+      </div>
     </section>
   );
 }

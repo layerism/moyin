@@ -877,6 +877,27 @@ button {
   resize: vertical;
 }
 
+.markdown-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.markdown-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.markdown-toolbar button,
+.option-add {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 5px;
+  background: #f2f4f8;
+  color: #344054;
+  font-weight: 650;
+}
+
 .option-stack {
   display: grid;
   gap: 10px;
@@ -890,11 +911,35 @@ button {
   color: #3d4655;
 }
 
-.option-stack input,
+.option-stack input[type="radio"],
+.option-stack input[type="checkbox"],
 .rating-row input,
 .question-table input[type="radio"] {
   width: 16px;
   min-height: 16px;
+}
+
+.option-text-input {
+  flex: 1;
+}
+
+.option-delete {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  background: transparent;
+  color: #8a94a5;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.option-delete:hover {
+  background: #fee2e2;
+  color: #b42318;
+}
+
+.option-add {
+  justify-self: start;
 }
 
 .inline-controls,

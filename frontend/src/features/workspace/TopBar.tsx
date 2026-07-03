@@ -2,12 +2,14 @@ import type { StudentAccount } from "../../types";
 
 export function TopBar({
   activeUser,
+  collectionTitle,
   notice,
   onChangePassword,
   onHome,
   onLogout,
 }: {
   activeUser: StudentAccount | null;
+  collectionTitle: string;
   notice: string;
   onChangePassword: () => void;
   onHome: () => void;
@@ -26,7 +28,7 @@ export function TopBar({
           ⌂
         </button>
         <button className="chrome-button">+</button>
-        <h1>密码学作业提交</h1>
+        <h1>{collectionTitle || "未命名收集表"}</h1>
         <span className="star">☆</span>
         <span className="folder">□</span>
         <span className="save-state">○ {notice}</span>

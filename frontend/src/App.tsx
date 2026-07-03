@@ -18,6 +18,7 @@ export function App() {
   const [homeFolders, setHomeFolders] = useState<string[]>([]);
   const [homeActiveFolder, setHomeActiveFolder] = useState<string | null>(null);
   const [homeFiles, setHomeFiles] = useState<HomeFile[]>([]);
+  const [collectionTitle, setCollectionTitle] = useState("密码学作业提交");
   const [fileNamePattern, setFileNamePattern] = useState("学号-姓名-材料名称.docx");
   const [deadline, setDeadline] = useState("2026-07-20 23:59");
   const [draftStudent, setDraftStudent] = useState<DraftStudent>({
@@ -201,7 +202,10 @@ export function App() {
         activeFolder={homeActiveFolder}
         files={homeFiles}
         folders={homeFolders}
-        onAdminDemo={() => openWorkspace("edit", null)}
+        onAdminDemo={(nextTitle) => {
+          setCollectionTitle(nextTitle || "未命名收集表");
+          openWorkspace("edit", null);
+        }}
         onActiveFolderChange={setHomeActiveFolder}
         onFilesChange={setHomeFiles}
         onFoldersChange={setHomeFolders}
@@ -247,6 +251,7 @@ export function App() {
     <div className="workspace">
       <TopBar
         activeUser={activeUser}
+        collectionTitle={collectionTitle}
         notice={notice}
         onChangePassword={() => setScreen("changePassword")}
         onHome={() => setScreen("home")}
@@ -267,7 +272,9 @@ export function App() {
         </button>
       </nav>
 
-      {tab === "edit" && <EditView />}
+      {tab === "edit" && (
+        <EditView collectionTitle={collectionTitle} onCollectionTitleChange={setCollectionTitle} />
+      )}
       {tab === "stats" && <StatsView stats={stats} students={students} />}
       {tab === "settings" && (
         <SettingsView
