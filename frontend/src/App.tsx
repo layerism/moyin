@@ -18,7 +18,7 @@ type HomeMenu =
   | { fileId: string; kind: "file"; x: number; y: number }
   | { folder: string; kind: "folder"; x: number; y: number };
 type FolderDialog = { mode: "create" } | { mode: "rename"; target: string };
-type FileDialog = { fileId: string; mode: "move" | "rename" };
+type FileDialog = { fileId: string; mode: "move" | "rename" } | { mode: "createAi" };
 type HomeFile = {
   action: "编辑" | "学生填写";
   editedAt: string;
@@ -491,12 +491,21 @@ function HomeView({
     setMenu(null);
   };
 
-  const createAiCollection = () => {
+  const startCreateAiCollection = () => {
+    setFileDialog({ mode: "createAi" });
+    setFileNameValue("");
+  };
+
+  const confirmCreateAiCollection = () => {
+    const nextName = fileNameValue.trim();
+    if (!fileDialog || fileDialog.mode !== "createAi" || !nextName) {
+      return;
+    }
     onFilesChange((current) => [
       ...current,
       {
         id: `ai-${Date.now()}`,
-        name: `AI 收集表 ${current.length + 1}`,
+        name: nextName,
         owner: "我",
         editedAt: "刚刚 我",
         size: "-",
@@ -504,6 +513,8 @@ function HomeView({
         folder: activeFolder,
       },
     ]);
+    setFileDialog(null);
+    setFileNameValue("");
   };
 
   const openCloudMenu = (event: MouseEvent<HTMLButtonElement>) => {
@@ -601,7 +612,7 @@ function HomeView({
           <span className="logo-mark">T</span>
           <strong>材料收集</strong>
         </div>
-        <button className="drive-primary" onClick={onAdminDemo}>
+        <button className="drive-primary" onClick={createFile}>
           + 新建
         </button>
         <button className="drive-secondary" onClick={onAdminDemo}>
@@ -643,7 +654,7 @@ function HomeView({
             <strong>{currentTitle}</strong>
           </div>
           <div className="drive-tools">
-            <button className="ai-create" onClick={createAiCollection}>
+            <button className="ai-create" onClick={startCreateAiCollection}>
               新建 AI 收集表
             </button>
             <button>更多</button>
@@ -768,6 +779,30 @@ function HomeView({
             <div className="dialog-actions">
               <button onClick={() => setFileDialog(null)}>取消</button>
               <button className="primary small" onClick={confirmRenameFile}>
+                确定
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {fileDialog && fileDialog.mode === "createAi" && (
+        <div className="modal-backdrop" onClick={() => setFileDialog(null)}>
+          <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>新建 AI 收集表</h2>
+            <input
+              autoFocus
+              placeholder="请输入收集表名称"
+              value={fileNameValue}
+              onChange={(event) => setFileNameValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  confirmCreateAiCollection();
+                }
+              }}
+            />
+            <div className="dialog-actions">
+              <button onClick={() => setFileDialog(null)}>取消</button>
+              <button className="primary small" onClick={confirmCreateAiCollection}>
                 确定
               </button>
             </div>
