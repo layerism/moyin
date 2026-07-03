@@ -664,6 +664,20 @@ button {
   line-height: 1.2;
 }
 
+.title-input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #202733;
+  background: transparent;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.title-input::placeholder {
+  color: #a3adbb;
+}
+
 .hero-card p {
   margin: 16px 0 22px;
   color: #9aa2af;

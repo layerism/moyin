@@ -1231,7 +1231,6 @@ function EditView() {
           <button className="selected">添加问题</button>
           <button>大纲</button>
         </div>
-        <div className="prompt-box">输入问题，自动匹配题型</div>
         <QuestionGroup title="基础题型" items={questionTypes} />
         <QuestionGroup title="高级题型" items={advancedTypes} />
         <QuestionGroup title="常用题库" items={commonTypes} compact />
@@ -1240,18 +1239,7 @@ function EditView() {
       <section className="canvas-area">
         <div className="form-canvas">
           <section className="hero-card">
-            <h2>密码学作业提交</h2>
-            <p>添加描述：文字、图片或链接</p>
-            <div className="hero-actions">
-              <button>+ 定时和重复</button>
-              <button className="roster-chip">参与名单：2023软件5-6班(94)</button>
-              <button>+ 结束页</button>
-            </div>
-          </section>
-
-          <section className="list-card roster-entry">
-            <span>加入名单</span>
-            <button>预览 ›</button>
+            <input className="title-input" aria-label="收集表标题" placeholder="请输入标题" />
           </section>
 
           <QuestionCard
@@ -1266,19 +1254,6 @@ function EditView() {
             required
             body={<input aria-label="学号示例" placeholder="待填写人输入学号" />}
           />
-          <QuestionCard
-            index="03"
-            title="上传 DOCX 材料"
-            required
-            body={
-              <div className="upload-box">
-                <strong>+ 待填写人添加文件</strong>
-                <span>文件要求：.docx；自动命名：学号-姓名-材料名称.docx</span>
-              </div>
-            }
-          />
-          <section className="ai-card">让 AI 文档助手帮你添加问题...</section>
-          <button className="add-question">添加问题</button>
         </div>
         <div className="bottom-bar">
           <button>预览</button>
