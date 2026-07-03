@@ -257,24 +257,6 @@ button {
   font-size: 15px;
 }
 
-.drive-summary {
-  position: absolute;
-  right: 44px;
-  bottom: 26px;
-  left: 44px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  color: #667085;
-  font-size: 14px;
-}
-
-.drive-summary span {
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: #f3f6fa;
-}
-
 .context-menu {
   position: fixed;
   z-index: 20;
@@ -1030,11 +1012,6 @@ td {
 
   .file-head {
     display: none;
-  }
-
-  .drive-summary {
-    right: 18px;
-    left: 18px;
   }
 
   .auth-links {

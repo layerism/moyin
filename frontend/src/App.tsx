@@ -325,7 +325,6 @@ export function App() {
     return (
       <HomeView
         activeFolder={homeActiveFolder}
-        deadline={deadline}
         files={homeFiles}
         folders={homeFolders}
         onAdminDemo={() => openWorkspace("edit", null)}
@@ -333,7 +332,6 @@ export function App() {
         onFilesChange={setHomeFiles}
         onFoldersChange={setHomeFolders}
         onLogin={() => setScreen("login")}
-        stats={stats}
       />
     );
   }
@@ -426,7 +424,6 @@ export function App() {
 
 function HomeView({
   activeFolder,
-  deadline,
   files,
   folders,
   onAdminDemo,
@@ -434,10 +431,8 @@ function HomeView({
   onFilesChange,
   onFoldersChange,
   onLogin,
-  stats,
 }: {
   activeFolder: string | null;
-  deadline: string;
   files: HomeFile[];
   folders: string[];
   onAdminDemo: () => void;
@@ -445,7 +440,6 @@ function HomeView({
   onFilesChange: Dispatch<SetStateAction<HomeFile[]>>;
   onFoldersChange: Dispatch<SetStateAction<string[]>>;
   onLogin: () => void;
-  stats: Stats;
 }) {
   const [menu, setMenu] = useState<HomeMenu | null>(null);
   const [folderDialog, setFolderDialog] = useState<FolderDialog | null>(null);
@@ -754,12 +748,6 @@ function HomeView({
               </div>
             )}
           </div>
-          <footer className="drive-summary">
-            <span>名单 {stats.total} 人</span>
-            <span>已提交 {stats.submitted}</span>
-            <span>未提交 {stats.unsubmitted}</span>
-            <span>截止 {deadline}</span>
-          </footer>
         </section>
       </section>
       {menu && (
