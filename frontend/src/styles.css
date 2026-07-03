@@ -346,6 +346,17 @@ button {
   font-weight: 750;
 }
 
+.confirm-text {
+  margin: 0;
+  color: #4b5565;
+  line-height: 1.7;
+}
+
+.dialog-actions .danger-action {
+  background: #dc2626;
+  color: #ffffff;
+}
+
 .auth-shell {
   min-height: 100vh;
   display: grid;

@@ -21,6 +21,9 @@ type FolderDialog = { mode: "create" } | { mode: "rename"; target: string };
 type FileDialog =
   | { fileId: string; mode: "move" | "rename" }
   | { mode: "createAi" | "createNormal" };
+type DeleteDialog =
+  | { folder: string; kind: "folder" }
+  | { fileId: string; fileName: string; kind: "file" };
 type HomeFile = {
   action: "编辑" | "学生填写";
   editedAt: string;
@@ -449,6 +452,7 @@ function HomeView({
   const [moveTarget, setMoveTarget] = useState("__root__");
   const [cloudExpanded, setCloudExpanded] = useState(true);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialog | null>(null);
 
   const startCreateFolder = () => {
     setFolderDialog({ mode: "create" });
@@ -552,13 +556,18 @@ function HomeView({
     setMenu(null);
   };
 
-  const deleteFolder = (folder: string) => {
+  const startDeleteFolder = (folder: string) => {
+    setDeleteDialog({ folder, kind: "folder" });
+    setMenu(null);
+  };
+
+  const confirmDeleteFolder = (folder: string) => {
     onFoldersChange((current) => current.filter((item) => item !== folder));
     onFilesChange((current) => current.filter((file) => file.folder !== folder));
     if (activeFolder === folder) {
       onActiveFolderChange(null);
     }
-    setMenu(null);
+    setDeleteDialog(null);
   };
 
   const startRenameFile = (fileId: string) => {
@@ -606,10 +615,19 @@ function HomeView({
     setFileDialog(null);
   };
 
-  const deleteFile = (fileId: string) => {
+  const startDeleteFile = (fileId: string) => {
+    const file = files.find((item) => item.id === fileId);
+    if (!file) {
+      return;
+    }
+    setDeleteDialog({ fileId, fileName: file.name, kind: "file" });
+    setMenu(null);
+  };
+
+  const confirmDeleteFile = (fileId: string) => {
     onFilesChange((current) => current.filter((file) => file.id !== fileId));
     setSelectedFileIds((current) => current.filter((id) => id !== fileId));
-    setMenu(null);
+    setDeleteDialog(null);
   };
 
   const visibleFiles = files.filter((file) => file.folder === activeFolder);
@@ -766,7 +784,7 @@ function HomeView({
             <>
               <button onClick={() => moveFolder(menu.folder)}>移动</button>
               <button onClick={() => startRenameFolder(menu.folder)}>重命名</button>
-              <button className="danger" onClick={() => deleteFolder(menu.folder)}>
+              <button className="danger" onClick={() => startDeleteFolder(menu.folder)}>
                 删除
               </button>
             </>
@@ -775,7 +793,7 @@ function HomeView({
             <>
               <button onClick={() => startMoveFile(menu.fileId)}>移动</button>
               <button onClick={() => startRenameFile(menu.fileId)}>重命名</button>
-              <button className="danger" onClick={() => deleteFile(menu.fileId)}>
+              <button className="danger" onClick={() => startDeleteFile(menu.fileId)}>
                 删除
               </button>
             </>
@@ -894,6 +912,31 @@ function HomeView({
               <button onClick={() => setFileDialog(null)}>取消</button>
               <button className="primary small" onClick={confirmMoveFile}>
                 确定
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+      {deleteDialog && (
+        <div className="modal-backdrop" onClick={() => setDeleteDialog(null)}>
+          <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
+            <h2>确认删除</h2>
+            <p className="confirm-text">
+              {deleteDialog.kind === "folder"
+                ? `确定删除文件夹“${deleteDialog.folder}”及其中的收集表吗？`
+                : `确定删除收集表“${deleteDialog.fileName}”吗？`}
+            </p>
+            <div className="dialog-actions">
+              <button onClick={() => setDeleteDialog(null)}>取消</button>
+              <button
+                className="danger-action"
+                onClick={() =>
+                  deleteDialog.kind === "folder"
+                    ? confirmDeleteFolder(deleteDialog.folder)
+                    : confirmDeleteFile(deleteDialog.fileId)
+                }
+              >
+                删除
               </button>
             </div>
           </section>
