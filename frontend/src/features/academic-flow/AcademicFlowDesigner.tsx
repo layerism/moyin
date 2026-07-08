@@ -82,9 +82,9 @@ export function AcademicFlowDesigner({
   };
 
   return (
-    <main className="home-page academic-shell">
-      <AcademicFlowSidebar onBack={onBack} onHome={onHome} />
-      <section className="drive-main academic-workspace-main">
+    <main className="academic-standalone-page">
+      <AcademicStandaloneHeader onBack={onBack} onHome={onHome} />
+      <section className="academic-workspace-main">
         <header className="academic-topbar">
           <div>
             <div className="drive-breadcrumb academic-breadcrumb">
@@ -161,9 +161,9 @@ export function StudentFlowPage({
   process: AcademicProcess;
 }) {
   return (
-    <main className="home-page academic-shell">
-      <AcademicFlowSidebar onBack={onBack} onHome={onHome} />
-      <section className="drive-main academic-workspace-main">
+    <main className="academic-standalone-page">
+      <AcademicStandaloneHeader onBack={onBack} onHome={onHome} />
+      <section className="academic-workspace-main">
         <header className="academic-topbar">
           <div>
             <div className="drive-breadcrumb academic-breadcrumb">
@@ -190,27 +190,18 @@ export function StudentFlowPage({
   );
 }
 
-function AcademicFlowSidebar({ onBack, onHome }: { onBack: () => void; onHome: () => void }) {
+function AcademicStandaloneHeader({ onBack, onHome }: { onBack: () => void; onHome: () => void }) {
   return (
-    <aside className="drive-sidebar">
-      <div className="drive-logo">
-        <span className="logo-mark">T</span>
-        <strong>材料收集</strong>
+    <header className="academic-standalone-header">
+      <div className="academic-product-mark">
+        <span className="logo-mark">OA</span>
+        <strong>教务流程采集设计器</strong>
       </div>
-      <button className="drive-primary">+ 新建</button>
-      <button className="drive-secondary">上传</button>
-      <nav className="drive-nav" aria-label="首页导航">
-        <button onClick={onHome}>⌂ 首页</button>
-        <button className="selected" onClick={onBack}>
-          ⌘ 教务流程
-        </button>
-        <button onClick={onHome}>▾ OSS 云盘</button>
+      <nav aria-label="流程页面导航">
+        <button onClick={onBack}>返回教务流程</button>
+        <button onClick={onHome}>返回首页</button>
       </nav>
-      <div className="sidebar-user">
-        <span className="avatar small">卢</span>
-        <strong>卢宇昆</strong>
-      </div>
-    </aside>
+    </header>
   );
 }
 

@@ -345,16 +345,56 @@ button {
 }
 
 .academic-workspace-main {
+  width: min(1220px, calc(100% - 40px));
+  margin: 0 auto;
   padding: 20px;
 }
 
-.academic-shell {
-  grid-template-columns: 250px minmax(0, 1fr);
+.academic-standalone-page {
+  min-height: 100vh;
+  background: #f4f6f9;
 }
 
-.academic-shell .drive-sidebar {
-  padding-right: 20px;
-  padding-left: 20px;
+.academic-standalone-header {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 max(20px, calc((100vw - 1220px) / 2 + 20px));
+  border-bottom: 1px solid #e0e7f0;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.academic-product-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.academic-product-mark .logo-mark {
+  width: 34px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.academic-standalone-header nav {
+  display: flex;
+  gap: 10px;
+}
+
+.academic-standalone-header nav button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid #dce3ee;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .academic-topbar {
@@ -466,8 +506,8 @@ button {
 .flow-designer-grid {
   min-height: calc(100vh - 196px);
   display: grid;
-  grid-template-columns: 200px minmax(300px, 1fr) 270px;
-  gap: 10px;
+  grid-template-columns: 230px minmax(390px, 1fr) 330px;
+  gap: 14px;
 }
 
 .flow-panel,
@@ -961,20 +1001,6 @@ button {
   font-weight: 750;
 }
 
-.sidebar-user {
-  position: absolute;
-  right: 24px;
-  bottom: 24px;
-  left: 24px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid #d9dfe8;
-  border-radius: 6px;
-  background: #ffffff;
-}
-
 .avatar.small {
   width: 28px;
   height: 28px;
@@ -982,30 +1008,19 @@ button {
 }
 
 @media (max-width: 900px) {
-  .academic-shell {
-    grid-template-columns: 1fr;
+  .academic-standalone-header {
+    height: auto;
+    display: grid;
+    padding: 14px 16px;
   }
 
-  .academic-shell .drive-sidebar {
-    min-height: auto;
-    padding: 16px;
-  }
-
-  .academic-shell .drive-logo,
-  .academic-shell .drive-primary,
-  .academic-shell .drive-secondary {
-    margin-bottom: 10px;
-  }
-
-  .academic-shell .drive-nav {
-    display: flex;
+  .academic-standalone-header nav {
     flex-wrap: wrap;
-    margin-top: 12px;
   }
 
-  .sidebar-user {
-    position: static;
-    margin-top: 12px;
+  .academic-workspace-main {
+    width: 100%;
+    padding: 16px;
   }
 
   .academic-topbar,
