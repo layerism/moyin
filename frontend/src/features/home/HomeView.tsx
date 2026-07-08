@@ -457,7 +457,15 @@ export function AcademicFlowView({
         <nav className="drive-nav" aria-label="首页导航">
           <button onClick={onHome}>⌂ 首页</button>
           <button className="selected">教务流程</button>
-          <button onClick={onOssCloud}>▾ OSS 云盘</button>
+          <button
+            onClick={onOssCloud}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              onOssCloud();
+            }}
+          >
+            ▾ OSS 云盘
+          </button>
         </nav>
       </aside>
 
