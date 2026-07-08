@@ -6,6 +6,7 @@ import type {
   FolderDialog,
   HomeFile,
   HomeMenu,
+  AcademicProcess,
   StateSetter,
 } from "../../types";
 import {
@@ -440,12 +441,36 @@ export function HomeView({
 }
 
 export function AcademicFlowView({
+  processes,
+  onCreateProcess,
   onHome,
   onOssCloud,
+  onOpenProcess,
 }: {
+  processes: AcademicProcess[];
+  onCreateProcess: (name: string) => void;
   onHome: () => void;
   onOssCloud: () => void;
+  onOpenProcess: (processId: string) => void;
 }) {
+  const [processDialogOpen, setProcessDialogOpen] = useState(false);
+  const [processNameValue, setProcessNameValue] = useState("");
+
+  const startCreateProcess = () => {
+    setProcessNameValue("");
+    setProcessDialogOpen(true);
+  };
+
+  const confirmCreateProcess = () => {
+    const nextName = processNameValue.trim();
+    if (!nextName) {
+      return;
+    }
+    onCreateProcess(nextName);
+    setProcessDialogOpen(false);
+    setProcessNameValue("");
+  };
+
   return (
     <main className="home-page">
       <aside className="drive-sidebar">
@@ -485,6 +510,99 @@ export function AcademicFlowView({
             <span>›</span>
             <strong>教务流程</strong>
           </div>
+          <div className="drive-tools">
+            <button className="ai-create" onClick={startCreateProcess}>
+              创建流程
+            </button>
+          </div>
+          <div className="academic-flow-list" role="list" aria-label="采集流程列表">
+            {processes.map((process) => (
+              <button
+                className="academic-flow-item"
+                key={process.id}
+                onClick={() => onOpenProcess(process.id)}
+                role="listitem"
+              >
+                <span className="academic-flow-icon">流</span>
+                <span>
+                  <strong>{process.name}</strong>
+                  <small>创建时间：{process.createdAt}</small>
+                </span>
+                <em>进入</em>
+              </button>
+            ))}
+            {processes.length === 0 && (
+              <div className="empty-folder">
+                暂无采集流程。点击“创建流程”后输入名称，可新增一条采集流程。
+              </div>
+            )}
+          </div>
+        </section>
+      </section>
+      {processDialogOpen && (
+        <NameDialog
+          title="创建流程"
+          value={processNameValue}
+          placeholder="请输入采集流程名称"
+          onCancel={() => setProcessDialogOpen(false)}
+          onConfirm={confirmCreateProcess}
+          onValueChange={setProcessNameValue}
+        />
+      )}
+    </main>
+  );
+}
+
+export function AcademicFlowDetailView({
+  process,
+  onBack,
+  onHome,
+}: {
+  process: AcademicProcess | null;
+  onBack: () => void;
+  onHome: () => void;
+}) {
+  return (
+    <main className="home-page">
+      <aside className="drive-sidebar">
+        <div className="drive-logo">
+          <span className="logo-mark">T</span>
+          <strong>材料收集</strong>
+        </div>
+        <button className="drive-primary">+ 新建</button>
+        <button className="drive-secondary">上传</button>
+        <nav className="drive-nav" aria-label="首页导航">
+          <button onClick={onHome}>⌂ 首页</button>
+          <button className="selected" onClick={onBack}>
+            教务流程
+          </button>
+          <button onClick={onHome}>▾ OSS 云盘</button>
+        </nav>
+      </aside>
+
+      <section className="drive-main">
+        <header className="drive-topbar">
+          <label className="drive-search">
+            <span>⌕</span>
+            <input placeholder="搜索当前流程" />
+          </label>
+          <button className="avatar">卢</button>
+        </header>
+
+        <section className="drive-panel academic-flow-panel" aria-label="采集流程详情">
+          <div className="drive-breadcrumb">
+            <span>首页</span>
+            <span>›</span>
+            <button className="breadcrumb-button" onClick={onBack}>
+              教务流程
+            </button>
+            <span>›</span>
+            <strong>{process?.name ?? "未找到流程"}</strong>
+          </div>
+          <section className="academic-flow-placeholder">
+            <h2>{process?.name ?? "未找到流程"}</h2>
+            <p>页面功能待开发。</p>
+          </section>
         </section>
       </section>
     </main>

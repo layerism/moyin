@@ -2,11 +2,19 @@ import { useMemo, useState } from "react";
 
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
 import { EditView } from "./features/editor/EditView";
-import { AcademicFlowView, HomeView } from "./features/home/HomeView";
+import { AcademicFlowDetailView, AcademicFlowView, HomeView } from "./features/home/HomeView";
 import { TopBar } from "./features/workspace/TopBar";
 import { LoginView, PasswordChangeView, PasswordResetView } from "./features/auth/AuthViews";
 import { initialAccounts, initialStudents } from "./data/mockData";
-import type { DraftStudent, HomeFile, Screen, Student, StudentAccount, Tab } from "./types";
+import type {
+  AcademicProcess,
+  DraftStudent,
+  HomeFile,
+  Screen,
+  Student,
+  StudentAccount,
+  Tab,
+} from "./types";
 import { makeFileName } from "./utils/fileName";
 
 export function App() {
@@ -18,6 +26,8 @@ export function App() {
   const [homeFolders, setHomeFolders] = useState<string[]>([]);
   const [homeActiveFolder, setHomeActiveFolder] = useState<string | null>(null);
   const [homeFiles, setHomeFiles] = useState<HomeFile[]>([]);
+  const [academicProcesses, setAcademicProcesses] = useState<AcademicProcess[]>([]);
+  const [activeAcademicProcessId, setActiveAcademicProcessId] = useState<string | null>(null);
   const [collectionTitle, setCollectionTitle] = useState("密码学作业提交");
   const [fileNamePattern, setFileNamePattern] = useState("学号-姓名-材料名称.docx");
   const [deadline, setDeadline] = useState("2026-07-20 23:59");
@@ -218,11 +228,37 @@ export function App() {
   if (screen === "academicFlow") {
     return (
       <AcademicFlowView
+        processes={academicProcesses}
+        onCreateProcess={(name) => {
+          const process: AcademicProcess = {
+            id: `academic-${Date.now()}`,
+            name,
+            createdAt: "刚刚",
+          };
+          setAcademicProcesses((current) => [...current, process]);
+        }}
         onHome={() => setScreen("home")}
         onOssCloud={() => {
           setHomeActiveFolder(null);
           setScreen("home");
         }}
+        onOpenProcess={(processId) => {
+          setActiveAcademicProcessId(processId);
+          setScreen("academicFlowDetail");
+        }}
+      />
+    );
+  }
+
+  if (screen === "academicFlowDetail") {
+    const activeProcess =
+      academicProcesses.find((process) => process.id === activeAcademicProcessId) ?? null;
+
+    return (
+      <AcademicFlowDetailView
+        process={activeProcess}
+        onBack={() => setScreen("academicFlow")}
+        onHome={() => setScreen("home")}
       />
     );
   }

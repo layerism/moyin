@@ -172,6 +172,18 @@ button {
   font-size: 22px;
 }
 
+.breadcrumb-button {
+  padding: 0;
+  background: transparent;
+  color: #667085;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.breadcrumb-button:hover {
+  color: #1d4ed8;
+}
+
 .drive-tools {
   position: absolute;
   top: 28px;
@@ -255,6 +267,78 @@ button {
   border-bottom: 1px solid #edf0f5;
   color: #7b8494;
   font-size: 15px;
+}
+
+.academic-flow-list {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid #edf0f5;
+}
+
+.academic-flow-item {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 0 4px;
+  border-bottom: 1px solid #edf0f5;
+  background: transparent;
+  color: #202733;
+  text-align: left;
+}
+
+.academic-flow-item:hover {
+  background: #f8fbff;
+}
+
+.academic-flow-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #e8f1ff;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.academic-flow-item strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 17px;
+}
+
+.academic-flow-item small {
+  color: #7b8494;
+  font-size: 13px;
+}
+
+.academic-flow-item em {
+  color: #1d4ed8;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.academic-flow-placeholder {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  border-top: 1px solid #edf0f5;
+  color: #4b5565;
+}
+
+.academic-flow-placeholder h2 {
+  margin: 0;
+  color: #202733;
+  font-size: 24px;
+}
+
+.academic-flow-placeholder p {
+  margin: 0;
 }
 
 .context-menu {

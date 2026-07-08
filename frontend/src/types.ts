@@ -1,6 +1,13 @@
 import type { Dispatch, SetStateAction } from "react";
 
-export type Screen = "home" | "academicFlow" | "login" | "reset" | "changePassword" | "workspace";
+export type Screen =
+  | "home"
+  | "academicFlow"
+  | "academicFlowDetail"
+  | "login"
+  | "reset"
+  | "changePassword"
+  | "workspace";
 export type Tab = "edit" | "stats" | "settings" | "fill";
 export type Source = "导入" | "临时添加";
 export type SubmitStatus = "未提交" | "已提交" | "已覆盖";
@@ -50,6 +57,12 @@ export type StudentAccount = {
   name: string;
   password: string;
   studentNo: string;
+};
+
+export type AcademicProcess = {
+  createdAt: string;
+  id: string;
+  name: string;
 };
 
 export type Stats = {
