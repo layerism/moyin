@@ -49,9 +49,11 @@ export function AcademicFlowDesigner({
 }) {
   const [mode, setMode] = useState<"student" | "teacher">("teacher");
   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
+  const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const processEdges = process.edges ?? [];
   const activeNode =
     process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
+  const inspectorNode = process.nodes.find((node) => node.id === inspectorNodeId) ?? null;
 
   const publishProcess = () => {
     const nextProcess = { ...process, published: true };
@@ -124,6 +126,9 @@ export function AcademicFlowDesigner({
     const edges = processEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
     onProcessChange({ ...process, edges, nodes });
     setActiveNodeId(nodes[0]?.id ?? "");
+    if (inspectorNodeId === nodeId) {
+      setInspectorNodeId(null);
+    }
   };
 
   return (
@@ -186,15 +191,22 @@ export function AcademicFlowDesigner({
               onDeleteNode={deleteNode}
               onDeleteEdge={deleteEdge}
               onMoveNode={moveNode}
+              onOpenInspector={setInspectorNodeId}
               onSelectNode={setActiveNodeId}
               onUpdateNode={updateNode}
             />
-            <NodeInspector node={activeNode} onUpdateNode={updateNode} />
           </section>
         ) : (
           <section className="student-preview-shell">
             <StudentFlowPreview process={process} showShareUrl />
           </section>
+        )}
+        {mode === "teacher" && inspectorNode && (
+          <NodeInspector
+            node={inspectorNode}
+            onClose={() => setInspectorNodeId(null)}
+            onUpdateNode={updateNode}
+          />
         )}
       </section>
     </main>
@@ -314,6 +326,7 @@ function FlowNodeCanvas({
   onDeleteEdge,
   onDeleteNode,
   onMoveNode,
+  onOpenInspector,
   onSelectNode,
   onUpdateNode,
 }: {
@@ -334,6 +347,7 @@ function FlowNodeCanvas({
   onDeleteEdge: (edgeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onMoveNode: (nodeId: string, direction: -1 | 1) => void;
+  onOpenInspector: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
 }) {
@@ -494,7 +508,10 @@ function FlowNodeCanvas({
           >
             <button
               className={`flow-node ${node.status} ${node.id === activeNodeId ? "selected" : ""}`}
-              onClick={() => onSelectNode(node.id)}
+              onClick={() => {
+                onSelectNode(node.id);
+                onOpenInspector(node.id);
+              }}
               onPointerDown={(event) => startNodeDrag(event, node)}
               onPointerMove={dragNode}
               onPointerUp={endNodeDrag}
@@ -596,18 +613,15 @@ function FlowNodeCanvas({
 
 function NodeInspector({
   node,
+  onClose,
   onUpdateNode,
 }: {
   node: AcademicFlowNode | null;
+  onClose: () => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
 }) {
   if (!node) {
-    return (
-      <aside className="flow-panel inspector-panel">
-        <h2>节点设置</h2>
-        <p>请选择或新增一个流程节点。</p>
-      </aside>
-    );
+    return null;
   }
 
   const addInfoField = () => {
@@ -629,107 +643,119 @@ function NodeInspector({
   };
 
   return (
-    <aside className="flow-panel inspector-panel">
-      <div className="panel-heading">
-        <h2>节点设置</h2>
-        <span>{kindLabels[node.kind]}</span>
-      </div>
-      <label>
-        <span>节点标题</span>
-        <input
-          maxLength={50}
-          value={node.title}
-          onChange={(event) => onUpdateNode(node.id, { title: event.target.value })}
-        />
-      </label>
-      <label>
-        <span>节点说明</span>
-        <textarea
-          value={node.requirement}
-          onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
-        />
-      </label>
-      <label>
-        <span>审核状态</span>
-        <select
-          value={node.status}
-          onChange={(event) =>
-            onUpdateNode(node.id, { status: event.target.value as AcademicFlowNodeStatus })
-          }
-        >
-          <option value="approved">已通过</option>
-          <option value="ready">可填写</option>
-          <option value="pending">审核中</option>
-          <option value="disabled">待开放</option>
-        </select>
-      </label>
-
-      <section className="inspector-section">
-        <div className="section-heading">
-          <h3>采集用户信息</h3>
-          <button onClick={addInfoField} type="button">
-            + 添加字段
+    <div className="node-inspector-backdrop" onMouseDown={onClose}>
+      <aside
+        aria-modal="true"
+        className="flow-panel inspector-panel node-inspector-modal"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="panel-heading inspector-modal-heading">
+          <div>
+            <h2>节点设置</h2>
+            <span>{kindLabels[node.kind]}</span>
+          </div>
+          <button aria-label="关闭节点设置" onClick={onClose} type="button">
+            ×
           </button>
         </div>
-        {node.infoFields.map((field, index) => (
-          <div className="field-row" key={`${field}-${index}`}>
-            <span>☰</span>
-            <input value={field} onChange={(event) => updateInfoField(index, event.target.value)} />
-            <em>必填</em>
-            <button onClick={() => deleteInfoField(index)} type="button">
-              ×
-            </button>
-          </div>
-        ))}
-        {node.infoFields.length === 0 && <p className="muted-line">该节点暂无用户信息字段。</p>}
-      </section>
-
-      <section className="inspector-section">
-        <h3>文件上传要求</h3>
         <label>
-          <span>文件类型限制</span>
+          <span>节点标题</span>
           <input
-            value={node.fileExtensions}
-            onChange={(event) => onUpdateNode(node.id, { fileExtensions: event.target.value })}
-            placeholder="pdf, doc, docx, zip"
+            maxLength={50}
+            value={node.title}
+            onChange={(event) => onUpdateNode(node.id, { title: event.target.value })}
           />
         </label>
         <label>
-          <span>单个文件大小上限</span>
-          <input
-            value={node.fileLimitMb}
-            onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
-            placeholder="50"
+          <span>节点说明</span>
+          <textarea
+            value={node.requirement}
+            onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
           />
         </label>
-      </section>
-
-      <section className="inspector-section">
-        <h3>审核脚本（文件规范校验）</h3>
         <label>
-          <span>脚本类型</span>
+          <span>审核状态</span>
           <select
-            value={node.auditScriptType}
+            value={node.status}
             onChange={(event) =>
-              onUpdateNode(node.id, { auditScriptType: event.target.value as AuditScriptType })
+              onUpdateNode(node.id, { status: event.target.value as AcademicFlowNodeStatus })
             }
           >
-            <option value="none">{getAuditScriptLabel("none")}</option>
-            <option value="py">{getAuditScriptLabel("py")}</option>
-            <option value="mjs">{getAuditScriptLabel("mjs")}</option>
+            <option value="approved">已通过</option>
+            <option value="ready">可填写</option>
+            <option value="pending">审核中</option>
+            <option value="disabled">待开放</option>
           </select>
         </label>
-        <label>
-          <span>脚本文件</span>
-          <input
-            disabled={node.auditScriptType === "none"}
-            value={node.auditScriptName}
-            onChange={(event) => onUpdateNode(node.id, { auditScriptName: event.target.value })}
-            placeholder="check_material.py"
-          />
-        </label>
-      </section>
-    </aside>
+
+        <section className="inspector-section">
+          <div className="section-heading">
+            <h3>采集用户信息</h3>
+            <button onClick={addInfoField} type="button">
+              + 添加字段
+            </button>
+          </div>
+          {node.infoFields.map((field, index) => (
+            <div className="field-row" key={`${field}-${index}`}>
+              <span>☰</span>
+              <input value={field} onChange={(event) => updateInfoField(index, event.target.value)} />
+              <em>必填</em>
+              <button onClick={() => deleteInfoField(index)} type="button">
+                ×
+              </button>
+            </div>
+          ))}
+          {node.infoFields.length === 0 && <p className="muted-line">该节点暂无用户信息字段。</p>}
+        </section>
+
+        <section className="inspector-section">
+          <h3>文件上传要求</h3>
+          <label>
+            <span>文件类型限制</span>
+            <input
+              value={node.fileExtensions}
+              onChange={(event) => onUpdateNode(node.id, { fileExtensions: event.target.value })}
+              placeholder="pdf, doc, docx, zip"
+            />
+          </label>
+          <label>
+            <span>单个文件大小上限</span>
+            <input
+              value={node.fileLimitMb}
+              onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
+              placeholder="50"
+            />
+          </label>
+        </section>
+
+        <section className="inspector-section">
+          <h3>审核脚本（文件规范校验）</h3>
+          <label>
+            <span>脚本类型</span>
+            <select
+              value={node.auditScriptType}
+              onChange={(event) =>
+                onUpdateNode(node.id, { auditScriptType: event.target.value as AuditScriptType })
+              }
+            >
+              <option value="none">{getAuditScriptLabel("none")}</option>
+              <option value="py">{getAuditScriptLabel("py")}</option>
+              <option value="mjs">{getAuditScriptLabel("mjs")}</option>
+            </select>
+          </label>
+          <label>
+            <span>脚本文件</span>
+            <input
+              disabled={node.auditScriptType === "none"}
+              value={node.auditScriptName}
+              onChange={(event) => onUpdateNode(node.id, { auditScriptName: event.target.value })}
+              placeholder="check_material.py"
+            />
+          </label>
+        </section>
+      </aside>
+    </div>
   );
 }
 

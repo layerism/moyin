@@ -506,7 +506,7 @@ button {
 .flow-designer-grid {
   min-height: calc(100vh - 196px);
   display: grid;
-  grid-template-columns: 230px minmax(390px, 1fr) 330px;
+  grid-template-columns: 230px minmax(0, 1fr);
   gap: 14px;
 }
 
@@ -876,6 +876,42 @@ button {
   display: grid;
   align-content: start;
   gap: 14px;
+}
+
+.node-inspector-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(15, 23, 42, 0.16);
+}
+
+.node-inspector-modal {
+  width: min(390px, calc(100vw - 32px));
+  max-height: calc(100vh - 120px);
+  position: fixed;
+  top: 88px;
+  right: 28px;
+  overflow: auto;
+  border: 1px solid #d7e1ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.inspector-modal-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.inspector-modal-heading button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d9e2ef;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .inspector-panel label,
