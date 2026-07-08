@@ -261,9 +261,10 @@ export function HomeView({
           上传
         </button>
         <nav className="drive-nav" aria-label="首页导航">
-          <button className="selected">⌂ 首页</button>
+          <button>⌂ 首页</button>
           <button onClick={onAcademicFlow}>教务流程</button>
           <button
+            className={activeFolder === null ? "selected" : undefined}
             onClick={() => {
               setCloudExpanded((current) => !current);
               onActiveFolderChange(null);
