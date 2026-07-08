@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
 import { EditView } from "./features/editor/EditView";
@@ -17,8 +17,31 @@ import type {
 } from "./types";
 import { makeFileName } from "./utils/fileName";
 
+function getRouteFromPathname(): { processId: string | null; screen: Screen } {
+  if (window.location.pathname === "/academic-flow") {
+    return { processId: null, screen: "academicFlow" };
+  }
+
+  const detailMatch = window.location.pathname.match(/^\/academic-flow\/([^/]+)$/);
+  if (detailMatch) {
+    return {
+      processId: decodeURIComponent(detailMatch[1]),
+      screen: "academicFlowDetail",
+    };
+  }
+
+  return { processId: null, screen: "home" };
+}
+
+function pushAppPath(pathname: string) {
+  if (window.location.pathname !== pathname) {
+    window.history.pushState(null, "", pathname);
+  }
+}
+
 export function App() {
-  const [screen, setScreen] = useState<Screen>("home");
+  const initialRoute = getRouteFromPathname();
+  const [screen, setScreen] = useState<Screen>(initialRoute.screen);
   const [tab, setTab] = useState<Tab>("edit");
   const [students, setStudents] = useState<Student[]>(initialStudents);
   const [accounts, setAccounts] = useState<StudentAccount[]>(initialAccounts);
@@ -27,7 +50,9 @@ export function App() {
   const [homeActiveFolder, setHomeActiveFolder] = useState<string | null>(null);
   const [homeFiles, setHomeFiles] = useState<HomeFile[]>([]);
   const [academicProcesses, setAcademicProcesses] = useState<AcademicProcess[]>([]);
-  const [activeAcademicProcessId, setActiveAcademicProcessId] = useState<string | null>(null);
+  const [activeAcademicProcessId, setActiveAcademicProcessId] = useState<string | null>(
+    initialRoute.processId,
+  );
   const [collectionTitle, setCollectionTitle] = useState("密码学作业提交");
   const [fileNamePattern, setFileNamePattern] = useState("学号-姓名-材料名称.docx");
   const [deadline, setDeadline] = useState("2026-07-20 23:59");
@@ -39,6 +64,17 @@ export function App() {
   const [submitter, setSubmitter] = useState({ name: "李四", studentNo: "20240002" });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [notice, setNotice] = useState("最近保存 12:28");
+
+  useEffect(() => {
+    const syncRoute = () => {
+      const route = getRouteFromPathname();
+      setActiveAcademicProcessId(route.processId);
+      setScreen(route.screen);
+    };
+
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
 
   const stats = useMemo(() => {
     const submitted = students.filter((student) => student.submitStatus !== "未提交").length;
@@ -62,6 +98,24 @@ export function App() {
     }
     setTab(nextTab);
     setScreen("workspace");
+  };
+
+  const openHome = () => {
+    pushAppPath("/");
+    setActiveAcademicProcessId(null);
+    setScreen("home");
+  };
+
+  const openAcademicFlow = () => {
+    pushAppPath("/academic-flow");
+    setActiveAcademicProcessId(null);
+    setScreen("academicFlow");
+  };
+
+  const openAcademicProcess = (processId: string) => {
+    pushAppPath(`/academic-flow/${encodeURIComponent(processId)}`);
+    setActiveAcademicProcessId(processId);
+    setScreen("academicFlowDetail");
   };
 
   const addTemporaryStudent = () => {
@@ -164,7 +218,7 @@ export function App() {
   const logout = () => {
     setActiveUser(null);
     setSelectedFile(null);
-    setScreen("home");
+    openHome();
     setNotice("已退出登录");
   };
 
@@ -217,7 +271,7 @@ export function App() {
           openWorkspace("edit", null);
         }}
         onActiveFolderChange={setHomeActiveFolder}
-        onAcademicFlow={() => setScreen("academicFlow")}
+        onAcademicFlow={openAcademicFlow}
         onFilesChange={setHomeFiles}
         onFoldersChange={setHomeFolders}
         onLogin={() => setScreen("login")}
@@ -237,15 +291,12 @@ export function App() {
           };
           setAcademicProcesses((current) => [...current, process]);
         }}
-        onHome={() => setScreen("home")}
+        onHome={openHome}
         onOssCloud={() => {
           setHomeActiveFolder(null);
-          setScreen("home");
+          openHome();
         }}
-        onOpenProcess={(processId) => {
-          setActiveAcademicProcessId(processId);
-          setScreen("academicFlowDetail");
-        }}
+        onOpenProcess={openAcademicProcess}
       />
     );
   }
@@ -257,8 +308,8 @@ export function App() {
     return (
       <AcademicFlowDetailView
         process={activeProcess}
-        onBack={() => setScreen("academicFlow")}
-        onHome={() => setScreen("home")}
+        onBack={openAcademicFlow}
+        onHome={openHome}
       />
     );
   }
