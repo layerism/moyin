@@ -4,6 +4,7 @@ export type Screen =
   | "home"
   | "academicFlow"
   | "academicFlowDetail"
+  | "academicFlowStudent"
   | "login"
   | "reset"
   | "changePassword"
@@ -59,10 +60,31 @@ export type StudentAccount = {
   studentNo: string;
 };
 
+export type AuditScriptType = "mjs" | "none" | "py";
+export type AcademicFlowNodeStatus = "approved" | "disabled" | "pending" | "ready";
+export type AcademicFlowNodeKind = "announcement" | "confirmation" | "file" | "form";
+
+export type AcademicFlowNode = {
+  auditScriptName: string;
+  auditScriptType: AuditScriptType;
+  fileExtensions: string;
+  fileLimitMb: string;
+  id: string;
+  infoFields: string[];
+  kind: AcademicFlowNodeKind;
+  requirement: string;
+  status: AcademicFlowNodeStatus;
+  title: string;
+};
+
 export type AcademicProcess = {
   createdAt: string;
+  encryptedSlug: string;
   id: string;
   name: string;
+  nodes: AcademicFlowNode[];
+  published: boolean;
+  shareUrl: string;
 };
 
 export type Stats = {

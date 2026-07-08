@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { AcademicFlowDesigner, StudentFlowPage } from "./features/academic-flow/AcademicFlowDesigner";
+import { createAcademicProcess, createFallbackAcademicProcess } from "./features/academic-flow/academicFlowData";
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
 import { EditView } from "./features/editor/EditView";
-import { AcademicFlowDetailView, AcademicFlowView, HomeView } from "./features/home/HomeView";
+import { AcademicFlowView, HomeView } from "./features/home/HomeView";
 import { TopBar } from "./features/workspace/TopBar";
 import { LoginView, PasswordChangeView, PasswordResetView } from "./features/auth/AuthViews";
 import { initialAccounts, initialStudents } from "./data/mockData";
@@ -17,9 +19,24 @@ import type {
 } from "./types";
 import { makeFileName } from "./utils/fileName";
 
-function getRouteFromPathname(): { processId: string | null; screen: Screen } {
+function getRouteFromPathname(): {
+  processId: string | null;
+  screen: Screen;
+  studentSlug: string | null;
+} {
   if (window.location.pathname === "/academic-flow") {
-    return { processId: null, screen: "academicFlow" };
+    return { processId: null, screen: "academicFlow", studentSlug: null };
+  }
+
+  const studentMatch = window.location.pathname.match(
+    /^\/academic-flow\/([^/]+)\/student\/([^/]+)$/,
+  );
+  if (studentMatch) {
+    return {
+      processId: decodeURIComponent(studentMatch[1]),
+      screen: "academicFlowStudent",
+      studentSlug: decodeURIComponent(studentMatch[2]),
+    };
   }
 
   const detailMatch = window.location.pathname.match(/^\/academic-flow\/([^/]+)$/);
@@ -27,10 +44,11 @@ function getRouteFromPathname(): { processId: string | null; screen: Screen } {
     return {
       processId: decodeURIComponent(detailMatch[1]),
       screen: "academicFlowDetail",
+      studentSlug: null,
     };
   }
 
-  return { processId: null, screen: "home" };
+  return { processId: null, screen: "home", studentSlug: null };
 }
 
 function pushAppPath(pathname: string) {
@@ -49,7 +67,9 @@ export function App() {
   const [homeFolders, setHomeFolders] = useState<string[]>([]);
   const [homeActiveFolder, setHomeActiveFolder] = useState<string | null>(null);
   const [homeFiles, setHomeFiles] = useState<HomeFile[]>([]);
-  const [academicProcesses, setAcademicProcesses] = useState<AcademicProcess[]>([]);
+  const [academicProcesses, setAcademicProcesses] = useState<AcademicProcess[]>(() =>
+    initialRoute.processId ? [createFallbackAcademicProcess(initialRoute.processId)] : [],
+  );
   const [activeAcademicProcessId, setActiveAcademicProcessId] = useState<string | null>(
     initialRoute.processId,
   );
@@ -116,6 +136,21 @@ export function App() {
     pushAppPath(`/academic-flow/${encodeURIComponent(processId)}`);
     setActiveAcademicProcessId(processId);
     setScreen("academicFlowDetail");
+  };
+
+  const openStudentFlow = (shareUrl: string) => {
+    pushAppPath(shareUrl);
+    setScreen("academicFlowStudent");
+  };
+
+  const updateAcademicProcess = (nextProcess: AcademicProcess) => {
+    setAcademicProcesses((current) => {
+      const exists = current.some((process) => process.id === nextProcess.id);
+      if (!exists) {
+        return [...current, nextProcess];
+      }
+      return current.map((process) => (process.id === nextProcess.id ? nextProcess : process));
+    });
   };
 
   const addTemporaryStudent = () => {
@@ -284,11 +319,7 @@ export function App() {
       <AcademicFlowView
         processes={academicProcesses}
         onCreateProcess={(name) => {
-          const process: AcademicProcess = {
-            id: `academic-${Date.now()}`,
-            name,
-            createdAt: "刚刚",
-          };
+          const process = createAcademicProcess(name);
           setAcademicProcesses((current) => [...current, process]);
         }}
         onHome={openHome}
@@ -305,10 +336,38 @@ export function App() {
     const activeProcess =
       academicProcesses.find((process) => process.id === activeAcademicProcessId) ?? null;
 
+    if (!activeProcess) {
+      return (
+        <AcademicFlowDesigner
+          process={createFallbackAcademicProcess(activeAcademicProcessId ?? "academic-demo")}
+          onBack={openAcademicFlow}
+          onHome={openHome}
+          onOpenStudent={openStudentFlow}
+          onProcessChange={updateAcademicProcess}
+        />
+      );
+    }
+
     return (
-      <AcademicFlowDetailView
+      <AcademicFlowDesigner
         process={activeProcess}
         onBack={openAcademicFlow}
+        onHome={openHome}
+        onOpenStudent={openStudentFlow}
+        onProcessChange={updateAcademicProcess}
+      />
+    );
+  }
+
+  if (screen === "academicFlowStudent") {
+    const activeProcess =
+      academicProcesses.find((process) => process.id === activeAcademicProcessId) ??
+      createFallbackAcademicProcess(activeAcademicProcessId ?? "academic-demo");
+
+    return (
+      <StudentFlowPage
+        process={activeProcess}
+        onBack={() => openAcademicProcess(activeProcess.id)}
         onHome={openHome}
       />
     );
