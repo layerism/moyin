@@ -63,6 +63,7 @@ export type StudentAccount = {
 export type AuditScriptType = "mjs" | "none" | "py";
 export type AcademicFlowNodeStatus = "approved" | "disabled" | "pending" | "ready";
 export type AcademicFlowNodeKind = "announcement" | "confirmation" | "file" | "form";
+export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
 
 export type AcademicFlowNode = {
   auditScriptName: string;
@@ -82,7 +83,9 @@ export type AcademicFlowNode = {
 export type AcademicFlowEdge = {
   id: string;
   source: string;
+  sourcePort?: AcademicFlowPort;
   target: string;
+  targetPort?: AcademicFlowPort;
 };
 
 export type AcademicProcess = {

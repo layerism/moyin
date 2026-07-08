@@ -810,7 +810,6 @@ button {
   width: 14px;
   height: 14px;
   position: absolute;
-  top: calc(50% - 7px);
   z-index: 5;
   display: block;
   border: 2px solid #ffffff;
@@ -820,12 +819,24 @@ button {
   cursor: crosshair;
 }
 
-.connection-port.in {
-  left: 6px;
+.connection-port.top {
+  top: -7px;
+  left: calc(50% - 7px);
 }
 
-.connection-port.out {
-  right: 6px;
+.connection-port.right {
+  top: calc(50% - 7px);
+  right: -7px;
+}
+
+.connection-port.bottom {
+  bottom: -7px;
+  left: calc(50% - 7px);
+}
+
+.connection-port.left {
+  top: calc(50% - 7px);
+  left: -7px;
 }
 
 .connection-port.connectable,

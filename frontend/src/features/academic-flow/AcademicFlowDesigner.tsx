@@ -5,6 +5,7 @@ import type {
   AcademicFlowEdge,
   AcademicFlowNode,
   AcademicFlowNodeKind,
+  AcademicFlowPort,
   AcademicFlowNodeStatus,
   AcademicProcess,
   AuditScriptType,
@@ -26,6 +27,12 @@ const kindLabels: Record<AcademicFlowNodeKind, string> = {
 };
 
 const nodeSize = { height: 126, width: 280 };
+const connectionPorts: AcademicFlowPort[] = ["top", "right", "bottom", "left"];
+
+type ConnectionDraft = {
+  nodeId: string;
+  port: AcademicFlowPort;
+};
 
 export function AcademicFlowDesigner({
   onBack,
@@ -71,7 +78,12 @@ export function AcademicFlowDesigner({
     });
   };
 
-  const connectNodes = (source: string, target: string) => {
+  const connectNodes = (
+    source: string,
+    target: string,
+    sourcePort: AcademicFlowPort,
+    targetPort: AcademicFlowPort,
+  ) => {
     const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
     if (source === target || exists) {
       return;
@@ -79,7 +91,9 @@ export function AcademicFlowDesigner({
     const nextEdge = {
       id: `edge-${source}-${target}-${Date.now()}`,
       source,
+      sourcePort,
       target,
+      targetPort,
     };
     const nextEdges = [...processEdges, nextEdge];
     if (hasCycle(process.nodes.map((node) => node.id), nextEdges)) {
@@ -311,7 +325,12 @@ function FlowNodeCanvas({
     title: string,
     position?: { x: number; y: number },
   ) => void;
-  onConnectNodes: (source: string, target: string) => void;
+  onConnectNodes: (
+    source: string,
+    target: string,
+    sourcePort: AcademicFlowPort,
+    targetPort: AcademicFlowPort,
+  ) => void;
   onDeleteEdge: (edgeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onMoveNode: (nodeId: string, direction: -1 | 1) => void;
@@ -319,8 +338,8 @@ function FlowNodeCanvas({
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const connectingFromRef = useRef<string | null>(null);
-  const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+  const connectingFromRef = useRef<ConnectionDraft | null>(null);
+  const [connectingFrom, setConnectingFrom] = useState<ConnectionDraft | null>(null);
   const [draggingNode, setDraggingNode] = useState<{
     id: string;
     offsetX: number;
@@ -335,19 +354,16 @@ function FlowNodeCanvas({
       if (!source || !target) {
         return null;
       }
-      return {
-        ...edge,
-        sourceX: source.x + nodeSize.width,
-        sourceY: source.y + nodeSize.height / 2,
-        targetX: target.x,
-        targetY: target.y + nodeSize.height / 2,
-      };
+      const ports = resolveEdgePorts(edge, source, target);
+      return { ...edge, ...ports };
     })
     .filter((edge): edge is AcademicFlowEdge & {
       sourceX: number;
       sourceY: number;
       targetX: number;
       targetY: number;
+      sourcePort: AcademicFlowPort;
+      targetPort: AcademicFlowPort;
     } => Boolean(edge));
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
@@ -402,15 +418,15 @@ function FlowNodeCanvas({
     }
   };
 
-  const setConnectionSource = (nodeId: string | null) => {
-    connectingFromRef.current = nodeId;
-    setConnectingFrom(nodeId);
+  const setConnectionSource = (source: ConnectionDraft | null) => {
+    connectingFromRef.current = source;
+    setConnectingFrom(source);
   };
 
-  const completeConnection = (targetId: string) => {
-    const sourceId = connectingFromRef.current ?? connectingFrom;
-    if (sourceId) {
-      onConnectNodes(sourceId, targetId);
+  const completeConnection = (targetId: string, targetPort: AcademicFlowPort) => {
+    const source = connectingFromRef.current ?? connectingFrom;
+    if (source) {
+      onConnectNodes(source.nodeId, targetId, source.port, targetPort);
     }
     setConnectionSource(null);
   };
@@ -452,9 +468,15 @@ function FlowNodeCanvas({
             </marker>
           </defs>
           {edgeLines.map((edge) => {
-            const midX = Math.max(edge.sourceX + 48, (edge.sourceX + edge.targetX) / 2);
-            const path = `M ${edge.sourceX} ${edge.sourceY} C ${midX} ${edge.sourceY}, ${midX} ${edge.targetY}, ${edge.targetX} ${edge.targetY}`;
-            return <path className="flow-edge-line" d={path} key={edge.id} markerEnd="url(#flow-arrow)" />;
+            const path = createOrthogonalPath(edge);
+            return (
+              <path
+                className="flow-edge-line"
+                d={path}
+                key={edge.id}
+                markerEnd="url(#flow-arrow)"
+              />
+            );
           })}
         </svg>
         <div className="edge-delete-list" aria-label="连接线列表">
@@ -479,29 +501,68 @@ function FlowNodeCanvas({
               type="button"
               style={{ width: nodeSize.width }}
             >
-              <span
-                className={`connection-port in ${connectingFrom && connectingFrom !== node.id ? "connectable" : ""}`}
-                data-node-id={node.id}
-                data-port="in"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  completeConnection(node.id);
-                }}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const source = event.dataTransfer.getData("application/x-academic-edge-source");
-                  if (source) {
-                    onConnectNodes(source, node.id);
-                  }
-                  setConnectionSource(null);
-                }}
-                onPointerUp={(event) => {
-                  event.stopPropagation();
-                  completeConnection(node.id);
-                }}
-                title="连接到该节点"
-              />
+              {connectionPorts.map((port) => (
+                <span
+                  className={`connection-port ${port} ${
+                    connectingFrom && connectingFrom.nodeId !== node.id ? "connectable" : ""
+                  } ${connectingFrom?.nodeId === node.id && connectingFrom.port === port ? "connecting" : ""}`}
+                  data-node-id={node.id}
+                  data-port-position={port}
+                  key={port}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (connectingFrom && connectingFrom.nodeId !== node.id) {
+                      completeConnection(node.id, port);
+                      return;
+                    }
+                    setConnectionSource({ nodeId: node.id, port });
+                  }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const source = event.dataTransfer.getData("application/x-academic-edge-source");
+                    const sourcePort =
+                      (event.dataTransfer.getData(
+                        "application/x-academic-edge-source-port",
+                      ) as AcademicFlowPort) || "right";
+                    if (source) {
+                      onConnectNodes(source, node.id, sourcePort, port);
+                    }
+                    setConnectionSource(null);
+                  }}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    setConnectionSource({ nodeId: node.id, port });
+                  }}
+                  onPointerUp={(event) => {
+                    event.stopPropagation();
+                    if (connectingFrom && connectingFrom.nodeId !== node.id) {
+                      completeConnection(node.id, port);
+                    }
+                  }}
+                  draggable
+                  onDragStart={(event) => {
+                    event.stopPropagation();
+                    event.dataTransfer.effectAllowed = "link";
+                    event.dataTransfer.setData("application/x-academic-edge-source", node.id);
+                    event.dataTransfer.setData("application/x-academic-edge-source-port", port);
+                    setConnectionSource({ nodeId: node.id, port });
+                  }}
+                  onDragEnd={(event) => {
+                    const target = document
+                      .elementFromPoint(event.clientX, event.clientY)
+                      ?.closest<HTMLElement>("[data-port-position]");
+                    const targetId = target?.dataset.nodeId;
+                    const targetPort = target?.dataset.portPosition as AcademicFlowPort | undefined;
+                    if (targetId && targetPort) {
+                      completeConnection(targetId, targetPort);
+                      return;
+                    }
+                    setConnectionSource(null);
+                  }}
+                  title={`${getPortLabel(port)}连接点`}
+                />
+              ))}
               <span className="node-index">{index + 1}</span>
               <strong>{node.title}</strong>
               <small>{node.requirement}</small>
@@ -509,38 +570,6 @@ function FlowNodeCanvas({
                 <em>{kindLabels[node.kind]}</em>
                 <i>{statusLabels[node.status]}</i>
               </span>
-              <span
-                className={`connection-port out ${connectingFrom === node.id ? "connecting" : ""}`}
-                data-node-id={node.id}
-                data-port="out"
-                draggable
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setConnectionSource(node.id);
-                }}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  setConnectionSource(node.id);
-                }}
-                onDragStart={(event) => {
-                  event.stopPropagation();
-                  event.dataTransfer.effectAllowed = "link";
-                  event.dataTransfer.setData("application/x-academic-edge-source", node.id);
-                  setConnectionSource(node.id);
-                }}
-                onDragEnd={(event) => {
-                  const target = document
-                    .elementFromPoint(event.clientX, event.clientY)
-                    ?.closest<HTMLElement>("[data-port='in']");
-                  const targetId = target?.dataset.nodeId;
-                  if (targetId) {
-                    completeConnection(targetId);
-                    return;
-                  }
-                  setConnectionSource(null);
-                }}
-                title="从该节点发起连接"
-              />
             </button>
             {node.id === activeNodeId && (
               <div className="node-quick-actions" aria-label="节点操作">
@@ -783,6 +812,125 @@ function getTemplateIcon(kind: AcademicFlowNodeKind) {
     return "◫";
   }
   return "▤";
+}
+
+function getPortLabel(port: AcademicFlowPort) {
+  if (port === "top") {
+    return "上";
+  }
+  if (port === "bottom") {
+    return "下";
+  }
+  if (port === "left") {
+    return "左";
+  }
+  return "右";
+}
+
+function getPortPoint(node: AcademicFlowNode, port: AcademicFlowPort) {
+  if (port === "top") {
+    return { x: node.x + nodeSize.width / 2, y: node.y };
+  }
+  if (port === "bottom") {
+    return { x: node.x + nodeSize.width / 2, y: node.y + nodeSize.height };
+  }
+  if (port === "left") {
+    return { x: node.x, y: node.y + nodeSize.height / 2 };
+  }
+  return { x: node.x + nodeSize.width, y: node.y + nodeSize.height / 2 };
+}
+
+function getFallbackPorts(source: AcademicFlowNode, target: AcademicFlowNode) {
+  const sourceCenterX = source.x + nodeSize.width / 2;
+  const sourceCenterY = source.y + nodeSize.height / 2;
+  const targetCenterX = target.x + nodeSize.width / 2;
+  const targetCenterY = target.y + nodeSize.height / 2;
+  const horizontalGap = Math.abs(targetCenterX - sourceCenterX);
+  const verticalGap = Math.abs(targetCenterY - sourceCenterY);
+
+  if (verticalGap >= horizontalGap) {
+    return targetCenterY >= sourceCenterY
+      ? ({ sourcePort: "bottom", targetPort: "top" } as const)
+      : ({ sourcePort: "top", targetPort: "bottom" } as const);
+  }
+
+  return targetCenterX >= sourceCenterX
+    ? ({ sourcePort: "right", targetPort: "left" } as const)
+    : ({ sourcePort: "left", targetPort: "right" } as const);
+}
+
+function resolveEdgePorts(edge: AcademicFlowEdge, source: AcademicFlowNode, target: AcademicFlowNode) {
+  const fallback = getFallbackPorts(source, target);
+  const sourcePort = edge.sourcePort ?? fallback.sourcePort;
+  const targetPort = edge.targetPort ?? fallback.targetPort;
+  const sourcePoint = getPortPoint(source, sourcePort);
+  const targetPoint = getPortPoint(target, targetPort);
+
+  return {
+    sourcePort,
+    sourceX: sourcePoint.x,
+    sourceY: sourcePoint.y,
+    targetPort,
+    targetX: targetPoint.x,
+    targetY: targetPoint.y,
+  };
+}
+
+function createOrthogonalPath(edge: {
+  sourcePort: AcademicFlowPort;
+  sourceX: number;
+  sourceY: number;
+  targetPort: AcademicFlowPort;
+  targetX: number;
+  targetY: number;
+}) {
+  const sourceOffset = offsetPoint(edge.sourceX, edge.sourceY, edge.sourcePort, 22);
+  const targetOffset = offsetPoint(edge.targetX, edge.targetY, edge.targetPort, 22);
+  const points = [
+    { x: edge.sourceX, y: edge.sourceY },
+    sourceOffset,
+    ...getOrthogonalMidpoints(sourceOffset, targetOffset),
+    targetOffset,
+    { x: edge.targetX, y: edge.targetY },
+  ];
+  const [first, ...rest] = dedupePoints(points);
+
+  return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
+}
+
+function getOrthogonalMidpoints(
+  source: { x: number; y: number },
+  target: { x: number; y: number },
+) {
+  if (source.x === target.x || source.y === target.y) {
+    return [];
+  }
+
+  const midY = (source.y + target.y) / 2;
+  return [
+    { x: source.x, y: midY },
+    { x: target.x, y: midY },
+  ];
+}
+
+function offsetPoint(x: number, y: number, port: AcademicFlowPort, distance: number) {
+  if (port === "top") {
+    return { x, y: y - distance };
+  }
+  if (port === "bottom") {
+    return { x, y: y + distance };
+  }
+  if (port === "left") {
+    return { x: x - distance, y };
+  }
+  return { x: x + distance, y };
+}
+
+function dedupePoints(points: Array<{ x: number; y: number }>) {
+  return points.filter((point, index) => {
+    const previous = points[index - 1];
+    return !previous || previous.x !== point.x || previous.y !== point.y;
+  });
 }
 
 function hasCycle(nodeIds: string[], edges: AcademicFlowEdge[]) {

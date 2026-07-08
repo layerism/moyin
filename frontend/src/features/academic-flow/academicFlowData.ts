@@ -117,17 +117,23 @@ function createDefaultEdges(): AcademicFlowEdge[] {
     {
       id: "edge-default-basic-info-default-proposal",
       source: "default-basic-info",
+      sourcePort: "bottom",
       target: "default-proposal",
+      targetPort: "top",
     },
     {
       id: "edge-default-proposal-default-midterm",
       source: "default-proposal",
+      sourcePort: "bottom",
       target: "default-midterm",
+      targetPort: "top",
     },
     {
       id: "edge-default-midterm-default-final",
       source: "default-midterm",
+      sourcePort: "bottom",
       target: "default-final",
+      targetPort: "top",
     },
   ];
 }
