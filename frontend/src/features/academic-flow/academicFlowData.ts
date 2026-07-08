@@ -1,4 +1,5 @@
 import type {
+  AcademicFlowEdge,
   AcademicFlowNode,
   AcademicFlowNodeKind,
   AcademicFlowNodeStatus,
@@ -24,6 +25,7 @@ export function createAcademicProcess(name: string, id = `academic-${Date.now()}
   const encryptedSlug = createEncryptedSlug();
   return {
     createdAt: "刚刚",
+    edges: createDefaultEdges(),
     encryptedSlug,
     id,
     name,
@@ -37,18 +39,24 @@ export function createFallbackAcademicProcess(id: string): AcademicProcess {
   return createAcademicProcess("毕业论文材料提交流程", id);
 }
 
-export function createNode(kind: AcademicFlowNodeKind, title: string): AcademicFlowNode {
+export function createNode(
+  kind: AcademicFlowNodeKind,
+  title: string,
+  position = { x: 210, y: 80 },
+): AcademicFlowNode {
   return {
     auditScriptName: kind === "file" ? "check_material.py" : "",
     auditScriptType: kind === "file" ? "py" : "none",
     fileExtensions: kind === "file" ? "pdf, doc, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",
-    id: `${kind}-${Date.now()}`,
+    id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     infoFields: kind === "form" ? ["学号", "姓名", "联系电话"] : [],
     kind,
     requirement: getDefaultRequirement(kind, title),
     status: "disabled",
     title,
+    x: position.x,
+    y: position.y,
   };
 }
 
@@ -70,6 +78,8 @@ function createDefaultNodes(): AcademicFlowNode[] {
       id: "default-basic-info",
       infoFields: ["学号", "姓名", "联系电话", "指导教师"],
       status: statusCycle[0],
+      x: 170,
+      y: 70,
     },
     {
       ...createNode("file", "开题报告提交"),
@@ -77,6 +87,8 @@ function createDefaultNodes(): AcademicFlowNode[] {
       id: "default-proposal",
       requirement: "上传开题报告文件（PDF），系统检查命名与格式。",
       status: statusCycle[1],
+      x: 170,
+      y: 250,
     },
     {
       ...createNode("file", "中期检查材料提交"),
@@ -84,6 +96,8 @@ function createDefaultNodes(): AcademicFlowNode[] {
       id: "default-midterm",
       requirement: "上传中期检查相关材料，包含进度报告与阶段性成果。",
       status: statusCycle[2],
+      x: 170,
+      y: 430,
     },
     {
       ...createNode("file", "终稿提交"),
@@ -92,6 +106,28 @@ function createDefaultNodes(): AcademicFlowNode[] {
       id: "default-final",
       requirement: "上传论文终稿及相关材料，等待前置节点审核通过后开放。",
       status: statusCycle[3],
+      x: 170,
+      y: 610,
+    },
+  ];
+}
+
+function createDefaultEdges(): AcademicFlowEdge[] {
+  return [
+    {
+      id: "edge-default-basic-info-default-proposal",
+      source: "default-basic-info",
+      target: "default-proposal",
+    },
+    {
+      id: "edge-default-proposal-default-midterm",
+      source: "default-proposal",
+      target: "default-midterm",
+    },
+    {
+      id: "edge-default-midterm-default-final",
+      source: "default-midterm",
+      target: "default-final",
     },
   ];
 }

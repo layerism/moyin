@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { DragEvent, PointerEvent } from "react";
 
 import type {
+  AcademicFlowEdge,
   AcademicFlowNode,
   AcademicFlowNodeKind,
   AcademicFlowNodeStatus,
@@ -23,6 +25,8 @@ const kindLabels: Record<AcademicFlowNodeKind, string> = {
   form: "信息填写",
 };
 
+const nodeSize = { height: 126, width: 280 };
+
 export function AcademicFlowDesigner({
   onBack,
   onHome,
@@ -38,6 +42,7 @@ export function AcademicFlowDesigner({
 }) {
   const [mode, setMode] = useState<"student" | "teacher">("teacher");
   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
+  const processEdges = process.edges ?? [];
   const activeNode =
     process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
 
@@ -47,8 +52,12 @@ export function AcademicFlowDesigner({
     onOpenStudent(nextProcess.shareUrl);
   };
 
-  const addNode = (kind: AcademicFlowNodeKind, title: string) => {
-    const nextNode = createNode(kind, title);
+  const addNode = (
+    kind: AcademicFlowNodeKind,
+    title: string,
+    position?: { x: number; y: number },
+  ) => {
+    const nextNode = createNode(kind, title, position);
     const nextProcess = { ...process, nodes: [...process.nodes, nextNode] };
     onProcessChange(nextProcess);
     setActiveNodeId(nextNode.id);
@@ -60,6 +69,27 @@ export function AcademicFlowDesigner({
       ...process,
       nodes: process.nodes.map((node) => (node.id === nodeId ? { ...node, ...value } : node)),
     });
+  };
+
+  const connectNodes = (source: string, target: string) => {
+    const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
+    if (source === target || exists) {
+      return;
+    }
+    const nextEdge = {
+      id: `edge-${source}-${target}-${Date.now()}`,
+      source,
+      target,
+    };
+    const nextEdges = [...processEdges, nextEdge];
+    if (hasCycle(process.nodes.map((node) => node.id), nextEdges)) {
+      return;
+    }
+    onProcessChange({ ...process, edges: nextEdges });
+  };
+
+  const deleteEdge = (edgeId: string) => {
+    onProcessChange({ ...process, edges: processEdges.filter((edge) => edge.id !== edgeId) });
   };
 
   const moveNode = (nodeId: string, direction: -1 | 1) => {
@@ -77,7 +107,8 @@ export function AcademicFlowDesigner({
 
   const deleteNode = (nodeId: string) => {
     const nodes = process.nodes.filter((node) => node.id !== nodeId);
-    onProcessChange({ ...process, nodes });
+    const edges = processEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+    onProcessChange({ ...process, edges, nodes });
     setActiveNodeId(nodes[0]?.id ?? "");
   };
 
@@ -134,10 +165,15 @@ export function AcademicFlowDesigner({
             <ComponentPalette onAddNode={addNode} />
             <FlowNodeCanvas
               activeNodeId={activeNode?.id ?? ""}
+              edges={processEdges}
               nodes={process.nodes}
+              onAddNode={addNode}
+              onConnectNodes={connectNodes}
               onDeleteNode={deleteNode}
+              onDeleteEdge={deleteEdge}
               onMoveNode={moveNode}
               onSelectNode={setActiveNodeId}
+              onUpdateNode={updateNode}
             />
             <NodeInspector node={activeNode} onUpdateNode={updateNode} />
           </section>
@@ -219,7 +255,13 @@ function ComponentPalette({
         {nodeTemplates.map((template) => (
           <button
             className={`node-template ${template.kind}`}
+            draggable
             key={`${template.kind}-${template.title}`}
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = "copy";
+              event.dataTransfer.setData("application/x-academic-node-kind", template.kind);
+              event.dataTransfer.setData("application/x-academic-node-title", template.title);
+            }}
             onClick={() => onAddNode(template.kind, template.title)}
             type="button"
           >
@@ -243,7 +285,7 @@ function ComponentPalette({
         </button>
       </div>
       <div className="palette-hint">
-        提示：本轮使用点击添加与顺序调整模拟拖拽式低代码构建。
+        提示：可将组件拖入画布，节点进入画布后可拖动定位，并通过左右连接点手动连线。
       </div>
     </aside>
   );
@@ -251,17 +293,137 @@ function ComponentPalette({
 
 function FlowNodeCanvas({
   activeNodeId,
+  edges,
   nodes,
+  onAddNode,
+  onConnectNodes,
+  onDeleteEdge,
   onDeleteNode,
   onMoveNode,
   onSelectNode,
+  onUpdateNode,
 }: {
   activeNodeId: string;
+  edges: AcademicFlowEdge[];
   nodes: AcademicFlowNode[];
+  onAddNode: (
+    kind: AcademicFlowNodeKind,
+    title: string,
+    position?: { x: number; y: number },
+  ) => void;
+  onConnectNodes: (source: string, target: string) => void;
+  onDeleteEdge: (edgeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
   onMoveNode: (nodeId: string, direction: -1 | 1) => void;
   onSelectNode: (nodeId: string) => void;
+  onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
 }) {
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const connectingFromRef = useRef<string | null>(null);
+  const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+  const [draggingNode, setDraggingNode] = useState<{
+    id: string;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+
+  const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const edgeLines = edges
+    .map((edge) => {
+      const source = nodeById.get(edge.source);
+      const target = nodeById.get(edge.target);
+      if (!source || !target) {
+        return null;
+      }
+      return {
+        ...edge,
+        sourceX: source.x + nodeSize.width,
+        sourceY: source.y + nodeSize.height / 2,
+        targetX: target.x,
+        targetY: target.y + nodeSize.height / 2,
+      };
+    })
+    .filter((edge): edge is AcademicFlowEdge & {
+      sourceX: number;
+      sourceY: number;
+      targetX: number;
+      targetY: number;
+    } => Boolean(edge));
+
+  const getCanvasPoint = (clientX: number, clientY: number) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: clientX - rect.left + (canvasRef.current?.scrollLeft ?? 0),
+      y: clientY - rect.top + (canvasRef.current?.scrollTop ?? 0),
+    };
+  };
+
+  const dropNode = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const kind = event.dataTransfer.getData("application/x-academic-node-kind") as AcademicFlowNodeKind;
+    const title = event.dataTransfer.getData("application/x-academic-node-title");
+    if (!kind || !title) {
+      return;
+    }
+    const point = getCanvasPoint(event.clientX, event.clientY);
+    onAddNode(kind, title, {
+      x: Math.max(24, point.x - nodeSize.width / 2),
+      y: Math.max(24, point.y - nodeSize.height / 2),
+    });
+  };
+
+  const startNodeDrag = (event: PointerEvent<HTMLButtonElement>, node: AcademicFlowNode) => {
+    if ((event.target as HTMLElement).closest(".connection-port")) {
+      return;
+    }
+    const point = getCanvasPoint(event.clientX, event.clientY);
+    setDraggingNode({ id: node.id, offsetX: point.x - node.x, offsetY: point.y - node.y });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const dragNode = (event: PointerEvent<HTMLButtonElement>) => {
+    if (!draggingNode) {
+      return;
+    }
+    const point = getCanvasPoint(event.clientX, event.clientY);
+    onUpdateNode(draggingNode.id, {
+      x: Math.max(16, point.x - draggingNode.offsetX),
+      y: Math.max(16, point.y - draggingNode.offsetY),
+    });
+  };
+
+  const endNodeDrag = (event: PointerEvent<HTMLButtonElement>) => {
+    if (draggingNode) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      setDraggingNode(null);
+    }
+  };
+
+  const setConnectionSource = (nodeId: string | null) => {
+    connectingFromRef.current = nodeId;
+    setConnectingFrom(nodeId);
+  };
+
+  const completeConnection = (targetId: string) => {
+    const sourceId = connectingFromRef.current ?? connectingFrom;
+    if (sourceId) {
+      onConnectNodes(sourceId, targetId);
+    }
+    setConnectionSource(null);
+  };
+
+  const autoLayout = () => {
+    nodes.forEach((node, index) => {
+      onUpdateNode(node.id, {
+        x: 170 + (index % 2) * 330,
+        y: 70 + Math.floor(index / 2) * 185,
+      });
+    });
+  };
+
   return (
     <section className="flow-panel canvas-panel">
       <div className="panel-heading">
@@ -269,17 +431,77 @@ function FlowNodeCanvas({
         <div className="canvas-toolbar">
           <button>⌖</button>
           <button>100%</button>
-          <button>自动布局</button>
+          <button onClick={autoLayout} type="button">
+            自动布局
+          </button>
         </div>
       </div>
-      <div className="flow-canvas">
+      <div
+        className="flow-canvas dag-canvas"
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={dropNode}
+        ref={canvasRef}
+      >
+        <svg className="flow-edge-layer" aria-hidden="true">
+          <defs>
+            <marker id="flow-arrow" markerHeight="8" markerWidth="8" orient="auto" refX="7" refY="4">
+              <path d="M0,0 L8,4 L0,8 Z" fill="#64748b" />
+            </marker>
+          </defs>
+          {edgeLines.map((edge) => {
+            const midX = Math.max(edge.sourceX + 48, (edge.sourceX + edge.targetX) / 2);
+            const path = `M ${edge.sourceX} ${edge.sourceY} C ${midX} ${edge.sourceY}, ${midX} ${edge.targetY}, ${edge.targetX} ${edge.targetY}`;
+            return <path className="flow-edge-line" d={path} key={edge.id} markerEnd="url(#flow-arrow)" />;
+          })}
+        </svg>
+        <div className="edge-delete-list" aria-label="连接线列表">
+          {edges.map((edge) => (
+            <button key={edge.id} onClick={() => onDeleteEdge(edge.id)} type="button">
+              删除连接 {nodeById.get(edge.source)?.title ?? "节点"} → {nodeById.get(edge.target)?.title ?? "节点"}
+            </button>
+          ))}
+        </div>
         {nodes.map((node, index) => (
-          <div className="canvas-node-stack" key={node.id}>
+          <div
+            className="canvas-node-stack dag-node-stack"
+            key={node.id}
+            style={{ left: node.x, top: node.y }}
+          >
             <button
               className={`flow-node ${node.status} ${node.id === activeNodeId ? "selected" : ""}`}
               onClick={() => onSelectNode(node.id)}
+              onPointerDown={(event) => startNodeDrag(event, node)}
+              onPointerMove={dragNode}
+              onPointerUp={endNodeDrag}
               type="button"
+              style={{ width: nodeSize.width }}
             >
+              <span
+                className={`connection-port in ${connectingFrom && connectingFrom !== node.id ? "connectable" : ""}`}
+                data-node-id={node.id}
+                data-port="in"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  completeConnection(node.id);
+                }}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const source = event.dataTransfer.getData("application/x-academic-edge-source");
+                  if (source) {
+                    onConnectNodes(source, node.id);
+                  }
+                  setConnectionSource(null);
+                }}
+                onPointerUp={(event) => {
+                  event.stopPropagation();
+                  completeConnection(node.id);
+                }}
+                title="连接到该节点"
+              />
               <span className="node-index">{index + 1}</span>
               <strong>{node.title}</strong>
               <small>{node.requirement}</small>
@@ -287,6 +509,38 @@ function FlowNodeCanvas({
                 <em>{kindLabels[node.kind]}</em>
                 <i>{statusLabels[node.status]}</i>
               </span>
+              <span
+                className={`connection-port out ${connectingFrom === node.id ? "connecting" : ""}`}
+                data-node-id={node.id}
+                data-port="out"
+                draggable
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setConnectionSource(node.id);
+                }}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  setConnectionSource(node.id);
+                }}
+                onDragStart={(event) => {
+                  event.stopPropagation();
+                  event.dataTransfer.effectAllowed = "link";
+                  event.dataTransfer.setData("application/x-academic-edge-source", node.id);
+                  setConnectionSource(node.id);
+                }}
+                onDragEnd={(event) => {
+                  const target = document
+                    .elementFromPoint(event.clientX, event.clientY)
+                    ?.closest<HTMLElement>("[data-port='in']");
+                  const targetId = target?.dataset.nodeId;
+                  if (targetId) {
+                    completeConnection(targetId);
+                    return;
+                  }
+                  setConnectionSource(null);
+                }}
+                title="从该节点发起连接"
+              />
             </button>
             {node.id === activeNodeId && (
               <div className="node-quick-actions" aria-label="节点操作">
@@ -301,11 +555,10 @@ function FlowNodeCanvas({
                 </button>
               </div>
             )}
-            {index < nodes.length - 1 && <span className="node-connector">↓</span>}
           </div>
         ))}
         {nodes.length === 0 && (
-          <div className="canvas-empty">请从左侧组件库添加第一个流程节点。</div>
+          <div className="canvas-empty">请从左侧组件库拖入第一个流程节点。</div>
         )}
       </div>
     </section>
@@ -530,4 +783,35 @@ function getTemplateIcon(kind: AcademicFlowNodeKind) {
     return "◫";
   }
   return "▤";
+}
+
+function hasCycle(nodeIds: string[], edges: AcademicFlowEdge[]) {
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const nextNodes = new Map<string, string[]>();
+
+  nodeIds.forEach((id) => nextNodes.set(id, []));
+  edges.forEach((edge) => {
+    nextNodes.get(edge.source)?.push(edge.target);
+  });
+
+  const visit = (nodeId: string): boolean => {
+    if (visiting.has(nodeId)) {
+      return true;
+    }
+    if (visited.has(nodeId)) {
+      return false;
+    }
+    visiting.add(nodeId);
+    for (const target of nextNodes.get(nodeId) ?? []) {
+      if (visit(target)) {
+        return true;
+      }
+    }
+    visiting.delete(nodeId);
+    visited.add(nodeId);
+    return false;
+  };
+
+  return nodeIds.some((nodeId) => visit(nodeId));
 }

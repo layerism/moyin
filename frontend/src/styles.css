@@ -566,6 +566,14 @@ button {
   text-align: left;
 }
 
+.node-template {
+  cursor: grab;
+}
+
+.node-template:active {
+  cursor: grabbing;
+}
+
 .node-template span,
 .node-template-list.compact span {
   width: 32px;
@@ -646,9 +654,6 @@ button {
 
 .flow-canvas {
   min-height: calc(100vh - 260px);
-  display: grid;
-  justify-items: center;
-  align-content: start;
   margin-top: 12px;
   padding: 28px 18px;
   border: 1px solid #edf2f7;
@@ -657,25 +662,74 @@ button {
   background-size: 16px 16px;
 }
 
+.dag-canvas {
+  min-width: 100%;
+  min-height: 780px;
+  position: relative;
+  overflow: auto;
+}
+
+.flow-edge-layer {
+  position: absolute;
+  inset: 0;
+  width: 1200px;
+  height: 1000px;
+  pointer-events: none;
+}
+
+.flow-edge-line {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 2;
+}
+
+.edge-delete-list {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 1;
+  display: grid;
+  gap: 6px;
+  max-width: 250px;
+}
+
+.edge-delete-list button {
+  min-height: 28px;
+  overflow: hidden;
+  padding: 0 8px;
+  border: 1px solid #d9e2ef;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .canvas-node-stack {
   position: relative;
-  display: grid;
-  justify-items: center;
+}
+
+.dag-node-stack {
+  position: absolute;
+  z-index: 3;
 }
 
 .flow-node {
-  width: min(250px, 100%);
-  min-height: 104px;
+  min-height: 126px;
   position: relative;
   display: grid;
   gap: 8px;
-  padding: 18px 18px 14px 48px;
+  padding: 18px 28px 14px 48px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: #ffffff;
   color: #172033;
+  cursor: move;
   text-align: left;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  user-select: none;
 }
 
 .flow-node.selected {
@@ -752,11 +806,32 @@ button {
   color: #1d4ed8;
 }
 
-.node-connector {
-  padding: 10px 0;
-  color: #64748b;
-  font-size: 24px;
-  font-weight: 800;
+.connection-port {
+  width: 14px;
+  height: 14px;
+  position: absolute;
+  top: calc(50% - 7px);
+  z-index: 5;
+  display: block;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #2773f6;
+  box-shadow: 0 0 0 1px #2563eb;
+  cursor: crosshair;
+}
+
+.connection-port.in {
+  left: 6px;
+}
+
+.connection-port.out {
+  right: 6px;
+}
+
+.connection-port.connectable,
+.connection-port.connecting {
+  background: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18);
 }
 
 .node-quick-actions {
@@ -778,6 +853,8 @@ button {
 }
 
 .canvas-empty {
+  position: absolute;
+  inset: 0;
   min-height: 220px;
   display: grid;
   place-items: center;

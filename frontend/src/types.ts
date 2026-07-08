@@ -75,10 +75,19 @@ export type AcademicFlowNode = {
   requirement: string;
   status: AcademicFlowNodeStatus;
   title: string;
+  x: number;
+  y: number;
+};
+
+export type AcademicFlowEdge = {
+  id: string;
+  source: string;
+  target: string;
 };
 
 export type AcademicProcess = {
   createdAt: string;
+  edges: AcademicFlowEdge[];
   encryptedSlug: string;
   id: string;
   name: string;
