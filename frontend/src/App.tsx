@@ -216,7 +216,15 @@ export function App() {
   }
 
   if (screen === "academicFlow") {
-    return <AcademicFlowView onHome={() => setScreen("home")} />;
+    return (
+      <AcademicFlowView
+        onHome={() => setScreen("home")}
+        onOssCloud={() => {
+          setHomeActiveFolder(null);
+          setScreen("home");
+        }}
+      />
+    );
   }
 
   if (screen === "login") {

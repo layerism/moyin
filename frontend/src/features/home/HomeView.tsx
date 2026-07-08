@@ -438,7 +438,13 @@ export function HomeView({
   );
 }
 
-export function AcademicFlowView({ onHome }: { onHome: () => void }) {
+export function AcademicFlowView({
+  onHome,
+  onOssCloud,
+}: {
+  onHome: () => void;
+  onOssCloud: () => void;
+}) {
   return (
     <main className="home-page">
       <aside className="drive-sidebar">
@@ -451,7 +457,7 @@ export function AcademicFlowView({ onHome }: { onHome: () => void }) {
         <nav className="drive-nav" aria-label="首页导航">
           <button onClick={onHome}>⌂ 首页</button>
           <button className="selected">教务流程</button>
-          <button>▾ OSS 云盘</button>
+          <button onClick={onOssCloud}>▾ OSS 云盘</button>
         </nav>
       </aside>
 
