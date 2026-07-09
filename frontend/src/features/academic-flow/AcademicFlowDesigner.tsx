@@ -361,6 +361,7 @@ function FlowNodeCanvas({
   const [connectionPreviewPort, setConnectionPreviewPort] = useState<AcademicFlowPort | null>(
     null,
   );
+  const [connectionPreviewTargetId, setConnectionPreviewTargetId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [draggingNode, setDraggingNode] = useState<{
     id: string;
@@ -499,11 +500,13 @@ function FlowNodeCanvas({
     if (!source) {
       setConnectionPreviewPoint(null);
       setConnectionPreviewPort(null);
+      setConnectionPreviewTargetId(null);
       return;
     }
     const sourceNode = nodeById.get(source.nodeId);
     setConnectionPreviewPoint(sourceNode ? getPortPoint(sourceNode, source.port) : null);
     setConnectionPreviewPort(null);
+    setConnectionPreviewTargetId(null);
   };
 
   const completeConnection = (targetId: string, targetPort: AcademicFlowPort) => {
@@ -523,6 +526,7 @@ function FlowNodeCanvas({
     const magnetTarget = findMagnetTarget(point, source.nodeId);
     setConnectionPreviewPoint(magnetTarget?.point ?? point);
     setConnectionPreviewPort(magnetTarget?.port ?? null);
+    setConnectionPreviewTargetId(magnetTarget?.node.id ?? null);
   };
 
   const finishConnectionAt = (clientX: number, clientY: number) => {
@@ -557,6 +561,27 @@ function FlowNodeCanvas({
       });
     });
   };
+  const previewSourceNode = connectingFrom ? nodeById.get(connectingFrom.nodeId) ?? null : null;
+  const previewSourcePoint =
+    previewSourceNode && connectingFrom ? getPortPoint(previewSourceNode, connectingFrom.port) : null;
+  const previewPath =
+    previewSourceNode && previewSourcePoint && connectingFrom && connectionPreviewPoint
+      ? connectionPreviewPort && connectionPreviewTargetId
+        ? createOrthogonalPath(
+            {
+              source: previewSourceNode.id,
+              sourcePort: connectingFrom.port,
+              sourceX: previewSourcePoint.x,
+              sourceY: previewSourcePoint.y,
+              target: connectionPreviewTargetId,
+              targetPort: connectionPreviewPort,
+              targetX: connectionPreviewPoint.x,
+              targetY: connectionPreviewPoint.y,
+            },
+            nodes,
+          )
+        : createPreviewPath(previewSourceNode, connectingFrom.port, connectionPreviewPoint)
+      : "";
 
   return (
     <section className="flow-panel canvas-panel">
@@ -614,15 +639,11 @@ function FlowNodeCanvas({
           })}
           {connectingFrom &&
             connectionPreviewPoint &&
-            nodeById.get(connectingFrom.nodeId) && (
+            previewPath && (
               <>
                 <path
                   className="flow-edge-preview"
-                  d={createPreviewPath(
-                    nodeById.get(connectingFrom.nodeId) as AcademicFlowNode,
-                    connectingFrom.port,
-                    connectionPreviewPoint,
-                  )}
+                  d={previewPath}
                 />
                 {connectionPreviewPort && (
                   <polygon
@@ -1080,6 +1101,8 @@ function createOrthogonalPath(edge: {
   const targetIsHorizontal = edge.targetPort === "left" || edge.targetPort === "right";
   const canvasLeft = Math.min(...nodes.map((node) => node.x)) - 80;
   const canvasRight = Math.max(...nodes.map((node) => node.x + nodeSize.width)) + 80;
+  const canvasTop = Math.min(...nodes.map((node) => node.y)) - 80;
+  const canvasBottom = Math.max(...nodes.map((node) => node.y + nodeSize.height)) + 80;
   const targetNode = nodes.find((node) => node.id === edge.target);
   const bypassYs = targetNode
     ? [targetNode.y - 40, targetNode.y + nodeSize.height + 40]
@@ -1118,6 +1141,36 @@ function createOrthogonalPath(edge: {
         sourceOffset,
         { x: sideX, y: sourceOffset.y },
         { x: sideX, y: targetOffset.y },
+        targetOffset,
+        { x: edge.targetX, y: edge.targetY },
+      ]);
+    });
+  }
+
+  if (!sourceIsHorizontal && targetIsHorizontal) {
+    const targetSideXs =
+      edge.targetPort === "left" ? [canvasLeft, canvasRight] : [canvasRight, canvasLeft];
+    targetSideXs.forEach((sideX) => {
+      candidates.push([
+        { x: edge.sourceX, y: edge.sourceY },
+        sourceOffset,
+        { x: sideX, y: sourceOffset.y },
+        { x: sideX, y: targetOffset.y },
+        targetOffset,
+        { x: edge.targetX, y: edge.targetY },
+      ]);
+    });
+  }
+
+  if (sourceIsHorizontal && !targetIsHorizontal) {
+    const targetSideYs =
+      edge.targetPort === "top" ? [canvasTop, canvasBottom] : [canvasBottom, canvasTop];
+    targetSideYs.forEach((sideY) => {
+      candidates.push([
+        { x: edge.sourceX, y: edge.sourceY },
+        sourceOffset,
+        { x: sourceOffset.x, y: sideY },
+        { x: targetOffset.x, y: sideY },
         targetOffset,
         { x: edge.targetX, y: edge.targetY },
       ]);
