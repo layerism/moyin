@@ -683,6 +683,11 @@ button {
   stroke-width: 2;
 }
 
+.flow-edge-arrow {
+  fill: #64748b;
+  pointer-events: none;
+}
+
 .flow-edge-hitbox {
   fill: none;
   stroke: rgba(39, 115, 246, 0.001);
@@ -699,8 +704,16 @@ button {
   stroke-width: 3;
 }
 
+.flow-edge-group:hover .flow-edge-arrow {
+  fill: #ef4444;
+}
+
 .flow-edge-group.selected .flow-edge-line {
   stroke: #2773f6;
+}
+
+.flow-edge-group.selected .flow-edge-arrow {
+  fill: #2773f6;
 }
 
 .flow-edge-delete {
@@ -723,6 +736,11 @@ button {
   stroke: #2773f6;
   stroke-dasharray: 6 5;
   stroke-width: 2;
+  pointer-events: none;
+}
+
+.flow-edge-preview-arrow {
+  fill: #2773f6;
   pointer-events: none;
 }
 

@@ -358,6 +358,9 @@ function FlowNodeCanvas({
     x: number;
     y: number;
   } | null>(null);
+  const [connectionPreviewPort, setConnectionPreviewPort] = useState<AcademicFlowPort | null>(
+    null,
+  );
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [draggingNode, setDraggingNode] = useState<{
     id: string;
@@ -495,10 +498,12 @@ function FlowNodeCanvas({
     setConnectingFrom(source);
     if (!source) {
       setConnectionPreviewPoint(null);
+      setConnectionPreviewPort(null);
       return;
     }
     const sourceNode = nodeById.get(source.nodeId);
     setConnectionPreviewPoint(sourceNode ? getPortPoint(sourceNode, source.port) : null);
+    setConnectionPreviewPort(null);
   };
 
   const completeConnection = (targetId: string, targetPort: AcademicFlowPort) => {
@@ -517,6 +522,7 @@ function FlowNodeCanvas({
     const point = getCanvasPoint(clientX, clientY);
     const magnetTarget = findMagnetTarget(point, source.nodeId);
     setConnectionPreviewPoint(magnetTarget?.point ?? point);
+    setConnectionPreviewPort(magnetTarget?.port ?? null);
   };
 
   const finishConnectionAt = (clientX: number, clientY: number) => {
@@ -584,16 +590,15 @@ function FlowNodeCanvas({
         ref={canvasRef}
       >
         <svg className="flow-edge-layer">
-          <defs>
-            <marker id="flow-arrow" markerHeight="8" markerWidth="8" orient="auto" refX="7" refY="4">
-              <path d="M0,0 L8,4 L0,8 Z" fill="#64748b" />
-            </marker>
-          </defs>
           {edgeLines.map((edge) => {
             const path = createOrthogonalPath(edge, nodes);
             return (
               <g className={`flow-edge-group ${edge.id === selectedEdgeId ? "selected" : ""}`} key={edge.id}>
-                <path className="flow-edge-line" d={path} markerEnd="url(#flow-arrow)" />
+                <path className="flow-edge-line" d={path} />
+                <polygon
+                  className="flow-edge-arrow"
+                  points={createArrowPolygon(edge.targetX, edge.targetY, edge.targetPort)}
+                />
                 <path
                   aria-label="选择连接线"
                   className="flow-edge-hitbox"
@@ -610,15 +615,26 @@ function FlowNodeCanvas({
           {connectingFrom &&
             connectionPreviewPoint &&
             nodeById.get(connectingFrom.nodeId) && (
-              <path
-                className="flow-edge-preview"
-                d={createPreviewPath(
-                  nodeById.get(connectingFrom.nodeId) as AcademicFlowNode,
-                  connectingFrom.port,
-                  connectionPreviewPoint,
+              <>
+                <path
+                  className="flow-edge-preview"
+                  d={createPreviewPath(
+                    nodeById.get(connectingFrom.nodeId) as AcademicFlowNode,
+                    connectingFrom.port,
+                    connectionPreviewPoint,
+                  )}
+                />
+                {connectionPreviewPort && (
+                  <polygon
+                    className="flow-edge-preview-arrow"
+                    points={createArrowPolygon(
+                      connectionPreviewPoint.x,
+                      connectionPreviewPoint.y,
+                      connectionPreviewPort,
+                    )}
+                  />
                 )}
-                markerEnd="url(#flow-arrow)"
-              />
+              </>
             )}
         </svg>
         {selectedEdge && (
@@ -1192,6 +1208,21 @@ function createPreviewPath(
   const [first, ...rest] = dedupePoints(points);
 
   return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
+}
+
+function createArrowPolygon(x: number, y: number, targetPort: AcademicFlowPort) {
+  const size = 9;
+  const half = 5;
+  if (targetPort === "top") {
+    return `${x},${y} ${x - half},${y - size} ${x + half},${y - size}`;
+  }
+  if (targetPort === "bottom") {
+    return `${x},${y} ${x - half},${y + size} ${x + half},${y + size}`;
+  }
+  if (targetPort === "left") {
+    return `${x},${y} ${x - size},${y - half} ${x - size},${y + half}`;
+  }
+  return `${x},${y} ${x + size},${y - half} ${x + size},${y + half}`;
 }
 
 function getEdgeDeleteButtonStyle(edge: {
