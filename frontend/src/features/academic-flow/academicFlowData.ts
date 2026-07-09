@@ -25,6 +25,7 @@ export function createAcademicProcess(name: string, id = `academic-${Date.now()}
   const encryptedSlug = createEncryptedSlug();
   return {
     createdAt: "刚刚",
+    description: `用于“${name}”的分阶段提交与审核。`,
     edges: createDefaultEdges(),
     encryptedSlug,
     id,
@@ -36,7 +37,7 @@ export function createAcademicProcess(name: string, id = `academic-${Date.now()}
 }
 
 export function createFallbackAcademicProcess(id: string): AcademicProcess {
-  return createAcademicProcess("毕业论文材料提交流程", id);
+  return createAcademicProcess("未命名 OA 流程", id);
 }
 
 export function createNode(

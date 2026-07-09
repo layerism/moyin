@@ -162,7 +162,7 @@ export function AcademicFlowDesigner({
               <h1>{process.name}</h1>
               <span className={process.published ? "status-pill ok" : "status-pill"}>草稿</span>
             </div>
-            <p>流程说明：用于教务材料的分阶段提交与审核。</p>
+            <p>流程说明：{process.description}</p>
           </div>
           <div className="academic-actions">
             <button onClick={() => setMode("student")}>预览学生端</button>

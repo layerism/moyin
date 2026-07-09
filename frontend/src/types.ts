@@ -90,6 +90,7 @@ export type AcademicFlowEdge = {
 
 export type AcademicProcess = {
   createdAt: string;
+  description: string;
   edges: AcademicFlowEdge[];
   encryptedSlug: string;
   id: string;
