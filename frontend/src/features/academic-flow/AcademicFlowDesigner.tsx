@@ -27,7 +27,19 @@ const kindLabels: Record<AcademicFlowNodeKind, string> = {
 };
 
 const nodeSize = { height: 126, width: 280 };
+const canvasGridSize = 16;
 const connectionPorts: AcademicFlowPort[] = ["top", "right", "bottom", "left"];
+
+function snapToGrid(value: number) {
+  return Math.round(value / canvasGridSize) * canvasGridSize;
+}
+
+function snapCanvasPoint(position: { x: number; y: number }) {
+  return {
+    x: Math.max(canvasGridSize, snapToGrid(position.x)),
+    y: Math.max(canvasGridSize, snapToGrid(position.y)),
+  };
+}
 
 type ConnectionDraft = {
   nodeId: string;
@@ -461,10 +473,14 @@ function FlowNodeCanvas({
       return;
     }
     const point = getCanvasPoint(event.clientX, event.clientY);
-    onAddNode(kind, title, {
-      x: Math.max(24, point.x - nodeSize.width / 2),
-      y: Math.max(24, point.y - nodeSize.height / 2),
-    });
+    onAddNode(
+      kind,
+      title,
+      snapCanvasPoint({
+        x: point.x - nodeSize.width / 2,
+        y: point.y - nodeSize.height / 2,
+      }),
+    );
   };
 
   const startNodeDrag = (event: PointerEvent<HTMLButtonElement>, node: AcademicFlowNode) => {
@@ -481,10 +497,15 @@ function FlowNodeCanvas({
       return;
     }
     const point = getCanvasPoint(event.clientX, event.clientY);
-    onUpdateNode(draggingNode.id, {
-      x: Math.max(16, point.x - draggingNode.offsetX),
-      y: Math.max(16, point.y - draggingNode.offsetY),
+    const nextPosition = snapCanvasPoint({
+      x: point.x - draggingNode.offsetX,
+      y: point.y - draggingNode.offsetY,
     });
+    const currentNode = nodeById.get(draggingNode.id);
+    if (currentNode?.x === nextPosition.x && currentNode?.y === nextPosition.y) {
+      return;
+    }
+    onUpdateNode(draggingNode.id, nextPosition);
   };
 
   const endNodeDrag = (event: PointerEvent<HTMLButtonElement>) => {
@@ -555,10 +576,13 @@ function FlowNodeCanvas({
 
   const autoLayout = () => {
     nodes.forEach((node, index) => {
-      onUpdateNode(node.id, {
-        x: 170 + (index % 2) * 330,
-        y: 70 + Math.floor(index / 2) * 185,
-      });
+      onUpdateNode(
+        node.id,
+        snapCanvasPoint({
+          x: 170 + (index % 2) * 330,
+          y: 70 + Math.floor(index / 2) * 185,
+        }),
+      );
     });
   };
   const previewSourceNode = connectingFrom ? nodeById.get(connectingFrom.nodeId) ?? null : null;

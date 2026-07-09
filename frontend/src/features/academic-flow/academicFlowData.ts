@@ -42,7 +42,7 @@ export function createFallbackAcademicProcess(id: string): AcademicProcess {
 export function createNode(
   kind: AcademicFlowNodeKind,
   title: string,
-  position = { x: 210, y: 80 },
+  position = { x: 208, y: 80 },
 ): AcademicFlowNode {
   return {
     auditScriptName: kind === "file" ? "check_material.py" : "",
@@ -78,8 +78,8 @@ function createDefaultNodes(): AcademicFlowNode[] {
       id: "default-basic-info",
       infoFields: ["学号", "姓名", "联系电话", "指导教师"],
       status: statusCycle[0],
-      x: 170,
-      y: 70,
+      x: 176,
+      y: 32,
     },
     {
       ...createNode("file", "开题报告提交"),
@@ -87,8 +87,8 @@ function createDefaultNodes(): AcademicFlowNode[] {
       id: "default-proposal",
       requirement: "上传开题报告文件（PDF），系统检查命名与格式。",
       status: statusCycle[1],
-      x: 170,
-      y: 250,
+      x: 176,
+      y: 208,
     },
     {
       ...createNode("file", "中期检查材料提交"),
@@ -96,8 +96,8 @@ function createDefaultNodes(): AcademicFlowNode[] {
       id: "default-midterm",
       requirement: "上传中期检查相关材料，包含进度报告与阶段性成果。",
       status: statusCycle[2],
-      x: 170,
-      y: 430,
+      x: 176,
+      y: 384,
     },
     {
       ...createNode("file", "终稿提交"),
@@ -106,8 +106,8 @@ function createDefaultNodes(): AcademicFlowNode[] {
       id: "default-final",
       requirement: "上传论文终稿及相关材料，等待前置节点审核通过后开放。",
       status: statusCycle[3],
-      x: 170,
-      y: 610,
+      x: 176,
+      y: 560,
     },
   ];
 }
