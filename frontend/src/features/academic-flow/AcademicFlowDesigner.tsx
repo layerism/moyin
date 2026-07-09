@@ -590,7 +590,7 @@ function FlowNodeCanvas({
             </marker>
           </defs>
           {edgeLines.map((edge) => {
-            const path = createOrthogonalPath(edge);
+            const path = createOrthogonalPath(edge, nodes);
             return (
               <g className={`flow-edge-group ${edge.id === selectedEdgeId ? "selected" : ""}`} key={edge.id}>
                 <path className="flow-edge-line" d={path} markerEnd="url(#flow-arrow)" />
@@ -1049,25 +1049,133 @@ function resolveEdgePorts(edge: AcademicFlowEdge, source: AcademicFlowNode, targ
 }
 
 function createOrthogonalPath(edge: {
+  source: string;
   sourcePort: AcademicFlowPort;
   sourceX: number;
   sourceY: number;
+  target: string;
   targetPort: AcademicFlowPort;
   targetX: number;
   targetY: number;
-}) {
+}, nodes: AcademicFlowNode[]) {
   const sourceOffset = offsetPoint(edge.sourceX, edge.sourceY, edge.sourcePort, 22);
   const targetOffset = offsetPoint(edge.targetX, edge.targetY, edge.targetPort, 22);
-  const points = [
-    { x: edge.sourceX, y: edge.sourceY },
-    sourceOffset,
-    ...getOrthogonalMidpoints(sourceOffset, targetOffset, edge.sourcePort, edge.targetPort),
-    targetOffset,
-    { x: edge.targetX, y: edge.targetY },
+  const sourceIsHorizontal = edge.sourcePort === "left" || edge.sourcePort === "right";
+  const targetIsHorizontal = edge.targetPort === "left" || edge.targetPort === "right";
+  const canvasLeft = Math.min(...nodes.map((node) => node.x)) - 80;
+  const canvasRight = Math.max(...nodes.map((node) => node.x + nodeSize.width)) + 80;
+  const targetNode = nodes.find((node) => node.id === edge.target);
+  const bypassYs = targetNode
+    ? [targetNode.y - 40, targetNode.y + nodeSize.height + 40]
+    : [(sourceOffset.y + targetOffset.y) / 2];
+  const sideXs = edge.sourcePort === "left" ? [canvasLeft, canvasRight] : [canvasRight, canvasLeft];
+  const candidates = [
+    [
+      { x: edge.sourceX, y: edge.sourceY },
+      sourceOffset,
+      ...getOrthogonalMidpoints(sourceOffset, targetOffset, edge.sourcePort, edge.targetPort),
+      targetOffset,
+      { x: edge.targetX, y: edge.targetY },
+    ],
   ];
+
+  if (sourceIsHorizontal && targetIsHorizontal) {
+    sideXs.forEach((sideX) => {
+      bypassYs.forEach((bypassY) => {
+        candidates.push([
+          { x: edge.sourceX, y: edge.sourceY },
+          sourceOffset,
+          { x: sideX, y: sourceOffset.y },
+          { x: sideX, y: bypassY },
+          { x: targetOffset.x, y: bypassY },
+          targetOffset,
+          { x: edge.targetX, y: edge.targetY },
+        ]);
+      });
+    });
+  }
+
+  if (!sourceIsHorizontal && !targetIsHorizontal) {
+    sideXs.forEach((sideX) => {
+      candidates.push([
+        { x: edge.sourceX, y: edge.sourceY },
+        sourceOffset,
+        { x: sideX, y: sourceOffset.y },
+        { x: sideX, y: targetOffset.y },
+        targetOffset,
+        { x: edge.targetX, y: edge.targetY },
+      ]);
+    });
+  }
+
+  const points = candidates
+    .map((candidate) => dedupePoints(candidate))
+    .sort((left, right) => {
+      const leftScore = getRouteCollisionCount(left, nodes, edge.source, edge.target);
+      const rightScore = getRouteCollisionCount(right, nodes, edge.source, edge.target);
+      if (leftScore !== rightScore) {
+        return leftScore - rightScore;
+      }
+      return getRouteLength(left) - getRouteLength(right);
+    })[0];
   const [first, ...rest] = dedupePoints(points);
 
   return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
+}
+
+function getRouteCollisionCount(
+  points: Array<{ x: number; y: number }>,
+  nodes: AcademicFlowNode[],
+  sourceId: string,
+  targetId: string,
+) {
+  return points.slice(1).reduce((count, point, index) => {
+    const segment = { a: points[index], b: point };
+    const isFirstSegment = index === 0;
+    const isLastSegment = index === points.length - 2;
+    return (
+      count +
+      nodes.filter((node) => {
+        if (node.id === sourceId && isFirstSegment) {
+          return false;
+        }
+        if (node.id === targetId && isLastSegment) {
+          return false;
+        }
+        return segmentIntersectsNodeInterior(segment, node);
+      }).length
+    );
+  }, 0);
+}
+
+function segmentIntersectsNodeInterior(
+  segment: { a: { x: number; y: number }; b: { x: number; y: number } },
+  node: AcademicFlowNode,
+) {
+  const margin = 6;
+  const left = node.x + margin;
+  const right = node.x + nodeSize.width - margin;
+  const top = node.y + margin;
+  const bottom = node.y + nodeSize.height - margin;
+  const minX = Math.min(segment.a.x, segment.b.x);
+  const maxX = Math.max(segment.a.x, segment.b.x);
+  const minY = Math.min(segment.a.y, segment.b.y);
+  const maxY = Math.max(segment.a.y, segment.b.y);
+
+  if (segment.a.y === segment.b.y) {
+    return segment.a.y > top && segment.a.y < bottom && maxX > left && minX < right;
+  }
+  if (segment.a.x === segment.b.x) {
+    return segment.a.x > left && segment.a.x < right && maxY > top && minY < bottom;
+  }
+  return false;
+}
+
+function getRouteLength(points: Array<{ x: number; y: number }>) {
+  return points.slice(1).reduce((length, point, index) => {
+    const previous = points[index];
+    return length + Math.abs(point.x - previous.x) + Math.abs(point.y - previous.y);
+  }, 0);
 }
 
 function createPreviewPath(
