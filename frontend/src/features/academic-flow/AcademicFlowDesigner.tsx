@@ -411,6 +411,44 @@ function FlowNodeCanvas({
     };
   };
 
+  const findMagnetTarget = (point: { x: number; y: number }, sourceNodeId: string) => {
+    const magnetPadding = 36;
+    const candidates = nodes
+      .filter((node) => node.id !== sourceNodeId)
+      .map((node) => {
+        const inside =
+          point.x >= node.x - magnetPadding &&
+          point.x <= node.x + nodeSize.width + magnetPadding &&
+          point.y >= node.y - magnetPadding &&
+          point.y <= node.y + nodeSize.height + magnetPadding;
+        if (!inside) {
+          return null;
+        }
+        const ports = connectionPorts.map((port) => {
+          const portPoint = getPortPoint(node, port);
+          return {
+            node,
+            point: portPoint,
+            port,
+            distance: Math.hypot(point.x - portPoint.x, point.y - portPoint.y),
+          };
+        });
+        return ports.sort((left, right) => left.distance - right.distance)[0];
+      })
+      .filter(
+        (
+          candidate,
+        ): candidate is {
+          distance: number;
+          node: AcademicFlowNode;
+          point: { x: number; y: number };
+          port: AcademicFlowPort;
+        } => Boolean(candidate),
+      );
+
+    return candidates.sort((left, right) => left.distance - right.distance)[0] ?? null;
+  };
+
   const dropNode = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const kind = event.dataTransfer.getData("application/x-academic-node-kind") as AcademicFlowNodeKind;
@@ -472,10 +510,37 @@ function FlowNodeCanvas({
   };
 
   const updateConnectionPreview = (clientX: number, clientY: number) => {
-    if (!connectingFromRef.current) {
+    const source = connectingFromRef.current;
+    if (!source) {
       return;
     }
-    setConnectionPreviewPoint(getCanvasPoint(clientX, clientY));
+    const point = getCanvasPoint(clientX, clientY);
+    const magnetTarget = findMagnetTarget(point, source.nodeId);
+    setConnectionPreviewPoint(magnetTarget?.point ?? point);
+  };
+
+  const finishConnectionAt = (clientX: number, clientY: number) => {
+    const source = connectingFromRef.current;
+    if (!source) {
+      return;
+    }
+    const explicitTarget = document
+      .elementFromPoint(clientX, clientY)
+      ?.closest<HTMLElement>("[data-port-position]");
+    const explicitTargetId = explicitTarget?.dataset.nodeId;
+    const explicitTargetPort = explicitTarget?.dataset.portPosition as
+      | AcademicFlowPort
+      | undefined;
+    if (explicitTargetId && explicitTargetPort && explicitTargetId !== source.nodeId) {
+      completeConnection(explicitTargetId, explicitTargetPort);
+      return;
+    }
+    const magnetTarget = findMagnetTarget(getCanvasPoint(clientX, clientY), source.nodeId);
+    if (magnetTarget) {
+      completeConnection(magnetTarget.node.id, magnetTarget.port);
+      return;
+    }
+    setConnectionSource(null);
   };
 
   const autoLayout = () => {
@@ -508,10 +573,8 @@ function FlowNodeCanvas({
         }}
         onDrop={dropNode}
         onPointerMove={(event) => updateConnectionPreview(event.clientX, event.clientY)}
-        onPointerUp={() => {
-          if (connectingFromRef.current) {
-            setConnectionSource(null);
-          }
+        onPointerUp={(event) => {
+          finishConnectionAt(event.clientX, event.clientY);
         }}
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) {
@@ -653,7 +716,7 @@ function FlowNodeCanvas({
                       completeConnection(targetId, targetPort);
                       return;
                     }
-                    setConnectionSource(null);
+                    finishConnectionAt(event.clientX, event.clientY);
                   }}
                   title={`${getPortLabel(port)}连接点`}
                 />
@@ -993,7 +1056,7 @@ function createOrthogonalPath(edge: {
   const points = [
     { x: edge.sourceX, y: edge.sourceY },
     sourceOffset,
-    ...getOrthogonalMidpoints(sourceOffset, targetOffset),
+    ...getOrthogonalMidpoints(sourceOffset, targetOffset, edge.sourcePort, edge.targetPort),
     targetOffset,
     { x: edge.targetX, y: edge.targetY },
   ];
@@ -1033,9 +1096,29 @@ function getEdgeDeleteButtonStyle(edge: {
 function getOrthogonalMidpoints(
   source: { x: number; y: number },
   target: { x: number; y: number },
+  sourcePort: AcademicFlowPort,
+  targetPort: AcademicFlowPort,
 ) {
   if (source.x === target.x || source.y === target.y) {
     return [];
+  }
+
+  const sourceIsHorizontal = sourcePort === "left" || sourcePort === "right";
+  const targetIsHorizontal = targetPort === "left" || targetPort === "right";
+  if (sourceIsHorizontal && targetIsHorizontal) {
+    const midX = (source.x + target.x) / 2;
+    return [
+      { x: midX, y: source.y },
+      { x: midX, y: target.y },
+    ];
+  }
+
+  if (sourceIsHorizontal && !targetIsHorizontal) {
+    return [{ x: target.x, y: source.y }];
+  }
+
+  if (!sourceIsHorizontal && targetIsHorizontal) {
+    return [{ x: source.x, y: target.y }];
   }
 
   const midY = (source.y + target.y) / 2;
