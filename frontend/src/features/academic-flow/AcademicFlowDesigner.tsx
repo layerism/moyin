@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent, PointerEvent } from "react";
 
 import type {
@@ -358,6 +358,7 @@ function FlowNodeCanvas({
     x: number;
     y: number;
   } | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [draggingNode, setDraggingNode] = useState<{
     id: string;
     offsetX: number;
@@ -383,6 +384,21 @@ function FlowNodeCanvas({
       sourcePort: AcademicFlowPort;
       targetPort: AcademicFlowPort;
     } => Boolean(edge));
+  const selectedEdge = edgeLines.find((edge) => edge.id === selectedEdgeId) ?? null;
+
+  useEffect(() => {
+    const deleteSelectedEdge = (event: KeyboardEvent) => {
+      if (!selectedEdgeId || (event.key !== "Backspace" && event.key !== "Delete")) {
+        return;
+      }
+      event.preventDefault();
+      onDeleteEdge(selectedEdgeId);
+      setSelectedEdgeId(null);
+    };
+
+    window.addEventListener("keydown", deleteSelectedEdge);
+    return () => window.removeEventListener("keydown", deleteSelectedEdge);
+  }, [onDeleteEdge, selectedEdgeId]);
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -497,9 +513,14 @@ function FlowNodeCanvas({
             setConnectionSource(null);
           }
         }}
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setSelectedEdgeId(null);
+          }
+        }}
         ref={canvasRef}
       >
-        <svg className="flow-edge-layer" aria-hidden="true">
+        <svg className="flow-edge-layer">
           <defs>
             <marker id="flow-arrow" markerHeight="8" markerWidth="8" orient="auto" refX="7" refY="4">
               <path d="M0,0 L8,4 L0,8 Z" fill="#64748b" />
@@ -508,15 +529,15 @@ function FlowNodeCanvas({
           {edgeLines.map((edge) => {
             const path = createOrthogonalPath(edge);
             return (
-              <g className="flow-edge-group" key={edge.id}>
+              <g className={`flow-edge-group ${edge.id === selectedEdgeId ? "selected" : ""}`} key={edge.id}>
                 <path className="flow-edge-line" d={path} markerEnd="url(#flow-arrow)" />
                 <path
-                  aria-label="删除连接线"
+                  aria-label="选择连接线"
                   className="flow-edge-hitbox"
                   d={path}
                   onClick={(event) => {
                     event.stopPropagation();
-                    onDeleteEdge(edge.id);
+                    setSelectedEdgeId(edge.id);
                   }}
                   role="button"
                 />
@@ -537,6 +558,20 @@ function FlowNodeCanvas({
               />
             )}
         </svg>
+        {selectedEdge && (
+          <button
+            aria-label="删除连接线"
+            className="flow-edge-delete"
+            onClick={() => {
+              onDeleteEdge(selectedEdge.id);
+              setSelectedEdgeId(null);
+            }}
+            style={getEdgeDeleteButtonStyle(selectedEdge)}
+            type="button"
+          >
+            ×
+          </button>
+        )}
         {nodes.map((node, index) => (
           <div
             className="canvas-node-stack dag-node-stack"
@@ -981,6 +1016,18 @@ function createPreviewPath(
   const [first, ...rest] = dedupePoints(points);
 
   return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
+}
+
+function getEdgeDeleteButtonStyle(edge: {
+  sourceX: number;
+  sourceY: number;
+  targetX: number;
+  targetY: number;
+}) {
+  return {
+    left: (edge.sourceX + edge.targetX) / 2,
+    top: (edge.sourceY + edge.targetY) / 2,
+  };
 }
 
 function getOrthogonalMidpoints(

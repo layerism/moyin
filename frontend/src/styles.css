@@ -693,9 +693,29 @@ button {
   pointer-events: stroke;
 }
 
-.flow-edge-group:hover .flow-edge-line {
+.flow-edge-group:hover .flow-edge-line,
+.flow-edge-group.selected .flow-edge-line {
   stroke: #ef4444;
   stroke-width: 3;
+}
+
+.flow-edge-group.selected .flow-edge-line {
+  stroke: #2773f6;
+}
+
+.flow-edge-delete {
+  width: 24px;
+  height: 24px;
+  position: absolute;
+  z-index: 6;
+  transform: translate(-50%, -50%);
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+  font-size: 16px;
+  font-weight: 900;
 }
 
 .flow-edge-preview {
@@ -840,6 +860,12 @@ button {
   background: #2773f6;
   box-shadow: 0 0 0 1px #2563eb;
   cursor: crosshair;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.82);
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease;
 }
 
 .connection-port.top {
@@ -866,6 +892,15 @@ button {
 .connection-port.connecting {
   background: #10b981;
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18);
+}
+
+.flow-node:hover .connection-port,
+.flow-node.selected .connection-port,
+.connection-port.connectable,
+.connection-port.connecting {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1);
 }
 
 .node-quick-actions {
