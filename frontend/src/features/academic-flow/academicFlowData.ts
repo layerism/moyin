@@ -1,8 +1,6 @@
 import type {
-  AcademicFlowEdge,
   AcademicFlowNode,
   AcademicFlowNodeKind,
-  AcademicFlowNodeStatus,
   AcademicProcess,
   AuditScriptType,
 } from "../../types";
@@ -19,18 +17,16 @@ export const nodeTemplates: Array<{
   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
 ];
 
-const statusCycle: AcademicFlowNodeStatus[] = ["approved", "approved", "pending", "disabled"];
-
 export function createAcademicProcess(name: string, id = `academic-${Date.now()}`): AcademicProcess {
   const encryptedSlug = createEncryptedSlug();
   return {
     createdAt: "刚刚",
     description: `用于“${name}”的分阶段提交与审核。`,
-    edges: createDefaultEdges(),
+    edges: [],
     encryptedSlug,
     id,
     name,
-    nodes: createDefaultNodes(),
+    nodes: [],
     published: false,
     shareUrl: `/academic-flow/${encodeURIComponent(id)}/student/${encryptedSlug}`,
   };
@@ -69,74 +65,6 @@ export function getAuditScriptLabel(value: AuditScriptType) {
     return "Node.js (.mjs)";
   }
   return "不启用脚本";
-}
-
-function createDefaultNodes(): AcademicFlowNode[] {
-  return [
-    {
-      ...createNode("form", "基本信息填写"),
-      auditScriptType: "none",
-      id: "default-basic-info",
-      infoFields: ["学号", "姓名", "联系电话", "指导教师"],
-      status: statusCycle[0],
-      x: 176,
-      y: 32,
-    },
-    {
-      ...createNode("file", "开题报告提交"),
-      auditScriptName: "check_proposal.py",
-      id: "default-proposal",
-      requirement: "上传开题报告文件（PDF），系统检查命名与格式。",
-      status: statusCycle[1],
-      x: 176,
-      y: 208,
-    },
-    {
-      ...createNode("file", "中期检查材料提交"),
-      auditScriptName: "check_midterm.py",
-      id: "default-midterm",
-      requirement: "上传中期检查相关材料，包含进度报告与阶段性成果。",
-      status: statusCycle[2],
-      x: 176,
-      y: 384,
-    },
-    {
-      ...createNode("file", "终稿提交"),
-      auditScriptName: "check_final.mjs",
-      auditScriptType: "mjs",
-      id: "default-final",
-      requirement: "上传论文终稿及相关材料，等待前置节点审核通过后开放。",
-      status: statusCycle[3],
-      x: 176,
-      y: 560,
-    },
-  ];
-}
-
-function createDefaultEdges(): AcademicFlowEdge[] {
-  return [
-    {
-      id: "edge-default-basic-info-default-proposal",
-      source: "default-basic-info",
-      sourcePort: "bottom",
-      target: "default-proposal",
-      targetPort: "top",
-    },
-    {
-      id: "edge-default-proposal-default-midterm",
-      source: "default-proposal",
-      sourcePort: "bottom",
-      target: "default-midterm",
-      targetPort: "top",
-    },
-    {
-      id: "edge-default-midterm-default-final",
-      source: "default-midterm",
-      sourcePort: "bottom",
-      target: "default-final",
-      targetPort: "top",
-    },
-  ];
 }
 
 function createEncryptedSlug() {
