@@ -643,10 +643,7 @@ function FlowNodeCanvas({
           >
             <button
               className={`flow-node ${node.status} ${node.id === activeNodeId ? "selected" : ""}`}
-              onClick={() => {
-                onSelectNode(node.id);
-                onOpenInspector(node.id);
-              }}
+              onClick={() => onSelectNode(node.id)}
               onPointerDown={(event) => startNodeDrag(event, node)}
               onPointerMove={dragNode}
               onPointerUp={endNodeDrag}
@@ -731,6 +728,14 @@ function FlowNodeCanvas({
             </button>
             {node.id === activeNodeId && (
               <div className="node-quick-actions" aria-label="节点操作">
+                <button
+                  className="node-config-action"
+                  onClick={() => onOpenInspector(node.id)}
+                  title="配置节点"
+                  type="button"
+                >
+                  ⚙
+                </button>
                 <button onClick={() => onMoveNode(node.id, -1)} type="button">
                   ↑
                 </button>
