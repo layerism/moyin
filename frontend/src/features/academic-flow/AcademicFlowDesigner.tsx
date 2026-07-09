@@ -1111,7 +1111,15 @@ function getOrthogonalMidpoints(
   const sourceIsHorizontal = sourcePort === "left" || sourcePort === "right";
   const targetIsHorizontal = targetPort === "left" || targetPort === "right";
   if (sourceIsHorizontal && targetIsHorizontal) {
-    const midX = (source.x + target.x) / 2;
+    const movingRight = sourcePort === "right";
+    const targetFacesSource =
+      (sourcePort === "right" && targetPort === "left" && source.x < target.x) ||
+      (sourcePort === "left" && targetPort === "right" && source.x > target.x);
+    const midX = targetFacesSource
+      ? (source.x + target.x) / 2
+      : movingRight
+        ? Math.max(source.x, target.x) + 80
+        : Math.min(source.x, target.x) - 80;
     return [
       { x: midX, y: source.y },
       { x: midX, y: target.y },
