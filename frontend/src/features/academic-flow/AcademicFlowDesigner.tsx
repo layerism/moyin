@@ -28,7 +28,7 @@ const kindLabels: Record<AcademicFlowNodeKind, string> = {
 
 const nodeSize = { height: 126, width: 280 };
 const canvasGridSize = 16;
-const connectionPorts: AcademicFlowPort[] = ["top", "right", "bottom", "left"];
+const connectionPorts: AcademicFlowPort[] = ["top", "bottom"];
 
 function snapToGrid(value: number) {
   return Math.round(value / canvasGridSize) * canvasGridSize;
@@ -323,7 +323,7 @@ function ComponentPalette({
         </button>
       </div>
       <div className="palette-hint">
-        提示：可将组件拖入画布，节点进入画布后可拖动定位，并通过左右连接点手动连线。
+        提示：可将组件拖入画布，节点进入画布后可拖动定位，并通过上下连接点手动连线。
       </div>
     </aside>
   );
