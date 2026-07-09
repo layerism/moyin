@@ -683,6 +683,29 @@ button {
   stroke-width: 2;
 }
 
+.flow-edge-hitbox {
+  fill: none;
+  stroke: rgba(39, 115, 246, 0.001);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 16;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.flow-edge-group:hover .flow-edge-line {
+  stroke: #ef4444;
+  stroke-width: 3;
+}
+
+.flow-edge-preview {
+  fill: none;
+  stroke: #2773f6;
+  stroke-dasharray: 6 5;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
 .edge-delete-list {
   position: absolute;
   right: 12px;

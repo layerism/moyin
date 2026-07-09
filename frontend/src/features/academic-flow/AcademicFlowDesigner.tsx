@@ -354,6 +354,10 @@ function FlowNodeCanvas({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const connectingFromRef = useRef<ConnectionDraft | null>(null);
   const [connectingFrom, setConnectingFrom] = useState<ConnectionDraft | null>(null);
+  const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [draggingNode, setDraggingNode] = useState<{
     id: string;
     offsetX: number;
@@ -435,6 +439,12 @@ function FlowNodeCanvas({
   const setConnectionSource = (source: ConnectionDraft | null) => {
     connectingFromRef.current = source;
     setConnectingFrom(source);
+    if (!source) {
+      setConnectionPreviewPoint(null);
+      return;
+    }
+    const sourceNode = nodeById.get(source.nodeId);
+    setConnectionPreviewPoint(sourceNode ? getPortPoint(sourceNode, source.port) : null);
   };
 
   const completeConnection = (targetId: string, targetPort: AcademicFlowPort) => {
@@ -443,6 +453,13 @@ function FlowNodeCanvas({
       onConnectNodes(source.nodeId, targetId, source.port, targetPort);
     }
     setConnectionSource(null);
+  };
+
+  const updateConnectionPreview = (clientX: number, clientY: number) => {
+    if (!connectingFromRef.current) {
+      return;
+    }
+    setConnectionPreviewPoint(getCanvasPoint(clientX, clientY));
   };
 
   const autoLayout = () => {
@@ -471,8 +488,15 @@ function FlowNodeCanvas({
         onDragOver={(event) => {
           event.preventDefault();
           event.dataTransfer.dropEffect = "copy";
+          updateConnectionPreview(event.clientX, event.clientY);
         }}
         onDrop={dropNode}
+        onPointerMove={(event) => updateConnectionPreview(event.clientX, event.clientY)}
+        onPointerUp={() => {
+          if (connectingFromRef.current) {
+            setConnectionSource(null);
+          }
+        }}
         ref={canvasRef}
       >
         <svg className="flow-edge-layer" aria-hidden="true">
@@ -484,22 +508,35 @@ function FlowNodeCanvas({
           {edgeLines.map((edge) => {
             const path = createOrthogonalPath(edge);
             return (
-              <path
-                className="flow-edge-line"
-                d={path}
-                key={edge.id}
-                markerEnd="url(#flow-arrow)"
-              />
+              <g className="flow-edge-group" key={edge.id}>
+                <path className="flow-edge-line" d={path} markerEnd="url(#flow-arrow)" />
+                <path
+                  aria-label="删除连接线"
+                  className="flow-edge-hitbox"
+                  d={path}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDeleteEdge(edge.id);
+                  }}
+                  role="button"
+                />
+              </g>
             );
           })}
+          {connectingFrom &&
+            connectionPreviewPoint &&
+            nodeById.get(connectingFrom.nodeId) && (
+              <path
+                className="flow-edge-preview"
+                d={createPreviewPath(
+                  nodeById.get(connectingFrom.nodeId) as AcademicFlowNode,
+                  connectingFrom.port,
+                  connectionPreviewPoint,
+                )}
+                markerEnd="url(#flow-arrow)"
+              />
+            )}
         </svg>
-        <div className="edge-delete-list" aria-label="连接线列表">
-          {edges.map((edge) => (
-            <button key={edge.id} onClick={() => onDeleteEdge(edge.id)} type="button">
-              删除连接 {nodeById.get(edge.source)?.title ?? "节点"} → {nodeById.get(edge.target)?.title ?? "节点"}
-            </button>
-          ))}
-        </div>
         {nodes.map((node, index) => (
           <div
             className="canvas-node-stack dag-node-stack"
@@ -528,7 +565,8 @@ function FlowNodeCanvas({
                   key={port}
                   onClick={(event) => {
                     event.stopPropagation();
-                    if (connectingFrom && connectingFrom.nodeId !== node.id) {
+                    const activeConnection = connectingFromRef.current ?? connectingFrom;
+                    if (activeConnection && activeConnection.nodeId !== node.id) {
                       completeConnection(node.id, port);
                       return;
                     }
@@ -549,7 +587,12 @@ function FlowNodeCanvas({
                   }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
+                    const activeConnection = connectingFromRef.current ?? connectingFrom;
+                    if (activeConnection && activeConnection.nodeId !== node.id) {
+                      return;
+                    }
                     setConnectionSource({ nodeId: node.id, port });
+                    updateConnectionPreview(event.clientX, event.clientY);
                   }}
                   onPointerUp={(event) => {
                     event.stopPropagation();
@@ -919,6 +962,22 @@ function createOrthogonalPath(edge: {
     targetOffset,
     { x: edge.targetX, y: edge.targetY },
   ];
+  const [first, ...rest] = dedupePoints(points);
+
+  return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
+}
+
+function createPreviewPath(
+  sourceNode: AcademicFlowNode,
+  sourcePort: AcademicFlowPort,
+  target: { x: number; y: number },
+) {
+  const source = getPortPoint(sourceNode, sourcePort);
+  const sourceOffset = offsetPoint(source.x, source.y, sourcePort, 22);
+  const points =
+    sourcePort === "top" || sourcePort === "bottom"
+      ? [source, sourceOffset, { x: sourceOffset.x, y: target.y }, target]
+      : [source, sourceOffset, { x: target.x, y: sourceOffset.y }, target];
   const [first, ...rest] = dedupePoints(points);
 
   return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
