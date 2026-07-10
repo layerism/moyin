@@ -23,6 +23,24 @@ CREATE TABLE IF NOT EXISTS student_sessions (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS teacher_accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_no TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS teacher_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_account_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     actor_id TEXT,

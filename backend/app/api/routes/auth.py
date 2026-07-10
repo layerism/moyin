@@ -8,8 +8,12 @@ from app.core.database import get_connection
 from app.services.security import (
     SESSION_COOKIE,
     SESSION_DAYS,
+    TEACHER_SESSION_COOKIE,
     create_session,
+    create_teacher_session,
     delete_session,
+    delete_teacher_session,
+    get_current_teacher,
     get_current_student,
     hash_password,
     utc_now_iso,
@@ -25,6 +29,12 @@ class Credentials(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class TeacherCredentials(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    employeeNo: str = Field(min_length=1, max_length=32)
+    password: str = Field(min_length=8, max_length=128)
+
+
 def set_session_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         SESSION_COOKIE,
@@ -36,7 +46,19 @@ def set_session_cookie(response: Response, token: str) -> None:
     )
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+def set_teacher_session_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        TEACHER_SESSION_COOKIE,
+        token,
+        httponly=True,
+        max_age=SESSION_DAYS * 24 * 60 * 60,
+        samesite="lax",
+        secure=settings.app_env == "production",
+    )
+
+
+@router.post("/student/register", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def register(payload: Credentials, response: Response) -> dict[str, object]:
     now = utc_now_iso()
     try:
@@ -64,7 +86,8 @@ def register(payload: Credentials, response: Response) -> dict[str, object]:
     return {"id": student_id, "studentNo": payload.studentNo.strip(), "name": payload.name.strip()}
 
 
-@router.post("/login")
+@router.post("/student/login")
+@router.post("/login", include_in_schema=False)
 def login(payload: Credentials, response: Response) -> dict[str, object]:
     with get_connection() as connection:
         row = connection.execute(
@@ -86,14 +109,78 @@ def login(payload: Credentials, response: Response) -> dict[str, object]:
     return {"id": row["id"], "studentNo": row["student_no"], "name": row["name"]}
 
 
-@router.get("/me")
+@router.get("/student/me")
+@router.get("/me", include_in_schema=False)
 def me(student: dict[str, object] = Depends(get_current_student)) -> dict[str, object]:
     return student
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/student/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
 def logout(oa_session: str | None = Cookie(default=None)) -> Response:
     delete_session(oa_session)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(SESSION_COOKIE)
+    return response
+
+
+@router.post("/teacher/register", status_code=status.HTTP_201_CREATED)
+def register_teacher(payload: TeacherCredentials, response: Response) -> dict[str, object]:
+    now = utc_now_iso()
+    try:
+        with get_connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO teacher_accounts
+                    (employee_no, name, password_hash, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    payload.employeeNo.strip(),
+                    payload.name.strip(),
+                    hash_password(payload.password),
+                    now,
+                    now,
+                ),
+            )
+            teacher_id = int(cursor.lastrowid)
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(status_code=409, detail="该工号已注册") from exc
+    token = create_teacher_session(teacher_id)
+    set_teacher_session_cookie(response, token)
+    return {"id": teacher_id, "employeeNo": payload.employeeNo.strip(), "name": payload.name.strip()}
+
+
+@router.post("/teacher/login")
+def login_teacher(payload: TeacherCredentials, response: Response) -> dict[str, object]:
+    with get_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT id, employee_no, name, password_hash
+            FROM teacher_accounts
+            WHERE employee_no = ? AND status = 'active'
+            """,
+            (payload.employeeNo.strip(),),
+        ).fetchone()
+    if (
+        row is None
+        or row["name"] != payload.name.strip()
+        or not verify_password(payload.password, row["password_hash"])
+    ):
+        raise HTTPException(status_code=401, detail="姓名、工号或密码不正确")
+    token = create_teacher_session(int(row["id"]))
+    set_teacher_session_cookie(response, token)
+    return {"id": row["id"], "employeeNo": row["employee_no"], "name": row["name"]}
+
+
+@router.get("/teacher/me")
+def teacher_me(teacher: dict[str, object] = Depends(get_current_teacher)) -> dict[str, object]:
+    return teacher
+
+
+@router.post("/teacher/logout", status_code=status.HTTP_204_NO_CONTENT)
+def teacher_logout(teacher_session: str | None = Cookie(default=None)) -> Response:
+    delete_teacher_session(teacher_session)
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    response.delete_cookie(TEACHER_SESSION_COOKIE)
     return response
