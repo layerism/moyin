@@ -4,7 +4,7 @@
 
 **Goal:** Permanently delete an OA flow and all workflow-owned database records only after the teacher types the exact flow name.
 
-**Architecture:** Replace the repository archive operation with a transaction that records a minimal audit event and deletes the `flows` row. SQLite foreign-key cascades remove every flow-owned child record; missing cascades are added where required. The existing React confirmation dialog becomes a controlled destructive-confirmation form.
+**Architecture:** Replace the repository archive operation with a transaction that deletes flow-owned records in foreign-key dependency order, records a minimal audit event, and deletes the `flows` row. Explicit ordered deletion supports existing SQLite databases whose original tables do not cascade every relationship. The existing React confirmation dialog becomes a controlled destructive-confirmation form.
 
 **Tech Stack:** FastAPI, SQLite, pytest, React, TypeScript, Vite
 
@@ -41,7 +41,7 @@ Expected: failures because the current endpoint only changes status to `archived
 
 - [ ] **Step 3: Implement the transactional purge**
 
-Add missing `ON DELETE CASCADE` clauses to the flow-instance foreign keys used by fresh test databases. Implement `delete_flow` to select the flow, insert the minimal audit record, and delete the parent row in one connection context. Update the API route to call it.
+Implement `delete_flow` to select the flow, remove related audit and workflow-owned records in dependency order, insert the minimal audit record, and delete the parent row in one connection context. Update the API route to call it.
 
 - [ ] **Step 4: Verify backend behavior**
 

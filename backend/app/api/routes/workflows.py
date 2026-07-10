@@ -6,8 +6,8 @@ from pydantic import BaseModel, Field
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.repositories.workflows import (
     ArchivedFlowError,
-    archive_flow,
     create_flow,
+    delete_flow,
     get_flow,
     list_flows,
     publish_flow,
@@ -83,11 +83,11 @@ def publish(flow_id: str) -> dict[str, object]:
 
 
 @router.delete("/{flow_id}", status_code=status.HTTP_204_NO_CONTENT)
-def archive(
+def delete_workflow(
     flow_id: str, teacher: dict[str, object] = Depends(get_current_teacher)
 ) -> Response:
     try:
-        archive_flow(flow_id, int(teacher["id"]))
+        delete_flow(flow_id, int(teacher["id"]))
     except KeyError as exc:
         raise not_found() from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)

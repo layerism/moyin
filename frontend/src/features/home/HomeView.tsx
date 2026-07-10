@@ -14,7 +14,7 @@ import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
 import {
   ContextMenu,
   DeleteConfirmDialog,
-  FlowArchiveDialog,
+  FlowDeleteDialog,
   MoveFileDialog,
   NameDialog,
 } from "./HomeDialogs";
@@ -450,7 +450,7 @@ export function HomeView({
 export function AcademicFlowView({
   processes,
   onCreateProcess,
-  onArchiveProcess,
+  onDeleteProcess,
   onHome,
   onOssCloud,
   onOpenProcess,
@@ -459,7 +459,7 @@ export function AcademicFlowView({
 }: {
   processes: AcademicProcess[];
   onCreateProcess: (name: string) => Promise<void> | void;
-  onArchiveProcess: (process: AcademicProcess) => Promise<void>;
+  onDeleteProcess: (process: AcademicProcess) => Promise<void>;
   onHome: () => void;
   onOssCloud: () => void;
   onOpenProcess: (processId: string) => void;
@@ -468,8 +468,9 @@ export function AcademicFlowView({
 }) {
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
   const [processNameValue, setProcessNameValue] = useState("");
-  const [archiveProcess, setArchiveProcess] = useState<AcademicProcess | null>(null);
-  const [archiving, setArchiving] = useState(false);
+  const [deleteProcess, setDeleteProcess] = useState<AcademicProcess | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const startCreateProcess = () => {
     setProcessNameValue("");
@@ -486,14 +487,17 @@ export function AcademicFlowView({
     setProcessNameValue("");
   };
 
-  const confirmArchiveProcess = async () => {
-    if (!archiveProcess) return;
-    setArchiving(true);
+  const confirmDeleteProcess = async () => {
+    if (!deleteProcess) return;
+    setDeleting(true);
+    setDeleteError("");
     try {
-      await onArchiveProcess(archiveProcess);
-      setArchiveProcess(null);
+      await onDeleteProcess(deleteProcess);
+      setDeleteProcess(null);
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : "删除失败，请稍后重试");
     } finally {
-      setArchiving(false);
+      setDeleting(false);
     }
   };
 
@@ -559,7 +563,10 @@ export function AcademicFlowView({
                 <button
                   aria-label={`删除流程 ${process.name}`}
                   className="academic-flow-delete"
-                  onClick={() => setArchiveProcess(process)}
+                  onClick={() => {
+                    setDeleteError("");
+                    setDeleteProcess(process);
+                  }}
                   title="删除流程"
                 >
                   ×
@@ -584,12 +591,13 @@ export function AcademicFlowView({
           onValueChange={setProcessNameValue}
         />
       )}
-      {archiveProcess ? (
-        <FlowArchiveDialog
-          name={archiveProcess.name}
-          onCancel={() => setArchiveProcess(null)}
-          onConfirm={() => void confirmArchiveProcess()}
-          submitting={archiving}
+      {deleteProcess ? (
+        <FlowDeleteDialog
+          error={deleteError}
+          name={deleteProcess.name}
+          onCancel={() => setDeleteProcess(null)}
+          onConfirm={() => void confirmDeleteProcess()}
+          submitting={deleting}
         />
       ) : null}
     </main>
