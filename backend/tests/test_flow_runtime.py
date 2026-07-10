@@ -12,6 +12,10 @@ from app.main import app
 def client(tmp_path: Path) -> Iterator[TestClient]:
     settings.database_path = str(tmp_path / "test.db")
     with TestClient(app) as test_client:
+        test_client.post(
+            "/api/auth/teacher/register",
+            json={"name": "测试教师", "employeeNo": "TR001", "password": "Pass1234"},
+        )
         yield test_client
 
 
@@ -128,4 +132,3 @@ def test_teacher_progress_lists_each_student_instance(client: TestClient) -> Non
         "20260041",
         "20260042",
     }
-

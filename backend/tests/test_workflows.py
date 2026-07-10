@@ -12,6 +12,10 @@ from app.main import app
 def client(tmp_path: Path) -> Iterator[TestClient]:
     settings.database_path = str(tmp_path / "test.db")
     with TestClient(app) as test_client:
+        test_client.post(
+            "/api/auth/teacher/register",
+            json={"name": "测试教师", "employeeNo": "TW001", "password": "Pass1234"},
+        )
         yield test_client
 
 
@@ -77,4 +81,3 @@ def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> No
 
     shared = client.get(f"/api/shared-flows/{published['token']}").json()
     assert shared["config"]["nodes"][0]["title"] == "基本信息"
-

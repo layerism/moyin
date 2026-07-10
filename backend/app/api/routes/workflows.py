@@ -1,10 +1,12 @@
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.repositories.workflows import (
+    ArchivedFlowError,
+    archive_flow,
     create_flow,
     get_flow,
     list_flows,
@@ -12,8 +14,9 @@ from app.repositories.workflows import (
     resolve_share_token,
     save_draft,
 )
+from app.services.security import get_current_teacher
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_teacher)])
 shared_router = APIRouter()
 
 
@@ -63,6 +66,8 @@ def put_draft(flow_id: str, payload: FlowConfigRequest) -> dict[str, object]:
         return save_draft(flow_id, payload.config)
     except KeyError as exc:
         raise not_found() from exc
+    except ArchivedFlowError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/{flow_id}/publish", status_code=status.HTTP_201_CREATED)
@@ -73,6 +78,19 @@ def publish(flow_id: str) -> dict[str, object]:
         raise not_found() from exc
     except FlowValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ArchivedFlowError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.delete("/{flow_id}", status_code=status.HTTP_204_NO_CONTENT)
+def archive(
+    flow_id: str, teacher: dict[str, object] = Depends(get_current_teacher)
+) -> Response:
+    try:
+        archive_flow(flow_id, int(teacher["id"]))
+    except KeyError as exc:
+        raise not_found() from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @shared_router.get("/{token}")

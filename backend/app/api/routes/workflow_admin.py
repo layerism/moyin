@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.repositories.flow_instances import (
@@ -6,8 +6,9 @@ from app.repositories.flow_instances import (
     set_global_deadline,
     set_student_deadline,
 )
+from app.services.security import get_current_teacher
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_teacher)])
 
 
 class DeadlineRequest(BaseModel):
