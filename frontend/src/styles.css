@@ -1260,6 +1260,546 @@ button {
   }
 }
 
+.academic-action-notice {
+  margin: -4px 0 12px;
+  color: #b42318;
+  font-size: 14px;
+}
+
+.designer-locked .node-template-list,
+.designer-locked .flow-canvas {
+  pointer-events: none;
+}
+
+.designer-locked .palette-panel,
+.designer-locked .canvas-panel {
+  opacity: 0.78;
+}
+
+.designer-locked .canvas-panel::after {
+  position: absolute;
+  z-index: 20;
+  top: 74px;
+  right: 20px;
+  padding: 7px 10px;
+  border: 1px solid #b9d1f7;
+  border-radius: 6px;
+  background: #eef5ff;
+  color: #175cd3;
+  content: "已发布，节点结构已冻结";
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.inspector-checkbox-row {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+}
+
+.inspector-checkbox-row input {
+  width: 16px !important;
+  height: 16px;
+}
+
+.oa-access-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.1fr);
+  background: #f4f6f9;
+}
+
+.oa-access-summary {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  justify-content: center;
+  padding: 64px clamp(40px, 8vw, 120px);
+  background: #152238;
+  color: #fff;
+}
+
+.oa-brand-mark {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 6px;
+  background: #2878f0;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.oa-access-summary > p {
+  margin: 24px 0 8px;
+  color: #a7c5f2;
+  font-weight: 700;
+}
+
+.oa-access-summary h1 {
+  margin: 0 0 18px;
+  font-size: 36px;
+  letter-spacing: 0;
+}
+
+.oa-access-summary div {
+  max-width: 520px;
+  color: #c8d3e3;
+  line-height: 1.8;
+}
+
+.oa-access-auth {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.oa-auth-form {
+  width: min(440px, 100%);
+  padding: 28px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(16 24 40 / 8%);
+}
+
+.oa-auth-tabs {
+  position: absolute;
+  top: 32px;
+  display: flex;
+  padding: 3px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.oa-auth-tabs button {
+  min-width: 88px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.oa-auth-tabs button.active {
+  background: #eaf2ff;
+  color: #175cd3;
+  font-weight: 700;
+}
+
+.oa-auth-form h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.oa-auth-form > p {
+  margin: 8px 0 24px;
+  color: #667085;
+}
+
+.oa-auth-form label {
+  display: block;
+  margin-bottom: 15px;
+}
+
+.oa-auth-form label span {
+  display: block;
+  margin-bottom: 7px;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.oa-auth-form input,
+.teacher-progress-panel input,
+.teacher-progress-panel select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #fff;
+  color: #172033;
+}
+
+.oa-form-error {
+  min-height: 20px;
+  margin: 0 0 12px !important;
+  color: #b42318 !important;
+  font-size: 13px;
+}
+
+.oa-submit-button {
+  width: 100%;
+  min-height: 42px;
+}
+
+.student-runtime-page {
+  min-height: 100vh;
+  padding-bottom: 64px;
+  background: #f3f5f8;
+  color: #172033;
+}
+
+.student-runtime-header {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 6vw, 80px);
+  border-bottom: 1px solid #d8dee8;
+  background: #fff;
+}
+
+.student-runtime-header > div,
+.runtime-student-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.runtime-student-identity small {
+  color: #667085;
+}
+
+.runtime-student-identity button {
+  padding: 8px 12px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.student-runtime-intro,
+.student-runtime-list,
+.runtime-notice {
+  width: min(860px, calc(100% - 32px));
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.student-runtime-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 38px 0 22px;
+}
+
+.student-runtime-intro p {
+  margin: 0 0 7px;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.student-runtime-intro h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.student-runtime-intro span {
+  color: #667085;
+}
+
+.runtime-overall-status {
+  padding: 7px 11px;
+  border-radius: 6px;
+  background: #eaf2ff;
+  color: #175cd3;
+}
+
+.runtime-overall-status.completed {
+  background: #e8f7ef;
+  color: #087443;
+}
+
+.runtime-notice {
+  min-height: 24px;
+  color: #b42318;
+  font-size: 14px;
+}
+
+.student-runtime-list {
+  display: grid;
+  gap: 14px;
+}
+
+.runtime-node-card {
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-left: 4px solid #98a2b3;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.runtime-node-card.available,
+.runtime-node-card.draft,
+.runtime-node-card.rejected {
+  border-left-color: #2878f0;
+}
+
+.runtime-node-card.approved {
+  border-left-color: #12a36d;
+}
+
+.runtime-node-card.expired {
+  border-left-color: #d92d20;
+}
+
+.runtime-node-card > header {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 22px 24px;
+}
+
+.runtime-node-card h2 {
+  margin: 1px 0 6px;
+  font-size: 19px;
+}
+
+.runtime-node-card header p {
+  margin: 0;
+  color: #667085;
+  line-height: 1.6;
+}
+
+.runtime-node-card header > strong {
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #f0f3f7;
+  color: #475467;
+  font-size: 13px;
+}
+
+.runtime-node-index {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: #2878f0;
+  color: #fff;
+  font-weight: 800;
+}
+
+.runtime-deadline,
+.runtime-state-hint {
+  margin: 0;
+  padding: 10px 24px;
+  border-top: 1px solid #edf0f4;
+  background: #fafbfc;
+  color: #667085;
+  font-size: 13px;
+}
+
+.runtime-node-form {
+  display: grid;
+  gap: 14px;
+  padding: 20px 24px 24px 74px;
+  border-top: 1px solid #edf0f4;
+}
+
+.runtime-node-form label > span {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.runtime-node-form input[type="text"],
+.runtime-node-form input:not([type]) {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+}
+
+.runtime-confirmation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.runtime-confirmation span {
+  margin: 0 !important;
+}
+
+.runtime-node-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.runtime-node-actions button {
+  padding: 9px 16px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.runtime-loading {
+  width: min(520px, calc(100% - 32px));
+  margin: 120px auto;
+  padding: 32px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+}
+
+.inspector-backdrop {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(16 24 40 / 38%);
+}
+
+.teacher-progress-panel {
+  width: min(760px, 94vw);
+  height: 100vh;
+  overflow: auto;
+  padding: 24px;
+  background: #fff;
+  box-shadow: -12px 0 32px rgb(16 24 40 / 14%);
+}
+
+.teacher-progress-panel > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e4e7ec;
+}
+
+.teacher-progress-panel h2,
+.teacher-progress-panel h3 {
+  margin: 4px 0 0;
+}
+
+.teacher-progress-panel > header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 22px;
+}
+
+.progress-notice {
+  min-height: 20px;
+  color: #b42318;
+}
+
+.deadline-editor-list,
+.student-extension-editor,
+.progress-table-wrap {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #e4e7ec;
+}
+
+.deadline-editor-list label {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 220px;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.student-extension-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.student-extension-editor h3 {
+  grid-column: 1 / -1;
+}
+
+.student-extension-editor button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+}
+
+.progress-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.progress-table th,
+.progress-table td {
+  padding: 11px 8px;
+  border-bottom: 1px solid #e4e7ec;
+  text-align: left;
+}
+
+.progress-table td small {
+  display: block;
+  margin-top: 3px;
+  color: #667085;
+}
+
+@media (max-width: 760px) {
+  .oa-access-page {
+    grid-template-columns: 1fr;
+  }
+
+  .oa-access-summary {
+    min-height: auto;
+    padding: 28px 24px;
+  }
+
+  .oa-access-summary h1 {
+    font-size: 26px;
+  }
+
+  .oa-access-auth {
+    min-height: auto;
+    padding: 80px 16px 28px;
+  }
+
+  .student-runtime-header,
+  .student-runtime-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .student-runtime-header {
+    padding: 14px 18px;
+  }
+
+  .runtime-student-identity {
+    flex-wrap: wrap;
+  }
+
+  .runtime-node-card > header {
+    grid-template-columns: 32px minmax(0, 1fr);
+    padding: 18px;
+  }
+
+  .runtime-node-card header > strong {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .runtime-node-form {
+    padding: 18px;
+  }
+
+  .deadline-editor-list label,
+  .student-extension-editor {
+    grid-template-columns: 1fr;
+  }
+}
+
 .context-menu {
   position: fixed;
   z-index: 20;

@@ -1,0 +1,75 @@
+import type { AcademicFlowEdge, AcademicFlowNode } from "../../types";
+
+export type StudentIdentity = {
+  id: number;
+  name: string;
+  studentNo: string;
+};
+
+export type PublishedFlow = {
+  configHash: string;
+  flowId: string;
+  flowVersionId: string;
+  shareUrl: string;
+  token: string;
+  versionNo: number;
+};
+
+export type SharedFlow = {
+  config: { edges: AcademicFlowEdge[]; nodes: AcademicFlowNode[] };
+  description: string;
+  flowId: string;
+  flowVersionId: string;
+  name: string;
+  versionNo: number;
+};
+
+export type RuntimeNodeStatus =
+  | "approved"
+  | "available"
+  | "draft"
+  | "expired"
+  | "locked"
+  | "rejected"
+  | "reviewing"
+  | "submitted";
+
+export type RuntimeNodeInstance = {
+  approvedAt: string | null;
+  attemptNo: number;
+  draft: Record<string, unknown>;
+  effectiveDeadline: string | null;
+  id: string;
+  nodeKey: string;
+  status: RuntimeNodeStatus;
+  submittedAt: string | null;
+};
+
+export type RuntimeFlowInstance = {
+  config: { edges: AcademicFlowEdge[]; nodes: AcademicFlowNode[] };
+  description: string;
+  flowId: string;
+  flowVersionId: string;
+  id: string;
+  name: string;
+  nodeInstances: RuntimeNodeInstance[];
+  status: "completed" | "in_progress";
+  student: { name: string; studentNo: string };
+};
+
+export type WorkflowProgressStudent = {
+  approvedCount: number;
+  expiredCount: number;
+  instanceId: string;
+  lastActiveAt: string;
+  name: string;
+  status: string;
+  studentNo: string;
+  totalCount: number;
+};
+
+export type WorkflowProgress = {
+  flowVersionId: string;
+  name: string;
+  students: WorkflowProgressStudent[];
+};

@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AcademicFlowDesigner, StudentFlowPage } from "./features/academic-flow/AcademicFlowDesigner";
 import { createAcademicProcess, createFallbackAcademicProcess } from "./features/academic-flow/academicFlowData";
+import { workflowApi } from "./features/academic-flow/api";
+import { StudentRuntimePage } from "./features/academic-flow/StudentRuntimePage";
+import type { RuntimeFlowInstance } from "./features/academic-flow/runtimeTypes";
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
 import { EditView } from "./features/editor/EditView";
 import { AcademicFlowView, HomeView } from "./features/home/HomeView";
 import { TopBar } from "./features/workspace/TopBar";
 import { LoginView, PasswordChangeView, PasswordResetView } from "./features/auth/AuthViews";
+import { StudentAccessGate } from "./features/auth/StudentAccessGate";
 import { initialAccounts, initialStudents } from "./data/mockData";
 import type {
   AcademicProcess,
@@ -22,10 +26,31 @@ import { makeFileName } from "./utils/fileName";
 function getRouteFromPathname(): {
   processId: string | null;
   screen: Screen;
+  studentInstanceId: string | null;
   studentSlug: string | null;
 } {
   if (window.location.pathname === "/academic-flow") {
-    return { processId: null, screen: "academicFlow", studentSlug: null };
+    return { processId: null, screen: "academicFlow", studentInstanceId: null, studentSlug: null };
+  }
+
+  const sharedMatch = window.location.pathname.match(/^\/s\/([^/]+)$/);
+  if (sharedMatch) {
+    return {
+      processId: null,
+      screen: "academicFlowShared",
+      studentInstanceId: null,
+      studentSlug: decodeURIComponent(sharedMatch[1]),
+    };
+  }
+
+  const runtimeMatch = window.location.pathname.match(/^\/student\/flows\/([^/]+)$/);
+  if (runtimeMatch) {
+    return {
+      processId: null,
+      screen: "academicFlowStudentRuntime",
+      studentInstanceId: decodeURIComponent(runtimeMatch[1]),
+      studentSlug: null,
+    };
   }
 
   const studentMatch = window.location.pathname.match(
@@ -35,6 +60,7 @@ function getRouteFromPathname(): {
     return {
       processId: decodeURIComponent(studentMatch[1]),
       screen: "academicFlowStudent",
+      studentInstanceId: null,
       studentSlug: decodeURIComponent(studentMatch[2]),
     };
   }
@@ -44,11 +70,12 @@ function getRouteFromPathname(): {
     return {
       processId: decodeURIComponent(detailMatch[1]),
       screen: "academicFlowDetail",
+      studentInstanceId: null,
       studentSlug: null,
     };
   }
 
-  return { processId: null, screen: "home", studentSlug: null };
+  return { processId: null, screen: "home", studentInstanceId: null, studentSlug: null };
 }
 
 function pushAppPath(pathname: string) {
@@ -73,6 +100,13 @@ export function App() {
   const [activeAcademicProcessId, setActiveAcademicProcessId] = useState<string | null>(
     initialRoute.processId,
   );
+  const [activeStudentToken, setActiveStudentToken] = useState<string | null>(
+    initialRoute.studentSlug,
+  );
+  const [activeRuntimeInstanceId, setActiveRuntimeInstanceId] = useState<string | null>(
+    initialRoute.studentInstanceId,
+  );
+  const [runtimeInstance, setRuntimeInstance] = useState<RuntimeFlowInstance | null>(null);
   const [collectionTitle, setCollectionTitle] = useState("密码学作业提交");
   const [fileNamePattern, setFileNamePattern] = useState("学号-姓名-材料名称.docx");
   const [deadline, setDeadline] = useState("2026-07-20 23:59");
@@ -89,6 +123,8 @@ export function App() {
     const syncRoute = () => {
       const route = getRouteFromPathname();
       setActiveAcademicProcessId(route.processId);
+      setActiveRuntimeInstanceId(route.studentInstanceId);
+      setActiveStudentToken(route.studentSlug);
       setScreen(route.screen);
     };
 
@@ -140,7 +176,28 @@ export function App() {
 
   const openStudentFlow = (shareUrl: string) => {
     pushAppPath(shareUrl);
-    setScreen("academicFlowStudent");
+    const pathParts = shareUrl.split("/").filter(Boolean);
+    const token = pathParts[pathParts.length - 1] ?? null;
+    setActiveStudentToken(token);
+    setScreen("academicFlowShared");
+  };
+
+  const saveAcademicProcess = async (process: AcademicProcess) => {
+    const serverId = process.serverId ?? (await workflowApi.createFlow(process)).id;
+    await workflowApi.saveDraft(serverId, process);
+    return { ...process, serverId };
+  };
+
+  const publishAcademicProcess = async (process: AcademicProcess) => {
+    const saved = await saveAcademicProcess(process);
+    const published = await workflowApi.publish(saved.serverId as string);
+    return {
+      ...saved,
+      encryptedSlug: published.token,
+      published: true,
+      publishedVersionId: published.flowVersionId,
+      shareUrl: published.shareUrl,
+    };
   };
 
   const updateAcademicProcess = (nextProcess: AcademicProcess) => {
@@ -343,7 +400,9 @@ export function App() {
           onBack={openAcademicFlow}
           onHome={openHome}
           onOpenStudent={openStudentFlow}
+          onPublishProcess={publishAcademicProcess}
           onProcessChange={updateAcademicProcess}
+          onSaveProcess={saveAcademicProcess}
         />
       );
     }
@@ -354,7 +413,9 @@ export function App() {
         onBack={openAcademicFlow}
         onHome={openHome}
         onOpenStudent={openStudentFlow}
+        onPublishProcess={publishAcademicProcess}
         onProcessChange={updateAcademicProcess}
+        onSaveProcess={saveAcademicProcess}
       />
     );
   }
@@ -368,6 +429,30 @@ export function App() {
       <StudentFlowPage
         process={activeProcess}
         onBack={() => openAcademicProcess(activeProcess.id)}
+        onHome={openHome}
+      />
+    );
+  }
+
+  if (screen === "academicFlowShared" && activeStudentToken) {
+    return (
+      <StudentAccessGate
+        token={activeStudentToken}
+        onEntered={(instance) => {
+          setRuntimeInstance(instance);
+          setActiveRuntimeInstanceId(instance.id);
+          pushAppPath(`/student/flows/${encodeURIComponent(instance.id)}`);
+          setScreen("academicFlowStudentRuntime");
+        }}
+      />
+    );
+  }
+
+  if (screen === "academicFlowStudentRuntime" && activeRuntimeInstanceId) {
+    return (
+      <StudentRuntimePage
+        initialInstance={runtimeInstance}
+        instanceId={activeRuntimeInstanceId}
         onHome={openHome}
       />
     );

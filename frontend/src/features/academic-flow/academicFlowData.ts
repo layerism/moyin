@@ -44,6 +44,8 @@ export function createNode(
   return {
     auditScriptName: kind === "file" ? "check_material.py" : "",
     auditScriptType: kind === "file" ? "py" : "none",
+    autoApprove: kind !== "file",
+    deadlineAt: null,
     fileExtensions: kind === "file" ? "pdf, doc, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",
     id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
