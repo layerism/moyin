@@ -2507,6 +2507,12 @@ button {
   box-shadow: 0 0 0 3px rgba(43, 116, 255, 0.12);
 }
 
+.dialog-error {
+  margin: 9px 0 -6px;
+  color: #b42318;
+  font-size: 13px;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;

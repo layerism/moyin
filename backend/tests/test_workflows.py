@@ -41,6 +41,28 @@ def sample_config() -> dict[str, object]:
     }
 
 
+def test_duplicate_flow_name_is_rejected(client: TestClient) -> None:
+    first = client.post("/api/workflows", json={"name": "课程材料收集"})
+
+    duplicate = client.post("/api/workflows", json={"name": "课程材料收集"})
+
+    assert first.status_code == 201
+    assert duplicate.status_code == 409
+    assert duplicate.json() == {"detail": "已存在同名流程"}
+    assert len(client.get("/api/workflows").json()) == 1
+
+
+def test_duplicate_check_uses_trimmed_name_and_allows_other_names(client: TestClient) -> None:
+    first = client.post("/api/workflows", json={"name": "请假审批"})
+
+    whitespace_duplicate = client.post("/api/workflows", json={"name": "  请假审批  "})
+    distinct = client.post("/api/workflows", json={"name": "销假审批"})
+
+    assert first.status_code == 201
+    assert whitespace_duplicate.status_code == 409
+    assert distinct.status_code == 201
+
+
 def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "报销流程"}).json()
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
