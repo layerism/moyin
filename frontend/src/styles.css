@@ -212,18 +212,36 @@ button {
 }
 
 .file-table {
+  min-width: 0;
   border-top: 1px solid #edf0f5;
 }
 
 .file-row {
+  min-width: 0;
   min-height: 72px;
   display: grid;
-  grid-template-columns: 28px minmax(300px, 1fr) 150px 180px 140px 110px;
+  grid-template-columns:
+    28px
+    minmax(120px, 2fr)
+    minmax(56px, 0.8fr)
+    minmax(80px, 1fr)
+    minmax(64px, 0.8fr)
+    minmax(56px, 0.7fr);
   align-items: center;
-  gap: 16px;
+  gap: clamp(8px, 1vw, 16px);
   border-bottom: 1px solid #edf0f5;
   color: #4b5565;
   font-size: 15px;
+}
+
+.file-row > * {
+  min-width: 0;
+}
+
+.file-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-row input[type="checkbox"] {
@@ -243,12 +261,18 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 14px;
-  width: fit-content;
+  width: 100%;
   background: transparent;
   color: #1f2937;
   font-size: 17px;
   font-weight: 750;
   text-align: left;
+}
+
+.file-name > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-icon {
