@@ -8,6 +8,7 @@ from app.repositories.flow_instances import (
     RuntimeDeadlineError,
     get_instance,
     get_or_create_instance,
+    list_student_instances,
     save_node_draft,
     submit_node,
 )
@@ -41,6 +42,13 @@ def enter_shared_flow(
         return get_or_create_instance(token, int(student["id"]))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="分享链接无效或已停用") from exc
+
+
+@router.get("/flow-instances")
+def flow_instances(
+    student: dict[str, object] = Depends(get_current_student),
+) -> list[dict[str, object]]:
+    return list_student_instances(int(student["id"]))
 
 
 @router.get("/flow-instances/{instance_id}")

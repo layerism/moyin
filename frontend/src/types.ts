@@ -1,6 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 
 export type Screen =
+  | "authForgot"
+  | "authLogin"
+  | "authRegister"
   | "home"
   | "academicFlow"
   | "academicFlowDetail"
@@ -10,6 +13,7 @@ export type Screen =
   | "login"
   | "reset"
   | "changePassword"
+  | "studentHome"
   | "workspace";
 export type Tab = "edit" | "stats" | "settings" | "fill";
 export type Source = "导入" | "临时添加";

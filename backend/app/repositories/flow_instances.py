@@ -158,6 +158,30 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
     }
 
 
+def list_student_instances(student_id: int) -> list[dict[str, object]]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT i.id, i.status, i.last_active_at, f.name
+            FROM flow_instances i
+            JOIN flow_versions v ON v.id = i.flow_version_id
+            JOIN flows f ON f.id = v.flow_id
+            WHERE i.student_account_id = ?
+            ORDER BY i.last_active_at DESC
+            """,
+            (student_id,),
+        ).fetchall()
+    return [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "status": row["status"],
+            "lastActiveAt": row["last_active_at"],
+        }
+        for row in rows
+    ]
+
+
 def save_node_draft(node_instance_id: str, student_id: int, payload: dict[str, Any]) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
