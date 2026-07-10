@@ -76,6 +76,57 @@ CREATE TABLE IF NOT EXISTS share_tokens (
     created_by TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS flow_instances (
+    id TEXT PRIMARY KEY,
+    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id),
+    student_account_id INTEGER NOT NULL REFERENCES student_accounts(id),
+    status TEXT NOT NULL DEFAULT 'in_progress',
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    last_active_at TEXT NOT NULL,
+    UNIQUE(flow_version_id, student_account_id)
+);
+
+CREATE TABLE IF NOT EXISTS node_instances (
+    id TEXT PRIMARY KEY,
+    flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    opened_at TEXT,
+    submitted_at TEXT,
+    approved_at TEXT,
+    attempt_no INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(flow_instance_id, node_key)
+);
+
+CREATE TABLE IF NOT EXISTS node_drafts (
+    node_instance_id TEXT PRIMARY KEY REFERENCES node_instances(id) ON DELETE CASCADE,
+    payload TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS submissions (
+    id TEXT PRIMARY KEY,
+    node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
+    attempt_no INTEGER NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    payload_snapshot TEXT NOT NULL,
+    status TEXT NOT NULL,
+    submitted_at TEXT NOT NULL,
+    UNIQUE(node_instance_id, attempt_no),
+    UNIQUE(node_instance_id, idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS student_deadline_overrides (
+    flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    deadline_at TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(flow_instance_id, node_key)
+);
 """
 
 
