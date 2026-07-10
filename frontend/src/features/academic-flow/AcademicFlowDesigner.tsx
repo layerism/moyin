@@ -11,6 +11,7 @@ import type {
   AuditScriptType,
 } from "../../types";
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
+import { TeacherProgressPanel } from "./TeacherProgressPanel";
 
 const statusLabels: Record<AcademicFlowNodeStatus, string> = {
   approved: "已通过",
@@ -50,27 +51,57 @@ export function AcademicFlowDesigner({
   onBack,
   onHome,
   onOpenStudent,
+  onPublishProcess,
   onProcessChange,
+  onSaveProcess,
   process,
 }: {
   onBack: () => void;
   onHome: () => void;
   onOpenStudent: (shareUrl: string) => void;
+  onPublishProcess: (process: AcademicProcess) => Promise<AcademicProcess>;
   onProcessChange: (process: AcademicProcess) => void;
+  onSaveProcess: (process: AcademicProcess) => Promise<AcademicProcess>;
   process: AcademicProcess;
 }) {
   const [mode, setMode] = useState<"student" | "teacher">("teacher");
   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
+  const [showProgress, setShowProgress] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
+  const [saving, setSaving] = useState(false);
   const processEdges = process.edges ?? [];
   const activeNode =
     process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
   const inspectorNode = process.nodes.find((node) => node.id === inspectorNodeId) ?? null;
 
-  const publishProcess = () => {
-    const nextProcess = { ...process, published: true };
-    onProcessChange(nextProcess);
-    onOpenStudent(nextProcess.shareUrl);
+  const publishProcess = async () => {
+    setSaving(true);
+    setActionNotice("");
+    try {
+      const nextProcess = await onPublishProcess(process);
+      onProcessChange(nextProcess);
+      setActionNotice(`发布成功，学生链接：${nextProcess.shareUrl}`);
+    } catch (reason) {
+      setActionNotice(reason instanceof Error ? reason.message : "发布失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveProcess = async (exitAfterSave = false) => {
+    setSaving(true);
+    setActionNotice("");
+    try {
+      const nextProcess = await onSaveProcess(process);
+      onProcessChange(nextProcess);
+      setActionNotice("草稿已保存到数据库");
+      if (exitAfterSave) onBack();
+    } catch (reason) {
+      setActionNotice(reason instanceof Error ? reason.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addNode = (
@@ -160,17 +191,36 @@ export function AcademicFlowDesigner({
             </div>
             <div className="academic-title-row">
               <h1>{process.name}</h1>
-              <span className={process.published ? "status-pill ok" : "status-pill"}>草稿</span>
+              <span className={process.published ? "status-pill ok" : "status-pill"}>
+                {process.published ? "已发布" : "草稿"}
+              </span>
             </div>
             <p>流程说明：{process.description}</p>
           </div>
           <div className="academic-actions">
             <button onClick={() => setMode("student")}>预览学生端</button>
-            <button onClick={publishProcess}>发布与分享</button>
-            <button>保存草稿</button>
-            <button className="primary-action">保存并退出</button>
+            {process.published ? (
+              <button onClick={() => onOpenStudent(process.shareUrl)}>打开学生链接</button>
+            ) : null}
+            {process.publishedVersionId ? (
+              <button onClick={() => setShowProgress(true)}>填写进度</button>
+            ) : null}
+            <button disabled={saving || process.published} onClick={() => void publishProcess()}>
+              {process.published ? "已发布" : "发布与分享"}
+            </button>
+            <button disabled={saving || process.published} onClick={() => void saveProcess()}>
+              保存草稿
+            </button>
+            <button
+              className="primary-action"
+              disabled={saving || process.published}
+              onClick={() => void saveProcess(true)}
+            >
+              保存并退出
+            </button>
           </div>
         </header>
+        {actionNotice ? <p className="academic-action-notice">{actionNotice}</p> : null}
 
         <div className="mode-switch" role="tablist" aria-label="流程视图">
           <button
@@ -192,7 +242,7 @@ export function AcademicFlowDesigner({
         </div>
 
         {mode === "teacher" ? (
-          <section className="flow-designer-grid">
+          <section className={`flow-designer-grid ${process.published ? "designer-locked" : ""}`}>
             <ComponentPalette onAddNode={addNode} />
             <FlowNodeCanvas
               activeNodeId={activeNode?.id ?? ""}
@@ -220,6 +270,16 @@ export function AcademicFlowDesigner({
             onUpdateNode={updateNode}
           />
         )}
+        {showProgress && process.publishedVersionId ? (
+          <TeacherProgressPanel
+            nodes={process.nodes}
+            onClose={() => setShowProgress(false)}
+            onDeadlineChange={(nodeId, deadlineAt) =>
+              updateNode(nodeId, { deadlineAt })
+            }
+            versionId={process.publishedVersionId}
+          />
+        ) : null}
       </section>
     </main>
   );
@@ -882,6 +942,26 @@ function NodeInspector({
           />
         </label>
         <label>
+          <span>截止时间</span>
+          <input
+            type="datetime-local"
+            value={node.deadlineAt ? toLocalDateTime(node.deadlineAt) : ""}
+            onChange={(event) =>
+              onUpdateNode(node.id, {
+                deadlineAt: event.target.value ? new Date(event.target.value).toISOString() : null,
+              })
+            }
+          />
+        </label>
+        <label className="inspector-checkbox-row">
+          <input
+            checked={node.autoApprove ?? true}
+            type="checkbox"
+            onChange={(event) => onUpdateNode(node.id, { autoApprove: event.target.checked })}
+          />
+          <span>提交后自动通过</span>
+        </label>
+        <label>
           <span>审核状态</span>
           <select
             value={node.status}
@@ -1045,6 +1125,12 @@ function getTemplateIcon(kind: AcademicFlowNodeKind) {
     return "◫";
   }
   return "▤";
+}
+
+function toLocalDateTime(value: string) {
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
 function getPortLabel(port: AcademicFlowPort) {

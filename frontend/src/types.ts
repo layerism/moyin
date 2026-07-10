@@ -4,7 +4,9 @@ export type Screen =
   | "home"
   | "academicFlow"
   | "academicFlowDetail"
+  | "academicFlowShared"
   | "academicFlowStudent"
+  | "academicFlowStudentRuntime"
   | "login"
   | "reset"
   | "changePassword"
@@ -66,8 +68,10 @@ export type AcademicFlowNodeKind = "announcement" | "confirmation" | "file" | "f
 export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
 
 export type AcademicFlowNode = {
+  autoApprove?: boolean;
   auditScriptName: string;
   auditScriptType: AuditScriptType;
+  deadlineAt?: string | null;
   fileExtensions: string;
   fileLimitMb: string;
   id: string;
@@ -97,6 +101,8 @@ export type AcademicProcess = {
   name: string;
   nodes: AcademicFlowNode[];
   published: boolean;
+  publishedVersionId?: string;
+  serverId?: string;
   shareUrl: string;
 };
 
