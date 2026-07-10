@@ -9,6 +9,10 @@ from app.domain.workflow import validate_flow_config
 from app.services.security import utc_now_iso
 
 
+class ArchivedFlowError(ValueError):
+    pass
+
+
 def canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -45,13 +49,20 @@ def get_flow(flow_id: str) -> dict[str, object]:
 
 def list_flows() -> list[dict[str, object]]:
     with get_connection() as connection:
-        rows = connection.execute("SELECT id FROM flows ORDER BY created_at DESC").fetchall()
+        rows = connection.execute(
+            "SELECT id FROM flows WHERE status != 'archived' ORDER BY created_at DESC"
+        ).fetchall()
     return [get_flow(row["id"]) for row in rows]
 
 
 def save_draft(flow_id: str, config: dict[str, Any]) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
+        existing = connection.execute("SELECT status FROM flows WHERE id = ?", (flow_id,)).fetchone()
+        if existing is None:
+            raise KeyError(flow_id)
+        if existing["status"] == "archived":
+            raise ArchivedFlowError("已归档流程不可编辑")
         cursor = connection.execute(
             "UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?",
             (canonical_json(config), now, flow_id),
@@ -63,6 +74,8 @@ def save_draft(flow_id: str, config: dict[str, Any]) -> dict[str, object]:
 
 def publish_flow(flow_id: str) -> dict[str, object]:
     flow = get_flow(flow_id)
+    if flow["status"] == "archived":
+        raise ArchivedFlowError("已归档流程不可发布")
     config = flow["config"]
     assert isinstance(config, dict)
     validate_flow_config(config)
@@ -117,6 +130,34 @@ def publish_flow(flow_id: str) -> dict[str, object]:
         "shareUrl": f"/s/{token}",
         "configHash": config_hash,
     }
+
+
+def archive_flow(flow_id: str, teacher_id: int) -> None:
+    now = utc_now_iso()
+    with get_connection() as connection:
+        row = connection.execute("SELECT status FROM flows WHERE id = ?", (flow_id,)).fetchone()
+        if row is None:
+            raise KeyError(flow_id)
+        if row["status"] == "archived":
+            return
+        connection.execute(
+            "UPDATE flows SET status = 'archived', updated_at = ? WHERE id = ?",
+            (now, flow_id),
+        )
+        connection.execute(
+            """
+            INSERT INTO audit_logs
+                (actor_id, action, entity_type, entity_id, before_data, after_data, created_at)
+            VALUES (?, 'archive', 'flow', ?, ?, ?, ?)
+            """,
+            (
+                str(teacher_id),
+                flow_id,
+                canonical_json({"status": row["status"]}),
+                canonical_json({"status": "archived"}),
+                now,
+            ),
+        )
 
 
 def resolve_share_token(token: str) -> dict[str, object]:
