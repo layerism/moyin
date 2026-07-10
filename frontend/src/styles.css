@@ -353,14 +353,84 @@ button {
   font-weight: 750;
 }
 
-.archive-retention-note {
-  margin: -6px 0 20px;
-  padding: 10px 12px;
-  border: 1px solid #f0d7a6;
-  border-radius: 6px;
-  background: #fff9eb;
-  color: #7a4d00;
+.flow-delete-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.flow-delete-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.flow-delete-heading > span {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fee4e2;
+  color: #b42318;
+  font-weight: 800;
+}
+
+.flow-delete-heading h2 {
+  margin: 2px 0 4px;
+}
+
+.flow-delete-heading p {
+  margin: 0;
+  color: #b42318;
   font-size: 13px;
+  font-weight: 700;
+}
+
+.flow-delete-warning {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border: 1px solid #f6b7b2;
+  border-radius: 6px;
+  background: #fff6f5;
+  color: #7a271a;
+  font-size: 13px;
+}
+
+.flow-delete-warning ul {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  line-height: 1.8;
+}
+
+.flow-delete-confirmation {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  color: #344054;
+  font-size: 13px;
+}
+
+.flow-delete-confirmation strong {
+  color: #101828;
+}
+
+.flow-delete-confirmation input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.flow-delete-error {
+  margin: -8px 0 16px;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.danger-action:disabled {
+  border-color: #d0d5dd;
+  background: #eaecf0;
+  color: #98a2b3;
+  cursor: not-allowed;
 }
 
 .teacher-account-menu {

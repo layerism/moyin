@@ -132,29 +132,126 @@ def publish_flow(flow_id: str) -> dict[str, object]:
     }
 
 
-def archive_flow(flow_id: str, teacher_id: int) -> None:
+def delete_flow(flow_id: str, teacher_id: int) -> None:
     now = utc_now_iso()
     with get_connection() as connection:
-        row = connection.execute("SELECT status FROM flows WHERE id = ?", (flow_id,)).fetchone()
+        row = connection.execute(
+            "SELECT name, status FROM flows WHERE id = ?", (flow_id,)
+        ).fetchone()
         if row is None:
             raise KeyError(flow_id)
-        if row["status"] == "archived":
-            return
+
+        version_ids = [
+            version["id"]
+            for version in connection.execute(
+                "SELECT id FROM flow_versions WHERE flow_id = ?", (flow_id,)
+            ).fetchall()
+        ]
+        instance_ids = [
+            instance["id"]
+            for instance in connection.execute(
+                """
+                SELECT i.id FROM flow_instances i
+                JOIN flow_versions v ON v.id = i.flow_version_id
+                WHERE v.flow_id = ?
+                """,
+                (flow_id,),
+            ).fetchall()
+        ]
+
         connection.execute(
-            "UPDATE flows SET status = 'archived', updated_at = ? WHERE id = ?",
-            (now, flow_id),
+            "DELETE FROM audit_logs WHERE entity_type = 'flow' AND entity_id = ?",
+            (flow_id,),
+        )
+        for version_id in version_ids:
+            connection.execute(
+                "DELETE FROM audit_logs WHERE entity_id = ? OR entity_id LIKE ?",
+                (version_id, f"{version_id}:%"),
+            )
+        for instance_id in instance_ids:
+            connection.execute(
+                "DELETE FROM audit_logs WHERE entity_id = ? OR entity_id LIKE ?",
+                (instance_id, f"{instance_id}:%"),
+            )
+
+        connection.execute(
+            """
+            DELETE FROM submissions WHERE node_instance_id IN (
+                SELECT n.id FROM node_instances n
+                JOIN flow_instances i ON i.id = n.flow_instance_id
+                JOIN flow_versions v ON v.id = i.flow_version_id
+                WHERE v.flow_id = ?
+            )
+            """,
+            (flow_id,),
         )
         connection.execute(
             """
+            DELETE FROM node_drafts WHERE node_instance_id IN (
+                SELECT n.id FROM node_instances n
+                JOIN flow_instances i ON i.id = n.flow_instance_id
+                JOIN flow_versions v ON v.id = i.flow_version_id
+                WHERE v.flow_id = ?
+            )
+            """,
+            (flow_id,),
+        )
+        connection.execute(
+            """
+            DELETE FROM student_deadline_overrides WHERE flow_instance_id IN (
+                SELECT i.id FROM flow_instances i
+                JOIN flow_versions v ON v.id = i.flow_version_id
+                WHERE v.flow_id = ?
+            )
+            """,
+            (flow_id,),
+        )
+        connection.execute(
+            """
+            DELETE FROM node_instances WHERE flow_instance_id IN (
+                SELECT i.id FROM flow_instances i
+                JOIN flow_versions v ON v.id = i.flow_version_id
+                WHERE v.flow_id = ?
+            )
+            """,
+            (flow_id,),
+        )
+        connection.execute(
+            """
+            DELETE FROM flow_instances WHERE flow_version_id IN (
+                SELECT id FROM flow_versions WHERE flow_id = ?
+            )
+            """,
+            (flow_id,),
+        )
+        connection.execute(
+            """
+            DELETE FROM flow_node_runtime_configs WHERE flow_version_id IN (
+                SELECT id FROM flow_versions WHERE flow_id = ?
+            )
+            """,
+            (flow_id,),
+        )
+        connection.execute(
+            """
+            DELETE FROM share_tokens WHERE flow_version_id IN (
+                SELECT id FROM flow_versions WHERE flow_id = ?
+            )
+            """,
+            (flow_id,),
+        )
+        connection.execute("DELETE FROM flow_versions WHERE flow_id = ?", (flow_id,))
+        connection.execute("DELETE FROM flows WHERE id = ?", (flow_id,))
+        connection.execute(
+            """
             INSERT INTO audit_logs
-                (actor_id, action, entity_type, entity_id, before_data, after_data, created_at)
-            VALUES (?, 'archive', 'flow', ?, ?, ?, ?)
+                (actor_id, action, entity_type, entity_id, before_data, created_at)
+            VALUES (?, 'delete', 'flow', ?, ?, ?)
             """,
             (
                 str(teacher_id),
                 flow_id,
-                canonical_json({"status": row["status"]}),
-                canonical_json({"status": "archived"}),
+                canonical_json({"name": row["name"], "status": row["status"]}),
                 now,
             ),
         )

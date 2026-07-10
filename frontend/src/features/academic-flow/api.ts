@@ -63,7 +63,7 @@ export const workflowApi = {
   publish(serverId: string) {
     return request<PublishedFlow>(`/api/workflows/${serverId}/publish`, { method: "POST" });
   },
-  archive(serverId: string) {
+  remove(serverId: string) {
     return request<void>(`/api/workflows/${serverId}`, { method: "DELETE" });
   },
   getShared(token: string) {

@@ -528,8 +528,8 @@ export function App() {
     return (
       <AcademicFlowView
         processes={academicProcesses}
-        onArchiveProcess={async (process) => {
-          await workflowApi.archive(process.serverId ?? process.id);
+        onDeleteProcess={async (process) => {
+          await workflowApi.remove(process.serverId ?? process.id);
           setAcademicProcesses((current) => current.filter((item) => item.id !== process.id));
         }}
         onCreateProcess={async (name) => {
