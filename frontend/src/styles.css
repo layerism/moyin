@@ -2121,6 +2121,29 @@ button {
   background: #fff;
 }
 
+.role-auth-card .remember-account-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 14px;
+  cursor: pointer;
+}
+
+.role-auth-card .remember-account-row input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  accent-color: #175cd3;
+}
+
+.role-auth-card .remember-account-row span {
+  display: inline;
+  margin: 0;
+  color: #475467;
+  font-weight: 600;
+}
+
 .role-auth-error {
   min-height: 20px;
   margin: 0 0 10px;
