@@ -160,3 +160,31 @@ export function DeleteConfirmDialog({
     </div>
   );
 }
+
+export function FlowArchiveDialog({
+  name,
+  onCancel,
+  onConfirm,
+  submitting,
+}: {
+  name: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  submitting: boolean;
+}) {
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
+        <h2>确认删除流程</h2>
+        <p className="confirm-text">确定删除流程“{name}”吗？</p>
+        <p className="archive-retention-note">删除后将从列表隐藏，历史数据不会清除。</p>
+        <div className="dialog-actions">
+          <button disabled={submitting} onClick={onCancel}>取消</button>
+          <button className="danger-action" disabled={submitting} onClick={onConfirm}>
+            {submitting ? "处理中" : "确认删除"}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}

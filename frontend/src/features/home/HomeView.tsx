@@ -12,6 +12,7 @@ import type {
 import {
   ContextMenu,
   DeleteConfirmDialog,
+  FlowArchiveDialog,
   MoveFileDialog,
   NameDialog,
 } from "./HomeDialogs";
@@ -443,32 +444,47 @@ export function HomeView({
 export function AcademicFlowView({
   processes,
   onCreateProcess,
+  onArchiveProcess,
   onHome,
   onOssCloud,
   onOpenProcess,
 }: {
   processes: AcademicProcess[];
-  onCreateProcess: (name: string) => void;
+  onCreateProcess: (name: string) => Promise<void> | void;
+  onArchiveProcess: (process: AcademicProcess) => Promise<void>;
   onHome: () => void;
   onOssCloud: () => void;
   onOpenProcess: (processId: string) => void;
 }) {
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
   const [processNameValue, setProcessNameValue] = useState("");
+  const [archiveProcess, setArchiveProcess] = useState<AcademicProcess | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   const startCreateProcess = () => {
     setProcessNameValue("");
     setProcessDialogOpen(true);
   };
 
-  const confirmCreateProcess = () => {
+  const confirmCreateProcess = async () => {
     const nextName = processNameValue.trim();
     if (!nextName) {
       return;
     }
-    onCreateProcess(nextName);
+    await onCreateProcess(nextName);
     setProcessDialogOpen(false);
     setProcessNameValue("");
+  };
+
+  const confirmArchiveProcess = async () => {
+    if (!archiveProcess) return;
+    setArchiving(true);
+    try {
+      await onArchiveProcess(archiveProcess);
+      setArchiveProcess(null);
+    } finally {
+      setArchiving(false);
+    }
   };
 
   return (
@@ -517,19 +533,28 @@ export function AcademicFlowView({
           </div>
           <div className="academic-flow-list" role="list" aria-label="采集流程列表">
             {processes.map((process) => (
-              <button
+              <div
                 className="academic-flow-item"
                 key={process.id}
-                onClick={() => onOpenProcess(process.id)}
                 role="listitem"
               >
-                <span className="academic-flow-icon">流</span>
-                <span>
-                  <strong>{process.name}</strong>
-                  <small>创建时间：{process.createdAt}</small>
-                </span>
-                <em>进入</em>
-              </button>
+                <button className="academic-flow-open" onClick={() => onOpenProcess(process.id)}>
+                  <span className="academic-flow-icon">流</span>
+                  <span>
+                    <strong>{process.name}</strong>
+                    <small>创建时间：{process.createdAt}</small>
+                  </span>
+                  <em>进入</em>
+                </button>
+                <button
+                  aria-label={`删除流程 ${process.name}`}
+                  className="academic-flow-delete"
+                  onClick={() => setArchiveProcess(process)}
+                  title="删除流程"
+                >
+                  ×
+                </button>
+              </div>
             ))}
             {processes.length === 0 && (
               <div className="empty-folder">
@@ -545,10 +570,18 @@ export function AcademicFlowView({
           value={processNameValue}
           placeholder="请输入采集流程名称"
           onCancel={() => setProcessDialogOpen(false)}
-          onConfirm={confirmCreateProcess}
+          onConfirm={() => void confirmCreateProcess()}
           onValueChange={setProcessNameValue}
         />
       )}
+      {archiveProcess ? (
+        <FlowArchiveDialog
+          name={archiveProcess.name}
+          onCancel={() => setArchiveProcess(null)}
+          onConfirm={() => void confirmArchiveProcess()}
+          submitting={archiving}
+        />
+      ) : null}
     </main>
   );
 }

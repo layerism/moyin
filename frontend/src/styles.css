@@ -281,9 +281,9 @@ button {
 .academic-flow-item {
   min-height: 72px;
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 40px;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   padding: 0 4px;
   border-bottom: 1px solid #edf0f5;
   background: transparent;
@@ -293,6 +293,35 @@ button {
 
 .academic-flow-item:hover {
   background: #f8fbff;
+}
+
+.academic-flow-open {
+  min-width: 0;
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.academic-flow-delete {
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #667085;
+  font-size: 22px;
+}
+
+.academic-flow-delete:hover {
+  border-color: #f4c7c3;
+  background: #fff1f0;
+  color: #b42318;
 }
 
 .academic-flow-icon {
@@ -322,6 +351,16 @@ button {
   color: #1d4ed8;
   font-style: normal;
   font-weight: 750;
+}
+
+.archive-retention-note {
+  margin: -6px 0 20px;
+  padding: 10px 12px;
+  border: 1px solid #f0d7a6;
+  border-radius: 6px;
+  background: #fff9eb;
+  color: #7a4d00;
+  font-size: 13px;
 }
 
 .academic-flow-placeholder {
@@ -1797,6 +1836,309 @@ button {
   .deadline-editor-list label,
   .student-extension-editor {
     grid-template-columns: 1fr;
+  }
+}
+
+.role-auth-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(440px, 1.1fr);
+  background: #f3f5f8;
+}
+
+.role-auth-brand {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  justify-content: center;
+  padding: 64px clamp(40px, 8vw, 120px);
+  background: #152238;
+  color: #fff;
+}
+
+.role-auth-brand > p {
+  margin: 24px 0 8px;
+  color: #a7c5f2;
+  font-weight: 700;
+}
+
+.role-auth-brand h1 {
+  margin: 0 0 16px;
+  font-size: 38px;
+  letter-spacing: 0;
+}
+
+.role-auth-brand > div {
+  max-width: 500px;
+  color: #c8d3e3;
+  line-height: 1.8;
+}
+
+.role-auth-main {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 32px;
+}
+
+.role-auth-card {
+  width: min(460px, 100%);
+}
+
+.role-segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 12px;
+  padding: 4px;
+  border: 1px solid #d8dee8;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.role-segment button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #475467;
+  font-weight: 700;
+}
+
+.role-segment button.active {
+  background: #eaf2ff;
+  color: #175cd3;
+}
+
+.role-auth-card form {
+  padding: 28px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(16 24 40 / 8%);
+}
+
+.role-auth-card form header {
+  margin-bottom: 22px;
+}
+
+.role-auth-card h2 {
+  margin: 0 0 7px;
+  font-size: 24px;
+}
+
+.role-auth-card header p {
+  margin: 0;
+  color: #667085;
+}
+
+.role-auth-card label {
+  display: block;
+  margin-bottom: 15px;
+}
+
+.role-auth-card label span {
+  display: block;
+  margin-bottom: 7px;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.role-auth-card input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.role-auth-error {
+  min-height: 20px;
+  margin: 0 0 10px;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.role-auth-submit {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+}
+
+.role-auth-links {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.role-auth-links button {
+  border: 0;
+  background: transparent;
+  color: #175cd3;
+}
+
+.forgot-placeholder-page,
+.auth-loading-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f3f5f8;
+}
+
+.forgot-placeholder-page section {
+  width: min(520px, 100%);
+  padding: 36px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+}
+
+.forgot-placeholder-page p {
+  margin: 18px 0 6px;
+  color: #667085;
+  font-weight: 700;
+}
+
+.forgot-placeholder-page h1 {
+  margin: 0 0 12px;
+  font-size: 26px;
+}
+
+.forgot-placeholder-page div {
+  margin-bottom: 24px;
+  color: #667085;
+}
+
+.forgot-placeholder-page button {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 6px;
+}
+
+.student-account-page {
+  min-height: 100vh;
+  background: #f3f5f8;
+}
+
+.student-account-page > header {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(20px, 6vw, 80px);
+  border-bottom: 1px solid #d8dee8;
+  background: #fff;
+}
+
+.student-account-page > header > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-account-page header small {
+  color: #667085;
+}
+
+.student-account-page header button {
+  padding: 8px 12px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.student-account-main {
+  width: min(900px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 42px 0;
+}
+
+.student-account-heading p {
+  margin: 0 0 7px;
+  color: #667085;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.student-account-heading h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+}
+
+.student-account-heading > span {
+  color: #667085;
+}
+
+.student-account-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.student-account-list > button {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border: 1px solid #d8dee8;
+  border-radius: 7px;
+  background: #fff;
+  text-align: left;
+}
+
+.student-account-list strong,
+.student-account-list small {
+  display: block;
+}
+
+.student-account-list small {
+  margin-top: 5px;
+  color: #667085;
+}
+
+.student-account-list em {
+  color: #175cd3;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.student-account-empty {
+  padding: 44px 20px;
+  border: 1px dashed #cfd7e5;
+  border-radius: 7px;
+  background: #fff;
+  color: #667085;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .role-auth-page {
+    grid-template-columns: 1fr;
+  }
+
+  .role-auth-brand {
+    min-height: auto;
+    padding: 28px 24px;
+  }
+
+  .role-auth-brand h1 {
+    font-size: 28px;
+  }
+
+  .role-auth-main {
+    min-height: auto;
+    padding: 24px 16px;
+  }
+
+  .student-account-page > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 18px;
   }
 }
 

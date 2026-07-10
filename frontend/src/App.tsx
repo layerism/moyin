@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AcademicFlowDesigner, StudentFlowPage } from "./features/academic-flow/AcademicFlowDesigner";
 import { createAcademicProcess, createFallbackAcademicProcess } from "./features/academic-flow/academicFlowData";
-import { workflowApi } from "./features/academic-flow/api";
+import { workflowApi, type ServerFlow } from "./features/academic-flow/api";
 import { StudentRuntimePage } from "./features/academic-flow/StudentRuntimePage";
 import type { RuntimeFlowInstance } from "./features/academic-flow/runtimeTypes";
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
@@ -10,7 +10,10 @@ import { EditView } from "./features/editor/EditView";
 import { AcademicFlowView, HomeView } from "./features/home/HomeView";
 import { TopBar } from "./features/workspace/TopBar";
 import { LoginView, PasswordChangeView, PasswordResetView } from "./features/auth/AuthViews";
+import { AuthPortal, ForgotPasswordPlaceholder } from "./features/auth/AuthPortal";
+import { StudentAccountPage } from "./features/auth/StudentAccountPage";
 import { StudentAccessGate } from "./features/auth/StudentAccessGate";
+import { authApi, type AuthIdentity, type AuthRole } from "./features/auth/authApi";
 import { initialAccounts, initialStudents } from "./data/mockData";
 import type {
   AcademicProcess,
@@ -28,15 +31,32 @@ function getRouteFromPathname(): {
   screen: Screen;
   studentInstanceId: string | null;
   studentSlug: string | null;
+  authRole: AuthRole;
 } {
+  const authRole: AuthRole = new URLSearchParams(window.location.search).get("role") === "student"
+    ? "student"
+    : "teacher";
+  if (window.location.pathname === "/auth/login") {
+    return { authRole, processId: null, screen: "authLogin", studentInstanceId: null, studentSlug: null };
+  }
+  if (window.location.pathname === "/auth/register") {
+    return { authRole, processId: null, screen: "authRegister", studentInstanceId: null, studentSlug: null };
+  }
+  if (window.location.pathname === "/auth/forgot-password") {
+    return { authRole, processId: null, screen: "authForgot", studentInstanceId: null, studentSlug: null };
+  }
+  if (window.location.pathname === "/student") {
+    return { authRole: "student", processId: null, screen: "studentHome", studentInstanceId: null, studentSlug: null };
+  }
   if (window.location.pathname === "/academic-flow") {
-    return { processId: null, screen: "academicFlow", studentInstanceId: null, studentSlug: null };
+    return { authRole, processId: null, screen: "academicFlow", studentInstanceId: null, studentSlug: null };
   }
 
   const sharedMatch = window.location.pathname.match(/^\/s\/([^/]+)$/);
   if (sharedMatch) {
     return {
       processId: null,
+      authRole: "student",
       screen: "academicFlowShared",
       studentInstanceId: null,
       studentSlug: decodeURIComponent(sharedMatch[1]),
@@ -47,6 +67,7 @@ function getRouteFromPathname(): {
   if (runtimeMatch) {
     return {
       processId: null,
+      authRole: "student",
       screen: "academicFlowStudentRuntime",
       studentInstanceId: decodeURIComponent(runtimeMatch[1]),
       studentSlug: null,
@@ -59,6 +80,7 @@ function getRouteFromPathname(): {
   if (studentMatch) {
     return {
       processId: decodeURIComponent(studentMatch[1]),
+      authRole: "student",
       screen: "academicFlowStudent",
       studentInstanceId: null,
       studentSlug: decodeURIComponent(studentMatch[2]),
@@ -69,13 +91,14 @@ function getRouteFromPathname(): {
   if (detailMatch) {
     return {
       processId: decodeURIComponent(detailMatch[1]),
+      authRole,
       screen: "academicFlowDetail",
       studentInstanceId: null,
       studentSlug: null,
     };
   }
 
-  return { processId: null, screen: "home", studentInstanceId: null, studentSlug: null };
+  return { authRole, processId: null, screen: "home", studentInstanceId: null, studentSlug: null };
 }
 
 function pushAppPath(pathname: string) {
@@ -84,9 +107,28 @@ function pushAppPath(pathname: string) {
   }
 }
 
+function mapServerFlow(flow: ServerFlow): AcademicProcess {
+  return {
+    createdAt: new Date(flow.createdAt).toLocaleString("zh-CN"),
+    description: flow.description,
+    edges: flow.config.edges ?? [],
+    encryptedSlug: "",
+    id: flow.id,
+    name: flow.name,
+    nodes: flow.config.nodes ?? [],
+    published: flow.status === "published",
+    serverId: flow.id,
+    shareUrl: "",
+  };
+}
+
 export function App() {
   const initialRoute = getRouteFromPathname();
   const [screen, setScreen] = useState<Screen>(initialRoute.screen);
+  const [authRole, setAuthRole] = useState<AuthRole>(initialRoute.authRole);
+  const [authReady, setAuthReady] = useState(false);
+  const [teacherIdentity, setTeacherIdentity] = useState<AuthIdentity | null>(null);
+  const [studentIdentity, setStudentIdentity] = useState<AuthIdentity | null>(null);
   const [tab, setTab] = useState<Tab>("edit");
   const [students, setStudents] = useState<Student[]>(initialStudents);
   const [accounts, setAccounts] = useState<StudentAccount[]>(initialAccounts);
@@ -125,11 +167,30 @@ export function App() {
       setActiveAcademicProcessId(route.processId);
       setActiveRuntimeInstanceId(route.studentInstanceId);
       setActiveStudentToken(route.studentSlug);
+      setAuthRole(route.authRole);
       setScreen(route.screen);
     };
 
     window.addEventListener("popstate", syncRoute);
     return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  useEffect(() => {
+    if (!teacherIdentity) return;
+    workflowApi.listFlows().then((flows) => setAcademicProcesses(flows.map(mapServerFlow))).catch(() => undefined);
+  }, [teacherIdentity]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([authApi.me("teacher"), authApi.me("student")]).then(([teacher, student]) => {
+      if (cancelled) return;
+      if (teacher.status === "fulfilled") setTeacherIdentity(teacher.value);
+      if (student.status === "fulfilled") setStudentIdentity(student.value);
+      setAuthReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const stats = useMemo(() => {
@@ -160,6 +221,31 @@ export function App() {
     pushAppPath("/");
     setActiveAcademicProcessId(null);
     setScreen("home");
+  };
+
+  const navigateAuth = (mode: "forgot" | "login" | "register", role: AuthRole) => {
+    const pathname = mode === "forgot" ? "/auth/forgot-password" : `/auth/${mode}`;
+    pushAppPath(`${pathname}?role=${role}`);
+    setAuthRole(role);
+    setScreen(mode === "forgot" ? "authForgot" : mode === "register" ? "authRegister" : "authLogin");
+  };
+
+  const completeAuthentication = (role: AuthRole, identity: AuthIdentity) => {
+    if (role === "teacher") {
+      setTeacherIdentity(identity);
+      openHome();
+      return;
+    }
+    setStudentIdentity(identity);
+    pushAppPath("/student");
+    setScreen("studentHome");
+  };
+
+  const logoutRole = async (role: AuthRole) => {
+    await authApi.logout(role);
+    if (role === "teacher") setTeacherIdentity(null);
+    else setStudentIdentity(null);
+    navigateAuth("login", role);
   };
 
   const openAcademicFlow = () => {
@@ -352,6 +438,71 @@ export function App() {
     setTab("stats");
   };
 
+  if (screen === "authLogin" || screen === "authRegister") {
+    return (
+      <AuthPortal
+        initialRole={authRole}
+        key={`${screen}-${authRole}`}
+        mode={screen === "authRegister" ? "register" : "login"}
+        onAuthenticated={completeAuthentication}
+        onNavigate={navigateAuth}
+      />
+    );
+  }
+
+  if (screen === "authForgot") {
+    return (
+      <ForgotPasswordPlaceholder
+        role={authRole}
+        onBack={() => navigateAuth("login", authRole)}
+      />
+    );
+  }
+
+  const teacherScreens: Screen[] = ["academicFlow", "academicFlowDetail", "home", "workspace"];
+  if (!authReady && (teacherScreens.includes(screen) || screen === "studentHome")) {
+    return (
+      <main className="auth-loading-page">
+        <strong>正在验证登录状态</strong>
+      </main>
+    );
+  }
+
+  if (teacherScreens.includes(screen) && !teacherIdentity) {
+    return (
+      <AuthPortal
+        initialRole="teacher"
+        mode="login"
+        onAuthenticated={completeAuthentication}
+        onNavigate={navigateAuth}
+      />
+    );
+  }
+
+  if (screen === "studentHome") {
+    if (!studentIdentity) {
+      return (
+        <AuthPortal
+          initialRole="student"
+          mode="login"
+          onAuthenticated={completeAuthentication}
+          onNavigate={navigateAuth}
+        />
+      );
+    }
+    return (
+      <StudentAccountPage
+        identity={studentIdentity}
+        onLogout={() => void logoutRole("student")}
+        onOpenFlow={(instanceId) => {
+          setActiveRuntimeInstanceId(instanceId);
+          pushAppPath(`/student/flows/${encodeURIComponent(instanceId)}`);
+          setScreen("academicFlowStudentRuntime");
+        }}
+      />
+    );
+  }
+
   if (screen === "home") {
     return (
       <HomeView
@@ -366,7 +517,7 @@ export function App() {
         onAcademicFlow={openAcademicFlow}
         onFilesChange={setHomeFiles}
         onFoldersChange={setHomeFolders}
-        onLogin={() => setScreen("login")}
+        onLogin={() => navigateAuth("login", "student")}
       />
     );
   }
@@ -375,9 +526,15 @@ export function App() {
     return (
       <AcademicFlowView
         processes={academicProcesses}
-        onCreateProcess={(name) => {
-          const process = createAcademicProcess(name);
-          setAcademicProcesses((current) => [...current, process]);
+        onArchiveProcess={async (process) => {
+          await workflowApi.archive(process.serverId ?? process.id);
+          setAcademicProcesses((current) => current.filter((item) => item.id !== process.id));
+        }}
+        onCreateProcess={async (name) => {
+          const draft = createAcademicProcess(name);
+          const created = await workflowApi.createFlow(draft);
+          const process = { ...draft, id: created.id, serverId: created.id };
+          setAcademicProcesses((current) => [process, ...current]);
         }}
         onHome={openHome}
         onOssCloud={() => {
@@ -439,6 +596,7 @@ export function App() {
       <StudentAccessGate
         token={activeStudentToken}
         onEntered={(instance) => {
+          void authApi.me("student").then(setStudentIdentity);
           setRuntimeInstance(instance);
           setActiveRuntimeInstanceId(instance.id);
           pushAppPath(`/student/flows/${encodeURIComponent(instance.id)}`);
@@ -453,7 +611,10 @@ export function App() {
       <StudentRuntimePage
         initialInstance={runtimeInstance}
         instanceId={activeRuntimeInstanceId}
-        onHome={openHome}
+        onHome={() => {
+          pushAppPath("/student");
+          setScreen("studentHome");
+        }}
       />
     );
   }

@@ -132,3 +132,19 @@ def test_teacher_progress_lists_each_student_instance(client: TestClient) -> Non
         "20260041",
         "20260042",
     }
+
+
+def test_student_lists_joined_flow_instances(client: TestClient) -> None:
+    published = publish_flow(client)
+    register(client, "20260051", "学生账户页")
+    entered = client.post(f"/api/student/shared/{published['token']}/enter").json()
+
+    response = client.get("/api/student/flow-instances")
+
+    assert response.status_code == 200
+    items = response.json()
+    assert len(items) == 1
+    assert items[0]["id"] == entered["id"]
+    assert items[0]["name"] == "学生材料流程"
+    assert items[0]["status"] == "in_progress"
+    assert items[0]["lastActiveAt"]

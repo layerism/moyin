@@ -7,6 +7,16 @@ import type {
   WorkflowProgress,
 } from "./runtimeTypes";
 
+export type ServerFlow = {
+  config: { edges: AcademicProcess["edges"]; nodes: AcademicProcess["nodes"] };
+  createdAt: string;
+  description: string;
+  id: string;
+  name: string;
+  status: "draft" | "published";
+  updatedAt: string;
+};
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -35,6 +45,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const workflowApi = {
+  listFlows() {
+    return request<ServerFlow[]>("/api/workflows");
+  },
   createFlow(process: AcademicProcess) {
     return request<{ id: string }>("/api/workflows", {
       method: "POST",
@@ -49,6 +62,9 @@ export const workflowApi = {
   },
   publish(serverId: string) {
     return request<PublishedFlow>(`/api/workflows/${serverId}/publish`, { method: "POST" });
+  },
+  archive(serverId: string) {
+    return request<void>(`/api/workflows/${serverId}`, { method: "DELETE" });
   },
   getShared(token: string) {
     return request<SharedFlow>(`/api/shared-flows/${encodeURIComponent(token)}`);
