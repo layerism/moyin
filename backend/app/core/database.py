@@ -34,6 +34,48 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     reason TEXT,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS flows (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    owner_id TEXT NOT NULL DEFAULT 'teacher-local',
+    status TEXT NOT NULL DEFAULT 'draft',
+    draft_config TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS flow_versions (
+    id TEXT PRIMARY KEY,
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    version_no INTEGER NOT NULL,
+    config_snapshot TEXT NOT NULL,
+    config_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'published',
+    published_by TEXT NOT NULL,
+    published_at TEXT NOT NULL,
+    UNIQUE(flow_id, version_no)
+);
+
+CREATE TABLE IF NOT EXISTS flow_node_runtime_configs (
+    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    deadline_at TEXT,
+    updated_by TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(flow_version_id, node_key)
+);
+
+CREATE TABLE IF NOT EXISTS share_tokens (
+    id TEXT PRIMARY KEY,
+    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'active',
+    expires_at TEXT,
+    created_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 
