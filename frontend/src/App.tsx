@@ -518,6 +518,8 @@ export function App() {
         onFilesChange={setHomeFiles}
         onFoldersChange={setHomeFolders}
         onLogin={() => navigateAuth("login", "student")}
+        onTeacherLogout={() => void logoutRole("teacher")}
+        teacherIdentity={teacherIdentity!}
       />
     );
   }
@@ -542,6 +544,8 @@ export function App() {
           openHome();
         }}
         onOpenProcess={openAcademicProcess}
+        onTeacherLogout={() => void logoutRole("teacher")}
+        teacherIdentity={teacherIdentity!}
       />
     );
   }
