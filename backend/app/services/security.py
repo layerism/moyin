@@ -9,6 +9,7 @@ from fastapi import Cookie, HTTPException, status
 from app.core.database import get_connection
 
 SESSION_COOKIE = "oa_session"
+TEACHER_SESSION_COOKIE = "teacher_session"
 SESSION_DAYS = 14
 PASSWORD_ITERATIONS = 240_000
 
@@ -64,12 +65,36 @@ def create_session(student_account_id: int) -> str:
     return token
 
 
+def create_teacher_session(teacher_account_id: int) -> str:
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = utc_now()
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO teacher_sessions
+                (teacher_account_id, token_hash, expires_at, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (teacher_account_id, token_hash, (now + timedelta(days=SESSION_DAYS)).isoformat(), now.isoformat()),
+        )
+    return token
+
+
 def delete_session(token: str | None) -> None:
     if not token:
         return
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     with get_connection() as connection:
         connection.execute("DELETE FROM student_sessions WHERE token_hash = ?", (token_hash,))
+
+
+def delete_teacher_session(token: str | None) -> None:
+    if not token:
+        return
+    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    with get_connection() as connection:
+        connection.execute("DELETE FROM teacher_sessions WHERE token_hash = ?", (token_hash,))
 
 
 def get_current_student(oa_session: str | None = Cookie(default=None)) -> dict[str, object]:
@@ -89,3 +114,24 @@ def get_current_student(oa_session: str | None = Cookie(default=None)) -> dict[s
     if row is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效")
     return {"id": row["id"], "studentNo": row["student_no"], "name": row["name"]}
+
+
+def get_current_teacher(
+    teacher_session: str | None = Cookie(default=None),
+) -> dict[str, object]:
+    if not teacher_session:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请先以教师身份登录")
+    token_hash = hashlib.sha256(teacher_session.encode("utf-8")).hexdigest()
+    with get_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT a.id, a.employee_no, a.name
+            FROM teacher_sessions s
+            JOIN teacher_accounts a ON a.id = s.teacher_account_id
+            WHERE s.token_hash = ? AND s.expires_at > ? AND a.status = 'active'
+            """,
+            (token_hash, utc_now_iso()),
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="教师登录状态已失效")
+    return {"id": row["id"], "employeeNo": row["employee_no"], "name": row["name"]}
