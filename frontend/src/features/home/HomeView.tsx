@@ -9,6 +9,8 @@ import type {
   AcademicProcess,
   StateSetter,
 } from "../../types";
+import type { AuthIdentity } from "../auth/authApi";
+import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
 import {
   ContextMenu,
   DeleteConfirmDialog,
@@ -27,6 +29,8 @@ export function HomeView({
   onFilesChange,
   onFoldersChange,
   onLogin,
+  onTeacherLogout,
+  teacherIdentity,
 }: {
   activeFolder: string | null;
   files: HomeFile[];
@@ -37,6 +41,8 @@ export function HomeView({
   onFilesChange: StateSetter<HomeFile[]>;
   onFoldersChange: StateSetter<string[]>;
   onLogin: () => void;
+  onTeacherLogout: () => void;
+  teacherIdentity: AuthIdentity;
 }) {
   const [menu, setMenu] = useState<HomeMenu | null>(null);
   const [folderDialog, setFolderDialog] = useState<FolderDialog | null>(null);
@@ -297,7 +303,7 @@ export function HomeView({
             <span>⌕</span>
             <input placeholder="搜索收集表、文件夹、学生材料" />
           </label>
-          <button className="avatar">卢</button>
+          <TeacherAccountMenu identity={teacherIdentity} onLogout={onTeacherLogout} />
         </header>
 
         <section className="drive-panel">
@@ -448,6 +454,8 @@ export function AcademicFlowView({
   onHome,
   onOssCloud,
   onOpenProcess,
+  onTeacherLogout,
+  teacherIdentity,
 }: {
   processes: AcademicProcess[];
   onCreateProcess: (name: string) => Promise<void> | void;
@@ -455,6 +463,8 @@ export function AcademicFlowView({
   onHome: () => void;
   onOssCloud: () => void;
   onOpenProcess: (processId: string) => void;
+  onTeacherLogout: () => void;
+  teacherIdentity: AuthIdentity;
 }) {
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
   const [processNameValue, setProcessNameValue] = useState("");
@@ -517,7 +527,7 @@ export function AcademicFlowView({
             <span>⌕</span>
             <input placeholder="搜索教务流程" />
           </label>
-          <button className="avatar">卢</button>
+          <TeacherAccountMenu identity={teacherIdentity} onLogout={onTeacherLogout} />
         </header>
 
         <section className="drive-panel academic-flow-panel" aria-label="教务流程">

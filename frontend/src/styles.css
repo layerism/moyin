@@ -363,6 +363,105 @@ button {
   font-size: 13px;
 }
 
+.teacher-account-menu {
+  position: relative;
+}
+
+.teacher-account-menu .avatar[aria-expanded="true"] {
+  outline: 3px solid rgb(40 120 240 / 18%);
+}
+
+.teacher-account-popover {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 280px;
+  padding: 16px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgb(16 24 40 / 16%);
+  color: #172033;
+}
+
+.teacher-account-popover::before {
+  position: absolute;
+  top: -6px;
+  right: 15px;
+  width: 10px;
+  height: 10px;
+  border-top: 1px solid #d8dee8;
+  border-left: 1px solid #d8dee8;
+  background: #fff;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.teacher-account-popover header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #edf0f4;
+}
+
+.teacher-account-popover header > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: #2878f0;
+  color: #fff;
+  font-weight: 800;
+}
+
+.teacher-account-popover header strong,
+.teacher-account-popover header small {
+  display: block;
+}
+
+.teacher-account-popover header small {
+  margin-top: 3px;
+  color: #667085;
+}
+
+.teacher-account-popover dl {
+  display: grid;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.teacher-account-popover dl > div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.teacher-account-popover dt {
+  color: #667085;
+}
+
+.teacher-account-popover dd {
+  overflow: hidden;
+  margin: 0;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teacher-account-logout {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #f1c5c1;
+  border-radius: 6px;
+  background: #fff5f4;
+  color: #b42318;
+  font-weight: 700;
+}
+
 .academic-flow-placeholder {
   min-height: 260px;
   display: grid;
