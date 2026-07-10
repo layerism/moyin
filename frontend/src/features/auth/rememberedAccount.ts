@@ -1,15 +1,17 @@
 import type { AuthRole } from "./authApi";
 
-export const REMEMBERED_ACCOUNT_KEY = "oa.auth.remembered.v1";
+export const ACCOUNT_HISTORY_KEY = "oa.auth.account-history.v2";
+export const LEGACY_REMEMBERED_ACCOUNT_KEY = "oa.auth.remembered.v1";
+export const MAX_REMEMBERED_ACCOUNTS = 5;
 
 export type RememberedLoginAccount = {
   identifier: string;
   name: string;
 };
 
-type RememberedAccountsPayload = {
-  accounts: Partial<Record<AuthRole, RememberedLoginAccount>>;
-  version: 1;
+type AccountHistoryPayload = {
+  accounts: Partial<Record<AuthRole, RememberedLoginAccount[]>>;
+  version: 2;
 };
 
 type StorageAdapter = Pick<Storage, "getItem" | "removeItem" | "setItem">;
@@ -23,34 +25,82 @@ function parseAccount(value: unknown): RememberedLoginAccount | null {
   return identifier && name ? { identifier, name } : null;
 }
 
-function readPayload(storage: StorageAdapter): RememberedAccountsPayload {
+function parseHistory(value: unknown): RememberedLoginAccount[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const accounts: RememberedLoginAccount[] = [];
+  for (const item of value) {
+    const account = parseAccount(item);
+    if (!account || seen.has(account.identifier)) continue;
+    seen.add(account.identifier);
+    accounts.push(account);
+    if (accounts.length === MAX_REMEMBERED_ACCOUNTS) break;
+  }
+  return accounts;
+}
+
+function parseCurrentPayload(raw: string | null): AccountHistoryPayload | null {
+  if (!raw) return null;
   try {
-    const raw = storage.getItem(REMEMBERED_ACCOUNT_KEY);
-    if (!raw) return { accounts: {}, version: 1 };
     const value = JSON.parse(raw) as Record<string, unknown>;
-    if (value.version !== 1 || !value.accounts || typeof value.accounts !== "object") {
-      return { accounts: {}, version: 1 };
-    }
+    if (value.version !== 2 || !value.accounts || typeof value.accounts !== "object") return null;
+    const rawAccounts = value.accounts as Record<string, unknown>;
+    return {
+      accounts: {
+        student: parseHistory(rawAccounts.student),
+        teacher: parseHistory(rawAccounts.teacher),
+      },
+      version: 2,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseLegacyPayload(raw: string | null): AccountHistoryPayload | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Record<string, unknown>;
+    if (value.version !== 1 || !value.accounts || typeof value.accounts !== "object") return null;
     const rawAccounts = value.accounts as Record<string, unknown>;
     const teacher = parseAccount(rawAccounts.teacher);
     const student = parseAccount(rawAccounts.student);
     return {
       accounts: {
-        ...(teacher ? { teacher } : {}),
-        ...(student ? { student } : {}),
+        ...(teacher ? { teacher: [teacher] } : {}),
+        ...(student ? { student: [student] } : {}),
       },
-      version: 1,
+      version: 2,
     };
   } catch {
-    return { accounts: {}, version: 1 };
+    return null;
   }
 }
 
-export function getRememberedAccount(
+function readPayload(storage: StorageAdapter): AccountHistoryPayload {
+  try {
+    return parseCurrentPayload(storage.getItem(ACCOUNT_HISTORY_KEY))
+      ?? parseLegacyPayload(storage.getItem(LEGACY_REMEMBERED_ACCOUNT_KEY))
+      ?? { accounts: {}, version: 2 };
+  } catch {
+    return { accounts: {}, version: 2 };
+  }
+}
+
+function writePayload(storage: StorageAdapter, payload: AccountHistoryPayload) {
+  try {
+    storage.setItem(ACCOUNT_HISTORY_KEY, JSON.stringify(payload));
+    storage.removeItem(LEGACY_REMEMBERED_ACCOUNT_KEY);
+  } catch {
+    // Authentication must still succeed when storage is unavailable or full.
+  }
+}
+
+export function getRememberedAccounts(
   storage: StorageAdapter,
   role: AuthRole,
-): RememberedLoginAccount | null {
-  return readPayload(storage).accounts[role] ?? null;
+): RememberedLoginAccount[] {
+  return [...(readPayload(storage).accounts[role] ?? [])];
 }
 
 export function rememberLoginAccount(
@@ -58,32 +108,36 @@ export function rememberLoginAccount(
   role: AuthRole,
   account: RememberedLoginAccount,
 ) {
+  const normalized = parseAccount(account);
+  if (!normalized) return;
   const payload = readPayload(storage);
-  payload.accounts[role] = {
-    identifier: account.identifier.trim(),
-    name: account.name.trim(),
-  };
-  try {
-    storage.setItem(REMEMBERED_ACCOUNT_KEY, JSON.stringify(payload));
-  } catch {
-    // Login must still succeed when storage is unavailable or full.
-  }
+  const current = payload.accounts[role] ?? [];
+  payload.accounts[role] = [
+    normalized,
+    ...current.filter((item) => item.identifier !== normalized.identifier),
+  ].slice(0, MAX_REMEMBERED_ACCOUNTS);
+  writePayload(storage, payload);
 }
 
-export function forgetRememberedAccount(storage: StorageAdapter, role: AuthRole) {
+export function forgetRememberedAccount(
+  storage: StorageAdapter,
+  role: AuthRole,
+  identifier: string,
+) {
   const payload = readPayload(storage);
-  delete payload.accounts[role];
-  if (!payload.accounts.teacher && !payload.accounts.student) {
+  payload.accounts[role] = (payload.accounts[role] ?? []).filter(
+    (account) => account.identifier !== identifier,
+  );
+  const hasAccounts = (payload.accounts.teacher?.length ?? 0) > 0
+    || (payload.accounts.student?.length ?? 0) > 0;
+  if (!hasAccounts) {
     try {
-      storage.removeItem(REMEMBERED_ACCOUNT_KEY);
+      storage.removeItem(ACCOUNT_HISTORY_KEY);
+      storage.removeItem(LEGACY_REMEMBERED_ACCOUNT_KEY);
     } catch {
       // Storage failures must not block authentication.
     }
     return;
   }
-  try {
-    storage.setItem(REMEMBERED_ACCOUNT_KEY, JSON.stringify(payload));
-  } catch {
-    // Storage failures must not block authentication.
-  }
+  writePayload(storage, payload);
 }

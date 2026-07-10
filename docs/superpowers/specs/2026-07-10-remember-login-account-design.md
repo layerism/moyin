@@ -19,7 +19,7 @@
 ## 表单规范
 
 - 表单和输入框提供稳定的 `id`、`name`、`required` 与正确的 `autocomplete`。
-- 工号/学号使用 `autocomplete="username"`。
+- 姓名和工号/学号由项目内历史下拉提供，使用 `autocomplete="off"`，避免页面加载时自动写入通用表单信息。
 - 登录密码使用 `autocomplete="current-password"`，注册密码使用 `autocomplete="new-password"`。
 
 ## 验证
