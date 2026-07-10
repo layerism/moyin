@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 
+import { AccountHistoryPicker } from "./AccountHistoryPicker";
 import { authApi, type AuthIdentity, type AuthRole } from "./authApi";
 import {
   forgetRememberedAccount,
-  getRememberedAccount,
+  getRememberedAccounts,
   rememberLoginAccount,
+  type RememberedLoginAccount,
 } from "./rememberedAccount";
 
 type AuthForm = {
@@ -14,17 +16,7 @@ type AuthForm = {
   password: string;
 };
 
-function initialForm(role: AuthRole, mode: "login" | "register"): AuthForm {
-  const remembered = mode === "login"
-    ? getRememberedAccount(window.localStorage, role)
-    : null;
-  return {
-    confirm: "",
-    identifier: remembered?.identifier ?? "",
-    name: remembered?.name ?? "",
-    password: "",
-  };
-}
+const EMPTY_AUTH_FORM: AuthForm = { confirm: "", identifier: "", name: "", password: "" };
 
 export function AuthPortal({
   initialRole,
@@ -38,7 +30,11 @@ export function AuthPortal({
   onNavigate: (mode: "forgot" | "login" | "register", role: AuthRole) => void;
 }) {
   const [role, setRole] = useState<AuthRole>(initialRole);
-  const [form, setForm] = useState<AuthForm>(() => initialForm(initialRole, mode));
+  const [form, setForm] = useState<AuthForm>(EMPTY_AUTH_FORM);
+  const [accountHistory, setAccountHistory] = useState<RememberedLoginAccount[]>(() =>
+    mode === "login" ? getRememberedAccounts(window.localStorage, initialRole) : [],
+  );
+  const [historyAnchor, setHistoryAnchor] = useState<"identifier" | "name" | null>(null);
   const [rememberAccount, setRememberAccount] = useState(mode === "login");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -72,8 +68,6 @@ export function AuthPortal({
             identifier: credentials.identifier,
             name: credentials.name,
           });
-        } else {
-          forgetRememberedAccount(window.localStorage, role);
         }
       }
       onAuthenticated(role, identity);
@@ -86,10 +80,39 @@ export function AuthPortal({
 
   const changeRole = (nextRole: AuthRole) => {
     setRole(nextRole);
-    setForm(initialForm(nextRole, mode));
+    setForm(EMPTY_AUTH_FORM);
+    setAccountHistory(
+      mode === "login" ? getRememberedAccounts(window.localStorage, nextRole) : [],
+    );
+    setHistoryAnchor(null);
     setRememberAccount(mode === "login");
     setError("");
   };
+
+  const selectRememberedAccount = (account: RememberedLoginAccount) => {
+    setForm((current) => ({
+      ...current,
+      identifier: account.identifier,
+      name: account.name,
+    }));
+    setHistoryAnchor(null);
+  };
+
+  const forgetAccount = (identifier: string) => {
+    forgetRememberedAccount(window.localStorage, role, identifier);
+    const nextHistory = getRememberedAccounts(window.localStorage, role);
+    setAccountHistory(nextHistory);
+    if (nextHistory.length === 0) setHistoryAnchor(null);
+  };
+
+  const accountPicker = accountHistory.length > 0 ? (
+    <AccountHistoryPicker
+      accounts={accountHistory}
+      identifierLabel={role === "teacher" ? "工号" : "学号"}
+      onForget={forgetAccount}
+      onSelect={selectRememberedAccount}
+    />
+  ) : null;
 
   return (
     <main className="role-auth-page">
@@ -122,30 +145,48 @@ export function AuthPortal({
               <h2>{role === "teacher" ? "教师" : "学生"}{mode === "register" ? "注册" : "登录"}</h2>
               <p>{role === "teacher" ? "进入流程设计与管理工作台" : "查看并继续个人填写流程"}</p>
             </header>
-            <label htmlFor={`${fieldPrefix}-name`}>
-              <span>姓名</span>
-              <input
-                autoComplete="name"
-                id={`${fieldPrefix}-name`}
-                name="name"
-                required
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-              />
-            </label>
-            <label htmlFor={`${fieldPrefix}-username`}>
-              <span>{role === "teacher" ? "工号" : "学号"}</span>
-              <input
-                autoCapitalize="none"
-                autoComplete="username"
-                id={`${fieldPrefix}-username`}
-                name="username"
-                required
-                spellCheck={false}
-                value={form.identifier}
-                onChange={(event) => setForm({ ...form, identifier: event.target.value })}
-              />
-            </label>
+            <div
+              className="account-history-control"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setHistoryAnchor(null);
+              }}
+            >
+              <label htmlFor={`${fieldPrefix}-name`}>
+                <span>姓名</span>
+                <input
+                  autoComplete="off"
+                  id={`${fieldPrefix}-name`}
+                  name="account-name"
+                  onFocus={() => setHistoryAnchor("name")}
+                  required
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                />
+              </label>
+              {historyAnchor === "name" ? accountPicker : null}
+            </div>
+            <div
+              className="account-history-control"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) setHistoryAnchor(null);
+              }}
+            >
+              <label htmlFor={`${fieldPrefix}-username`}>
+                <span>{role === "teacher" ? "工号" : "学号"}</span>
+                <input
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  id={`${fieldPrefix}-username`}
+                  name="account-identifier"
+                  onFocus={() => setHistoryAnchor("identifier")}
+                  required
+                  spellCheck={false}
+                  value={form.identifier}
+                  onChange={(event) => setForm({ ...form, identifier: event.target.value })}
+                />
+              </label>
+              {historyAnchor === "identifier" ? accountPicker : null}
+            </div>
             <label htmlFor={`${fieldPrefix}-password`}>
               <span>密码</span>
               <input
