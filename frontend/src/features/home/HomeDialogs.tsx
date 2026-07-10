@@ -58,22 +58,28 @@ export function ContextMenu({
 }
 
 export function NameDialog({
+  error = "",
   onCancel,
   onConfirm,
   onValueChange,
   placeholder,
+  submitting = false,
   title,
   value,
 }: {
+  error?: string;
   onCancel: () => void;
   onConfirm: () => void;
   onValueChange: (value: string) => void;
   placeholder: string;
+  submitting?: boolean;
   title: string;
   value: string;
 }) {
   return (
-    <div className="modal-backdrop" onClick={onCancel}>
+    <div className="modal-backdrop" onClick={() => {
+      if (!submitting) onCancel();
+    }}>
       <section className="rename-dialog" onClick={(event) => event.stopPropagation()}>
         <h2>{title}</h2>
         <input
@@ -82,15 +88,16 @@ export function NameDialog({
           value={value}
           onChange={(event) => onValueChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") {
+            if (event.key === "Enter" && !submitting) {
               onConfirm();
             }
           }}
         />
+        {error ? <p className="dialog-error" role="alert">{error}</p> : null}
         <div className="dialog-actions">
-          <button onClick={onCancel}>取消</button>
-          <button className="primary small" onClick={onConfirm}>
-            确定
+          <button disabled={submitting} onClick={onCancel}>取消</button>
+          <button className="primary small" disabled={submitting} onClick={onConfirm}>
+            {submitting ? "创建中" : "确定"}
           </button>
         </div>
       </section>

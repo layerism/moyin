@@ -8,6 +8,7 @@ from app.repositories.workflows import (
     ArchivedFlowError,
     create_flow,
     delete_flow,
+    DuplicateFlowNameError,
     get_flow,
     list_flows,
     publish_flow,
@@ -40,7 +41,10 @@ def get_flows() -> list[dict[str, object]]:
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def post_flow(payload: CreateFlowRequest) -> dict[str, object]:
-    return create_flow(payload.name.strip(), payload.description.strip())
+    try:
+        return create_flow(payload.name.strip(), payload.description.strip())
+    except DuplicateFlowNameError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/{flow_id}")

@@ -468,12 +468,15 @@ export function AcademicFlowView({
 }) {
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
   const [processNameValue, setProcessNameValue] = useState("");
+  const [processCreateError, setProcessCreateError] = useState("");
+  const [processCreating, setProcessCreating] = useState(false);
   const [deleteProcess, setDeleteProcess] = useState<AcademicProcess | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
   const startCreateProcess = () => {
     setProcessNameValue("");
+    setProcessCreateError("");
     setProcessDialogOpen(true);
   };
 
@@ -482,9 +485,21 @@ export function AcademicFlowView({
     if (!nextName) {
       return;
     }
-    await onCreateProcess(nextName);
-    setProcessDialogOpen(false);
-    setProcessNameValue("");
+    if (processes.some((process) => process.name.trim() === nextName)) {
+      setProcessCreateError("已存在同名流程");
+      return;
+    }
+    setProcessCreating(true);
+    setProcessCreateError("");
+    try {
+      await onCreateProcess(nextName);
+      setProcessDialogOpen(false);
+      setProcessNameValue("");
+    } catch (error) {
+      setProcessCreateError(error instanceof Error ? error.message : "创建失败，请稍后重试");
+    } finally {
+      setProcessCreating(false);
+    }
   };
 
   const confirmDeleteProcess = async () => {
@@ -583,12 +598,17 @@ export function AcademicFlowView({
       </section>
       {processDialogOpen && (
         <NameDialog
+          error={processCreateError}
           title="创建流程"
           value={processNameValue}
           placeholder="请输入采集流程名称"
           onCancel={() => setProcessDialogOpen(false)}
           onConfirm={() => void confirmCreateProcess()}
-          onValueChange={setProcessNameValue}
+          onValueChange={(value) => {
+            setProcessNameValue(value);
+            setProcessCreateError("");
+          }}
+          submitting={processCreating}
         />
       )}
       {deleteProcess ? (

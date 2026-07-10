@@ -13,6 +13,10 @@ class ArchivedFlowError(ValueError):
     pass
 
 
+class DuplicateFlowNameError(ValueError):
+    pass
+
+
 def canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -21,6 +25,12 @@ def create_flow(name: str, description: str) -> dict[str, object]:
     flow_id = str(uuid.uuid4())
     now = utc_now_iso()
     with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        existing = connection.execute(
+            "SELECT 1 FROM flows WHERE name = ? LIMIT 1", (name,)
+        ).fetchone()
+        if existing is not None:
+            raise DuplicateFlowNameError("已存在同名流程")
         connection.execute(
             """
             INSERT INTO flows (id, name, description, created_at, updated_at)
