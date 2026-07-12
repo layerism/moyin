@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "chroma_key": {
+    "hex": "#00FFFF",
+    "rgb": [
+      0,
+      255,
+      255
+    ],
+    "threshold": 96.0
+  },
+  "rows": [
+    {
+      "state": "idle",
+      "frames": [
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/idle/frames/idle/00.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/idle/frames/idle/01.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/idle/frames/idle/02.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/idle/frames/idle/03.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/idle/frames/idle/04.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/idle/frames/idle/05.png"
+      ],
+      "method": "components"
+    }
+  ]
+}

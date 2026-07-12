@@ -1,0 +1,142 @@
+{
+  "ok": true,
+  "frames_root": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames",
+  "states": [
+    "failed"
+  ],
+  "errors": [],
+  "warnings": [],
+  "rows": [
+    {
+      "state": "failed",
+      "expected_frames": 8,
+      "actual_frames": 8,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames/failed/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 11926,
+          "bbox": [
+            54,
+            5,
+            137,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 32
+        },
+        {
+          "index": 1,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames/failed/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 12380,
+          "bbox": [
+            55,
+            5,
+            136,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 32
+        },
+        {
+          "index": 2,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames/failed/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 13606,
+          "bbox": [
+            52,
+            5,
+            140,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 72
+        },
+        {
+          "index": 3,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames/failed/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 15627,
+          "bbox": [
+            45,
+            5,
+            147,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 113
+        },
+        {
+          "index": 4,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames/failed/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 20047,
+          "bbox": [
+            30,
+            5,
+            162,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 176
+        },
+        {
+          "index": 5,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames/failed/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 18146,
+          "bbox": [
+            37,
+            5,
+            155,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 143
+        },
+        {
+          "index": 6,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames/failed/06.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 14613,
+          "bbox": [
+            50,
+            5,
+            142,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 70
+        },
+        {
+          "index": 7,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/failed/frames/failed/07.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 11850,
+          "bbox": [
+            54,
+            5,
+            137,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 32
+        }
+      ]
+    }
+  ]
+}
