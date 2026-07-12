@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "chroma_key": {
+    "hex": "#00FFFF",
+    "rgb": [
+      0,
+      255,
+      255
+    ],
+    "threshold": 96.0
+  },
+  "rows": [
+    {
+      "state": "running-right",
+      "frames": [
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/00.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/01.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/02.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/03.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/04.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/05.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/06.png",
+        "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/07.png"
+      ],
+      "method": "components"
+    }
+  ]
+}

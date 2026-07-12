@@ -1,0 +1,142 @@
+{
+  "ok": true,
+  "frames_root": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames",
+  "states": [
+    "running-right"
+  ],
+  "errors": [],
+  "warnings": [],
+  "rows": [
+    {
+      "state": "running-right",
+      "expected_frames": 8,
+      "actual_frames": 8,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 16624,
+          "bbox": [
+            35,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 137
+        },
+        {
+          "index": 1,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 13624,
+          "bbox": [
+            43,
+            5,
+            148,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 111
+        },
+        {
+          "index": 2,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 15028,
+          "bbox": [
+            39,
+            5,
+            153,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 165
+        },
+        {
+          "index": 3,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 14365,
+          "bbox": [
+            38,
+            5,
+            154,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 116
+        },
+        {
+          "index": 4,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 14602,
+          "bbox": [
+            38,
+            5,
+            154,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 149
+        },
+        {
+          "index": 5,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 14269,
+          "bbox": [
+            41,
+            5,
+            150,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 124
+        },
+        {
+          "index": 6,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/06.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 14036,
+          "bbox": [
+            39,
+            5,
+            153,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 119
+        },
+        {
+          "index": 7,
+          "file": "/Users/luyukun/Documents/\u6587\u6863\u81ea\u52a8\u586b\u5199 web \u5f00\u53d1/outputs/pets/shuibao/qa/rows/running-right/frames/running-right/07.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 13671,
+          "bbox": [
+            40,
+            5,
+            151,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 128
+        }
+      ]
+    }
+  ]
+}
