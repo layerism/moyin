@@ -80,7 +80,7 @@ def test_new_node_and_rewired_target_invalidate_their_successors():
     impact = analyze_revision(BASE_CONFIG, current)
 
     assert impact["addedNodeIds"] == ["review"]
-    assert impact["predecessorChangedNodeIds"] == ["join", "review"]
+    assert impact["predecessorChangedNodeIds"] == ["review", "join"]
     assert impact["invalidatedNodeIds"] == ["review", "join"]
 
 
