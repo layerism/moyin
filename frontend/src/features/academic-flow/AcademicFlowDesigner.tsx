@@ -13,7 +13,11 @@ import type {
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
 import { workflowApi } from "./api";
 import { getCanvasPanScroll, type CanvasPanStart } from "./canvasPan";
-import { canDeleteRevisionNode } from "./flowRevision";
+import {
+  canDeleteRevisionNode,
+  filterPublishedRuntimeNodes,
+  layoutRevisionNodes,
+} from "./flowRevision";
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
@@ -80,14 +84,21 @@ export function AcademicFlowDesigner({
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
   const [saving, setSaving] = useState(false);
+  const designLocked = saving || revisionImpact !== null;
   const processEdges = process.edges ?? [];
   const activeNode =
     process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
   const inspectorNode = process.nodes.find((node) => node.id === inspectorNodeId) ?? null;
   const serverFlowId = process.serverId ?? process.id;
-  const publishedNodeIds = process.publishedNodeIds ?? [];
+  const existingNodeIds = process.nodes.map((node) => node.id);
+  const protectedNodeIds = process.published ? process.publishedNodeIds : [];
+  const publishedRuntimeNodes = useMemo(
+    () => filterPublishedRuntimeNodes(process.nodes, process.publishedNodeIds),
+    [process.nodes, process.publishedNodeIds],
+  );
 
   const commitDesignChange = (nextProcess: AcademicProcess) => {
+    if (designLocked) return;
     onProcessChange(
       process.published ? { ...nextProcess, hasUnpublishedChanges: true } : nextProcess,
     );
@@ -167,6 +178,7 @@ export function AcademicFlowDesigner({
     title: string,
     position?: { x: number; y: number },
   ) => {
+    if (designLocked) return;
     const nextNode = createNode(kind, title, position);
     const nextProcess = { ...process, nodes: [...process.nodes, nextNode] };
     commitDesignChange(nextProcess);
@@ -174,6 +186,7 @@ export function AcademicFlowDesigner({
   };
 
   const updateNode = (nodeId: string, value: Partial<AcademicFlowNode>) => {
+    if (designLocked) return;
     const nextValue = { ...value };
     if (process.published) {
       delete nextValue.deadlineAt;
@@ -193,6 +206,7 @@ export function AcademicFlowDesigner({
     sourcePort: AcademicFlowPort,
     targetPort: AcademicFlowPort,
   ) => {
+    if (designLocked) return;
     const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
     if (source === target || exists) {
       return;
@@ -212,6 +226,7 @@ export function AcademicFlowDesigner({
   };
 
   const deleteEdge = (edgeId: string) => {
+    if (designLocked) return;
     commitDesignChange({
       ...process,
       edges: processEdges.filter((edge) => edge.id !== edgeId),
@@ -219,6 +234,7 @@ export function AcademicFlowDesigner({
   };
 
   const moveNode = (nodeId: string, direction: -1 | 1) => {
+    if (designLocked) return;
     const currentIndex = process.nodes.findIndex((node) => node.id === nodeId);
     const nextIndex = currentIndex + direction;
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= process.nodes.length) {
@@ -232,7 +248,10 @@ export function AcademicFlowDesigner({
   };
 
   const deleteNode = (nodeId: string) => {
-    if (!canDeleteRevisionNode(nodeId, publishedNodeIds)) {
+    if (
+      designLocked ||
+      !canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
+    ) {
       return;
     }
     const nodes = process.nodes.filter((node) => node.id !== nodeId);
@@ -242,6 +261,11 @@ export function AcademicFlowDesigner({
     if (inspectorNodeId === nodeId) {
       setInspectorNodeId(null);
     }
+  };
+
+  const autoLayoutNodes = () => {
+    if (designLocked) return;
+    commitDesignChange({ ...process, nodes: layoutRevisionNodes(process.nodes) });
   };
 
   return (
@@ -291,7 +315,7 @@ export function AcademicFlowDesigner({
             ) : null}
             <button
               disabled={
-                saving ||
+                designLocked ||
                 rosterActiveCount === null ||
                 rosterActiveCount === 0 ||
                 (process.published && !process.hasUnpublishedChanges)
@@ -309,12 +333,12 @@ export function AcademicFlowDesigner({
             >
               {process.published ? "重新发布" : "发布与分享"}
             </button>
-            <button disabled={saving} onClick={() => void saveProcess()}>
+            <button disabled={designLocked} onClick={() => void saveProcess()}>
               {process.published ? "保存修订" : "保存草稿"}
             </button>
             <button
               className="primary-action"
-              disabled={saving}
+              disabled={designLocked}
               onClick={() => void saveProcess(true)}
             >
               保存并退出
@@ -333,14 +357,17 @@ export function AcademicFlowDesigner({
         ) : null}
 
         <section className="flow-designer-grid">
-          <ComponentPalette onAddNode={addNode} />
+          <ComponentPalette locked={designLocked} onAddNode={addNode} />
           <FlowNodeCanvas
             activeNodeId={activeNode?.id ?? ""}
-            canDeleteNode={(nodeId) => canDeleteRevisionNode(nodeId, publishedNodeIds)}
+            canDeleteNode={(nodeId) =>
+              canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
+            }
             edges={processEdges}
-            locked={false}
+            locked={designLocked}
             nodes={process.nodes}
             onAddNode={addNode}
+            onAutoLayout={autoLayoutNodes}
             onConnectNodes={connectNodes}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
@@ -353,6 +380,7 @@ export function AcademicFlowDesigner({
         {inspectorNode && (
           <NodeInspector
             deadlineReadOnly={process.published}
+            editingLocked={designLocked}
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}
             onOpenProgress={() => {
@@ -364,7 +392,7 @@ export function AcademicFlowDesigner({
         )}
         {showProgress && process.publishedVersionId ? (
           <TeacherProgressPanel
-            nodes={process.nodes}
+            nodes={publishedRuntimeNodes}
             onClose={() => setShowProgress(false)}
             onDeadlineChange={() => undefined}
             versionId={process.publishedVersionId}
@@ -445,12 +473,14 @@ function AcademicStandaloneHeader({ onBack, onHome }: { onBack: () => void; onHo
 }
 
 function ComponentPalette({
+  locked,
   onAddNode,
 }: {
+  locked: boolean;
   onAddNode: (kind: AcademicFlowNodeKind, title: string) => void;
 }) {
   return (
-    <aside className="flow-panel palette-panel">
+    <aside aria-disabled={locked} className="flow-panel palette-panel">
       <h2>组件库</h2>
       <p>拖拽组件到画布，构建流程节点</p>
       <h3>流程节点</h3>
@@ -458,9 +488,11 @@ function ComponentPalette({
         {nodeTemplates.map((template) => (
           <button
             className={`node-template ${template.kind}`}
-            draggable
+            disabled={locked}
+            draggable={!locked}
             key={`${template.kind}-${template.title}`}
             onDragStart={(event) => {
+              if (locked) return;
               event.dataTransfer.effectAllowed = "copy";
               event.dataTransfer.setData("application/x-academic-node-kind", template.kind);
               event.dataTransfer.setData("application/x-academic-node-title", template.title);
@@ -476,12 +508,12 @@ function ComponentPalette({
       </div>
       <h3>流程控制</h3>
       <div className="node-template-list compact">
-        <button type="button">
+        <button disabled={locked} type="button">
           <span>↳</span>
           <strong>条件分支</strong>
           <small>根据条件走不同分支</small>
         </button>
-        <button type="button">
+        <button disabled={locked} type="button">
           <span>⇄</span>
           <strong>并行节点</strong>
           <small>多个分支并行进行</small>
@@ -501,6 +533,7 @@ function FlowNodeCanvas({
   locked,
   nodes,
   onAddNode,
+  onAutoLayout,
   onConnectNodes,
   onDeleteEdge,
   onDeleteNode,
@@ -519,6 +552,7 @@ function FlowNodeCanvas({
     title: string,
     position?: { x: number; y: number },
   ) => void;
+  onAutoLayout: () => void;
   onConnectNodes: (
     source: string,
     target: string,
@@ -551,6 +585,17 @@ function FlowNodeCanvas({
     offsetX: number;
     offsetY: number;
   } | null>(null);
+
+  useEffect(() => {
+    if (!locked) return;
+    connectingFromRef.current = null;
+    setConnectingFrom(null);
+    setConnectionPreviewPoint(null);
+    setConnectionPreviewPort(null);
+    setConnectionPreviewTargetId(null);
+    setDraggingNode(null);
+    setSelectedEdgeId(null);
+  }, [locked]);
 
   const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
   const edgeLines = edges
@@ -767,18 +812,8 @@ function FlowNodeCanvas({
   };
 
   const autoLayout = () => {
-    if (locked) {
-      return;
-    }
-    nodes.forEach((node, index) => {
-      onUpdateNode(
-        node.id,
-        snapCanvasPoint({
-          x: 170 + (index % 2) * 330,
-          y: 70 + Math.floor(index / 2) * 185,
-        }),
-      );
-    });
+    if (locked) return;
+    onAutoLayout();
   };
 
   const startCanvasPan = (event: PointerEvent<HTMLDivElement>) => {
@@ -1045,7 +1080,7 @@ function FlowNodeCanvas({
                 <i>{statusLabels[node.status]}</i>
               </span>
             </button>
-            {node.id === activeNodeId && (
+            {!locked && node.id === activeNodeId && (
               <div className="node-quick-actions" aria-label="节点操作">
                 <button
                   className="node-config-action"
@@ -1094,12 +1129,14 @@ function FlowNodeCanvas({
 
 function NodeInspector({
   deadlineReadOnly,
+  editingLocked,
   node,
   onClose,
   onOpenProgress,
   onUpdateNode,
 }: {
   deadlineReadOnly: boolean;
+  editingLocked: boolean;
   node: AcademicFlowNode | null;
   onClose: () => void;
   onOpenProgress: () => void;
@@ -1144,6 +1181,7 @@ function NodeInspector({
             ×
           </button>
         </div>
+        <fieldset className="node-inspector-fields" disabled={editingLocked}>
         <label>
           <span>节点标题</span>
           <input
@@ -1270,6 +1308,7 @@ function NodeInspector({
             />
           </label>
         </section>
+        </fieldset>
       </aside>
     </div>
   );

@@ -24,10 +24,13 @@ export function createAcademicProcess(name: string, id = `academic-${Date.now()}
     description: `用于“${name}”的分阶段提交与审核。`,
     edges: [],
     encryptedSlug,
+    hasUnpublishedChanges: false,
     id,
     name,
     nodes: [],
     published: false,
+    publishedNodeIds: [],
+    publishedVersionNo: undefined,
     shareUrl: `/academic-flow/${encodeURIComponent(id)}/student/${encryptedSlug}`,
   };
 }
