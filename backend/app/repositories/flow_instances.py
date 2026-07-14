@@ -332,12 +332,22 @@ def submit_node(
 
 
 def set_student_deadline(
-    instance_id: str, node_key: str, deadline_at: str, reason: str
+    instance_id: str,
+    node_key: str,
+    deadline_at: str,
+    reason: str,
+    teacher_id: int,
 ) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
         exists = connection.execute(
-            "SELECT id FROM flow_instances WHERE id = ?", (instance_id,)
+            """
+            SELECT i.id FROM flow_instances i
+            JOIN flow_versions v ON v.id = i.flow_version_id
+            JOIN flows f ON f.id = v.flow_id
+            WHERE i.id = ? AND f.owner_id = ?
+            """,
+            (instance_id, str(teacher_id)),
         ).fetchone()
         if exists is None:
             raise KeyError(instance_id)
@@ -345,12 +355,12 @@ def set_student_deadline(
             """
             INSERT INTO student_deadline_overrides
                 (flow_instance_id, node_key, deadline_at, reason, created_by, created_at)
-            VALUES (?, ?, ?, ?, 'teacher-local', ?)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(flow_instance_id, node_key) DO UPDATE
             SET deadline_at = excluded.deadline_at, reason = excluded.reason,
                 created_by = excluded.created_by, created_at = excluded.created_at
             """,
-            (instance_id, node_key, deadline_at, reason, now),
+            (instance_id, node_key, deadline_at, reason, str(teacher_id), now),
         )
         connection.execute(
             """
@@ -365,40 +375,55 @@ def set_student_deadline(
             """
             INSERT INTO audit_logs
                 (actor_id, action, entity_type, entity_id, after_data, reason, created_at)
-            VALUES ('teacher-local', 'deadline_override', 'node_instance', ?, ?, ?, ?)
+            VALUES (?, 'deadline_override', 'node_instance', ?, ?, ?, ?)
             """,
-            (f"{instance_id}:{node_key}", canonical_json({"deadlineAt": deadline_at}), reason, now),
+            (
+                str(teacher_id),
+                f"{instance_id}:{node_key}",
+                canonical_json({"deadlineAt": deadline_at}),
+                reason,
+                now,
+            ),
         )
     return get_instance(instance_id)
 
 
-def set_global_deadline(version_id: str, node_key: str, deadline_at: str, reason: str) -> None:
+def set_global_deadline(
+    version_id: str,
+    node_key: str,
+    deadline_at: str,
+    reason: str,
+    teacher_id: int,
+) -> None:
     now = utc_now_iso()
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT deadline_at FROM flow_node_runtime_configs
-            WHERE flow_version_id = ? AND node_key = ?
+            SELECT r.deadline_at FROM flow_node_runtime_configs r
+            JOIN flow_versions v ON v.id = r.flow_version_id
+            JOIN flows f ON f.id = v.flow_id
+            WHERE r.flow_version_id = ? AND r.node_key = ? AND f.owner_id = ?
             """,
-            (version_id, node_key),
+            (version_id, node_key, str(teacher_id)),
         ).fetchone()
         if row is None:
             raise KeyError(node_key)
         connection.execute(
             """
             UPDATE flow_node_runtime_configs
-            SET deadline_at = ?, updated_by = 'teacher-local', updated_at = ?
+            SET deadline_at = ?, updated_by = ?, updated_at = ?
             WHERE flow_version_id = ? AND node_key = ?
             """,
-            (deadline_at, now, version_id, node_key),
+            (deadline_at, str(teacher_id), now, version_id, node_key),
         )
         connection.execute(
             """
             INSERT INTO audit_logs
                 (actor_id, action, entity_type, entity_id, before_data, after_data, reason, created_at)
-            VALUES ('teacher-local', 'deadline_update', 'flow_node_runtime', ?, ?, ?, ?, ?)
+            VALUES (?, 'deadline_update', 'flow_node_runtime', ?, ?, ?, ?, ?)
             """,
             (
+                str(teacher_id),
                 f"{version_id}:{node_key}",
                 canonical_json({"deadlineAt": row["deadline_at"]}),
                 canonical_json({"deadlineAt": deadline_at}),
@@ -408,14 +433,15 @@ def set_global_deadline(version_id: str, node_key: str, deadline_at: str, reason
         )
 
 
-def get_version_progress(version_id: str) -> dict[str, object]:
+def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
     with get_connection() as connection:
         version = connection.execute(
             """
             SELECT v.id, v.flow_id, f.name FROM flow_versions v
-            JOIN flows f ON f.id = v.flow_id WHERE v.id = ?
+            JOIN flows f ON f.id = v.flow_id
+            WHERE v.id = ? AND f.owner_id = ?
             """,
-            (version_id,),
+            (version_id, str(teacher_id)),
         ).fetchone()
         if version is None:
             raise KeyError(version_id)

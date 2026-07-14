@@ -35,22 +35,32 @@ def not_found() -> HTTPException:
 
 
 @router.get("")
-def get_flows() -> list[dict[str, object]]:
-    return list_flows()
+def get_flows(
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> list[dict[str, object]]:
+    return list_flows(int(teacher["id"]))
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def post_flow(payload: CreateFlowRequest) -> dict[str, object]:
+def post_flow(
+    payload: CreateFlowRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
     try:
-        return create_flow(payload.name.strip(), payload.description.strip())
+        return create_flow(
+            payload.name.strip(), payload.description.strip(), int(teacher["id"])
+        )
     except DuplicateFlowNameError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/{flow_id}")
-def get_flow_route(flow_id: str) -> dict[str, object]:
+def get_flow_route(
+    flow_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
     try:
-        return get_flow(flow_id)
+        return get_flow(flow_id, int(teacher["id"]))
     except KeyError as exc:
         raise not_found() from exc
 
@@ -65,9 +75,13 @@ def validate(payload: FlowConfigRequest) -> dict[str, bool]:
 
 
 @router.put("/{flow_id}/draft")
-def put_draft(flow_id: str, payload: FlowConfigRequest) -> dict[str, object]:
+def put_draft(
+    flow_id: str,
+    payload: FlowConfigRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
     try:
-        return save_draft(flow_id, payload.config)
+        return save_draft(flow_id, payload.config, int(teacher["id"]))
     except KeyError as exc:
         raise not_found() from exc
     except ArchivedFlowError as exc:
@@ -75,9 +89,12 @@ def put_draft(flow_id: str, payload: FlowConfigRequest) -> dict[str, object]:
 
 
 @router.post("/{flow_id}/publish", status_code=status.HTTP_201_CREATED)
-def publish(flow_id: str) -> dict[str, object]:
+def publish(
+    flow_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
     try:
-        return publish_flow(flow_id)
+        return publish_flow(flow_id, int(teacher["id"]))
     except KeyError as exc:
         raise not_found() from exc
     except FlowValidationError as exc:

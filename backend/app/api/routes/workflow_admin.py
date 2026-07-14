@@ -18,10 +18,19 @@ class DeadlineRequest(BaseModel):
 
 @router.patch("/versions/{version_id}/nodes/{node_key}/deadline")
 def patch_global_deadline(
-    version_id: str, node_key: str, payload: DeadlineRequest
+    version_id: str,
+    node_key: str,
+    payload: DeadlineRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
 ) -> dict[str, bool]:
     try:
-        set_global_deadline(version_id, node_key, payload.deadlineAt, payload.reason)
+        set_global_deadline(
+            version_id,
+            node_key,
+            payload.deadlineAt,
+            payload.reason,
+            int(teacher["id"]),
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="流程节点不存在") from exc
     return {"updated": True}
@@ -29,17 +38,29 @@ def patch_global_deadline(
 
 @router.put("/instances/{instance_id}/nodes/{node_key}/deadline")
 def put_student_deadline(
-    instance_id: str, node_key: str, payload: DeadlineRequest
+    instance_id: str,
+    node_key: str,
+    payload: DeadlineRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
 ) -> dict[str, object]:
     try:
-        return set_student_deadline(instance_id, node_key, payload.deadlineAt, payload.reason)
+        return set_student_deadline(
+            instance_id,
+            node_key,
+            payload.deadlineAt,
+            payload.reason,
+            int(teacher["id"]),
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="学生流程实例不存在") from exc
 
 
 @router.get("/versions/{version_id}/progress")
-def version_progress(version_id: str) -> dict[str, object]:
+def version_progress(
+    version_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
     try:
-        return get_version_progress(version_id)
+        return get_version_progress(version_id, int(teacher["id"]))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="流程版本不存在") from exc
