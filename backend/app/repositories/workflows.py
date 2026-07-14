@@ -45,6 +45,20 @@ def _latest_published_version(connection: Any, flow_id: str, teacher_id: int) ->
     ).fetchone()
 
 
+def _latest_flow_version(connection: Any, flow_id: str, teacher_id: int) -> Any:
+    return connection.execute(
+        """
+        SELECT v.id, v.version_no, v.config_snapshot, v.config_hash, v.status
+        FROM flow_versions v
+        JOIN flows f ON f.id = v.flow_id
+        WHERE v.flow_id = ? AND f.owner_id = ?
+        ORDER BY v.version_no DESC
+        LIMIT 1
+        """,
+        (flow_id, str(teacher_id)),
+    ).fetchone()
+
+
 def _published_versions(connection: Any, flow_id: str, teacher_id: int) -> list[Any]:
     return connection.execute(
         """
@@ -710,7 +724,10 @@ def _runtime_deadlines_for_publish(
 
 
 def publish_flow(
-    flow_id: str, teacher_id: int, expected_draft_config_hash: str | None = None
+    flow_id: str,
+    teacher_id: int,
+    expected_draft_config_hash: str | None = None,
+    expected_current_version_id: str | None = None,
 ) -> dict[str, object]:
     version_id = str(uuid.uuid4())
     now = utc_now_iso()
@@ -730,7 +747,17 @@ def publish_flow(
         published_versions = _published_versions(connection, flow_id, teacher_id)
         published = published_versions[-1] if published_versions else None
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
-        baseline = published or (source_versions[-1] if source_versions else None)
+        baseline = (
+            published
+            or (source_versions[-1] if source_versions else None)
+            or _latest_flow_version(connection, flow_id, teacher_id)
+        )
+        if baseline is not None and all(
+            version["id"] != baseline["id"] for version in source_versions
+        ):
+            source_versions.append(baseline)
+        if expected_current_version_id != (baseline["id"] if baseline else None):
+            raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         if baseline is not None and expected_draft_config_hash is None:
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         _assert_no_published_node_deletions(connection, flow_id, config)
@@ -893,7 +920,15 @@ def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
         validate_flow_config(config)
         published = _latest_published_version(connection, flow_id, teacher_id)
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
-        baseline = published or (source_versions[-1] if source_versions else None)
+        baseline = (
+            published
+            or (source_versions[-1] if source_versions else None)
+            or _latest_flow_version(connection, flow_id, teacher_id)
+        )
+        if baseline is not None and all(
+            version["id"] != baseline["id"] for version in source_versions
+        ):
+            source_versions.append(baseline)
         plan = _build_migration_plan(
             connection,
             source_versions,

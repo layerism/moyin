@@ -131,7 +131,10 @@ def _save_and_republish(
     ).json()
     response = client.post(
         f"/api/workflows/{flow['id']}/publish",  # type: ignore[index]
-        json={"expectedDraftConfigHash": impact["draftConfigHash"]},
+        json={
+            "expectedDraftConfigHash": impact["draftConfigHash"],
+            "expectedCurrentVersionId": impact["currentVersionId"],
+        },
     )
     assert response.status_code == 201
     return response.json()
@@ -685,7 +688,10 @@ def test_duplicate_student_impact_uses_only_highest_version_instance(
 
     published = client.post(
         f"/api/workflows/{flow_id}/publish",
-        json={"expectedDraftConfigHash": impact["draftConfigHash"]},
+        json={
+            "expectedDraftConfigHash": impact["draftConfigHash"],
+            "expectedCurrentVersionId": impact["currentVersionId"],
+        },
     )
     assert published.status_code == 201
     with get_connection() as connection:
@@ -1008,7 +1014,7 @@ def test_get_instance_uses_one_snapshot_when_republish_commits_between_selects(
             row = self.cursor.fetchone()
             if not triggered:
                 triggered = True
-                new_publication = publish_flow(flow_id, teacher_id, expected_hash)
+                new_publication = publish_flow(flow_id, teacher_id, expected_hash, old_version_id)
             return row
 
         def __getattr__(self, name):
@@ -1214,6 +1220,11 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
         )
 
     with pytest.raises(sqlite3.IntegrityError, match="forced migration failure"):
-        publish_flow(flow_id, teacher_id, expected_hash)
+        publish_flow(
+            flow_id,
+            teacher_id,
+            expected_hash,
+            context["published"]["flowVersionId"],  # type: ignore[index]
+        )
 
     assert {table: _table_rows(table) for table in tables} == before
