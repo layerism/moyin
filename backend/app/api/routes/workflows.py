@@ -4,12 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from app.domain.workflow import FlowValidationError, validate_flow_config
+from app.domain.workflow_revision import PublishedNodeDeletionError
 from app.repositories.workflows import (
     ArchivedFlowError,
     create_flow,
     delete_flow,
     DuplicateFlowNameError,
     get_flow,
+    get_revision_impact,
     list_flows,
     publish_flow,
     resolve_share_token,
@@ -86,6 +88,19 @@ def put_draft(
         raise not_found() from exc
     except ArchivedFlowError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PublishedNodeDeletionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{flow_id}/revision-impact")
+def revision_impact(
+    flow_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return get_revision_impact(flow_id, int(teacher["id"]))
+    except KeyError as exc:
+        raise not_found() from exc
 
 
 @router.post("/{flow_id}/publish", status_code=status.HTTP_201_CREATED)
@@ -100,6 +115,8 @@ def publish(
     except FlowValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ArchivedFlowError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PublishedNodeDeletionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 

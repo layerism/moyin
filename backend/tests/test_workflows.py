@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from copy import deepcopy
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -42,11 +43,13 @@ def sample_config() -> dict[str, object]:
     }
 
 
-def add_roster(client: TestClient, flow_id: str) -> None:
+def add_roster(
+    client: TestClient, flow_id: str, entries: list[dict[str, str]] | None = None
+) -> None:
     response = client.post(
         f"/api/workflows/{flow_id}/roster/import",
         json={
-            "entries": [{"studentNo": "W001", "name": "流程学生"}],
+            "entries": entries or [{"studentNo": "W001", "name": "流程学生"}],
             "sourceFileName": "名单.xlsx",
         },
     )
@@ -187,3 +190,83 @@ def test_publish_requires_an_active_student_roster(client: TestClient) -> None:
 
     assert response.status_code == 422
     assert response.json() == {"detail": "请先导入学生名单"}
+
+
+def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient) -> None:
+    flow = client.post("/api/workflows", json={"name": "修订影响流程"}).json()
+    roster = [
+        {"studentNo": "W001", "name": "流程学生一"},
+        {"studentNo": "W002", "name": "流程学生二"},
+        {"studentNo": "W003", "name": "流程学生三"},
+    ]
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
+    add_roster(client, flow["id"], roster)
+    published = client.post(f"/api/workflows/{flow['id']}/publish").json()
+
+    current = client.get(f"/api/workflows/{flow['id']}").json()
+    assert current["publishedNodeIds"] == ["n1", "n2"]
+    assert current["publishedVersionNo"] == 1
+    assert current["hasUnpublishedChanges"] is False
+
+    for entry in roster:
+        registered = client.post(
+            "/api/auth/student/register",
+            json={**entry, "password": "Pass1234"},
+        )
+        assert registered.status_code == 201
+        entered = client.post(f"/api/student/shared/{published['token']}/enter")
+        assert entered.status_code == 200
+
+    changed = deepcopy(sample_config())
+    changed["nodes"][0]["title"] = "修改后的基本信息"
+    saved = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": changed})
+    assert saved.status_code == 200
+    assert saved.json()["hasUnpublishedChanges"] is True
+
+    impact = client.post(f"/api/workflows/{flow['id']}/revision-impact")
+    assert impact.status_code == 200
+    assert impact.json() == {
+        "currentVersionId": published["flowVersionId"],
+        "currentVersionNo": 1,
+        "nextVersionNo": 2,
+        "addedNodeIds": [],
+        "changedNodeIds": ["n1"],
+        "predecessorChangedNodeIds": [],
+        "invalidatedNodeIds": ["n1", "n2"],
+        "affectedStudentCount": 3,
+    }
+
+    without_published_node = deepcopy(changed)
+    without_published_node["nodes"] = [node for node in changed["nodes"] if node["id"] != "n1"]
+    without_published_node["edges"] = []
+    rejected = client.put(
+        f"/api/workflows/{flow['id']}/draft",
+        json={"config": without_published_node},
+    )
+    assert rejected.status_code == 409
+    assert rejected.json() == {"detail": "已发布节点不可删除：n1"}
+
+    client.post("/api/auth/teacher/logout")
+    client.post(
+        "/api/auth/teacher/register",
+        json={"name": "另一位教师", "employeeNo": "TW002", "password": "Pass1234"},
+    )
+    assert client.post(f"/api/workflows/{flow['id']}/revision-impact").status_code == 404
+
+
+def test_revision_impact_is_empty_for_unpublished_flow(client: TestClient) -> None:
+    flow = client.post("/api/workflows", json={"name": "未发布修订流程"}).json()
+
+    impact = client.post(f"/api/workflows/{flow['id']}/revision-impact")
+
+    assert impact.status_code == 200
+    assert impact.json() == {
+        "currentVersionId": None,
+        "currentVersionNo": None,
+        "nextVersionNo": 1,
+        "addedNodeIds": [],
+        "changedNodeIds": [],
+        "predecessorChangedNodeIds": [],
+        "invalidatedNodeIds": [],
+        "affectedStudentCount": 0,
+    }
