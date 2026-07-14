@@ -106,6 +106,8 @@ def revision_impact(
         raise not_found() from exc
     except FlowValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PublishedNodeDeletionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/{flow_id}/publish", status_code=status.HTTP_201_CREATED)

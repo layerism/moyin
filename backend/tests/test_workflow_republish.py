@@ -820,6 +820,61 @@ def test_republish_inherits_existing_global_deadline_for_old_node(
     assert deadline == inherited_deadline
 
 
+def test_republish_restores_deadline_from_deep_history_without_instances(
+    client: TestClient,
+) -> None:
+    context = _completed_flow(client)
+    flow_id = context["flow"]["id"]  # type: ignore[index]
+    version_one = context["published"]["flowVersionId"]  # type: ignore[index]
+    inherited_deadline = "2035-01-01T00:00:00+00:00"
+    updated = client.patch(
+        f"/api/workflow-admin/versions/{version_one}/nodes/left/deadline",
+        json={"deadlineAt": inherited_deadline, "reason": "深层历史截止时间"},
+    )
+    assert updated.status_code == 200
+    legacy_config = deepcopy(BASE_CONFIG)
+    legacy_config["nodes"] = [node for node in legacy_config["nodes"] if node["id"] != "left"]
+    legacy_config["edges"] = [
+        edge
+        for edge in legacy_config["edges"]
+        if edge["source"] != "left" and edge["target"] != "left"
+    ]
+    with get_connection() as connection:
+        teacher_id = connection.execute(
+            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+        ).fetchone()["id"]
+    version_two, _ = _insert_legacy_published_version(flow_id, legacy_config, teacher_id)
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE flow_versions SET status = 'disabled' WHERE id = ?", (version_one,)
+        )
+        connection.execute(
+            "UPDATE share_tokens SET status = 'disabled' WHERE flow_version_id = ?",
+            (version_one,),
+        )
+        connection.execute("DELETE FROM flow_instances WHERE flow_version_id = ?", (version_one,))
+
+    republished = _save_and_republish(client, context, deepcopy(BASE_CONFIG))
+
+    with get_connection() as connection:
+        deadline = connection.execute(
+            """
+            SELECT deadline_at FROM flow_node_runtime_configs
+            WHERE flow_version_id = ? AND node_key = 'left'
+            """,
+            (republished["flowVersionId"],),
+        ).fetchone()["deadline_at"]
+        legacy_has_left = connection.execute(
+            """
+            SELECT 1 FROM flow_node_runtime_configs
+            WHERE flow_version_id = ? AND node_key = 'left'
+            """,
+            (version_two,),
+        ).fetchone()
+    assert legacy_has_left is None
+    assert deadline == inherited_deadline
+
+
 def test_runtime_writes_begin_immediately_and_revalidate_current_version(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:

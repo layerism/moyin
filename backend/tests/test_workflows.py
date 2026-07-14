@@ -350,6 +350,32 @@ def test_republish_rejects_stale_revision_impact_hash(client: TestClient) -> Non
     assert version_count == 1
 
 
+def test_republish_checks_stale_hash_before_validating_changed_dag(
+    client: TestClient,
+) -> None:
+    flow = client.post("/api/workflows", json={"name": "旧预览不可发布新循环图"}).json()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
+    add_roster(client, flow["id"])
+    client.post(f"/api/workflows/{flow['id']}/publish")
+    reviewed = deepcopy(sample_config())
+    reviewed["nodes"][0]["title"] = "已确认预览"
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": reviewed})
+    expected_hash = client.post(f"/api/workflows/{flow['id']}/revision-impact").json()[
+        "draftConfigHash"
+    ]
+    cyclic = deepcopy(reviewed)
+    cyclic["edges"].append({"id": "back", "source": "n2", "target": "n1"})
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": cyclic})
+
+    rejected = client.post(
+        f"/api/workflows/{flow['id']}/publish",
+        json={"expectedDraftConfigHash": expected_hash},
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json() == {"detail": "草稿已变更，请重新确认修订影响"}
+
+
 def test_publish_rejects_persisted_draft_missing_published_node(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "历史草稿发布流程"}).json()
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
@@ -366,7 +392,11 @@ def test_publish_rejects_persisted_draft_missing_published_node(client: TestClie
             (json.dumps(stale_draft), flow["id"]),
         )
 
-    rejected = client.post(f"/api/workflows/{flow['id']}/publish")
+    snapshot = json.dumps(stale_draft, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    rejected = client.post(
+        f"/api/workflows/{flow['id']}/publish",
+        json={"expectedDraftConfigHash": hashlib.sha256(snapshot.encode()).hexdigest()},
+    )
 
     assert rejected.status_code == 409
     assert rejected.json() == {"detail": "已发布节点不可删除：n1"}
@@ -424,9 +454,12 @@ def test_historical_node_cannot_be_deleted_when_latest_legacy_version_omits_it(
 
     with get_connection() as connection:
         connection.execute("UPDATE flows SET draft_config = ? WHERE id = ?", (snapshot, flow["id"]))
+    rejected_preview = client.post(f"/api/workflows/{flow['id']}/revision-impact")
     rejected_publish = client.post(
         f"/api/workflows/{flow['id']}/publish",
         json={"expectedDraftConfigHash": hashlib.sha256(snapshot.encode()).hexdigest()},
     )
+    assert rejected_preview.status_code == 409
+    assert rejected_preview.json() == {"detail": "已发布节点不可删除：n1"}
     assert rejected_publish.status_code == 409
     assert rejected_publish.json() == {"detail": "已发布节点不可删除：n1"}

@@ -196,6 +196,12 @@ def _historical_node_ids(connection: Any, flow_id: str) -> list[str]:
     return ordered
 
 
+def _assert_no_published_node_deletions(
+    connection: Any, flow_id: str, config: dict[str, Any]
+) -> None:
+    assert_node_ids_present(_historical_node_ids(connection, flow_id), config)
+
+
 def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:
     flow_id = str(uuid.uuid4())
     owner_id = str(teacher_id)
@@ -286,7 +292,7 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
-        assert_node_ids_present(_historical_node_ids(connection, flow_id), config)
+        _assert_no_published_node_deletions(connection, flow_id, config)
         cursor = connection.execute(
             """
             UPDATE flows SET draft_config = ?, updated_at = ?
@@ -675,46 +681,30 @@ def _migrate_instances(
 def _runtime_deadlines_for_publish(
     connection: Any,
     flow_id: str,
-    baseline: Any,
-    plan: dict[str, Any],
     config: dict[str, Any],
 ) -> dict[str, str | None]:
     historical_node_ids = set(_historical_node_ids(connection, flow_id))
-    candidates: dict[str, int] = {}
-    if baseline is not None:
-        candidates[baseline["id"]] = baseline["version_no"]
-    for instance in plan["canonicalInstances"]:
-        candidates[instance["flow_version_id"]] = instance["version_no"]
-    candidate_versions = [
-        version_id
-        for version_id, _ in sorted(candidates.items(), key=lambda item: item[1], reverse=True)
-    ]
-
-    runtime_by_version_and_node: dict[tuple[str, str], str | None] = {}
-    if candidate_versions:
-        placeholders = ",".join("?" for _ in candidate_versions)
-        rows = connection.execute(
-            f"""
-            SELECT flow_version_id, node_key, deadline_at
-            FROM flow_node_runtime_configs
-            WHERE flow_version_id IN ({placeholders})
-            """,
-            candidate_versions,
-        ).fetchall()
-        runtime_by_version_and_node = {
-            (row["flow_version_id"], row["node_key"]): row["deadline_at"] for row in rows
-        }
+    rows = connection.execute(
+        """
+        SELECT r.node_key, r.deadline_at
+        FROM flow_node_runtime_configs r
+        JOIN flow_versions v ON v.id = r.flow_version_id
+        WHERE v.flow_id = ?
+        ORDER BY v.version_no DESC
+        """,
+        (flow_id,),
+    ).fetchall()
+    latest_runtime_by_node: dict[str, str | None] = {}
+    for row in rows:
+        # The newest row is authoritative; NULL explicitly means no deadline.
+        latest_runtime_by_node.setdefault(row["node_key"], row["deadline_at"])
 
     deadlines = {}
     for node in config["nodes"]:
         node_key = node["id"]
         deadline = node.get("deadlineAt")
-        if node_key in historical_node_ids:
-            for version_id in candidate_versions:
-                key = (version_id, node_key)
-                if key in runtime_by_version_and_node:
-                    deadline = runtime_by_version_and_node[key]
-                    break
+        if node_key in historical_node_ids and node_key in latest_runtime_by_node:
+            deadline = latest_runtime_by_node[node_key]
         deadlines[node_key] = deadline
     return deadlines
 
@@ -733,25 +723,25 @@ def publish_flow(
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可发布")
         config = json.loads(flow["draft_config"])
+        snapshot = canonical_json(config)
+        config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
+        if expected_draft_config_hash is not None and expected_draft_config_hash != config_hash:
+            raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         published_versions = _published_versions(connection, flow_id, teacher_id)
         published = published_versions[-1] if published_versions else None
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
         baseline = published or (source_versions[-1] if source_versions else None)
-        validate_flow_config(config)
-        assert_node_ids_present(_historical_node_ids(connection, flow_id), config)
-        snapshot = canonical_json(config)
-        config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
-        if baseline is not None and expected_draft_config_hash != config_hash:
+        if baseline is not None and expected_draft_config_hash is None:
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
+        _assert_no_published_node_deletions(connection, flow_id, config)
+        validate_flow_config(config)
         plan = _build_migration_plan(
             connection,
             source_versions,
             config,
             baseline["id"] if baseline else None,
         )
-        runtime_deadlines = _runtime_deadlines_for_publish(
-            connection, flow_id, baseline, plan, config
-        )
+        runtime_deadlines = _runtime_deadlines_for_publish(connection, flow_id, config)
         active_roster_count = connection.execute(
             """
             SELECT COUNT(*) AS count FROM flow_roster_entries
@@ -899,6 +889,7 @@ def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
         if flow is None:
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
+        _assert_no_published_node_deletions(connection, flow_id, config)
         validate_flow_config(config)
         published = _latest_published_version(connection, flow_id, teacher_id)
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
