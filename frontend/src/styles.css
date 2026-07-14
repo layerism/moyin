@@ -1617,6 +1617,18 @@ button {
   overflow: auto;
 }
 
+.canvas-zoom-surface,
+.student-topology-zoom-surface {
+  position: relative;
+}
+
+.canvas-zoom-content {
+  position: relative;
+  width: 1200px;
+  height: 1000px;
+  transform-origin: 0 0;
+}
+
 .dag-canvas.pan-tool-active {
   cursor: grab;
   touch-action: none;
@@ -2736,6 +2748,10 @@ button {
     linear-gradient(rgba(148, 163, 184, 0.18) 1px, transparent 1px),
     linear-gradient(90deg, rgba(148, 163, 184, 0.18) 1px, transparent 1px);
   background-size: 16px 16px;
+}
+
+.student-topology-zoom-content {
+  transform-origin: 0 0;
 }
 
 .student-topology-edges {

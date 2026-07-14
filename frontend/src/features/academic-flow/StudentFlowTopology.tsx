@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState, type WheelEvent } from "react";
 
 import type { AcademicFlowEdge, AcademicFlowNode, AcademicFlowPort } from "../../types";
 import type { RuntimeNodeInstance, RuntimeNodeStatus } from "./runtimeTypes";
@@ -8,6 +8,7 @@ import {
   getStudentEdgeTarget,
   studentNodeSize,
 } from "./studentTopologyGeometry";
+import { getCanvasZoomState } from "./canvasPan";
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
   approved: "已通过",
@@ -33,12 +34,30 @@ export function StudentFlowTopology({
   onOpenNode: (nodeKey: string) => void;
   runtimeNodes: RuntimeNodeInstance[];
 }) {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [zoom, setZoom] = useState(1);
   const runtimeByKey = useMemo(
     () => new Map(runtimeNodes.map((runtime) => [runtime.nodeKey, runtime])),
     [runtimeNodes],
   );
   const bounds = getStudentCanvasBounds(nodes);
   const approvedCount = runtimeNodes.filter((runtime) => runtime.status === "approved").length;
+  const zoomCanvas = (event: WheelEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey || !viewportRef.current) return;
+    event.preventDefault();
+    const rect = viewportRef.current.getBoundingClientRect();
+    const next = getCanvasZoomState({
+      deltaY: event.deltaY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      scrollLeft: viewportRef.current.scrollLeft,
+      scrollTop: viewportRef.current.scrollTop,
+      zoom,
+    });
+    setZoom(next.zoom);
+    viewportRef.current.scrollLeft = next.scrollLeft;
+    viewportRef.current.scrollTop = next.scrollTop;
+  };
 
   return (
     <section className="student-topology-section">
@@ -56,8 +75,15 @@ export function StudentFlowTopology({
         <span className="locked">待开放</span>
         <span className="expired">已截止</span>
       </div>
-      <div className="student-topology-viewport">
-        <div className="student-topology-canvas" style={bounds}>
+      <div className="student-topology-viewport" onWheel={zoomCanvas} ref={viewportRef}>
+        <div
+          className="student-topology-zoom-surface"
+          style={{ height: Number(bounds.height) * zoom, width: Number(bounds.width) * zoom }}
+        >
+          <div
+            className="student-topology-canvas student-topology-zoom-content"
+            style={{ ...bounds, transform: `scale(${zoom})` }}
+          >
           <svg
             aria-hidden="true"
             className="student-topology-edges"
@@ -108,6 +134,7 @@ export function StudentFlowTopology({
             );
           })}
           {nodes.length === 0 ? <p className="student-topology-empty">该流程暂无节点。</p> : null}
+          </div>
         </div>
       </div>
     </section>
