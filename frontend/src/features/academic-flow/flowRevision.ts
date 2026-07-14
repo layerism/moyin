@@ -1,17 +1,22 @@
 type IdentifiedNode = { id: string };
 type PositionedNode = IdentifiedNode & { x: number; y: number };
 
-export function createPublishRequestPayload(expectedDraftConfigHash?: string | null) {
-  return { expectedDraftConfigHash: expectedDraftConfigHash ?? null };
+export function createPublishRequestPayload(
+  expectedDraftConfigHash?: string | null,
+  expectedCurrentVersionId?: string | null,
+) {
+  return {
+    expectedDraftConfigHash: expectedDraftConfigHash ?? null,
+    expectedCurrentVersionId: expectedCurrentVersionId ?? null,
+  };
 }
 
-export function getRevisionPublishConflictMessage(
+export function shouldReloadRevisionAfterConflict(
   status: number,
-  expectedDraftConfigHash?: string | null,
+  _expectedDraftConfigHash?: string | null,
+  _expectedCurrentVersionId?: string | null,
 ) {
-  return status === 409 && expectedDraftConfigHash != null
-    ? "草稿已变化，请重新预览影响"
-    : null;
+  return status === 409;
 }
 
 export function canDeleteRevisionNode(
@@ -20,6 +25,14 @@ export function canDeleteRevisionNode(
   existingNodeIds: readonly string[] = [],
 ) {
   return !(publishedNodeIds ?? existingNodeIds).includes(nodeId);
+}
+
+export function canEditRevisionNodeDeadline(
+  nodeId: string,
+  publishedNodeIds: readonly string[] | undefined,
+  existingNodeIds: readonly string[] = [],
+) {
+  return canDeleteRevisionNode(nodeId, publishedNodeIds, existingNodeIds);
 }
 
 export function filterPublishedRuntimeNodes<T extends IdentifiedNode>(

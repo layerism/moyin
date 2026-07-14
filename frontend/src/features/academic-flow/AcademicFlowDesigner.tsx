@@ -16,8 +16,8 @@ import { getCanvasPanScroll, type CanvasPanStart } from "./canvasPan";
 import {
   canDeleteRevisionNode,
   filterPublishedRuntimeNodes,
-  getRevisionPublishConflictMessage,
   layoutRevisionNodes,
+  shouldReloadRevisionAfterConflict,
 } from "./flowRevision";
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
@@ -134,13 +134,13 @@ export function AcademicFlowDesigner({
       setActionNotice(process.published ? "重新发布成功，学生链接：" : "发布成功，学生链接：");
       setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
     } catch (reason) {
-      const conflictMessage =
+      const shouldReloadRevision =
         reason instanceof ApiError
-          ? getRevisionPublishConflictMessage(reason.status, expectedDraftConfigHash)
-          : null;
-      if (conflictMessage) {
+          ? shouldReloadRevisionAfterConflict(reason.status, expectedDraftConfigHash)
+          : false;
+      if (shouldReloadRevision) {
         setRevisionImpact(null);
-        setActionNotice(conflictMessage);
+        setActionNotice("草稿已变化，请重新预览影响");
         return;
       }
       setActionNotice(reason instanceof Error ? reason.message : "发布失败");
