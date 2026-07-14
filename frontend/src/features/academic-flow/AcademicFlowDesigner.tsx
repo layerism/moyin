@@ -13,7 +13,10 @@ import type {
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
 import { workflowApi } from "./api";
 import { getCanvasPanScroll, type CanvasPanStart } from "./canvasPan";
+import { canDeleteRevisionNode } from "./flowRevision";
 import { FlowRosterDialog } from "./FlowRosterDialog";
+import { RevisionImpactDialog } from "./RevisionImpactDialog";
+import type { RevisionImpact } from "./runtimeTypes";
 import { getAbsoluteShareUrl } from "./shareUrl";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
 
@@ -75,12 +78,20 @@ export function AcademicFlowDesigner({
   const [rosterActiveCount, setRosterActiveCount] = useState<number | null>(null);
   const [actionNotice, setActionNotice] = useState("");
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
+  const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
   const [saving, setSaving] = useState(false);
   const processEdges = process.edges ?? [];
   const activeNode =
     process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
   const inspectorNode = process.nodes.find((node) => node.id === inspectorNodeId) ?? null;
   const serverFlowId = process.serverId ?? process.id;
+  const publishedNodeIds = process.publishedNodeIds ?? [];
+
+  const commitDesignChange = (nextProcess: AcademicProcess) => {
+    onProcessChange(
+      process.published ? { ...nextProcess, hasUnpublishedChanges: true } : nextProcess,
+    );
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -104,7 +115,8 @@ export function AcademicFlowDesigner({
     try {
       const nextProcess = await onPublishProcess(process);
       onProcessChange(nextProcess);
-      setActionNotice("发布成功，学生链接：");
+      setRevisionImpact(null);
+      setActionNotice(process.published ? "重新发布成功，学生链接：" : "发布成功，学生链接：");
       setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
     } catch (reason) {
       setActionNotice(reason instanceof Error ? reason.message : "发布失败");
@@ -120,10 +132,31 @@ export function AcademicFlowDesigner({
     try {
       const nextProcess = await onSaveProcess(process);
       onProcessChange(nextProcess);
-      setActionNotice("草稿已保存到数据库");
+      setActionNotice(process.published ? "修订已保存到数据库" : "草稿已保存到数据库");
       if (exitAfterSave) onBack();
     } catch (reason) {
       setActionNotice(reason instanceof Error ? reason.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const preparePublish = async () => {
+    if (!process.published) {
+      await publishProcess();
+      return;
+    }
+
+    setSaving(true);
+    setActionNotice("");
+    setPublishedShareUrl("");
+    try {
+      const savedProcess = await onSaveProcess(process);
+      onProcessChange(savedProcess);
+      const impact = await workflowApi.getRevisionImpact(savedProcess.serverId ?? savedProcess.id);
+      setRevisionImpact(impact);
+    } catch (reason) {
+      setActionNotice(reason instanceof Error ? reason.message : "修订影响读取失败");
     } finally {
       setSaving(false);
     }
@@ -134,19 +167,23 @@ export function AcademicFlowDesigner({
     title: string,
     position?: { x: number; y: number },
   ) => {
-    if (process.published) {
-      return;
-    }
     const nextNode = createNode(kind, title, position);
     const nextProcess = { ...process, nodes: [...process.nodes, nextNode] };
-    onProcessChange(nextProcess);
+    commitDesignChange(nextProcess);
     setActiveNodeId(nextNode.id);
   };
 
   const updateNode = (nodeId: string, value: Partial<AcademicFlowNode>) => {
-    onProcessChange({
+    const nextValue = { ...value };
+    if (process.published) {
+      delete nextValue.deadlineAt;
+    }
+    if (Object.keys(nextValue).length === 0) {
+      return;
+    }
+    commitDesignChange({
       ...process,
-      nodes: process.nodes.map((node) => (node.id === nodeId ? { ...node, ...value } : node)),
+      nodes: process.nodes.map((node) => (node.id === nodeId ? { ...node, ...nextValue } : node)),
     });
   };
 
@@ -156,9 +193,6 @@ export function AcademicFlowDesigner({
     sourcePort: AcademicFlowPort,
     targetPort: AcademicFlowPort,
   ) => {
-    if (process.published) {
-      return;
-    }
     const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
     if (source === target || exists) {
       return;
@@ -174,20 +208,17 @@ export function AcademicFlowDesigner({
     if (hasCycle(process.nodes.map((node) => node.id), nextEdges)) {
       return;
     }
-    onProcessChange({ ...process, edges: nextEdges });
+    commitDesignChange({ ...process, edges: nextEdges });
   };
 
   const deleteEdge = (edgeId: string) => {
-    if (process.published) {
-      return;
-    }
-    onProcessChange({ ...process, edges: processEdges.filter((edge) => edge.id !== edgeId) });
+    commitDesignChange({
+      ...process,
+      edges: processEdges.filter((edge) => edge.id !== edgeId),
+    });
   };
 
   const moveNode = (nodeId: string, direction: -1 | 1) => {
-    if (process.published) {
-      return;
-    }
     const currentIndex = process.nodes.findIndex((node) => node.id === nodeId);
     const nextIndex = currentIndex + direction;
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= process.nodes.length) {
@@ -197,16 +228,16 @@ export function AcademicFlowDesigner({
     const nodes = [...process.nodes];
     const [target] = nodes.splice(currentIndex, 1);
     nodes.splice(nextIndex, 0, target);
-    onProcessChange({ ...process, nodes });
+    commitDesignChange({ ...process, nodes });
   };
 
   const deleteNode = (nodeId: string) => {
-    if (process.published) {
+    if (!canDeleteRevisionNode(nodeId, publishedNodeIds)) {
       return;
     }
     const nodes = process.nodes.filter((node) => node.id !== nodeId);
     const edges = processEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
-    onProcessChange({ ...process, edges, nodes });
+    commitDesignChange({ ...process, edges, nodes });
     setActiveNodeId(nodes[0]?.id ?? "");
     if (inspectorNodeId === nodeId) {
       setInspectorNodeId(null);
@@ -230,8 +261,20 @@ export function AcademicFlowDesigner({
             </div>
             <div className="academic-title-row">
               <h1>{process.name}</h1>
-              <span className={process.published ? "status-pill ok" : "status-pill"}>
-                {process.published ? "已发布" : "草稿"}
+              <span
+                className={
+                  process.published
+                    ? process.hasUnpublishedChanges
+                      ? "status-pill revision"
+                      : "status-pill ok"
+                    : "status-pill"
+                }
+              >
+                {process.published
+                  ? process.hasUnpublishedChanges
+                    ? "修订中"
+                    : "已发布"
+                  : "草稿"}
               </span>
             </div>
             <p>流程说明：{process.description}</p>
@@ -249,27 +292,29 @@ export function AcademicFlowDesigner({
             <button
               disabled={
                 saving ||
-                process.published ||
                 rosterActiveCount === null ||
-                rosterActiveCount === 0
+                rosterActiveCount === 0 ||
+                (process.published && !process.hasUnpublishedChanges)
               }
-              onClick={() => void publishProcess()}
+              onClick={() => void preparePublish()}
               title={
                 rosterActiveCount === null
                   ? "正在读取学生名单"
                   : rosterActiveCount === 0
                     ? "请先导入学生名单"
+                    : process.published && !process.hasUnpublishedChanges
+                      ? "当前没有待发布的修订"
                     : undefined
               }
             >
-              {process.published ? "已发布" : "发布与分享"}
+              {process.published ? "重新发布" : "发布与分享"}
             </button>
-            <button disabled={saving || process.published} onClick={() => void saveProcess()}>
-              保存草稿
+            <button disabled={saving} onClick={() => void saveProcess()}>
+              {process.published ? "保存修订" : "保存草稿"}
             </button>
             <button
               className="primary-action"
-              disabled={saving || process.published}
+              disabled={saving}
               onClick={() => void saveProcess(true)}
             >
               保存并退出
@@ -287,12 +332,13 @@ export function AcademicFlowDesigner({
           </p>
         ) : null}
 
-        <section className={`flow-designer-grid ${process.published ? "designer-locked" : ""}`}>
+        <section className="flow-designer-grid">
           <ComponentPalette onAddNode={addNode} />
           <FlowNodeCanvas
             activeNodeId={activeNode?.id ?? ""}
+            canDeleteNode={(nodeId) => canDeleteRevisionNode(nodeId, publishedNodeIds)}
             edges={processEdges}
-            locked={process.published}
+            locked={false}
             nodes={process.nodes}
             onAddNode={addNode}
             onConnectNodes={connectNodes}
@@ -304,10 +350,15 @@ export function AcademicFlowDesigner({
             onUpdateNode={updateNode}
           />
         </section>
-        {!process.published && inspectorNode && (
+        {inspectorNode && (
           <NodeInspector
+            deadlineReadOnly={process.published}
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}
+            onOpenProgress={() => {
+              setInspectorNodeId(null);
+              setShowProgress(true);
+            }}
             onUpdateNode={updateNode}
           />
         )}
@@ -315,9 +366,7 @@ export function AcademicFlowDesigner({
           <TeacherProgressPanel
             nodes={process.nodes}
             onClose={() => setShowProgress(false)}
-            onDeadlineChange={(nodeId, deadlineAt) =>
-              updateNode(nodeId, { deadlineAt })
-            }
+            onDeadlineChange={() => undefined}
             versionId={process.publishedVersionId}
           />
         ) : null}
@@ -326,6 +375,14 @@ export function AcademicFlowDesigner({
             flowId={serverFlowId}
             onClose={() => setShowRoster(false)}
             onRosterChange={(roster) => setRosterActiveCount(roster.activeCount)}
+          />
+        ) : null}
+        {revisionImpact ? (
+          <RevisionImpactDialog
+            confirming={saving}
+            impact={revisionImpact}
+            onCancel={() => setRevisionImpact(null)}
+            onConfirm={() => void publishProcess()}
           />
         ) : null}
       </section>
@@ -439,6 +496,7 @@ function ComponentPalette({
 
 function FlowNodeCanvas({
   activeNodeId,
+  canDeleteNode,
   edges,
   locked,
   nodes,
@@ -452,6 +510,7 @@ function FlowNodeCanvas({
   onUpdateNode,
 }: {
   activeNodeId: string;
+  canDeleteNode: (nodeId: string) => boolean;
   edges: AcademicFlowEdge[];
   locked: boolean;
   nodes: AcademicFlowNode[];
@@ -986,7 +1045,7 @@ function FlowNodeCanvas({
                 <i>{statusLabels[node.status]}</i>
               </span>
             </button>
-            {!locked && node.id === activeNodeId && (
+            {node.id === activeNodeId && (
               <div className="node-quick-actions" aria-label="节点操作">
                 <button
                   className="node-config-action"
@@ -1002,9 +1061,25 @@ function FlowNodeCanvas({
                 <button onClick={() => onMoveNode(node.id, 1)} type="button">
                   ↓
                 </button>
-                <button onClick={() => onDeleteNode(node.id)} type="button">
-                  ×
-                </button>
+                {canDeleteNode(node.id) ? (
+                  <button
+                    aria-label="删除节点"
+                    onClick={() => onDeleteNode(node.id)}
+                    title="删除节点"
+                    type="button"
+                  >
+                    ×
+                  </button>
+                ) : (
+                  <span
+                    aria-label="已发布节点不可删除"
+                    className="node-delete-lock"
+                    role="img"
+                    title="已发布节点不可删除"
+                  >
+                    锁
+                  </span>
+                )}
               </div>
             )}
           </div>
@@ -1018,12 +1093,16 @@ function FlowNodeCanvas({
 }
 
 function NodeInspector({
+  deadlineReadOnly,
   node,
   onClose,
+  onOpenProgress,
   onUpdateNode,
 }: {
+  deadlineReadOnly: boolean;
   node: AcademicFlowNode | null;
   onClose: () => void;
+  onOpenProgress: () => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
 }) {
   if (!node) {
@@ -1083,6 +1162,8 @@ function NodeInspector({
         <label>
           <span>截止时间</span>
           <input
+            disabled={deadlineReadOnly}
+            readOnly={deadlineReadOnly}
             type="datetime-local"
             value={node.deadlineAt ? toLocalDateTime(node.deadlineAt) : ""}
             onChange={(event) =>
@@ -1091,6 +1172,15 @@ function NodeInspector({
               })
             }
           />
+          {deadlineReadOnly ? (
+            <small className="deadline-runtime-hint">
+              截止时间由运行时管理，请在
+              <button onClick={onOpenProgress} type="button">
+                填写进度
+              </button>
+              中设置统一截止时间或个别延期。
+            </small>
+          ) : null}
         </label>
         <label className="inspector-checkbox-row">
           <input

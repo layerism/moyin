@@ -102,11 +102,14 @@ export type AcademicProcess = {
   description: string;
   edges: AcademicFlowEdge[];
   encryptedSlug: string;
+  hasUnpublishedChanges?: boolean;
   id: string;
   name: string;
   nodes: AcademicFlowNode[];
   published: boolean;
+  publishedNodeIds?: string[];
   publishedVersionId?: string;
+  publishedVersionNo?: number;
   serverId?: string;
   shareUrl: string;
 };
