@@ -71,16 +71,10 @@ def analyze_revision(previous: dict, current: dict) -> dict[str, list[str]]:
     def in_current_order(node_ids: set[str]) -> list[str]:
         return [node_id for node_id in current_node_ids if node_id in node_ids]
 
-    predecessor_order = [node["id"] for node in previous["nodes"]]
-    predecessor_order.extend(node_id for node_id in current_node_ids if node_id in added)
-    ordered_predecessor_changes = [
-        node_id for node_id in predecessor_order if node_id in predecessor_changed
-    ]
-
     return {
         "addedNodeIds": in_current_order(added),
         "changedNodeIds": in_current_order(changed),
-        "predecessorChangedNodeIds": ordered_predecessor_changes,
+        "predecessorChangedNodeIds": in_current_order(predecessor_changed),
         "invalidatedNodeIds": in_current_order(invalidated),
     }
 
