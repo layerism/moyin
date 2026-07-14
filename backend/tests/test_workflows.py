@@ -78,6 +78,44 @@ def test_archived_legacy_name_does_not_block_visible_flow_creation(client: TestC
     assert [flow["id"] for flow in visible] == [replacement.json()["id"]]
 
 
+def test_teacher_can_only_access_owned_flows(client: TestClient) -> None:
+    teacher_a_flow = client.post("/api/workflows", json={"name": "教师私有流程"}).json()
+    client.post("/api/auth/teacher/logout")
+    registered = client.post(
+        "/api/auth/teacher/register",
+        json={"name": "另一位教师", "employeeNo": "TW002", "password": "Pass1234"},
+    )
+
+    assert registered.status_code == 201
+    assert client.get("/api/workflows").json() == []
+    assert client.get(f"/api/workflows/{teacher_a_flow['id']}").status_code == 404
+    assert (
+        client.put(
+            f"/api/workflows/{teacher_a_flow['id']}/draft",
+            json={"config": sample_config()},
+        ).status_code
+        == 404
+    )
+    assert client.post(f"/api/workflows/{teacher_a_flow['id']}/publish").status_code == 404
+    assert client.delete(f"/api/workflows/{teacher_a_flow['id']}").status_code == 404
+
+    teacher_b_flow = client.post("/api/workflows", json={"name": "教师私有流程"})
+    assert teacher_b_flow.status_code == 201
+    assert [flow["id"] for flow in client.get("/api/workflows").json()] == [
+        teacher_b_flow.json()["id"]
+    ]
+
+    client.post("/api/auth/teacher/logout")
+    login = client.post(
+        "/api/auth/teacher/login",
+        json={"name": "测试教师", "employeeNo": "TW001", "password": "Pass1234"},
+    )
+    assert login.status_code == 200
+    assert [flow["id"] for flow in client.get("/api/workflows").json()] == [
+        teacher_a_flow["id"]
+    ]
+
+
 def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "报销流程"}).json()
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})

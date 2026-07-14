@@ -135,6 +135,38 @@ def test_teacher_progress_lists_each_student_instance(client: TestClient) -> Non
     }
 
 
+def test_teacher_cannot_manage_another_teachers_flow_runtime(client: TestClient) -> None:
+    published = publish_flow(client)
+    register(client, "20260043", "流程学生")
+    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    client.post("/api/auth/teacher/logout")
+    registered = client.post(
+        "/api/auth/teacher/register",
+        json={"name": "另一位教师", "employeeNo": "TR002", "password": "Pass1234"},
+    )
+
+    assert registered.status_code == 201
+    version_id = published["flowVersionId"]
+    assert (
+        client.get(f"/api/workflow-admin/versions/{version_id}/progress").status_code
+        == 404
+    )
+    assert (
+        client.patch(
+            f"/api/workflow-admin/versions/{version_id}/nodes/n1/deadline",
+            json={"deadlineAt": "2030-08-01T00:00:00+00:00", "reason": "越权修改"},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.put(
+            f"/api/workflow-admin/instances/{instance['id']}/nodes/n1/deadline",
+            json={"deadlineAt": "2030-08-01T00:00:00+00:00", "reason": "越权延期"},
+        ).status_code
+        == 404
+    )
+
+
 def test_student_lists_joined_flow_instances(client: TestClient) -> None:
     published = publish_flow(client)
     register(client, "20260051", "学生账户页")

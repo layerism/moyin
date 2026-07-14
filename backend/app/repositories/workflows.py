@@ -21,29 +21,38 @@ def canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def create_flow(name: str, description: str) -> dict[str, object]:
+def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:
     flow_id = str(uuid.uuid4())
+    owner_id = str(teacher_id)
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         existing = connection.execute(
-            "SELECT 1 FROM flows WHERE name = ? AND status != 'archived' LIMIT 1", (name,)
+            """
+            SELECT 1 FROM flows
+            WHERE owner_id = ? AND name = ? AND status != 'archived'
+            LIMIT 1
+            """,
+            (owner_id, name),
         ).fetchone()
         if existing is not None:
             raise DuplicateFlowNameError("已存在同名流程")
         connection.execute(
             """
-            INSERT INTO flows (id, name, description, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO flows (id, name, description, owner_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (flow_id, name, description, now, now),
+            (flow_id, name, description, owner_id, now, now),
         )
-    return get_flow(flow_id)
+    return get_flow(flow_id, teacher_id)
 
 
-def get_flow(flow_id: str) -> dict[str, object]:
+def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM flows WHERE id = ?", (flow_id,)).fetchone()
+        row = connection.execute(
+            "SELECT * FROM flows WHERE id = ? AND owner_id = ?",
+            (flow_id, str(teacher_id)),
+        ).fetchone()
     if row is None:
         raise KeyError(flow_id)
     return {
@@ -57,33 +66,44 @@ def get_flow(flow_id: str) -> dict[str, object]:
     }
 
 
-def list_flows() -> list[dict[str, object]]:
+def list_flows(teacher_id: int) -> list[dict[str, object]]:
     with get_connection() as connection:
         rows = connection.execute(
-            "SELECT id FROM flows WHERE status != 'archived' ORDER BY created_at DESC"
+            """
+            SELECT id FROM flows
+            WHERE owner_id = ? AND status != 'archived'
+            ORDER BY created_at DESC
+            """,
+            (str(teacher_id),),
         ).fetchall()
-    return [get_flow(row["id"]) for row in rows]
+    return [get_flow(row["id"], teacher_id) for row in rows]
 
 
-def save_draft(flow_id: str, config: dict[str, Any]) -> dict[str, object]:
+def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
-        existing = connection.execute("SELECT status FROM flows WHERE id = ?", (flow_id,)).fetchone()
+        existing = connection.execute(
+            "SELECT status FROM flows WHERE id = ? AND owner_id = ?",
+            (flow_id, str(teacher_id)),
+        ).fetchone()
         if existing is None:
             raise KeyError(flow_id)
         if existing["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
         cursor = connection.execute(
-            "UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?",
-            (canonical_json(config), now, flow_id),
+            """
+            UPDATE flows SET draft_config = ?, updated_at = ?
+            WHERE id = ? AND owner_id = ?
+            """,
+            (canonical_json(config), now, flow_id, str(teacher_id)),
         )
         if cursor.rowcount == 0:
             raise KeyError(flow_id)
-    return get_flow(flow_id)
+    return get_flow(flow_id, teacher_id)
 
 
-def publish_flow(flow_id: str) -> dict[str, object]:
-    flow = get_flow(flow_id)
+def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
+    flow = get_flow(flow_id, teacher_id)
     if flow["status"] == "archived":
         raise ArchivedFlowError("已归档流程不可发布")
     config = flow["config"]
@@ -107,30 +127,33 @@ def publish_flow(flow_id: str) -> dict[str, object]:
             """
             INSERT INTO flow_versions
                 (id, flow_id, version_no, config_snapshot, config_hash, published_by, published_at)
-            VALUES (?, ?, ?, ?, ?, 'teacher-local', ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (version_id, flow_id, version_no, snapshot, config_hash, now),
+            (version_id, flow_id, version_no, snapshot, config_hash, str(teacher_id), now),
         )
         for node in config["nodes"]:
             connection.execute(
                 """
                 INSERT INTO flow_node_runtime_configs
                     (flow_version_id, node_key, deadline_at, updated_by, updated_at)
-                VALUES (?, ?, ?, 'teacher-local', ?)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (version_id, node["id"], node.get("deadlineAt"), now),
+                (version_id, node["id"], node.get("deadlineAt"), str(teacher_id), now),
             )
         connection.execute(
             """
             INSERT INTO share_tokens
                 (id, flow_version_id, token_hash, created_by, created_at)
-            VALUES (?, ?, ?, 'teacher-local', ?)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (share_token_id, version_id, token_hash, now),
+            (share_token_id, version_id, token_hash, str(teacher_id), now),
         )
         connection.execute(
-            "UPDATE flows SET status = 'published', updated_at = ? WHERE id = ?",
-            (now, flow_id),
+            """
+            UPDATE flows SET status = 'published', updated_at = ?
+            WHERE id = ? AND owner_id = ?
+            """,
+            (now, flow_id, str(teacher_id)),
         )
     return {
         "flowId": flow_id,
@@ -146,7 +169,8 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
     now = utc_now_iso()
     with get_connection() as connection:
         row = connection.execute(
-            "SELECT name, status FROM flows WHERE id = ?", (flow_id,)
+            "SELECT name, status FROM flows WHERE id = ? AND owner_id = ?",
+            (flow_id, str(teacher_id)),
         ).fetchone()
         if row is None:
             raise KeyError(flow_id)

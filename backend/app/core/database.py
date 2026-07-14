@@ -169,6 +169,7 @@ def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA)
         _apply_super_admin_role_migration(connection)
+        _apply_flow_owner_migration(connection)
 
 
 def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
@@ -189,6 +190,32 @@ def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
 
     connection.execute(
         "UPDATE teacher_accounts SET role = 'super_admin' WHERE employee_no = '04170'"
+    )
+    connection.execute(
+        "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )
+
+
+def _apply_flow_owner_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260714_assign_legacy_flows_to_super_admin"
+    applied = connection.execute(
+        "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)
+    ).fetchone()
+    if applied is not None:
+        return
+
+    connection.execute(
+        """
+        UPDATE flows
+        SET owner_id = CAST(
+            (SELECT id FROM teacher_accounts WHERE employee_no = '04170') AS TEXT
+        )
+        WHERE owner_id = 'teacher-local'
+          AND EXISTS (
+              SELECT 1 FROM teacher_accounts WHERE employee_no = '04170'
+          )
+        """
     )
     connection.execute(
         "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
