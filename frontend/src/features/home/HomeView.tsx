@@ -29,6 +29,7 @@ export function HomeView({
   onFilesChange,
   onFoldersChange,
   onLogin,
+  onDatabaseAdmin,
   onTeacherLogout,
   teacherIdentity,
 }: {
@@ -41,6 +42,7 @@ export function HomeView({
   onFilesChange: StateSetter<HomeFile[]>;
   onFoldersChange: StateSetter<string[]>;
   onLogin: () => void;
+  onDatabaseAdmin: () => void;
   onTeacherLogout: () => void;
   teacherIdentity: AuthIdentity;
 }) {
@@ -303,7 +305,11 @@ export function HomeView({
             <span>⌕</span>
             <input placeholder="搜索收集表、文件夹、学生材料" />
           </label>
-          <TeacherAccountMenu identity={teacherIdentity} onLogout={onTeacherLogout} />
+          <TeacherAccountMenu
+            identity={teacherIdentity}
+            onDatabaseAdmin={onDatabaseAdmin}
+            onLogout={onTeacherLogout}
+          />
         </header>
 
         <section className="drive-panel">
@@ -450,6 +456,7 @@ export function HomeView({
 export function AcademicFlowView({
   processes,
   onCreateProcess,
+  onDatabaseAdmin,
   onDeleteProcess,
   onHome,
   onOssCloud,
@@ -459,6 +466,7 @@ export function AcademicFlowView({
 }: {
   processes: AcademicProcess[];
   onCreateProcess: (name: string) => Promise<void> | void;
+  onDatabaseAdmin: () => void;
   onDeleteProcess: (process: AcademicProcess) => Promise<void>;
   onHome: () => void;
   onOssCloud: () => void;
@@ -546,7 +554,11 @@ export function AcademicFlowView({
             <span>⌕</span>
             <input placeholder="搜索教务流程" />
           </label>
-          <TeacherAccountMenu identity={teacherIdentity} onLogout={onTeacherLogout} />
+          <TeacherAccountMenu
+            identity={teacherIdentity}
+            onDatabaseAdmin={onDatabaseAdmin}
+            onLogout={onTeacherLogout}
+          />
         </header>
 
         <section className="drive-panel academic-flow-panel" aria-label="教务流程">

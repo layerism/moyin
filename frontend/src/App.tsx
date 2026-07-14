@@ -5,6 +5,7 @@ import { createAcademicProcess, createFallbackAcademicProcess } from "./features
 import { workflowApi, type ServerFlow } from "./features/academic-flow/api";
 import { StudentRuntimePage } from "./features/academic-flow/StudentRuntimePage";
 import type { RuntimeFlowInstance } from "./features/academic-flow/runtimeTypes";
+import { DatabaseAdminPage } from "./features/admin/DatabaseAdminPage";
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
 import { EditView } from "./features/editor/EditView";
 import { AcademicFlowView, HomeView } from "./features/home/HomeView";
@@ -50,6 +51,9 @@ function getRouteFromPathname(): {
   }
   if (window.location.pathname === "/academic-flow") {
     return { authRole, processId: null, screen: "academicFlow", studentInstanceId: null, studentSlug: null };
+  }
+  if (window.location.pathname === "/admin/database") {
+    return { authRole, processId: null, screen: "adminDatabase", studentInstanceId: null, studentSlug: null };
   }
 
   const sharedMatch = window.location.pathname.match(/^\/s\/([^/]+)$/);
@@ -252,6 +256,11 @@ export function App() {
     pushAppPath("/academic-flow");
     setActiveAcademicProcessId(null);
     setScreen("academicFlow");
+  };
+
+  const openDatabaseAdmin = () => {
+    pushAppPath("/admin/database");
+    setScreen("adminDatabase");
   };
 
   const openAcademicProcess = (processId: string) => {
@@ -459,7 +468,13 @@ export function App() {
     );
   }
 
-  const teacherScreens: Screen[] = ["academicFlow", "academicFlowDetail", "home", "workspace"];
+  const teacherScreens: Screen[] = [
+    "academicFlow",
+    "academicFlowDetail",
+    "adminDatabase",
+    "home",
+    "workspace",
+  ];
   if (!authReady && (teacherScreens.includes(screen) || screen === "studentHome")) {
     return (
       <main className="auth-loading-page">
@@ -477,6 +492,10 @@ export function App() {
         onNavigate={navigateAuth}
       />
     );
+  }
+
+  if (screen === "adminDatabase") {
+    return <DatabaseAdminPage identity={teacherIdentity!} onBack={openHome} />;
   }
 
   if (screen === "studentHome") {
@@ -518,6 +537,7 @@ export function App() {
         onFilesChange={setHomeFiles}
         onFoldersChange={setHomeFolders}
         onLogin={() => navigateAuth("login", "student")}
+        onDatabaseAdmin={openDatabaseAdmin}
         onTeacherLogout={() => void logoutRole("teacher")}
         teacherIdentity={teacherIdentity!}
       />
@@ -538,6 +558,7 @@ export function App() {
           const process = { ...draft, id: created.id, serverId: created.id };
           setAcademicProcesses((current) => [process, ...current]);
         }}
+        onDatabaseAdmin={openDatabaseAdmin}
         onHome={openHome}
         onOssCloud={() => {
           setHomeActiveFolder(null);
