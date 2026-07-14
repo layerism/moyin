@@ -65,7 +65,6 @@ export function AcademicFlowDesigner({
   onSaveProcess: (process: AcademicProcess) => Promise<AcademicProcess>;
   process: AcademicProcess;
 }) {
-  const [mode, setMode] = useState<"student" | "teacher">("teacher");
   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
@@ -118,7 +117,6 @@ export function AcademicFlowDesigner({
     const nextProcess = { ...process, nodes: [...process.nodes, nextNode] };
     onProcessChange(nextProcess);
     setActiveNodeId(nextNode.id);
-    setMode("teacher");
   };
 
   const updateNode = (nodeId: string, value: Partial<AcademicFlowNode>) => {
@@ -203,7 +201,6 @@ export function AcademicFlowDesigner({
             <p>流程说明：{process.description}</p>
           </div>
           <div className="academic-actions">
-            <button onClick={() => setMode("student")}>预览学生端</button>
             {process.published ? (
               <button onClick={() => onOpenStudent(process.shareUrl)}>打开学生链接</button>
             ) : null}
@@ -236,48 +233,23 @@ export function AcademicFlowDesigner({
           </p>
         ) : null}
 
-        <div className="mode-switch" role="tablist" aria-label="流程视图">
-          <button
-            className={mode === "teacher" ? "active" : ""}
-            onClick={() => setMode("teacher")}
-            role="tab"
-            type="button"
-          >
-            教师设计
-          </button>
-          <button
-            className={mode === "student" ? "active" : ""}
-            onClick={() => setMode("student")}
-            role="tab"
-            type="button"
-          >
-            学生预览
-          </button>
-        </div>
-
-        {mode === "teacher" ? (
-          <section className={`flow-designer-grid ${process.published ? "designer-locked" : ""}`}>
-            <ComponentPalette onAddNode={addNode} />
-            <FlowNodeCanvas
-              activeNodeId={activeNode?.id ?? ""}
-              edges={processEdges}
-              nodes={process.nodes}
-              onAddNode={addNode}
-              onConnectNodes={connectNodes}
-              onDeleteNode={deleteNode}
-              onDeleteEdge={deleteEdge}
-              onMoveNode={moveNode}
-              onOpenInspector={setInspectorNodeId}
-              onSelectNode={setActiveNodeId}
-              onUpdateNode={updateNode}
-            />
-          </section>
-        ) : (
-          <section className="student-preview-shell">
-            <StudentFlowPreview process={process} showShareUrl />
-          </section>
-        )}
-        {mode === "teacher" && inspectorNode && (
+        <section className={`flow-designer-grid ${process.published ? "designer-locked" : ""}`}>
+          <ComponentPalette onAddNode={addNode} />
+          <FlowNodeCanvas
+            activeNodeId={activeNode?.id ?? ""}
+            edges={processEdges}
+            nodes={process.nodes}
+            onAddNode={addNode}
+            onConnectNodes={connectNodes}
+            onDeleteNode={deleteNode}
+            onDeleteEdge={deleteEdge}
+            onMoveNode={moveNode}
+            onOpenInspector={setInspectorNodeId}
+            onSelectNode={setActiveNodeId}
+            onUpdateNode={updateNode}
+          />
+        </section>
+        {inspectorNode && (
           <NodeInspector
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}

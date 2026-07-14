@@ -1137,29 +1137,6 @@ button {
   color: #15803d;
 }
 
-.mode-switch {
-  height: 46px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin-bottom: 10px;
-  padding: 5px;
-  border: 1px solid #dde5f0;
-  border-radius: 7px;
-  background: #ffffff;
-}
-
-.mode-switch button {
-  border-radius: 5px;
-  background: transparent;
-  color: #64748b;
-  font-weight: 750;
-}
-
-.mode-switch .active {
-  background: #2773f6;
-  color: #ffffff;
-}
-
 .flow-designer-grid {
   min-height: calc(100vh - 196px);
   display: grid;
