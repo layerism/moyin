@@ -18,6 +18,7 @@ class TablePolicy:
 TABLE_POLICIES: dict[str, TablePolicy] = {
     "audit_logs": TablePolicy(),
     "flow_instances": TablePolicy(frozenset({"status", "completed_at", "last_active_at"})),
+    "flow_roster_entries": TablePolicy(frozenset({"student_no", "name", "status"})),
     "flow_node_runtime_configs": TablePolicy(frozenset({"deadline_at"})),
     "flow_versions": TablePolicy(),
     "flows": TablePolicy(
