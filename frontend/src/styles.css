@@ -1499,6 +1499,12 @@ button {
   cursor: grabbing;
 }
 
+.palette-panel[aria-disabled="true"] .node-template,
+.palette-panel[aria-disabled="true"] .node-template-list.compact button {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
 .node-template span,
 .node-template-list.compact span {
   width: 32px;
@@ -1919,6 +1925,19 @@ button {
   display: grid;
   align-content: start;
   gap: 14px;
+}
+
+.node-inspector-fields {
+  min-inline-size: 0;
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.node-inspector-fields:disabled {
+  opacity: 0.7;
 }
 
 .node-inspector-backdrop {
