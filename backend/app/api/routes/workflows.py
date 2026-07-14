@@ -35,6 +35,7 @@ class FlowConfigRequest(BaseModel):
 
 class PublishFlowRequest(BaseModel):
     expectedDraftConfigHash: str | None = None
+    expectedCurrentVersionId: str | None = None
 
 
 def not_found() -> HTTPException:
@@ -121,6 +122,7 @@ def publish(
             flow_id,
             int(teacher["id"]),
             payload.expectedDraftConfigHash if payload else None,
+            payload.expectedCurrentVersionId if payload else None,
         )
     except KeyError as exc:
         raise not_found() from exc

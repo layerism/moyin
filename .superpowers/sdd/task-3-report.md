@@ -153,3 +153,55 @@ cd backend && .venv/bin/ruff format --check \
 - 无已知后端阻断问题。
 
 追加修复基线：`afc2b94 Bind workflow publish to revision preview`。追加提交信息：`Resolve remaining workflow republish review issues`。
+
+---
+
+## 发布确认基准版本绑定修复
+
+### 修复内容
+
+- `PublishFlowRequest` 新增 `expectedCurrentVersionId: str | None`。重新发布必须同时提交 `expectedDraftConfigHash` 和 `expectedCurrentVersionId`。
+- `publish_flow` 在 `BEGIN IMMEDIATE` 事务内重读草稿、计算 canonical hash，再读取当前 published/source/latest-history baseline。hash 或 baseline ID 任一不匹配均在 DAG validation、迁移和新版本创建前返回 409。
+- 首次发布的 expected baseline 为 `null`；若事务内已存在任何历史版本，`null` 与 latest-history baseline 不匹配并返回 409。
+- preview 与 execute 对“无 published/source 但存在 disabled 历史版本”的兼容数据使用同一 latest-history fallback，并将该 baseline 纳入共享 migration plan。
+
+### TDD 证据
+
+RED：
+
+```bash
+cd backend && PYTHONPATH=. .venv/bin/pytest \
+  tests/test_workflows.py::test_cross_tab_republish_confirmation_is_bound_to_current_version -q
+# 1 failed in 0.34s：相同确认第二次发布错误返回 201
+```
+
+GREEN 与最终验证：
+
+```bash
+cd backend && PYTHONPATH=. .venv/bin/pytest \
+  tests/test_workflows.py tests/test_workflow_republish.py -q
+# 34 passed in 3.55s
+
+cd backend && PYTHONPATH=. .venv/bin/pytest -q
+# 68 passed in 5.10s
+
+cd backend && .venv/bin/ruff check .
+# All checks passed!
+
+cd backend && .venv/bin/ruff format --check \
+  app/repositories/workflows.py \
+  app/api/routes/workflows.py \
+  tests/test_workflow_republish.py \
+  tests/test_workflows.py
+# 4 files already formatted
+```
+
+`git diff --check` 通过。跨标签回归测试使用同一 hash 和 currentVersionId 连续发布：第一次 201，第二次 409，数据库仅新增一个版本。
+
+### 自审与关注事项
+
+- hash 和 baseline ID 均在事务获得写锁后校验，两次确认无法同时消费同一 preview。
+- baseline 冲突分支发生在 migration plan 执行、runtime config 写入、token 重定向和 audit 写入之前。
+- 无已知后端阻断问题；本次未修改前端。
+
+本次基线：`f7eff3b Resolve remaining workflow republish review issues`。提交信息：`Bind workflow confirmation to baseline version`。

@@ -338,7 +338,10 @@ def test_republish_rejects_stale_revision_impact_hash(client: TestClient) -> Non
 
     rejected = client.post(
         f"/api/workflows/{flow['id']}/publish",
-        json={"expectedDraftConfigHash": impact["draftConfigHash"]},
+        json={
+            "expectedDraftConfigHash": impact["draftConfigHash"],
+            "expectedCurrentVersionId": impact["currentVersionId"],
+        },
     )
 
     assert rejected.status_code == 409
@@ -360,20 +363,54 @@ def test_republish_checks_stale_hash_before_validating_changed_dag(
     reviewed = deepcopy(sample_config())
     reviewed["nodes"][0]["title"] = "已确认预览"
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": reviewed})
-    expected_hash = client.post(f"/api/workflows/{flow['id']}/revision-impact").json()[
-        "draftConfigHash"
-    ]
+    preview = client.post(f"/api/workflows/{flow['id']}/revision-impact").json()
     cyclic = deepcopy(reviewed)
     cyclic["edges"].append({"id": "back", "source": "n2", "target": "n1"})
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": cyclic})
 
     rejected = client.post(
         f"/api/workflows/{flow['id']}/publish",
-        json={"expectedDraftConfigHash": expected_hash},
+        json={
+            "expectedDraftConfigHash": preview["draftConfigHash"],
+            "expectedCurrentVersionId": preview["currentVersionId"],
+        },
     )
 
     assert rejected.status_code == 409
     assert rejected.json() == {"detail": "草稿已变更，请重新确认修订影响"}
+
+
+def test_cross_tab_republish_confirmation_is_bound_to_current_version(
+    client: TestClient,
+) -> None:
+    flow = client.post("/api/workflows", json={"name": "跨标签发布基准保护"}).json()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
+    add_roster(client, flow["id"])
+    first_version = client.post(f"/api/workflows/{flow['id']}/publish").json()
+    changed = deepcopy(sample_config())
+    changed["nodes"][0]["title"] = "已预览的修订"
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": changed})
+    preview = client.post(f"/api/workflows/{flow['id']}/revision-impact").json()
+    payload = {
+        "expectedDraftConfigHash": preview["draftConfigHash"],
+        "expectedCurrentVersionId": preview["currentVersionId"],
+    }
+
+    tab_one = client.post(f"/api/workflows/{flow['id']}/publish", json=payload)
+    tab_two = client.post(f"/api/workflows/{flow['id']}/publish", json=payload)
+
+    assert tab_one.status_code == 201
+    assert tab_two.status_code == 409
+    assert tab_two.json() == {"detail": "草稿已变更，请重新确认修订影响"}
+    with get_connection() as connection:
+        versions = connection.execute(
+            "SELECT id FROM flow_versions WHERE flow_id = ? ORDER BY version_no",
+            (flow["id"],),
+        ).fetchall()
+    assert [row["id"] for row in versions] == [
+        first_version["flowVersionId"],
+        tab_one.json()["flowVersionId"],
+    ]
 
 
 def test_publish_rejects_persisted_draft_missing_published_node(client: TestClient) -> None:
@@ -395,7 +432,10 @@ def test_publish_rejects_persisted_draft_missing_published_node(client: TestClie
     snapshot = json.dumps(stale_draft, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     rejected = client.post(
         f"/api/workflows/{flow['id']}/publish",
-        json={"expectedDraftConfigHash": hashlib.sha256(snapshot.encode()).hexdigest()},
+        json={
+            "expectedDraftConfigHash": hashlib.sha256(snapshot.encode()).hexdigest(),
+            "expectedCurrentVersionId": published.json()["flowVersionId"],
+        },
     )
 
     assert rejected.status_code == 409
@@ -457,7 +497,10 @@ def test_historical_node_cannot_be_deleted_when_latest_legacy_version_omits_it(
     rejected_preview = client.post(f"/api/workflows/{flow['id']}/revision-impact")
     rejected_publish = client.post(
         f"/api/workflows/{flow['id']}/publish",
-        json={"expectedDraftConfigHash": hashlib.sha256(snapshot.encode()).hexdigest()},
+        json={
+            "expectedDraftConfigHash": hashlib.sha256(snapshot.encode()).hexdigest(),
+            "expectedCurrentVersionId": "legacy-v2",
+        },
     )
     assert rejected_preview.status_code == 409
     assert rejected_preview.json() == {"detail": "已发布节点不可删除：n1"}
