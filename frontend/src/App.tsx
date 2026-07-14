@@ -287,9 +287,15 @@ export function App() {
     return mapServerFlow(saved);
   };
 
-  const publishAcademicProcess = async (process: AcademicProcess) => {
-    const saved = await saveAcademicProcess(process);
-    const published = await workflowApi.publish(saved.serverId as string);
+  const publishAcademicProcess = async (
+    process: AcademicProcess,
+    expectedDraftConfigHash?: string | null,
+  ) => {
+    const saved = expectedDraftConfigHash == null ? await saveAcademicProcess(process) : process;
+    const published = await workflowApi.publish(
+      saved.serverId ?? saved.id,
+      expectedDraftConfigHash,
+    );
     return {
       ...saved,
       encryptedSlug: published.token,

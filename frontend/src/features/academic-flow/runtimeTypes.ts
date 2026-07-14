@@ -32,6 +32,7 @@ export type RevisionImpact = {
   changedNodeIds: string[];
   currentVersionId: string | null;
   currentVersionNo: number | null;
+  draftConfigHash: string;
   invalidatedNodeIds: string[];
   nextVersionNo: number;
   predecessorChangedNodeIds: string[];

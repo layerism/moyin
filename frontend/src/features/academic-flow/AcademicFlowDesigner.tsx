@@ -11,11 +11,12 @@ import type {
   AuditScriptType,
 } from "../../types";
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
-import { workflowApi } from "./api";
+import { ApiError, workflowApi } from "./api";
 import { getCanvasPanScroll, type CanvasPanStart } from "./canvasPan";
 import {
   canDeleteRevisionNode,
   filterPublishedRuntimeNodes,
+  getRevisionPublishConflictMessage,
   layoutRevisionNodes,
 } from "./flowRevision";
 import { FlowRosterDialog } from "./FlowRosterDialog";
@@ -70,7 +71,10 @@ export function AcademicFlowDesigner({
   onBack: () => void;
   onHome: () => void;
   onOpenStudent: (shareUrl: string) => void;
-  onPublishProcess: (process: AcademicProcess) => Promise<AcademicProcess>;
+  onPublishProcess: (
+    process: AcademicProcess,
+    expectedDraftConfigHash?: string | null,
+  ) => Promise<AcademicProcess>;
   onProcessChange: (process: AcademicProcess) => void;
   onSaveProcess: (process: AcademicProcess) => Promise<AcademicProcess>;
   process: AcademicProcess;
@@ -119,17 +123,26 @@ export function AcademicFlowDesigner({
     };
   }, [serverFlowId]);
 
-  const publishProcess = async () => {
+  const publishProcess = async (expectedDraftConfigHash?: string | null) => {
     setSaving(true);
     setActionNotice("");
     setPublishedShareUrl("");
     try {
-      const nextProcess = await onPublishProcess(process);
+      const nextProcess = await onPublishProcess(process, expectedDraftConfigHash);
       onProcessChange(nextProcess);
       setRevisionImpact(null);
       setActionNotice(process.published ? "重新发布成功，学生链接：" : "发布成功，学生链接：");
       setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
     } catch (reason) {
+      const conflictMessage =
+        reason instanceof ApiError
+          ? getRevisionPublishConflictMessage(reason.status, expectedDraftConfigHash)
+          : null;
+      if (conflictMessage) {
+        setRevisionImpact(null);
+        setActionNotice(conflictMessage);
+        return;
+      }
       setActionNotice(reason instanceof Error ? reason.message : "发布失败");
     } finally {
       setSaving(false);
@@ -410,7 +423,7 @@ export function AcademicFlowDesigner({
             confirming={saving}
             impact={revisionImpact}
             onCancel={() => setRevisionImpact(null)}
-            onConfirm={() => void publishProcess()}
+            onConfirm={() => void publishProcess(revisionImpact.draftConfigHash)}
           />
         ) : null}
       </section>
