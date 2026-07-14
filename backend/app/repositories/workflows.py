@@ -53,11 +53,25 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             "SELECT * FROM flows WHERE id = ? AND owner_id = ?",
             (flow_id, str(teacher_id)),
         ).fetchone()
+        published = connection.execute(
+            """
+            SELECT v.id AS version_id, t.token_value
+            FROM flow_versions v
+            LEFT JOIN share_tokens t
+              ON t.flow_version_id = v.id AND t.status = 'active'
+            WHERE v.flow_id = ? AND v.status = 'published'
+            ORDER BY v.version_no DESC, t.created_at DESC
+            LIMIT 1
+            """,
+            (flow_id,),
+        ).fetchone()
     if row is None:
         raise KeyError(flow_id)
     return {
         "id": row["id"],
         "name": row["name"],
+        "publishedVersionId": published["version_id"] if published else None,
+        "shareUrl": f"/s/{published['token_value']}" if published and published["token_value"] else "",
         "description": row["description"],
         "status": row["status"],
         "config": json.loads(row["draft_config"]),
@@ -143,10 +157,10 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         connection.execute(
             """
             INSERT INTO share_tokens
-                (id, flow_version_id, token_hash, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?)
+                (id, flow_version_id, token_hash, token_value, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (share_token_id, version_id, token_hash, str(teacher_id), now),
+            (share_token_id, version_id, token_hash, token, str(teacher_id), now),
         )
         connection.execute(
             """

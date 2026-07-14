@@ -36,7 +36,7 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
     "teacher_sessions": TablePolicy(),
 }
 
-SENSITIVE_COLUMNS = frozenset({"password_hash", "token_hash"})
+SENSITIVE_COLUMNS = frozenset({"password_hash", "token_hash", "token_value"})
 REDACTED_VALUE = "******"
 
 

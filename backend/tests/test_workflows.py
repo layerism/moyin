@@ -126,6 +126,9 @@ def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -
     body = published.json()
     assert body["shareUrl"].startswith("/s/")
     assert body["versionNo"] == 1
+    listed = client.get("/api/workflows").json()[0]
+    assert listed["shareUrl"] == body["shareUrl"]
+    assert listed["publishedVersionId"] == body["flowVersionId"]
     shared = client.get(f"/api/shared-flows/{body['token']}")
     assert shared.status_code == 200
     assert shared.json()["config"]["nodes"][0]["id"] == "n1"

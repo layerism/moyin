@@ -13,6 +13,8 @@ export type ServerFlow = {
   description: string;
   id: string;
   name: string;
+  publishedVersionId: string | null;
+  shareUrl: string;
   status: "draft" | "published";
   updatedAt: string;
 };
