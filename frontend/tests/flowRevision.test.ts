@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  canEditRevisionNodeDeadline,
   canDeleteRevisionNode,
   createPublishRequestPayload,
   filterPublishedRuntimeNodes,
-  getRevisionPublishConflictMessage,
   layoutRevisionNodes,
+  shouldReloadRevisionAfterConflict,
 } from "../src/features/academic-flow/flowRevision.ts";
 
 test("published nodes cannot be deleted from a revision", () => {
@@ -53,18 +54,28 @@ test("automatic layout merges all node positions in one immutable result", () =>
   assert.notEqual(result, nodes);
 });
 
-test("publish payload binds the previewed draft hash", () => {
-  assert.deepEqual(createPublishRequestPayload("draft-sha256"), {
+test("publish payload binds the previewed draft and current version baseline", () => {
+  assert.deepEqual(createPublishRequestPayload("draft-sha256", "version-current"), {
     expectedDraftConfigHash: "draft-sha256",
+    expectedCurrentVersionId: "version-current",
   });
-  assert.deepEqual(createPublishRequestPayload(), { expectedDraftConfigHash: null });
+  assert.deepEqual(createPublishRequestPayload(), {
+    expectedDraftConfigHash: null,
+    expectedCurrentVersionId: null,
+  });
 });
 
-test("revision hash conflicts require a fresh impact preview", () => {
-  assert.equal(
-    getRevisionPublishConflictMessage(409, "draft-sha256"),
-    "草稿已变化，请重新预览影响",
-  );
-  assert.equal(getRevisionPublishConflictMessage(409, undefined), null);
-  assert.equal(getRevisionPublishConflictMessage(422, "draft-sha256"), null);
+test("revision baseline conflicts require a server reload", () => {
+  assert.equal(shouldReloadRevisionAfterConflict(409, "draft-sha256", "version-current"), true);
+  assert.equal(shouldReloadRevisionAfterConflict(409, undefined, undefined), true);
+  assert.equal(shouldReloadRevisionAfterConflict(422, "draft-sha256", "version-current"), false);
+});
+
+test("only unpublished revision nodes allow draft deadline editing", () => {
+  const currentNodes = ["published", "new"];
+
+  assert.equal(canEditRevisionNodeDeadline("published", ["published"], currentNodes), false);
+  assert.equal(canEditRevisionNodeDeadline("new", ["published"], currentNodes), true);
+  assert.equal(canEditRevisionNodeDeadline("published", undefined, currentNodes), false);
+  assert.equal(canEditRevisionNodeDeadline("new", undefined, currentNodes), false);
 });
