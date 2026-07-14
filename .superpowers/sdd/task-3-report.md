@@ -102,3 +102,54 @@ cd backend && .venv/bin/ruff format --check \
 
 - 本轮基线：`762140f Harden workflow revision editing`
 - 本轮修复：本报告所在提交，提交信息为 `Fix final workflow republish review blockers`。
+
+---
+
+## Important 复审追加修复
+
+### 修复内容
+
+1. `publish_flow` 在 `BEGIN IMMEDIATE` 内重读草稿后立即计算 canonical hash。已携带的 expected hash 不匹配时立即返回 409；重新发布缺失 hash 也在 DAG validation 前返回 409。因此“有效预览 -> 草稿改为循环图 -> 使用旧 hash 发布”稳定返回 `DraftRevisionConflictError`，不泄漏新草稿的验证结果。
+2. deadline 继承改为扫描该 flow 全部历史版本，按 `version_no DESC` 对每个节点选取最新 runtime row。采用“最新 row 覆盖，包括 `NULL`”语义：`NULL` 表示该最新版本明确无截止时间。回归测试覆盖 v1 的 2035 deadline、v2 缺失该节点、v1 无实例/无活动 token，新版恢复节点后仍继承 2035 deadline。
+3. 新增 `_assert_no_published_node_deletions` 作为草稿保存、impact preview 和 publish execute 的共享全历史节点保护。`revision-impact` 在同一只读事务内先执行该保护，route 将 `PublishedNodeDeletionError` 映射为 409；preview 与 execute 现在返回相同的删除冲突。
+
+### TDD 证据
+
+RED：
+
+```bash
+cd backend && PYTHONPATH=. .venv/bin/pytest \
+  tests/test_workflows.py tests/test_workflow_republish.py -q
+# 3 failed, 30 passed in 3.36s
+```
+
+GREEN 与最终验证：
+
+```bash
+cd backend && PYTHONPATH=. .venv/bin/pytest \
+  tests/test_workflows.py tests/test_workflow_republish.py -q
+# 33 passed in 3.36s
+
+cd backend && PYTHONPATH=. .venv/bin/pytest -q
+# 67 passed in 6.99s
+
+cd backend && .venv/bin/ruff check .
+# All checks passed!
+
+cd backend && .venv/bin/ruff format --check \
+  app/repositories/workflows.py \
+  app/api/routes/workflows.py \
+  tests/test_workflow_republish.py \
+  tests/test_workflows.py
+# 4 files already formatted
+```
+
+`git diff --check` 通过。本次仅修改上述 4 个后端文件及本报告，未修改前端。
+
+### 自审与关注事项
+
+- hash 冲突检查优先于历史节点保护和 DAG validation；仅 hash 匹配后才检查当前草稿。
+- deadline 查询不再依赖 published/baseline/instance/token 范围，深层 disabled 历史版本也可作为节点最近 runtime 来源。
+- 无已知后端阻断问题。
+
+追加修复基线：`afc2b94 Bind workflow publish to revision preview`。追加提交信息：`Resolve remaining workflow republish review issues`。
