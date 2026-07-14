@@ -54,6 +54,79 @@ def _published_versions(connection: Any, flow_id: str, teacher_id: int) -> list[
     ).fetchall()
 
 
+def _revision_source_versions(
+    connection: Any, flow_id: str, teacher_id: int, now: str
+) -> list[Any]:
+    return connection.execute(
+        """
+        SELECT v.id, v.version_no, v.config_snapshot, v.config_hash, v.status
+        FROM flow_versions v
+        JOIN flows f ON f.id = v.flow_id
+        WHERE v.flow_id = ? AND f.owner_id = ?
+          AND (
+              v.status = 'published'
+              OR EXISTS (
+                  SELECT 1 FROM flow_instances i WHERE i.flow_version_id = v.id
+              )
+              OR EXISTS (
+                  SELECT 1 FROM share_tokens t
+                  WHERE t.flow_version_id = v.id AND t.status = 'active'
+                    AND (t.expires_at IS NULL OR t.expires_at > ?)
+              )
+          )
+        ORDER BY v.version_no
+        """,
+        (flow_id, str(teacher_id), now),
+    ).fetchall()
+
+
+def _revision_analysis(
+    connection: Any, versions: list[Any], current_config: dict[str, Any]
+) -> dict[str, object]:
+    impact_keys = (
+        "addedNodeIds",
+        "changedNodeIds",
+        "predecessorChangedNodeIds",
+        "invalidatedNodeIds",
+    )
+    aggregate = {key: set() for key in impact_keys}
+    affected_student_ids: set[int] = set()
+    source_impacts = []
+    for version in versions:
+        impact = analyze_revision(json.loads(version["config_snapshot"]), current_config)
+        students = []
+        if impact["invalidatedNodeIds"]:
+            students = connection.execute(
+                """
+                SELECT DISTINCT student_account_id FROM flow_instances
+                WHERE flow_version_id = ?
+                """,
+                (version["id"],),
+            ).fetchall()
+            affected_student_ids.update(row["student_account_id"] for row in students)
+        for key in impact_keys:
+            aggregate[key].update(impact[key])
+        source_impacts.append(
+            {
+                "versionId": version["id"],
+                "versionNo": version["version_no"],
+                "status": version["status"],
+                **impact,
+                "affectedStudentCount": len(students),
+            }
+        )
+
+    node_order = [node["id"] for node in current_config.get("nodes", [])]
+    return {
+        **{
+            key: [node_key for node_key in node_order if node_key in aggregate[key]]
+            for key in impact_keys
+        },
+        "affectedStudentCount": len(affected_student_ids),
+        "sourceVersionImpacts": source_impacts,
+    }
+
+
 def _owned_flow(connection: Any, flow_id: str, teacher_id: int) -> Any:
     return connection.execute(
         "SELECT * FROM flows WHERE id = ? AND owner_id = ?",
@@ -88,6 +161,7 @@ def create_flow(name: str, description: str, teacher_id: int) -> dict[str, objec
 
 
 def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
+    now = utc_now_iso()
     with get_connection() as connection:
         row = _owned_flow(connection, flow_id, teacher_id)
         if row is None:
@@ -98,10 +172,11 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                 """
                 SELECT token_value FROM share_tokens
                 WHERE flow_version_id = ? AND status = 'active'
+                  AND (expires_at IS NULL OR expires_at > ?)
                 ORDER BY created_at DESC
                 LIMIT 1
                 """,
-                (published["id"],),
+                (published["id"], now),
             ).fetchone()
             if published
             else None
@@ -267,6 +342,26 @@ def _new_version_deadline(connection: Any, version_id: str, node_key: str) -> st
         (version_id, node_key),
     ).fetchone()
     return row["deadline_at"] if row is not None else None
+
+
+def _create_share_token(connection: Any, version_id: str, teacher_id: int, now: str) -> str:
+    token = secrets.token_urlsafe(32)
+    connection.execute(
+        """
+        INSERT INTO share_tokens
+            (id, flow_version_id, token_hash, token_value, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(uuid.uuid4()),
+            version_id,
+            hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            token,
+            str(teacher_id),
+            now,
+        ),
+    )
+    return token
 
 
 def _invalidation_reasons(impact: dict[str, list[str]], node_key: str) -> list[str]:
@@ -538,8 +633,10 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         config = json.loads(flow["draft_config"])
         published_versions = _published_versions(connection, flow_id, teacher_id)
         published = published_versions[-1] if published_versions else None
-        if published:
-            assert_published_nodes_present(json.loads(published["config_snapshot"]), config)
+        source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
+        baseline = published or (source_versions[-1] if source_versions else None)
+        if baseline:
+            assert_published_nodes_present(json.loads(baseline["config_snapshot"]), config)
         validate_flow_config(config)
         active_roster_count = connection.execute(
             """
@@ -574,30 +671,13 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                 """,
                 (version_id, node["id"], node.get("deadlineAt"), str(teacher_id), now),
             )
-        if published is None:
-            token = secrets.token_urlsafe(32)
-            token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-            connection.execute(
-                """
-                INSERT INTO share_tokens
-                    (id, flow_version_id, token_hash, token_value, created_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    str(uuid.uuid4()),
-                    version_id,
-                    token_hash,
-                    token,
-                    str(teacher_id),
-                    now,
-                ),
-            )
+        if baseline is None:
+            token = _create_share_token(connection, version_id, teacher_id, now)
         else:
-            previous_config = json.loads(published["config_snapshot"])
-            impact = analyze_revision(previous_config, config)
+            analysis = _revision_analysis(connection, source_versions, config)
             migrated_student_count = _migrate_instances(
                 connection,
-                published_versions,
+                source_versions,
                 version_id,
                 config,
                 teacher_id,
@@ -608,23 +688,30 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                 SELECT t.token_value FROM share_tokens t
                 JOIN flow_versions v ON v.id = t.flow_version_id
                 WHERE v.flow_id = ? AND v.id != ? AND t.status = 'active'
+                  AND t.token_value IS NOT NULL
+                  AND (t.expires_at IS NULL OR t.expires_at > ?)
                 ORDER BY v.version_no DESC, t.created_at DESC
                 LIMIT 1
                 """,
-                (flow_id, version_id),
+                (flow_id, version_id, now),
             ).fetchone()
             if active_token is None or not active_token["token_value"]:
-                raise RuntimeError("已发布流程缺少有效分享令牌")
-            token = active_token["token_value"]
-            retargeted = connection.execute(
-                """
-                UPDATE share_tokens SET flow_version_id = ?
-                WHERE status = 'active' AND flow_version_id IN (
-                    SELECT id FROM flow_versions WHERE flow_id = ? AND id != ?
-                )
-                """,
-                (version_id, flow_id, version_id),
-            ).rowcount
+                token = _create_share_token(connection, version_id, teacher_id, now)
+                retargeted = 0
+            else:
+                token = active_token["token_value"]
+                retargeted = connection.execute(
+                    """
+                    UPDATE share_tokens SET flow_version_id = ?
+                    WHERE status = 'active'
+                      AND (expires_at IS NULL OR expires_at > ?)
+                      AND flow_version_id IN (
+                          SELECT id FROM flow_versions
+                          WHERE flow_id = ? AND id != ?
+                      )
+                    """,
+                    (version_id, now, flow_id, version_id),
+                ).rowcount
             connection.execute(
                 """
                 UPDATE flow_versions SET status = 'disabled'
@@ -632,7 +719,7 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                 """,
                 (flow_id, version_id),
             )
-            old_version_ids = [version["id"] for version in published_versions]
+            old_version_ids = [version["id"] for version in source_versions]
             connection.execute(
                 """
                 INSERT INTO audit_logs
@@ -644,10 +731,10 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                     flow_id,
                     canonical_json(
                         {
-                            "oldVersionId": published["id"],
+                            "oldVersionId": baseline["id"],
                             "oldVersionIds": old_version_ids,
                             "newVersionId": version_id,
-                            **impact,
+                            **analysis,
                             "migratedStudentCount": migrated_student_count,
                         }
                     ),
@@ -665,7 +752,7 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                     flow_id,
                     canonical_json(
                         {
-                            "oldVersionId": published["id"],
+                            "oldVersionId": baseline["id"],
                             "oldVersionIds": old_version_ids,
                             "newVersionId": version_id,
                             "retargetedTokenCount": retargeted,
@@ -692,7 +779,9 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
 
 
 def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
+    now = utc_now_iso()
     with get_connection() as connection:
+        connection.execute("BEGIN")
         flow = connection.execute(
             "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ?",
             (flow_id, str(teacher_id)),
@@ -700,39 +789,22 @@ def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
         if flow is None:
             raise KeyError(flow_id)
         published = _latest_published_version(connection, flow_id, teacher_id)
-        if published is None:
-            return {
-                "currentVersionId": None,
-                "currentVersionNo": None,
-                "nextVersionNo": 1,
-                "addedNodeIds": [],
-                "changedNodeIds": [],
-                "predecessorChangedNodeIds": [],
-                "invalidatedNodeIds": [],
-                "affectedStudentCount": 0,
-            }
-
-        impact = analyze_revision(
-            json.loads(published["config_snapshot"]), json.loads(flow["draft_config"])
-        )
-        affected_student_count = 0
-        if impact["invalidatedNodeIds"]:
-            affected_student_count = connection.execute(
-                """
-                SELECT COUNT(DISTINCT i.student_account_id) AS count
-                FROM flow_instances i
-                JOIN flow_versions v ON v.id = i.flow_version_id
-                WHERE v.flow_id = ? AND v.status = 'published'
-                """,
-                (flow_id,),
-            ).fetchone()["count"]
+        source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
+        baseline = published or (source_versions[-1] if source_versions else None)
+        analysis = _revision_analysis(connection, source_versions, json.loads(flow["draft_config"]))
+        next_version_no = connection.execute(
+            """
+            SELECT COALESCE(MAX(version_no), 0) + 1 AS value
+            FROM flow_versions WHERE flow_id = ?
+            """,
+            (flow_id,),
+        ).fetchone()["value"]
 
     return {
-        "currentVersionId": published["id"],
-        "currentVersionNo": published["version_no"],
-        "nextVersionNo": published["version_no"] + 1,
-        **impact,
-        "affectedStudentCount": affected_student_count,
+        "currentVersionId": baseline["id"] if baseline else None,
+        "currentVersionNo": baseline["version_no"] if baseline else None,
+        "nextVersionNo": next_version_no,
+        **analysis,
     }
 
 

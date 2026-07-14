@@ -120,6 +120,7 @@ def get_or_create_instance(token: str, student_id: int) -> dict[str, object]:
 
 def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, object]:
     with get_connection() as connection:
+        connection.execute("BEGIN")
         params: list[object] = [instance_id]
         student_filter = ""
         if student_id is not None:
