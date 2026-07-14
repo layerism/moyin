@@ -6,6 +6,10 @@ from typing import Any
 
 from app.core.database import get_connection
 from app.domain.workflow import FlowValidationError, validate_flow_config
+from app.domain.workflow_revision import (
+    analyze_revision,
+    assert_published_nodes_present,
+)
 from app.services.security import utc_now_iso
 
 
@@ -19,6 +23,20 @@ class DuplicateFlowNameError(ValueError):
 
 def canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _latest_published_version(connection: Any, flow_id: str, teacher_id: int) -> Any:
+    return connection.execute(
+        """
+        SELECT v.id, v.version_no, v.config_snapshot, v.config_hash
+        FROM flow_versions v
+        JOIN flows f ON f.id = v.flow_id
+        WHERE v.flow_id = ? AND f.owner_id = ? AND v.status = 'published'
+        ORDER BY v.version_no DESC
+        LIMIT 1
+        """,
+        (flow_id, str(teacher_id)),
+    ).fetchone()
 
 
 def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:
@@ -53,28 +71,38 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             "SELECT * FROM flows WHERE id = ? AND owner_id = ?",
             (flow_id, str(teacher_id)),
         ).fetchone()
-        published = connection.execute(
-            """
-            SELECT v.id AS version_id, t.token_value
-            FROM flow_versions v
-            LEFT JOIN share_tokens t
-              ON t.flow_version_id = v.id AND t.status = 'active'
-            WHERE v.flow_id = ? AND v.status = 'published'
-            ORDER BY v.version_no DESC, t.created_at DESC
-            LIMIT 1
-            """,
-            (flow_id,),
-        ).fetchone()
-    if row is None:
-        raise KeyError(flow_id)
+        if row is None:
+            raise KeyError(flow_id)
+        published = _latest_published_version(connection, flow_id, teacher_id)
+        token = (
+            connection.execute(
+                """
+                SELECT token_value FROM share_tokens
+                WHERE flow_version_id = ? AND status = 'active'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (published["id"],),
+            ).fetchone()
+            if published
+            else None
+        )
+    draft_config = json.loads(row["draft_config"])
+    published_config = json.loads(published["config_snapshot"]) if published else None
+    draft_hash = hashlib.sha256(canonical_json(draft_config).encode("utf-8")).hexdigest()
     return {
         "id": row["id"],
         "name": row["name"],
-        "publishedVersionId": published["version_id"] if published else None,
-        "shareUrl": f"/s/{published['token_value']}" if published and published["token_value"] else "",
+        "publishedVersionId": published["id"] if published else None,
+        "publishedNodeIds": [node["id"] for node in published_config.get("nodes", [])]
+        if published_config
+        else [],
+        "publishedVersionNo": published["version_no"] if published else None,
+        "hasUnpublishedChanges": bool(published and published["config_hash"] != draft_hash),
+        "shareUrl": f"/s/{token['token_value']}" if token and token["token_value"] else "",
         "description": row["description"],
         "status": row["status"],
-        "config": json.loads(row["draft_config"]),
+        "config": draft_config,
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
@@ -104,6 +132,9 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
             raise KeyError(flow_id)
         if existing["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
+        published = _latest_published_version(connection, flow_id, teacher_id)
+        if published:
+            assert_published_nodes_present(json.loads(published["config_snapshot"]), config)
         cursor = connection.execute(
             """
             UPDATE flows SET draft_config = ?, updated_at = ?
@@ -122,6 +153,10 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         raise ArchivedFlowError("已归档流程不可发布")
     config = flow["config"]
     assert isinstance(config, dict)
+    with get_connection() as connection:
+        published = _latest_published_version(connection, flow_id, teacher_id)
+    if published:
+        assert_published_nodes_present(json.loads(published["config_snapshot"]), config)
     validate_flow_config(config)
     with get_connection() as connection:
         active_roster_count = connection.execute(
@@ -186,6 +221,50 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         "token": token,
         "shareUrl": f"/s/{token}",
         "configHash": config_hash,
+    }
+
+
+def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
+    with get_connection() as connection:
+        flow = connection.execute(
+            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ?",
+            (flow_id, str(teacher_id)),
+        ).fetchone()
+        if flow is None:
+            raise KeyError(flow_id)
+        published = _latest_published_version(connection, flow_id, teacher_id)
+        if published is None:
+            return {
+                "currentVersionId": None,
+                "currentVersionNo": None,
+                "nextVersionNo": 1,
+                "addedNodeIds": [],
+                "changedNodeIds": [],
+                "predecessorChangedNodeIds": [],
+                "invalidatedNodeIds": [],
+                "affectedStudentCount": 0,
+            }
+
+        impact = analyze_revision(
+            json.loads(published["config_snapshot"]), json.loads(flow["draft_config"])
+        )
+        affected_student_count = 0
+        if impact["invalidatedNodeIds"]:
+            affected_student_count = connection.execute(
+                """
+                SELECT COUNT(DISTINCT id) AS count
+                FROM flow_instances
+                WHERE flow_version_id = ?
+                """,
+                (published["id"],),
+            ).fetchone()["count"]
+
+    return {
+        "currentVersionId": published["id"],
+        "currentVersionNo": published["version_no"],
+        "nextVersionNo": published["version_no"] + 1,
+        **impact,
+        "affectedStudentCount": affected_student_count,
     }
 
 
