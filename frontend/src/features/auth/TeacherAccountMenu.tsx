@@ -4,9 +4,11 @@ import type { AuthIdentity } from "./authApi";
 
 export function TeacherAccountMenu({
   identity,
+  onDatabaseAdmin,
   onLogout,
 }: {
   identity: AuthIdentity;
+  onDatabaseAdmin: () => void;
   onLogout: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -40,14 +42,19 @@ export function TeacherAccountMenu({
             <span>{initial}</span>
             <div>
               <strong>{identity.name}</strong>
-              <small>教师账户</small>
+              <small>{identity.role === "super_admin" ? "超级管理员" : "教师账户"}</small>
             </div>
           </header>
           <dl>
             <div><dt>姓名</dt><dd>{identity.name}</dd></div>
             <div><dt>工号</dt><dd>{identity.employeeNo ?? "-"}</dd></div>
-            <div><dt>身份</dt><dd>教师</dd></div>
+            <div><dt>身份</dt><dd>{identity.role === "super_admin" ? "超级管理员" : "教师"}</dd></div>
           </dl>
+          {identity.role === "super_admin" ? (
+            <button className="teacher-account-admin" onClick={onDatabaseAdmin} type="button">
+              数据库管理
+            </button>
+          ) : null}
           <button className="teacher-account-logout" onClick={onLogout} type="button">
             退出登录
           </button>

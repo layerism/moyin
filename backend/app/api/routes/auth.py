@@ -148,7 +148,12 @@ def register_teacher(payload: TeacherCredentials, response: Response) -> dict[st
         raise HTTPException(status_code=409, detail="该工号已注册") from exc
     token = create_teacher_session(teacher_id)
     set_teacher_session_cookie(response, token)
-    return {"id": teacher_id, "employeeNo": payload.employeeNo.strip(), "name": payload.name.strip()}
+    return {
+        "id": teacher_id,
+        "employeeNo": payload.employeeNo.strip(),
+        "name": payload.name.strip(),
+        "role": "teacher",
+    }
 
 
 @router.post("/teacher/login")
@@ -156,7 +161,7 @@ def login_teacher(payload: TeacherCredentials, response: Response) -> dict[str, 
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT id, employee_no, name, password_hash
+            SELECT id, employee_no, name, password_hash, role
             FROM teacher_accounts
             WHERE employee_no = ? AND status = 'active'
             """,
@@ -170,7 +175,12 @@ def login_teacher(payload: TeacherCredentials, response: Response) -> dict[str, 
         raise HTTPException(status_code=401, detail="姓名、工号或密码不正确")
     token = create_teacher_session(int(row["id"]))
     set_teacher_session_cookie(response, token)
-    return {"id": row["id"], "employeeNo": row["employee_no"], "name": row["name"]}
+    return {
+        "id": row["id"],
+        "employeeNo": row["employee_no"],
+        "name": row["name"],
+        "role": row["role"],
+    }
 
 
 @router.get("/teacher/me")

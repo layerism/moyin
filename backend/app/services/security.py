@@ -4,7 +4,7 @@ import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from fastapi import Cookie, HTTPException, status
+from fastapi import Cookie, Depends, HTTPException, status
 
 from app.core.database import get_connection
 
@@ -125,7 +125,7 @@ def get_current_teacher(
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT a.id, a.employee_no, a.name
+            SELECT a.id, a.employee_no, a.name, a.role
             FROM teacher_sessions s
             JOIN teacher_accounts a ON a.id = s.teacher_account_id
             WHERE s.token_hash = ? AND s.expires_at > ? AND a.status = 'active'
@@ -134,4 +134,20 @@ def get_current_teacher(
         ).fetchone()
     if row is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="教师登录状态已失效")
-    return {"id": row["id"], "employeeNo": row["employee_no"], "name": row["name"]}
+    return {
+        "id": row["id"],
+        "employeeNo": row["employee_no"],
+        "name": row["name"],
+        "role": row["role"],
+    }
+
+
+def get_current_super_admin(
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    if teacher.get("role") != "super_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="仅超级管理员可以访问数据库管理功能",
+        )
+    return teacher

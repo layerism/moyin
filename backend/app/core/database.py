@@ -1,10 +1,16 @@
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core.config import settings
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    id TEXT PRIMARY KEY,
+    applied_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS student_accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     student_no TEXT NOT NULL UNIQUE,
@@ -29,6 +35,7 @@ CREATE TABLE IF NOT EXISTS teacher_accounts (
     name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'active',
+    role TEXT NOT NULL DEFAULT 'teacher' CHECK (role IN ('teacher', 'super_admin')),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -161,3 +168,29 @@ def get_connection() -> sqlite3.Connection:
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA)
+        _apply_super_admin_role_migration(connection)
+
+
+def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260714_add_teacher_role_and_promote_04170"
+    columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(teacher_accounts)").fetchall()
+    }
+    if "role" not in columns:
+        connection.execute(
+            "ALTER TABLE teacher_accounts ADD COLUMN role TEXT NOT NULL DEFAULT 'teacher'"
+        )
+
+    applied = connection.execute(
+        "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)
+    ).fetchone()
+    if applied is not None:
+        return
+
+    connection.execute(
+        "UPDATE teacher_accounts SET role = 'super_admin' WHERE employee_no = '04170'"
+    )
+    connection.execute(
+        "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )

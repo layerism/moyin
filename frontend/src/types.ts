@@ -4,6 +4,7 @@ export type Screen =
   | "authForgot"
   | "authLogin"
   | "authRegister"
+  | "adminDatabase"
   | "home"
   | "academicFlow"
   | "academicFlowDetail"

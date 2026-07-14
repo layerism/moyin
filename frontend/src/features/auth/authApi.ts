@@ -4,6 +4,7 @@ export type AuthIdentity = {
   employeeNo?: string;
   id: number;
   name: string;
+  role?: "super_admin" | "teacher";
   studentNo?: string;
 };
 

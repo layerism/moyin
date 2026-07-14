@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     ai,
     auth,
+    database_admin,
     health,
     student_flows,
     submissions,
@@ -14,6 +15,9 @@ from app.api.routes import (
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
+api_router.include_router(
+    database_admin.router, prefix="/admin/database", tags=["database-admin"]
+)
 api_router.include_router(templates.router, prefix="/templates", tags=["templates"])
 api_router.include_router(submissions.router, prefix="/submissions", tags=["submissions"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])

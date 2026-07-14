@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.core.config import settings
+from app.core.database import get_connection
 from app.main import app
 
 
@@ -23,7 +24,24 @@ def test_teacher_register_creates_teacher_session(client: TestClient) -> None:
 
     assert response.status_code == 201
     assert response.json()["employeeNo"] == "T001"
+    assert response.json()["role"] == "teacher"
     assert client.get("/api/auth/teacher/me").json()["name"] == "教师甲"
+
+
+def test_teacher_identity_returns_persisted_super_admin_role(client: TestClient) -> None:
+    client.post(
+        "/api/auth/teacher/register",
+        json={"name": "超级管理员", "employeeNo": "ADMIN001", "password": "Pass1234"},
+    )
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE teacher_accounts SET role = 'super_admin' WHERE employee_no = 'ADMIN001'"
+        )
+
+    identity = client.get("/api/auth/teacher/me")
+
+    assert identity.status_code == 200
+    assert identity.json()["role"] == "super_admin"
 
 
 def test_duplicate_employee_number_is_rejected(client: TestClient) -> None:
@@ -52,4 +70,3 @@ def test_student_prefixed_routes_preserve_student_authentication(client: TestCli
     assert client.get("/api/auth/student/me").json()["studentNo"] == "S001"
     assert client.post("/api/auth/student/logout").status_code == 204
     assert client.post("/api/auth/student/login", json=payload).status_code == 200
-
