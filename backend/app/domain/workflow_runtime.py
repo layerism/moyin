@@ -31,3 +31,56 @@ def node_by_key(config: dict[str, Any], node_key: str) -> dict[str, Any]:
         if node["id"] == node_key:
             return node
     raise KeyError(node_key)
+
+
+def validate_submission(node: dict[str, Any], payload: dict[str, Any]) -> None:
+    kind = node.get("kind")
+    if kind == "form":
+        missing = [
+            str(field)
+            for field in node.get("infoFields", [])
+            if not _has_value(payload.get(str(field)))
+        ]
+        if missing:
+            raise ValueError(f"请填写：{', '.join(missing)}")
+        return
+
+    if kind in {"announcement", "confirmation"}:
+        if payload.get("confirmed") is not True:
+            raise ValueError("请完成确认后再提交")
+        return
+
+    if kind != "file":
+        return
+
+    file_value = payload.get("file")
+    if not isinstance(file_value, dict) or not file_value.get("name"):
+        raise ValueError("请选择文件后再提交")
+
+    file_name = str(file_value["name"])
+    extensions = [
+        value.strip().lower().removeprefix(".")
+        for value in str(node.get("fileExtensions") or "").split(",")
+        if value.strip()
+    ]
+    actual_extension = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else ""
+    if extensions and actual_extension not in extensions:
+        raise ValueError(f"仅允许上传：{', '.join(extensions)}")
+
+    raw_limit = str(node.get("fileLimitMb") or "").strip()
+    if raw_limit:
+        try:
+            limit_mb = float(raw_limit)
+            file_size = float(file_value.get("size", 0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("文件大小信息无效") from exc
+        if limit_mb > 0 and file_size > limit_mb * 1024 * 1024:
+            raise ValueError(f"文件大小不能超过 {raw_limit} MB")
+
+
+def _has_value(value: object) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    return True
