@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.core.config import settings
+from app.domain.workflow_runtime import validate_submission
 from app.main import app
 
 
@@ -148,3 +149,35 @@ def test_student_lists_joined_flow_instances(client: TestClient) -> None:
     assert items[0]["name"] == "学生材料流程"
     assert items[0]["status"] == "in_progress"
     assert items[0]["lastActiveAt"]
+
+
+@pytest.mark.parametrize(
+    ("node", "payload", "message"),
+    [
+        (
+            {"kind": "form", "infoFields": ["姓名", "学号"]},
+            {"姓名": "学生甲", "学号": "  "},
+            "请填写：学号",
+        ),
+        (
+            {"kind": "confirmation", "infoFields": []},
+            {"confirmed": False},
+            "请完成确认后再提交",
+        ),
+        (
+            {"kind": "file", "fileExtensions": "pdf, docx", "fileLimitMb": "10"},
+            {"file": {"name": "材料.exe", "size": 1024}},
+            "仅允许上传：pdf, docx",
+        ),
+        (
+            {"kind": "file", "fileExtensions": "pdf", "fileLimitMb": "1"},
+            {"file": {"name": "材料.pdf", "size": 2 * 1024 * 1024}},
+            "文件大小不能超过 1 MB",
+        ),
+    ],
+)
+def test_validate_submission_rejects_invalid_payload(
+    node: dict[str, object], payload: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        validate_submission(node, payload)

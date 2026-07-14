@@ -3,7 +3,12 @@ import uuid
 from typing import Any
 
 from app.core.database import get_connection
-from app.domain.workflow_runtime import deadline_has_passed, incoming_nodes, node_by_key
+from app.domain.workflow_runtime import (
+    deadline_has_passed,
+    incoming_nodes,
+    node_by_key,
+    validate_submission,
+)
 from app.repositories.workflows import canonical_json, resolve_share_token
 from app.services.security import utc_now_iso
 
@@ -272,6 +277,10 @@ def submit_node(
             raise RuntimeConflictError("当前节点不可提交")
         config = _version_config(connection, row["flow_version_id"])
         node = node_by_key(config, row["node_key"])
+        try:
+            validate_submission(node, payload)
+        except ValueError as exc:
+            raise RuntimeConflictError(str(exc)) from exc
         attempt_no = int(row["attempt_no"]) + 1
         submission_status = "approved" if node.get("autoApprove", True) else "reviewing"
         connection.execute(

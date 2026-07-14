@@ -7,6 +7,7 @@ import type {
   RuntimeNodeInstance,
   RuntimeNodeStatus,
 } from "./runtimeTypes";
+import { StudentFlowTopology } from "./StudentFlowTopology";
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
   approved: "已通过",
@@ -34,6 +35,7 @@ export function StudentRuntimePage({
   const [drafts, setDrafts] = useState<Record<string, Record<string, unknown>>>({});
   const [notice, setNotice] = useState("");
   const [busyNodeId, setBusyNodeId] = useState<string | null>(null);
+  const [activeNodeKey, setActiveNodeKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialInstance?.id === instanceId) return;
@@ -66,6 +68,8 @@ export function StudentRuntimePage({
     () => new Map(instance?.nodeInstances.map((node) => [node.nodeKey, node]) ?? []),
     [instance],
   );
+  const activeNode = instance?.config.nodes.find((node) => node.id === activeNodeKey) ?? null;
+  const activeRuntime = activeNodeKey ? runtimeByKey.get(activeNodeKey) ?? null : null;
 
   const updateDraft = (runtimeId: string, field: string, value: unknown) => {
     setDrafts((current) => ({
@@ -97,7 +101,13 @@ export function StudentRuntimePage({
         `${runtime.id}-${Date.now()}`,
       );
       setInstance(next);
-      setNotice("节点已提交");
+      const submittedNode = next.nodeInstances.find((node) => node.id === runtime.id);
+      if (submittedNode?.status === "approved") {
+        setActiveNodeKey(null);
+        setNotice("自动审核通过，后续节点已按流程规则开放");
+      } else {
+        setNotice("节点已提交，正在自动审核");
+      }
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "提交失败");
     } finally {
@@ -142,34 +152,33 @@ export function StudentRuntimePage({
       <section className="runtime-notice" aria-live="polite">
         {notice}
       </section>
-      <section className="student-runtime-list">
-        {instance.config.nodes.map((node, index) => {
-          const runtime = runtimeByKey.get(node.id);
-          if (!runtime) return null;
-          return (
-            <RuntimeNodeCard
-              busy={busyNodeId === runtime.id}
-              draft={drafts[runtime.id] ?? {}}
-              index={index + 1}
-              key={node.id}
-              node={node}
-              onSave={() => void save(runtime)}
-              onSubmit={() => void submit(runtime)}
-              onUpdate={(field, value) => updateDraft(runtime.id, field, value)}
-              runtime={runtime}
-            />
-          );
-        })}
-      </section>
+      <StudentFlowTopology
+        edges={instance.config.edges}
+        nodes={instance.config.nodes}
+        onOpenNode={setActiveNodeKey}
+        runtimeNodes={instance.nodeInstances}
+      />
+      {activeNode && activeRuntime ? (
+        <RuntimeNodeDialog
+          busy={busyNodeId === activeRuntime.id}
+          draft={drafts[activeRuntime.id] ?? {}}
+          node={activeNode}
+          onClose={() => setActiveNodeKey(null)}
+          onSave={() => void save(activeRuntime)}
+          onSubmit={() => void submit(activeRuntime)}
+          onUpdate={(field, value) => updateDraft(activeRuntime.id, field, value)}
+          runtime={activeRuntime}
+        />
+      ) : null}
     </main>
   );
 }
 
-function RuntimeNodeCard({
+function RuntimeNodeDialog({
   busy,
   draft,
-  index,
   node,
+  onClose,
   onSave,
   onSubmit,
   onUpdate,
@@ -177,8 +186,8 @@ function RuntimeNodeCard({
 }: {
   busy: boolean;
   draft: Record<string, unknown>;
-  index: number;
   node: AcademicFlowNode;
+  onClose: () => void;
   onSave: () => void;
   onSubmit: () => void;
   onUpdate: (field: string, value: unknown) => void;
@@ -186,22 +195,28 @@ function RuntimeNodeCard({
 }) {
   const writable = writableStatuses.has(runtime.status);
   return (
-    <article className={`runtime-node-card ${runtime.status}`}>
-      <header>
-        <span className="runtime-node-index">{index}</span>
-        <div>
-          <h2>{node.title}</h2>
-          <p>{node.requirement}</p>
-        </div>
-        <strong>{statusLabels[runtime.status]}</strong>
-      </header>
-      {runtime.effectiveDeadline ? (
-        <p className="runtime-deadline">
-          截止时间：{new Date(runtime.effectiveDeadline).toLocaleString("zh-CN")}
-        </p>
-      ) : null}
-      {writable ? (
-        <div className="runtime-node-form">
+    <div className="runtime-node-dialog-backdrop" onMouseDown={onClose}>
+      <section
+        aria-modal="true"
+        className={`runtime-node-dialog ${runtime.status}`}
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <header>
+          <div>
+            <span>{statusLabels[runtime.status]}</span>
+            <h2>{node.title}</h2>
+            <p>{node.requirement}</p>
+          </div>
+          <button aria-label="关闭填写窗口" onClick={onClose} type="button">×</button>
+        </header>
+        {runtime.effectiveDeadline ? (
+          <p className="runtime-deadline">
+            截止时间：{new Date(runtime.effectiveDeadline).toLocaleString("zh-CN")}
+          </p>
+        ) : null}
+        {writable ? (
+          <div className="runtime-node-form">
           {node.kind === "form"
             ? node.infoFields.map((field) => (
                 <label key={field}>
@@ -244,11 +259,12 @@ function RuntimeNodeCard({
               {busy ? "处理中" : "提交节点"}
             </button>
           </div>
-        </div>
-      ) : (
-        <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>
-      )}
-    </article>
+          </div>
+        ) : (
+          <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>
+        )}
+      </section>
+    </div>
   );
 }
 
