@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
 
@@ -226,6 +227,9 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
         "currentVersionId": published["flowVersionId"],
         "currentVersionNo": 1,
         "nextVersionNo": 2,
+        "draftConfigHash": hashlib.sha256(
+            json.dumps(changed, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
         "addedNodeIds": [],
         "changedNodeIds": ["n1"],
         "predecessorChangedNodeIds": [],
@@ -265,6 +269,8 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
 
 def test_revision_impact_is_empty_for_unpublished_flow(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "未发布修订流程"}).json()
+    config = sample_config()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
 
     impact = client.post(f"/api/workflows/{flow['id']}/revision-impact")
 
@@ -273,6 +279,9 @@ def test_revision_impact_is_empty_for_unpublished_flow(client: TestClient) -> No
         "currentVersionId": None,
         "currentVersionNo": None,
         "nextVersionNo": 1,
+        "draftConfigHash": hashlib.sha256(
+            json.dumps(config, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest(),
         "addedNodeIds": [],
         "changedNodeIds": [],
         "predecessorChangedNodeIds": [],
@@ -280,6 +289,65 @@ def test_revision_impact_is_empty_for_unpublished_flow(client: TestClient) -> No
         "affectedStudentCount": 0,
         "sourceVersionImpacts": [],
     }
+
+
+@pytest.mark.parametrize(
+    "edges",
+    [
+        [{"id": "dangling", "source": "n1", "target": "missing"}],
+        [
+            {"id": "forward", "source": "n1", "target": "n2"},
+            {"id": "back", "source": "n2", "target": "n1"},
+        ],
+    ],
+)
+def test_revision_impact_rejects_invalid_dag_with_422(
+    client: TestClient, edges: list[dict[str, str]]
+) -> None:
+    flow = client.post("/api/workflows", json={"name": f"非法影响预览-{edges[0]['id']}"}).json()
+    config = sample_config()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
+    add_roster(client, flow["id"])
+    client.post(f"/api/workflows/{flow['id']}/publish")
+    config["edges"] = edges
+    saved = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
+    assert saved.status_code == 200
+
+    impact = client.post(f"/api/workflows/{flow['id']}/revision-impact")
+
+    assert impact.status_code == 422
+
+
+def test_republish_rejects_stale_revision_impact_hash(client: TestClient) -> None:
+    flow = client.post("/api/workflows", json={"name": "修订确认并发保护"}).json()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
+    add_roster(client, flow["id"])
+    client.post(f"/api/workflows/{flow['id']}/publish")
+    reviewed = deepcopy(sample_config())
+    reviewed["nodes"][0]["title"] = "预览版本标题"
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": reviewed})
+
+    missing_hash = client.post(f"/api/workflows/{flow['id']}/publish")
+
+    assert missing_hash.status_code == 409
+    assert missing_hash.json() == {"detail": "草稿已变更，请重新确认修订影响"}
+    impact = client.post(f"/api/workflows/{flow['id']}/revision-impact").json()
+    changed_after_review = deepcopy(reviewed)
+    changed_after_review["nodes"][0]["title"] = "预览后再次修改"
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": changed_after_review})
+
+    rejected = client.post(
+        f"/api/workflows/{flow['id']}/publish",
+        json={"expectedDraftConfigHash": impact["draftConfigHash"]},
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json() == {"detail": "草稿已变更，请重新确认修订影响"}
+    with get_connection() as connection:
+        version_count = connection.execute(
+            "SELECT COUNT(*) AS count FROM flow_versions WHERE flow_id = ?", (flow["id"],)
+        ).fetchone()["count"]
+    assert version_count == 1
 
 
 def test_publish_rejects_persisted_draft_missing_published_node(client: TestClient) -> None:
@@ -302,3 +370,63 @@ def test_publish_rejects_persisted_draft_missing_published_node(client: TestClie
 
     assert rejected.status_code == 409
     assert rejected.json() == {"detail": "已发布节点不可删除：n1"}
+
+
+def test_historical_node_cannot_be_deleted_when_latest_legacy_version_omits_it(
+    client: TestClient,
+) -> None:
+    flow = client.post("/api/workflows", json={"name": "历史节点永久保护"}).json()
+    original = sample_config()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": original})
+    add_roster(client, flow["id"])
+    first = client.post(f"/api/workflows/{flow['id']}/publish").json()
+    legacy_latest = {
+        "nodes": [deepcopy(original["nodes"][1])],  # type: ignore[index]
+        "edges": [],
+    }
+    snapshot = json.dumps(legacy_latest, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    with get_connection() as connection:
+        teacher_id = connection.execute(
+            "SELECT id FROM teacher_accounts WHERE employee_no = 'TW001'"
+        ).fetchone()["id"]
+        connection.execute(
+            "UPDATE flow_versions SET status = 'disabled' WHERE id = ?",
+            (first["flowVersionId"],),
+        )
+        connection.execute(
+            """
+            INSERT INTO flow_versions
+                (id, flow_id, version_no, config_snapshot, config_hash,
+                 status, published_by, published_at)
+            VALUES ('legacy-v2', ?, 2, ?, ?, 'published', ?, '2026-07-14T00:00:00+00:00')
+            """,
+            (
+                flow["id"],
+                snapshot,
+                hashlib.sha256(snapshot.encode()).hexdigest(),
+                str(teacher_id),
+            ),
+        )
+        connection.execute(
+            """
+            INSERT INTO flow_node_runtime_configs
+                (flow_version_id, node_key, deadline_at, updated_by, updated_at)
+            VALUES ('legacy-v2', 'n2', NULL, ?, '2026-07-14T00:00:00+00:00')
+            """,
+            (str(teacher_id),),
+        )
+
+    rejected_draft = client.put(
+        f"/api/workflows/{flow['id']}/draft", json={"config": legacy_latest}
+    )
+    assert rejected_draft.status_code == 409
+    assert rejected_draft.json() == {"detail": "已发布节点不可删除：n1"}
+
+    with get_connection() as connection:
+        connection.execute("UPDATE flows SET draft_config = ? WHERE id = ?", (snapshot, flow["id"]))
+    rejected_publish = client.post(
+        f"/api/workflows/{flow['id']}/publish",
+        json={"expectedDraftConfigHash": hashlib.sha256(snapshot.encode()).hexdigest()},
+    )
+    assert rejected_publish.status_code == 409
+    assert rejected_publish.json() == {"detail": "已发布节点不可删除：n1"}

@@ -7,9 +7,10 @@ from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import PublishedNodeDeletionError
 from app.repositories.workflows import (
     ArchivedFlowError,
+    DraftRevisionConflictError,
+    DuplicateFlowNameError,
     create_flow,
     delete_flow,
-    DuplicateFlowNameError,
     get_flow,
     get_revision_impact,
     list_flows,
@@ -32,6 +33,10 @@ class FlowConfigRequest(BaseModel):
     config: dict[str, Any]
 
 
+class PublishFlowRequest(BaseModel):
+    expectedDraftConfigHash: str | None = None
+
+
 def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="流程不存在")
 
@@ -49,9 +54,7 @@ def post_flow(
     teacher: dict[str, object] = Depends(get_current_teacher),
 ) -> dict[str, object]:
     try:
-        return create_flow(
-            payload.name.strip(), payload.description.strip(), int(teacher["id"])
-        )
+        return create_flow(payload.name.strip(), payload.description.strip(), int(teacher["id"]))
     except DuplicateFlowNameError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -101,15 +104,22 @@ def revision_impact(
         return get_revision_impact(flow_id, int(teacher["id"]))
     except KeyError as exc:
         raise not_found() from exc
+    except FlowValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/{flow_id}/publish", status_code=status.HTTP_201_CREATED)
 def publish(
     flow_id: str,
+    payload: PublishFlowRequest | None = None,
     teacher: dict[str, object] = Depends(get_current_teacher),
 ) -> dict[str, object]:
     try:
-        return publish_flow(flow_id, int(teacher["id"]))
+        return publish_flow(
+            flow_id,
+            int(teacher["id"]),
+            payload.expectedDraftConfigHash if payload else None,
+        )
     except KeyError as exc:
         raise not_found() from exc
     except FlowValidationError as exc:
@@ -117,6 +127,8 @@ def publish(
     except ArchivedFlowError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PublishedNodeDeletionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DraftRevisionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 

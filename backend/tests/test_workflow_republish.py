@@ -89,9 +89,12 @@ def _submit(client: TestClient, instance_id: str, node_key: str) -> dict[str, ob
     return response.json()
 
 
-def _completed_flow(client: TestClient) -> dict[str, object]:
+def _completed_flow(
+    client: TestClient, config: dict[str, object] | None = None
+) -> dict[str, object]:
+    initial_config = config or BASE_CONFIG
     flow = client.post("/api/workflows", json={"name": "修订迁移流程"}).json()
-    saved = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": BASE_CONFIG})
+    saved = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": initial_config})
     assert saved.status_code == 200
     roster = client.post(
         f"/api/workflows/{flow['id']}/roster/import",
@@ -123,7 +126,13 @@ def _save_and_republish(
         json={"config": config},
     )
     assert saved.status_code == 200
-    response = client.post(f"/api/workflows/{flow['id']}/publish")  # type: ignore[index]
+    impact = client.post(
+        f"/api/workflows/{flow['id']}/revision-impact"  # type: ignore[index]
+    ).json()
+    response = client.post(
+        f"/api/workflows/{flow['id']}/publish",  # type: ignore[index]
+        json={"expectedDraftConfigHash": impact["draftConfigHash"]},
+    )
     assert response.status_code == 201
     return response.json()
 
@@ -590,7 +599,7 @@ def test_multiple_published_versions_tokens_and_duplicate_students_are_normalize
             "changedNodeIds": ["left"],
             "predecessorChangedNodeIds": [],
             "invalidatedNodeIds": ["left", "join"],
-            "affectedStudentCount": 2,
+            "affectedStudentCount": 1,
         },
         {
             "versionId": version_two,
@@ -638,6 +647,65 @@ def test_multiple_published_versions_tokens_and_duplicate_students_are_normalize
     assert audit_data["sourceVersionImpacts"] == impact["sourceVersionImpacts"]
 
 
+def test_duplicate_student_impact_uses_only_highest_version_instance(
+    client: TestClient,
+) -> None:
+    old_config = deepcopy(BASE_CONFIG)
+    old_config["nodes"][1]["requirement"] = "低版本旧要求"
+    context = _completed_flow(client, old_config)
+    flow_id = context["flow"]["id"]  # type: ignore[index]
+    low_instance_id = context["instance"]["id"]  # type: ignore[index]
+    with get_connection() as connection:
+        teacher_id = connection.execute(
+            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+        ).fetchone()["id"]
+    high_version_id, high_token = _insert_legacy_published_version(flow_id, BASE_CONFIG, teacher_id)
+    high_instance = client.post(f"/api/student/shared/{high_token}/enter").json()
+    for node_key in ("root", "left", "right", "join"):
+        high_instance = _submit(client, high_instance["id"], node_key)
+    saved = client.put(f"/api/workflows/{flow_id}/draft", json={"config": BASE_CONFIG})
+    assert saved.status_code == 200
+
+    impact = client.post(f"/api/workflows/{flow_id}/revision-impact").json()
+
+    assert impact["affectedStudentCount"] == 0
+    assert impact["invalidatedNodeIds"] == []
+    assert impact["sourceVersionImpacts"][0]["invalidatedNodeIds"] == ["left", "join"]
+    assert impact["sourceVersionImpacts"][0]["affectedStudentCount"] == 0
+    assert impact["sourceVersionImpacts"][1] == {
+        "versionId": high_version_id,
+        "versionNo": 2,
+        "status": "published",
+        "addedNodeIds": [],
+        "changedNodeIds": [],
+        "predecessorChangedNodeIds": [],
+        "invalidatedNodeIds": [],
+        "affectedStudentCount": 0,
+    }
+
+    published = client.post(
+        f"/api/workflows/{flow_id}/publish",
+        json={"expectedDraftConfigHash": impact["draftConfigHash"]},
+    )
+    assert published.status_code == 201
+    with get_connection() as connection:
+        normalized = connection.execute(
+            "SELECT entity_id FROM audit_logs WHERE action = 'flow_instance_normalized'"
+        ).fetchall()
+        invalidated_count = connection.execute(
+            "SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'node_submission_invalidated'"
+        ).fetchone()["count"]
+        workflow_audit = json.loads(
+            connection.execute(
+                "SELECT after_data FROM audit_logs WHERE action = 'workflow_republish'"
+            ).fetchone()["after_data"]
+        )
+    assert [row["entity_id"] for row in normalized] == [low_instance_id]
+    assert invalidated_count == 0
+    assert workflow_audit["affectedStudentCount"] == 0
+    assert workflow_audit["invalidatedNodeIds"] == []
+
+
 def test_student_enter_after_republish_creates_only_a_new_version_instance(
     client: TestClient,
 ) -> None:
@@ -680,6 +748,15 @@ def test_partial_progress_recomputes_changed_node_with_past_deadline(
 ) -> None:
     context = _completed_flow(client)
     original = context["instance"]
+    old_version_id = context["published"]["flowVersionId"]  # type: ignore[index]
+    deadline = client.patch(
+        f"/api/workflow-admin/versions/{old_version_id}/nodes/left/deadline",
+        json={
+            "deadlineAt": "2020-01-01T00:00:00+00:00",
+            "reason": "验证继承的过期截止时间",
+        },
+    )
+    assert deadline.status_code == 200
     right_id = _nodes(original)["right"]["id"]  # type: ignore[arg-type]
     with get_connection() as connection:
         connection.execute("UPDATE node_instances SET status = 'draft' WHERE id = ?", (right_id,))
@@ -695,12 +772,7 @@ def test_partial_progress_recomputes_changed_node_with_past_deadline(
             (original["id"],),  # type: ignore[index]
         )
     changed = deepcopy(BASE_CONFIG)
-    changed["nodes"][1].update(
-        {
-            "requirement": "已经过期的新要求",
-            "deadlineAt": "2020-01-01T00:00:00+00:00",
-        }
-    )
+    changed["nodes"][1]["requirement"] = "已经过期的新要求"
 
     _save_and_republish(client, context, changed)
     migrated = client.get(
@@ -714,6 +786,38 @@ def test_partial_progress_recomputes_changed_node_with_past_deadline(
         "join": "locked",
     }
     assert _nodes(migrated)["right"]["draft"] == {"value": "partial"}
+
+
+def test_republish_inherits_existing_global_deadline_for_old_node(
+    client: TestClient,
+) -> None:
+    context = _completed_flow(client)
+    old_version_id = context["published"]["flowVersionId"]  # type: ignore[index]
+    inherited_deadline = "2035-01-01T00:00:00+00:00"
+    updated = client.patch(
+        f"/api/workflow-admin/versions/{old_version_id}/nodes/left/deadline",
+        json={"deadlineAt": inherited_deadline, "reason": "继承到下一版本"},
+    )
+    assert updated.status_code == 200
+    changed = deepcopy(BASE_CONFIG)
+    changed["nodes"][1]["requirement"] = "触发左节点重算"
+
+    republished = _save_and_republish(client, context, changed)
+    migrated = client.get(
+        f"/api/student/flow-instances/{context['instance']['id']}"  # type: ignore[index]
+    ).json()
+
+    assert _nodes(migrated)["left"]["effectiveDeadline"] == inherited_deadline
+    assert _nodes(migrated)["left"]["status"] == "available"
+    with get_connection() as connection:
+        deadline = connection.execute(
+            """
+            SELECT deadline_at FROM flow_node_runtime_configs
+            WHERE flow_version_id = ? AND node_key = 'left'
+            """,
+            (republished["flowVersionId"],),
+        ).fetchone()["deadline_at"]
+    assert deadline == inherited_deadline
 
 
 def test_runtime_writes_begin_immediately_and_revalidate_current_version(
@@ -825,6 +929,9 @@ def test_get_instance_uses_one_snapshot_when_republish_commits_between_selects(
     )
     saved = client.put(f"/api/workflows/{flow_id}/draft", json={"config": changed})
     assert saved.status_code == 200
+    expected_hash = client.post(f"/api/workflows/{flow_id}/revision-impact").json()[
+        "draftConfigHash"
+    ]
     with get_connection() as connection:
         student_id = connection.execute(
             "SELECT id FROM student_accounts WHERE student_no = '20260001'"
@@ -846,7 +953,7 @@ def test_get_instance_uses_one_snapshot_when_republish_commits_between_selects(
             row = self.cursor.fetchone()
             if not triggered:
                 triggered = True
-                new_publication = publish_flow(flow_id, teacher_id)
+                new_publication = publish_flow(flow_id, teacher_id, expected_hash)
             return row
 
         def __getattr__(self, name):
@@ -897,14 +1004,20 @@ def test_republish_retargets_only_unexpired_active_tokens_and_returns_a_valid_on
     original_token = context["published"]["token"]  # type: ignore[index]
     valid_token = "valid-history-token"
     expired_token = "expired-history-token"
+    token_ids: dict[str, str] = {}
     with get_connection() as connection:
         teacher_id = connection.execute(
             "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+        ).fetchone()["id"]
+        token_ids[original_token] = connection.execute(
+            "SELECT id FROM share_tokens WHERE token_value = ?", (original_token,)
         ).fetchone()["id"]
         for token, expires_at, created_at in (
             (valid_token, "2035-01-01T00:00:00+00:00", "2031-01-01T00:00:00+00:00"),
             (expired_token, "2020-01-01T00:00:00+00:00", "2032-01-01T00:00:00+00:00"),
         ):
+            token_id = str(uuid.uuid4())
+            token_ids[token] = token_id
             connection.execute(
                 """
                 INSERT INTO share_tokens
@@ -913,7 +1026,7 @@ def test_republish_retargets_only_unexpired_active_tokens_and_returns_a_valid_on
                 VALUES (?, ?, ?, ?, 'active', ?, ?, ?)
                 """,
                 (
-                    str(uuid.uuid4()),
+                    token_id,
                     old_version_id,
                     hashlib.sha256(token.encode()).hexdigest(),
                     token,
@@ -941,11 +1054,26 @@ def test_republish_retargets_only_unexpired_active_tokens_and_returns_a_valid_on
                 (original_token, valid_token, expired_token),
             ).fetchall()
         }
+        token_audits = connection.execute(
+            """
+            SELECT entity_id, before_data, after_data FROM audit_logs
+            WHERE action = 'share_token_retargeted'
+            ORDER BY entity_id
+            """
+        ).fetchall()
     assert token_targets == {
         original_token: republished["flowVersionId"],
         valid_token: republished["flowVersionId"],
         expired_token: old_version_id,
     }
+    assert [row["entity_id"] for row in token_audits] == sorted(
+        [token_ids[original_token], token_ids[valid_token]]
+    )
+    for row in token_audits:
+        assert json.loads(row["before_data"]) == {"sourceVersionId": old_version_id}
+        assert json.loads(row["after_data"]) == {"targetVersionId": republished["flowVersionId"]}
+        assert original_token not in "|".join(str(value) for value in row)
+        assert valid_token not in "|".join(str(value) for value in row)
 
 
 def test_republish_creates_a_new_token_when_all_old_tokens_are_expired(
@@ -976,7 +1104,20 @@ def test_republish_creates_a_new_token_when_all_old_tokens_are_expired(
             "SELECT flow_version_id FROM share_tokens WHERE token_value = ?",
             (old_token,),
         ).fetchone()["flow_version_id"]
+        created_audits = connection.execute(
+            """
+            SELECT entity_id, after_data FROM audit_logs
+            WHERE action = 'share_token_created'
+            ORDER BY id
+            """
+        ).fetchall()
     assert old_target == old_version_id
+    assert len(created_audits) == 2
+    assert json.loads(created_audits[-1]["after_data"]) == {
+        "flowVersionId": republished["flowVersionId"],
+        "status": "active",
+    }
+    assert republished["token"] not in "|".join(str(value) for value in created_audits[-1])
 
 
 def test_forced_migration_failure_rolls_back_every_republish_change(
@@ -988,6 +1129,9 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
     flow_id = context["flow"]["id"]  # type: ignore[index]
     saved = client.put(f"/api/workflows/{flow_id}/draft", json={"config": changed})
     assert saved.status_code == 200
+    expected_hash = client.post(f"/api/workflows/{flow_id}/revision-impact").json()[
+        "draftConfigHash"
+    ]
     tables = (
         "flow_versions",
         "flow_node_runtime_configs",
@@ -1015,6 +1159,6 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
         )
 
     with pytest.raises(sqlite3.IntegrityError, match="forced migration failure"):
-        publish_flow(flow_id, teacher_id)
+        publish_flow(flow_id, teacher_id, expected_hash)
 
     assert {table: _table_rows(table) for table in tables} == before

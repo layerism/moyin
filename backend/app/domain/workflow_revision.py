@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from typing import Any
 
 
@@ -80,7 +81,16 @@ def analyze_revision(previous: dict, current: dict) -> dict[str, list[str]]:
 
 
 def assert_published_nodes_present(previous: dict, current: dict) -> None:
-    current_node_ids = {node["id"] for node in current["nodes"]}
-    for node in previous["nodes"]:
-        if node["id"] not in current_node_ids:
-            raise PublishedNodeDeletionError(f"已发布节点不可删除：{node['id']}")
+    assert_node_ids_present((node["id"] for node in previous["nodes"]), current)
+
+
+def assert_node_ids_present(required_node_ids: Iterable[str], current: dict) -> None:
+    nodes = current.get("nodes")
+    current_node_ids = (
+        {node.get("id") for node in nodes if isinstance(node, dict)}
+        if isinstance(nodes, list)
+        else set()
+    )
+    for node_id in required_node_ids:
+        if node_id not in current_node_ids:
+            raise PublishedNodeDeletionError(f"已发布节点不可删除：{node_id}")
