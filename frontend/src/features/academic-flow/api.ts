@@ -7,6 +7,7 @@ import type {
   StudentIdentity,
   WorkflowProgress,
 } from "./runtimeTypes";
+import { createPublishRequestPayload } from "./flowRevision";
 
 export type ServerFlow = {
   config: { edges: AcademicProcess["edges"]; nodes: AcademicProcess["nodes"] };
@@ -87,9 +88,10 @@ export const workflowApi = {
       { method: "POST" },
     );
   },
-  publish(serverId: string) {
+  publish(serverId: string, expectedDraftConfigHash?: string | null) {
     return request<PublishedFlow>(`/api/workflows/${encodeURIComponent(serverId)}/publish`, {
       method: "POST",
+      body: JSON.stringify(createPublishRequestPayload(expectedDraftConfigHash)),
     });
   },
   remove(serverId: string) {

@@ -1,6 +1,19 @@
 type IdentifiedNode = { id: string };
 type PositionedNode = IdentifiedNode & { x: number; y: number };
 
+export function createPublishRequestPayload(expectedDraftConfigHash?: string | null) {
+  return { expectedDraftConfigHash: expectedDraftConfigHash ?? null };
+}
+
+export function getRevisionPublishConflictMessage(
+  status: number,
+  expectedDraftConfigHash?: string | null,
+) {
+  return status === 409 && expectedDraftConfigHash != null
+    ? "草稿已变化，请重新预览影响"
+    : null;
+}
+
 export function canDeleteRevisionNode(
   nodeId: string,
   publishedNodeIds: readonly string[] | undefined,

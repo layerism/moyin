@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   canDeleteRevisionNode,
+  createPublishRequestPayload,
   filterPublishedRuntimeNodes,
+  getRevisionPublishConflictMessage,
   layoutRevisionNodes,
 } from "../src/features/academic-flow/flowRevision.ts";
 
@@ -49,4 +51,20 @@ test("automatic layout merges all node positions in one immutable result", () =>
   );
   assert.equal(result[0].title, "节点一");
   assert.notEqual(result, nodes);
+});
+
+test("publish payload binds the previewed draft hash", () => {
+  assert.deepEqual(createPublishRequestPayload("draft-sha256"), {
+    expectedDraftConfigHash: "draft-sha256",
+  });
+  assert.deepEqual(createPublishRequestPayload(), { expectedDraftConfigHash: null });
+});
+
+test("revision hash conflicts require a fresh impact preview", () => {
+  assert.equal(
+    getRevisionPublishConflictMessage(409, "draft-sha256"),
+    "草稿已变化，请重新预览影响",
+  );
+  assert.equal(getRevisionPublishConflictMessage(409, undefined), null);
+  assert.equal(getRevisionPublishConflictMessage(422, "draft-sha256"), null);
 });
