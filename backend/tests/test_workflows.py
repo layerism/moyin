@@ -143,7 +143,7 @@ def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -
     assert listed["publishedVersionId"] == body["flowVersionId"]
     shared = client.get(f"/api/shared-flows/{body['token']}")
     assert shared.status_code == 200
-    assert shared.json()["config"]["nodes"][0]["id"] == "n1"
+    assert shared.json() == {"description": "", "name": "报销流程"}
 
 
 def test_cycle_is_rejected(client: TestClient) -> None:
@@ -170,8 +170,13 @@ def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> No
 
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": changed})
 
-    shared = client.get(f"/api/shared-flows/{published['token']}").json()
-    assert shared["config"]["nodes"][0]["title"] == "基本信息"
+    registered = client.post(
+        "/api/auth/student/register",
+        json={"name": "流程学生", "studentNo": "W001", "password": "Pass1234"},
+    )
+    assert registered.status_code == 201
+    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    assert instance["config"]["nodes"][0]["title"] == "基本信息"
 
 
 def test_publish_requires_an_active_student_roster(client: TestClient) -> None:
