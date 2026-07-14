@@ -1422,6 +1422,12 @@ button {
   color: #15803d;
 }
 
+.status-pill.revision {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
 .flow-designer-grid {
   min-height: calc(100vh - 196px);
   display: grid;
@@ -1885,6 +1891,20 @@ button {
   font-weight: 800;
 }
 
+.node-quick-actions .node-delete-lock {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d9e2ef;
+  border-radius: 5px;
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .canvas-empty {
   position: absolute;
   inset: 0;
@@ -1963,6 +1983,23 @@ button {
   min-height: 78px;
   padding-top: 9px;
   resize: vertical;
+}
+
+.deadline-runtime-hint {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+}
+
+.deadline-runtime-hint button {
+  padding: 0 3px;
+  background: transparent;
+  color: #1d4ed8;
+  font-size: inherit;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .inspector-section {
@@ -2214,6 +2251,148 @@ button {
   overflow-wrap: anywhere;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.revision-impact-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.revision-impact-dialog {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid #d7e1ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.revision-impact-dialog > header,
+.revision-impact-dialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.revision-impact-dialog > header span {
+  color: #b45309;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.revision-impact-dialog > header h2 {
+  margin: 4px 0 0;
+  color: #172033;
+  font-size: 21px;
+}
+
+.revision-impact-dialog > header > button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border: 1px solid #d9e2ef;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 20px;
+}
+
+.revision-version-change {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin: 22px 0;
+  color: #64748b;
+}
+
+.revision-version-change strong {
+  color: #172033;
+  font-size: 24px;
+}
+
+.revision-impact-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.revision-impact-metrics > div {
+  min-width: 0;
+  padding: 16px 10px;
+  text-align: center;
+}
+
+.revision-impact-metrics > div + div {
+  border-left: 1px solid #e2e8f0;
+}
+
+.revision-impact-metrics dt {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.revision-impact-metrics dd {
+  margin: 6px 0 0;
+  color: #172033;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.revision-impact-warning {
+  margin: 18px 0;
+  padding: 12px 14px;
+  border-left: 3px solid #dc2626;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.revision-impact-dialog > footer {
+  justify-content: flex-end;
+}
+
+.revision-impact-dialog > footer button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 750;
+}
+
+.revision-impact-dialog > footer .danger-action {
+  border-color: #b91c1c;
+  background: #b91c1c;
+  color: #ffffff;
+}
+
+@media (max-width: 620px) {
+  .revision-impact-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .revision-impact-metrics > div:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .revision-impact-metrics > div:nth-child(4) {
+    border-top: 1px solid #e2e8f0;
+  }
 }
 
 .designer-locked .node-template-list {

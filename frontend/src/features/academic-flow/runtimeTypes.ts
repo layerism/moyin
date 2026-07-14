@@ -15,6 +15,29 @@ export type PublishedFlow = {
   versionNo: number;
 };
 
+export type RevisionImpactSource = {
+  addedNodeIds: string[];
+  affectedStudentCount: number;
+  changedNodeIds: string[];
+  invalidatedNodeIds: string[];
+  predecessorChangedNodeIds: string[];
+  status: "disabled" | "published";
+  versionId: string;
+  versionNo: number;
+};
+
+export type RevisionImpact = {
+  addedNodeIds: string[];
+  affectedStudentCount: number;
+  changedNodeIds: string[];
+  currentVersionId: string | null;
+  currentVersionNo: number | null;
+  invalidatedNodeIds: string[];
+  nextVersionNo: number;
+  predecessorChangedNodeIds: string[];
+  sourceVersionImpacts: RevisionImpactSource[];
+};
+
 export type SharedFlow = {
   description: string;
   name: string;

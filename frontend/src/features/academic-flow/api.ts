@@ -1,6 +1,7 @@
 import type { AcademicProcess } from "../../types";
 import type {
   PublishedFlow,
+  RevisionImpact,
   RuntimeFlowInstance,
   SharedFlow,
   StudentIdentity,
@@ -11,9 +12,12 @@ export type ServerFlow = {
   config: { edges: AcademicProcess["edges"]; nodes: AcademicProcess["nodes"] };
   createdAt: string;
   description: string;
+  hasUnpublishedChanges: boolean;
   id: string;
   name: string;
+  publishedNodeIds: string[];
   publishedVersionId: string | null;
+  publishedVersionNo: number | null;
   shareUrl: string;
   status: "draft" | "published";
   updatedAt: string;
@@ -72,13 +76,21 @@ export const workflowApi = {
     });
   },
   saveDraft(serverId: string, process: AcademicProcess) {
-    return request(`/api/workflows/${serverId}/draft`, {
+    return request<ServerFlow>(`/api/workflows/${encodeURIComponent(serverId)}/draft`, {
       method: "PUT",
       body: JSON.stringify({ config: { nodes: process.nodes, edges: process.edges } }),
     });
   },
+  getRevisionImpact(serverId: string) {
+    return request<RevisionImpact>(
+      `/api/workflows/${encodeURIComponent(serverId)}/revision-impact`,
+      { method: "POST" },
+    );
+  },
   publish(serverId: string) {
-    return request<PublishedFlow>(`/api/workflows/${serverId}/publish`, { method: "POST" });
+    return request<PublishedFlow>(`/api/workflows/${encodeURIComponent(serverId)}/publish`, {
+      method: "POST",
+    });
   },
   remove(serverId: string) {
     return request<void>(`/api/workflows/${serverId}`, { method: "DELETE" });
