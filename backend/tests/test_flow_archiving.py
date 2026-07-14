@@ -31,6 +31,14 @@ def create_published_flow(client: TestClient) -> dict[str, object]:
         "edges": [],
     }
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
+    roster = client.post(
+        f"/api/workflows/{flow['id']}/roster/import",
+        json={
+            "entries": [{"studentNo": "S901", "name": "学生甲"}],
+            "sourceFileName": "归档名单.xlsx",
+        },
+    )
+    assert roster.status_code == 200
     published = client.post(f"/api/workflows/{flow['id']}/publish").json()
     return {"flowId": flow["id"], "versionId": published["flowVersionId"]}
 
@@ -123,6 +131,10 @@ def test_delete_removes_flow_owned_data_and_retains_accounts_and_audit(
         counts = {
             "flows": connection.execute(
                 "SELECT COUNT(*) AS count FROM flows WHERE id = ?", (flow_id,)
+            ).fetchone()["count"],
+            "flow_roster_entries": connection.execute(
+                "SELECT COUNT(*) AS count FROM flow_roster_entries WHERE flow_id = ?",
+                (flow_id,),
             ).fetchone()["count"],
             "flow_versions": connection.execute(
                 "SELECT COUNT(*) AS count FROM flow_versions WHERE flow_id = ?", (flow_id,)

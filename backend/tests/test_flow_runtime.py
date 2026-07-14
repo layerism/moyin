@@ -45,6 +45,22 @@ def publish_flow(client: TestClient, *, deadline_at: str | None = None) -> dict[
         "edges": [{"id": "e1", "source": "n1", "target": "n2"}],
     }
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
+    roster = [
+        {"studentNo": "20260011", "name": "学生甲"},
+        {"studentNo": "20260012", "name": "学生乙"},
+        {"studentNo": "20260021", "name": "学生甲"},
+        {"studentNo": "20260031", "name": "延期学生"},
+        {"studentNo": "20260041", "name": "学生甲"},
+        {"studentNo": "20260042", "name": "学生乙"},
+        {"studentNo": "20260043", "name": "流程学生"},
+        {"studentNo": "20260051", "name": "学生账户页"},
+        {"studentNo": "20260061", "name": "权限学生"},
+    ]
+    imported = client.post(
+        f"/api/workflows/{flow['id']}/roster/import",
+        json={"entries": roster, "sourceFileName": "运行时名单.xlsx"},
+    )
+    assert imported.status_code == 200
     return client.post(f"/api/workflows/{flow['id']}/publish").json()
 
 
@@ -181,6 +197,60 @@ def test_student_lists_joined_flow_instances(client: TestClient) -> None:
     assert items[0]["name"] == "学生材料流程"
     assert items[0]["status"] == "in_progress"
     assert items[0]["lastActiveAt"]
+
+
+def test_unlisted_student_cannot_enter_shared_flow(client: TestClient) -> None:
+    published = publish_flow(client)
+    register(client, "20999999", "名单外学生")
+
+    response = client.post(f"/api/student/shared/{published['token']}/enter")
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "你不在该流程的有效学生名单中"}
+
+
+def test_revoked_student_loses_runtime_access_and_restoration_keeps_instance(
+    client: TestClient,
+) -> None:
+    published = publish_flow(client)
+    register(client, "20260061", "权限学生")
+    entered = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    root = entered["nodeInstances"][0]
+    roster = client.get(f"/api/workflows/{published['flowId']}/roster").json()
+    entry = next(item for item in roster["entries"] if item["studentNo"] == "20260061")
+
+    revoked = client.delete(
+        f"/api/workflows/{published['flowId']}/roster/{entry['id']}"
+    )
+    assert revoked.status_code == 200
+    assert client.get(f"/api/student/flow-instances/{entered['id']}").status_code == 403
+    assert (
+        client.put(
+            f"/api/student/node-instances/{root['id']}/draft",
+            json={"payload": {"姓名": "权限学生"}},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            f"/api/student/node-instances/{root['id']}/submit",
+            json={"payload": {"姓名": "权限学生"}, "idempotencyKey": "revoked"},
+        ).status_code
+        == 403
+    )
+    assert client.get("/api/student/flow-instances").json() == []
+
+    restored = client.post(
+        f"/api/workflows/{published['flowId']}/roster/import",
+        json={
+            "entries": [{"studentNo": "20260061", "name": "权限学生"}],
+            "sourceFileName": "恢复名单.xlsx",
+        },
+    )
+    assert restored.status_code == 200
+    reopened = client.get(f"/api/student/flow-instances/{entered['id']}")
+    assert reopened.status_code == 200
+    assert reopened.json()["id"] == entered["id"]
 
 
 @pytest.mark.parametrize(

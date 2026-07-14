@@ -10,6 +10,28 @@ class RosterValidationError(ValueError):
     pass
 
 
+class RosterAccessError(PermissionError):
+    pass
+
+
+def assert_student_roster_access(
+    connection: sqlite3.Connection, flow_id: str, student_id: int
+) -> None:
+    row = connection.execute(
+        """
+        SELECT 1
+        FROM student_accounts a
+        JOIN flow_roster_entries r
+          ON r.student_no = a.student_no AND r.name = a.name
+        WHERE a.id = ? AND r.flow_id = ? AND r.status = 'active'
+        LIMIT 1
+        """,
+        (student_id, flow_id),
+    ).fetchone()
+    if row is None:
+        raise RosterAccessError("你不在该流程的有效学生名单中")
+
+
 def _ensure_owned_flow(
     connection: sqlite3.Connection, flow_id: str, teacher_id: int
 ) -> None:

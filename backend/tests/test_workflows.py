@@ -42,6 +42,17 @@ def sample_config() -> dict[str, object]:
     }
 
 
+def add_roster(client: TestClient, flow_id: str) -> None:
+    response = client.post(
+        f"/api/workflows/{flow_id}/roster/import",
+        json={
+            "entries": [{"studentNo": "W001", "name": "流程学生"}],
+            "sourceFileName": "名单.xlsx",
+        },
+    )
+    assert response.status_code == 200
+
+
 def test_duplicate_flow_name_is_rejected(client: TestClient) -> None:
     first = client.post("/api/workflows", json={"name": "课程材料收集"})
 
@@ -119,6 +130,7 @@ def test_teacher_can_only_access_owned_flows(client: TestClient) -> None:
 def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "报销流程"}).json()
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
+    add_roster(client, flow["id"])
 
     published = client.post(f"/api/workflows/{flow['id']}/publish")
 
@@ -151,6 +163,7 @@ def test_cycle_is_rejected(client: TestClient) -> None:
 def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "证明收集"}).json()
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
+    add_roster(client, flow["id"])
     published = client.post(f"/api/workflows/{flow['id']}/publish").json()
     changed = sample_config()
     changed["nodes"][0]["title"] = "修改后的标题"  # type: ignore[index]
@@ -159,3 +172,13 @@ def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> No
 
     shared = client.get(f"/api/shared-flows/{published['token']}").json()
     assert shared["config"]["nodes"][0]["title"] == "基本信息"
+
+
+def test_publish_requires_an_active_student_roster(client: TestClient) -> None:
+    flow = client.post("/api/workflows", json={"name": "空名单流程"}).json()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
+
+    response = client.post(f"/api/workflows/{flow['id']}/publish")
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "请先导入学生名单"}

@@ -12,6 +12,7 @@ from app.repositories.flow_instances import (
     save_node_draft,
     submit_node,
 )
+from app.repositories.flow_roster import RosterAccessError
 from app.services.security import get_current_student
 
 router = APIRouter()
@@ -27,6 +28,8 @@ class SubmitRequest(BaseModel):
 
 
 def runtime_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, RosterAccessError):
+        return HTTPException(status_code=403, detail=str(exc))
     if isinstance(exc, KeyError):
         return HTTPException(status_code=404, detail="流程实例或节点不存在")
     if isinstance(exc, RuntimeDeadlineError):
@@ -40,6 +43,8 @@ def enter_shared_flow(
 ) -> dict[str, object]:
     try:
         return get_or_create_instance(token, int(student["id"]))
+    except RosterAccessError as exc:
+        raise runtime_error(exc) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="分享链接无效或已停用") from exc
 
@@ -57,7 +62,7 @@ def flow_instance(
 ) -> dict[str, object]:
     try:
         return get_instance(instance_id, int(student["id"]))
-    except KeyError as exc:
+    except (KeyError, RosterAccessError) as exc:
         raise runtime_error(exc) from exc
 
 
@@ -69,7 +74,7 @@ def put_draft(
 ) -> dict[str, object]:
     try:
         return save_node_draft(node_instance_id, int(student["id"]), payload.payload)
-    except (KeyError, RuntimeConflictError) as exc:
+    except (KeyError, RosterAccessError, RuntimeConflictError) as exc:
         raise runtime_error(exc) from exc
 
 
@@ -86,5 +91,5 @@ def post_submit(
             payload.payload,
             payload.idempotencyKey,
         )
-    except (KeyError, RuntimeConflictError, RuntimeDeadlineError) as exc:
+    except (KeyError, RosterAccessError, RuntimeConflictError, RuntimeDeadlineError) as exc:
         raise runtime_error(exc) from exc
