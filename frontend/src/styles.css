@@ -2202,21 +2202,6 @@ button {
   opacity: 0.78;
 }
 
-.designer-locked .canvas-panel::after {
-  position: absolute;
-  z-index: 20;
-  top: 74px;
-  right: 20px;
-  padding: 7px 10px;
-  border: 1px solid #b9d1f7;
-  border-radius: 6px;
-  background: #eef5ff;
-  color: #175cd3;
-  content: "已发布，节点结构已冻结";
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .inspector-checkbox-row {
   display: flex !important;
   align-items: center;
