@@ -1568,7 +1568,20 @@ button {
 .canvas-toolbar button {
   min-height: 30px;
   padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 5px;
   font-size: 12px;
+}
+
+.canvas-toolbar button.active {
+  border-color: #93c5fd;
+  background: #eaf2ff;
+  color: #1d4ed8;
+}
+
+.canvas-toolbar button:disabled {
+  color: #98a2b3;
+  cursor: not-allowed;
 }
 
 .flow-canvas {
@@ -1590,6 +1603,16 @@ button {
   min-height: 780px;
   position: relative;
   overflow: auto;
+}
+
+.dag-canvas.pan-tool-active {
+  cursor: grab;
+  touch-action: none;
+}
+
+.dag-canvas.pan-tool-active.is-panning {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .flow-edge-layer {
@@ -1869,6 +1892,7 @@ button {
   display: grid;
   place-items: center;
   color: #7b8494;
+  pointer-events: none;
 }
 
 .inspector-panel {
@@ -2192,14 +2216,17 @@ button {
   text-underline-offset: 2px;
 }
 
-.designer-locked .node-template-list,
-.designer-locked .flow-canvas {
+.designer-locked .node-template-list {
   pointer-events: none;
 }
 
 .designer-locked .palette-panel,
 .designer-locked .canvas-panel {
   opacity: 0.78;
+}
+
+.designer-locked .flow-node {
+  cursor: default;
 }
 
 .inspector-checkbox-row {

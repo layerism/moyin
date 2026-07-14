@@ -12,6 +12,7 @@ import type {
 } from "../../types";
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
 import { workflowApi } from "./api";
+import { getCanvasPanScroll, type CanvasPanStart } from "./canvasPan";
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { getAbsoluteShareUrl } from "./shareUrl";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
@@ -133,6 +134,9 @@ export function AcademicFlowDesigner({
     title: string,
     position?: { x: number; y: number },
   ) => {
+    if (process.published) {
+      return;
+    }
     const nextNode = createNode(kind, title, position);
     const nextProcess = { ...process, nodes: [...process.nodes, nextNode] };
     onProcessChange(nextProcess);
@@ -152,6 +156,9 @@ export function AcademicFlowDesigner({
     sourcePort: AcademicFlowPort,
     targetPort: AcademicFlowPort,
   ) => {
+    if (process.published) {
+      return;
+    }
     const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
     if (source === target || exists) {
       return;
@@ -171,10 +178,16 @@ export function AcademicFlowDesigner({
   };
 
   const deleteEdge = (edgeId: string) => {
+    if (process.published) {
+      return;
+    }
     onProcessChange({ ...process, edges: processEdges.filter((edge) => edge.id !== edgeId) });
   };
 
   const moveNode = (nodeId: string, direction: -1 | 1) => {
+    if (process.published) {
+      return;
+    }
     const currentIndex = process.nodes.findIndex((node) => node.id === nodeId);
     const nextIndex = currentIndex + direction;
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= process.nodes.length) {
@@ -188,6 +201,9 @@ export function AcademicFlowDesigner({
   };
 
   const deleteNode = (nodeId: string) => {
+    if (process.published) {
+      return;
+    }
     const nodes = process.nodes.filter((node) => node.id !== nodeId);
     const edges = processEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
     onProcessChange({ ...process, edges, nodes });
@@ -276,6 +292,7 @@ export function AcademicFlowDesigner({
           <FlowNodeCanvas
             activeNodeId={activeNode?.id ?? ""}
             edges={processEdges}
+            locked={process.published}
             nodes={process.nodes}
             onAddNode={addNode}
             onConnectNodes={connectNodes}
@@ -287,7 +304,7 @@ export function AcademicFlowDesigner({
             onUpdateNode={updateNode}
           />
         </section>
-        {inspectorNode && (
+        {!process.published && inspectorNode && (
           <NodeInspector
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}
@@ -423,6 +440,7 @@ function ComponentPalette({
 function FlowNodeCanvas({
   activeNodeId,
   edges,
+  locked,
   nodes,
   onAddNode,
   onConnectNodes,
@@ -435,6 +453,7 @@ function FlowNodeCanvas({
 }: {
   activeNodeId: string;
   edges: AcademicFlowEdge[];
+  locked: boolean;
   nodes: AcademicFlowNode[];
   onAddNode: (
     kind: AcademicFlowNodeKind,
@@ -466,6 +485,8 @@ function FlowNodeCanvas({
   );
   const [connectionPreviewTargetId, setConnectionPreviewTargetId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [panToolActive, setPanToolActive] = useState(false);
+  const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
   const [draggingNode, setDraggingNode] = useState<{
     id: string;
     offsetX: number;
@@ -495,7 +516,11 @@ function FlowNodeCanvas({
 
   useEffect(() => {
     const deleteSelectedEdge = (event: KeyboardEvent) => {
-      if (!selectedEdgeId || (event.key !== "Backspace" && event.key !== "Delete")) {
+      if (
+        locked ||
+        !selectedEdgeId ||
+        (event.key !== "Backspace" && event.key !== "Delete")
+      ) {
         return;
       }
       event.preventDefault();
@@ -505,7 +530,7 @@ function FlowNodeCanvas({
 
     window.addEventListener("keydown", deleteSelectedEdge);
     return () => window.removeEventListener("keydown", deleteSelectedEdge);
-  }, [onDeleteEdge, selectedEdgeId]);
+  }, [locked, onDeleteEdge, selectedEdgeId]);
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -557,6 +582,9 @@ function FlowNodeCanvas({
   };
 
   const dropNode = (event: DragEvent<HTMLDivElement>) => {
+    if (locked) {
+      return;
+    }
     event.preventDefault();
     const kind = event.dataTransfer.getData("application/x-academic-node-kind") as AcademicFlowNodeKind;
     const title = event.dataTransfer.getData("application/x-academic-node-title");
@@ -575,7 +603,7 @@ function FlowNodeCanvas({
   };
 
   const startNodeDrag = (event: PointerEvent<HTMLButtonElement>, node: AcademicFlowNode) => {
-    if ((event.target as HTMLElement).closest(".connection-port")) {
+    if (locked || (event.target as HTMLElement).closest(".connection-port")) {
       return;
     }
     const point = getCanvasPoint(event.clientX, event.clientY);
@@ -607,6 +635,9 @@ function FlowNodeCanvas({
   };
 
   const setConnectionSource = (source: ConnectionDraft | null) => {
+    if (locked && source) {
+      return;
+    }
     connectingFromRef.current = source;
     setConnectingFrom(source);
     if (!source) {
@@ -622,6 +653,10 @@ function FlowNodeCanvas({
   };
 
   const completeConnection = (targetId: string, targetPort: AcademicFlowPort) => {
+    if (locked) {
+      setConnectionSource(null);
+      return;
+    }
     const source = connectingFromRef.current ?? connectingFrom;
     if (source) {
       onConnectNodes(source.nodeId, targetId, source.port, targetPort);
@@ -630,6 +665,9 @@ function FlowNodeCanvas({
   };
 
   const updateConnectionPreview = (clientX: number, clientY: number) => {
+    if (locked) {
+      return;
+    }
     const source = connectingFromRef.current;
     if (!source) {
       return;
@@ -642,6 +680,10 @@ function FlowNodeCanvas({
   };
 
   const finishConnectionAt = (clientX: number, clientY: number) => {
+    if (locked) {
+      setConnectionSource(null);
+      return;
+    }
     const source = connectingFromRef.current;
     if (!source) {
       return;
@@ -666,6 +708,9 @@ function FlowNodeCanvas({
   };
 
   const autoLayout = () => {
+    if (locked) {
+      return;
+    }
     nodes.forEach((node, index) => {
       onUpdateNode(
         node.id,
@@ -675,6 +720,55 @@ function FlowNodeCanvas({
         }),
       );
     });
+  };
+
+  const startCanvasPan = (event: PointerEvent<HTMLDivElement>) => {
+    if (
+      !panToolActive ||
+      event.button !== 0 ||
+      event.target !== event.currentTarget ||
+      !canvasRef.current
+    ) {
+      return;
+    }
+    event.preventDefault();
+    setSelectedEdgeId(null);
+    setPanStart({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      scrollLeft: canvasRef.current.scrollLeft,
+      scrollTop: canvasRef.current.scrollTop,
+    });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (panStart && canvasRef.current) {
+      const nextScroll = getCanvasPanScroll(panStart, event);
+      canvasRef.current.scrollLeft = nextScroll.left;
+      canvasRef.current.scrollTop = nextScroll.top;
+      return;
+    }
+    updateConnectionPreview(event.clientX, event.clientY);
+  };
+
+  const endCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (panStart) {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      setPanStart(null);
+      return;
+    }
+    finishConnectionAt(event.clientX, event.clientY);
+  };
+
+  const cancelCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setPanStart(null);
+    setConnectionSource(null);
   };
   const previewSourceNode = connectingFrom ? nodeById.get(connectingFrom.nodeId) ?? null : null;
   const previewSourcePoint =
@@ -703,25 +797,37 @@ function FlowNodeCanvas({
       <div className="panel-heading">
         <h2>流程画布</h2>
         <div className="canvas-toolbar">
-          <button>⌖</button>
-          <button>100%</button>
-          <button onClick={autoLayout} type="button">
+          <button
+            aria-label="手形工具"
+            aria-pressed={panToolActive}
+            className={`canvas-pan-tool ${panToolActive ? "active" : ""}`}
+            onClick={() => setPanToolActive((active) => !active)}
+            title="拖动画布"
+            type="button"
+          >
+            <span aria-hidden="true">✋</span>
+          </button>
+          <button type="button">100%</button>
+          <button disabled={locked} onClick={autoLayout} type="button">
             自动布局
           </button>
         </div>
       </div>
       <div
-        className="flow-canvas dag-canvas"
+        className={`flow-canvas dag-canvas ${panToolActive ? "pan-tool-active" : ""} ${panStart ? "is-panning" : ""}`}
         onDragOver={(event) => {
+          if (locked) {
+            return;
+          }
           event.preventDefault();
           event.dataTransfer.dropEffect = "copy";
           updateConnectionPreview(event.clientX, event.clientY);
         }}
         onDrop={dropNode}
-        onPointerMove={(event) => updateConnectionPreview(event.clientX, event.clientY)}
-        onPointerUp={(event) => {
-          finishConnectionAt(event.clientX, event.clientY);
-        }}
+        onPointerCancel={cancelCanvasPointer}
+        onPointerDown={startCanvasPan}
+        onPointerMove={moveCanvasPointer}
+        onPointerUp={endCanvasPointer}
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) {
             setSelectedEdgeId(null);
@@ -739,16 +845,18 @@ function FlowNodeCanvas({
                   className="flow-edge-arrow"
                   points={createArrowPolygon(edge.targetX, edge.targetY, edge.targetPort)}
                 />
-                <path
-                  aria-label="选择连接线"
-                  className="flow-edge-hitbox"
-                  d={path}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setSelectedEdgeId(edge.id);
-                  }}
-                  role="button"
-                />
+                {!locked ? (
+                  <path
+                    aria-label="选择连接线"
+                    className="flow-edge-hitbox"
+                    d={path}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedEdgeId(edge.id);
+                    }}
+                    role="button"
+                  />
+                ) : null}
               </g>
             );
           })}
@@ -773,7 +881,7 @@ function FlowNodeCanvas({
               </>
             )}
         </svg>
-        {selectedEdge && (
+        {!locked && selectedEdge && (
           <button
             aria-label="删除连接线"
             className="flow-edge-delete"
@@ -802,7 +910,7 @@ function FlowNodeCanvas({
               type="button"
               style={{ width: nodeSize.width }}
             >
-              {connectionPorts.map((port) => (
+              {!locked && connectionPorts.map((port) => (
                 <span
                   className={`connection-port ${port} ${
                     connectingFrom && connectingFrom.nodeId !== node.id ? "connectable" : ""
@@ -878,7 +986,7 @@ function FlowNodeCanvas({
                 <i>{statusLabels[node.status]}</i>
               </span>
             </button>
-            {node.id === activeNodeId && (
+            {!locked && node.id === activeNodeId && (
               <div className="node-quick-actions" aria-label="节点操作">
                 <button
                   className="node-config-action"
