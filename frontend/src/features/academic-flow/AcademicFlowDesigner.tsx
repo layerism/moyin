@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent, PointerEvent } from "react";
+import type { DragEvent, PointerEvent, WheelEvent } from "react";
 
 import type {
   AcademicFlowEdge,
@@ -12,7 +12,7 @@ import type {
 } from "../../types";
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
 import { ApiError, workflowApi } from "./api";
-import { getCanvasPanScroll, type CanvasPanStart } from "./canvasPan";
+import { getCanvasPanScroll, getCanvasZoomState, type CanvasPanStart } from "./canvasPan";
 import {
   canDeleteRevisionNode,
   filterPublishedRuntimeNodes,
@@ -593,6 +593,7 @@ function FlowNodeCanvas({
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [panToolActive, setPanToolActive] = useState(false);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
+  const [zoom, setZoom] = useState(1);
   const [draggingNode, setDraggingNode] = useState<{
     id: string;
     offsetX: number;
@@ -655,9 +656,26 @@ function FlowNodeCanvas({
       return { x: 0, y: 0 };
     }
     return {
-      x: clientX - rect.left + (canvasRef.current?.scrollLeft ?? 0),
-      y: clientY - rect.top + (canvasRef.current?.scrollTop ?? 0),
+      x: (clientX - rect.left + (canvasRef.current?.scrollLeft ?? 0)) / zoom,
+      y: (clientY - rect.top + (canvasRef.current?.scrollTop ?? 0)) / zoom,
     };
+  };
+
+  const zoomCanvas = (event: WheelEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey || !canvasRef.current) return;
+    event.preventDefault();
+    const rect = canvasRef.current.getBoundingClientRect();
+    const next = getCanvasZoomState({
+      deltaY: event.deltaY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      scrollLeft: canvasRef.current.scrollLeft,
+      scrollTop: canvasRef.current.scrollTop,
+      zoom,
+    });
+    setZoom(next.zoom);
+    canvasRef.current.scrollLeft = next.scrollLeft;
+    canvasRef.current.scrollTop = next.scrollTop;
   };
 
   const findMagnetTarget = (point: { x: number; y: number }, sourceNodeId: string) => {
@@ -914,7 +932,7 @@ function FlowNodeCanvas({
           >
             <span aria-hidden="true">✋</span>
           </button>
-          <button type="button">100%</button>
+          <button type="button">{Math.round(zoom * 100)}%</button>
           <button disabled={locked} onClick={autoLayout} type="button">
             自动布局
           </button>
@@ -935,6 +953,7 @@ function FlowNodeCanvas({
         onPointerDown={startCanvasPan}
         onPointerMove={moveCanvasPointer}
         onPointerUp={endCanvasPointer}
+        onWheel={zoomCanvas}
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) {
             setSelectedEdgeId(null);
@@ -942,7 +961,9 @@ function FlowNodeCanvas({
         }}
         ref={canvasRef}
       >
-        <svg className="flow-edge-layer">
+        <div className="canvas-zoom-surface" style={{ height: 1000 * zoom, width: 1200 * zoom }}>
+          <div className="canvas-zoom-content" style={{ transform: `scale(${zoom})` }}>
+            <svg className="flow-edge-layer">
           {edgeLines.map((edge) => {
             const path = createOrthogonalPath(edge, nodes);
             return (
@@ -987,8 +1008,8 @@ function FlowNodeCanvas({
                 )}
               </>
             )}
-        </svg>
-        {!locked && selectedEdge && (
+            </svg>
+            {!locked && selectedEdge && (
           <button
             aria-label="删除连接线"
             className="flow-edge-delete"
@@ -1001,8 +1022,8 @@ function FlowNodeCanvas({
           >
             ×
           </button>
-        )}
-        {nodes.map((node, index) => (
+            )}
+            {nodes.map((node, index) => (
           <div
             className="canvas-node-stack dag-node-stack"
             key={node.id}
@@ -1131,10 +1152,12 @@ function FlowNodeCanvas({
               </div>
             )}
           </div>
-        ))}
-        {nodes.length === 0 && (
-          <div className="canvas-empty">请从左侧组件库拖入第一个流程节点。</div>
-        )}
+            ))}
+            {nodes.length === 0 && (
+              <div className="canvas-empty">请从左侧组件库拖入第一个流程节点。</div>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );
