@@ -11,6 +11,7 @@ import type {
   AuditScriptType,
 } from "../../types";
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
+import { getAbsoluteShareUrl } from "./shareUrl";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
 
 const statusLabels: Record<AcademicFlowNodeStatus, string> = {
@@ -69,6 +70,7 @@ export function AcademicFlowDesigner({
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
   const [actionNotice, setActionNotice] = useState("");
+  const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const processEdges = process.edges ?? [];
   const activeNode =
@@ -78,10 +80,12 @@ export function AcademicFlowDesigner({
   const publishProcess = async () => {
     setSaving(true);
     setActionNotice("");
+    setPublishedShareUrl("");
     try {
       const nextProcess = await onPublishProcess(process);
       onProcessChange(nextProcess);
-      setActionNotice(`发布成功，学生链接：${nextProcess.shareUrl}`);
+      setActionNotice("发布成功，学生链接：");
+      setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
     } catch (reason) {
       setActionNotice(reason instanceof Error ? reason.message : "发布失败");
     } finally {
@@ -92,6 +96,7 @@ export function AcademicFlowDesigner({
   const saveProcess = async (exitAfterSave = false) => {
     setSaving(true);
     setActionNotice("");
+    setPublishedShareUrl("");
     try {
       const nextProcess = await onSaveProcess(process);
       onProcessChange(nextProcess);
@@ -220,7 +225,16 @@ export function AcademicFlowDesigner({
             </button>
           </div>
         </header>
-        {actionNotice ? <p className="academic-action-notice">{actionNotice}</p> : null}
+        {actionNotice ? (
+          <p className="academic-action-notice">
+            {actionNotice}
+            {publishedShareUrl ? (
+              <a href={publishedShareUrl} rel="noreferrer" target="_blank">
+                {publishedShareUrl}
+              </a>
+            ) : null}
+          </p>
+        ) : null}
 
         <div className="mode-switch" role="tablist" aria-label="流程视图">
           <button

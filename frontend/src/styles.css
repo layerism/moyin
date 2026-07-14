@@ -1498,6 +1498,13 @@ button {
   font-size: 14px;
 }
 
+.academic-action-notice a {
+  color: #175cd3;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .designer-locked .node-template-list,
 .designer-locked .flow-canvas {
   pointer-events: none;
