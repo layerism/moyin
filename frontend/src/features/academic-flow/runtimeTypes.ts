@@ -16,12 +16,8 @@ export type PublishedFlow = {
 };
 
 export type SharedFlow = {
-  config: { edges: AcademicFlowEdge[]; nodes: AcademicFlowNode[] };
   description: string;
-  flowId: string;
-  flowVersionId: string;
   name: string;
-  versionNo: number;
 };
 
 export type RuntimeNodeStatus =

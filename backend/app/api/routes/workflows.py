@@ -117,6 +117,7 @@ def delete_workflow(
 @shared_router.get("/{token}")
 def get_shared_flow(token: str) -> dict[str, object]:
     try:
-        return resolve_share_token(token)
+        shared = resolve_share_token(token)
+        return {"name": shared["name"], "description": shared["description"]}
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="分享链接无效或已停用") from exc

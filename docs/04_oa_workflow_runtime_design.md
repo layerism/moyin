@@ -18,6 +18,8 @@
 8. 学生最终提交节点后，该次提交形成不可变版本；被退回后以新版本再次提交。
 9. 所有学生共享流程结构，但节点进度、填写内容、附件、审核结果相互隔离。
 10. 已产生的提交、审核及逾期事实不因后续截止时间调整而回溯改写。
+11. 每个流程维护独立学生名单；学生姓名和学号必须同时匹配有效名单记录。
+12. 名单权限持续校验，教师移除学生后，其既有实例保留但立即停止访问。
 
 ## 3. 系统边界
 
@@ -31,7 +33,8 @@
 
 - 每个已发布流程生成至少一个高熵访问令牌。
 - URL 仅包含随机令牌，不包含流程 ID、学生 ID、学号等业务标识。
-- 数据库只保存令牌哈希，不保存可直接访问的明文令牌。
+- 数据库保存校验用令牌哈希及教师恢复链接所需的令牌值；数据库管理界面对令牌值脱敏。
+- 未认证的分享元数据接口只返回流程名称和说明，不返回节点、连线或名单。
 - 令牌支持启用、停用、失效时间和重新生成；重新生成后旧令牌立即失效。
 
 ### 3.3 学生运行域
@@ -56,7 +59,8 @@
 | `flows` | `id`, `name`, `description`, `owner_id`, `status`, `draft_config`, `created_at`, `updated_at` | 流程主体和当前草稿 |
 | `flow_versions` | `id`, `flow_id`, `version_no`, `config_snapshot`, `config_hash`, `published_by`, `published_at`, `status` | 不可变发布快照 |
 | `flow_node_runtime_configs` | `flow_version_id`, `node_key`, `deadline_at`, `updated_by`, `updated_at` | 发布后允许修改的节点运行参数 |
-| `share_tokens` | `id`, `flow_version_id`, `token_hash`, `status`, `expires_at`, `created_by`, `created_at` | 高熵共享链接 |
+| `share_tokens` | `id`, `flow_version_id`, `token_hash`, `token_value`, `status`, `expires_at`, `created_by`, `created_at` | 高熵共享链接 |
+| `flow_roster_entries` | `id`, `flow_id`, `student_no`, `name`, `status`, `updated_by`, `created_at`, `updated_at` | 流程级学生访问名单 |
 
 `config_snapshot` 保存设计器导出的完整配置，包括：
 
@@ -134,8 +138,9 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 
 1. 教师请求发布草稿。
 2. 服务端进行 JSON Schema、DAG、字段和规则校验。
-3. 在事务中创建 `flow_versions`、节点运行配置和共享令牌。
-4. 返回一次性明文共享 URL；后续仅能重新生成，不能从数据库还原原令牌。
+3. 校验流程至少存在一名有效名单学生。
+4. 在事务中创建 `flow_versions`、节点运行配置和共享令牌。
+5. 返回共享 URL；教师后续可从流程详情恢复同一有效链接。
 
 ### 6.2 学生访问与登录回跳
 
@@ -143,7 +148,8 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 2. 服务端哈希令牌并校验状态、失效时间和流程版本状态。
 3. 未登录时记录短期 `return_ticket`，跳转注册或登录。
 4. 登录成功后消费 `return_ticket`，再次校验共享令牌。
-5. 幂等创建或读取学生流程实例，并重定向至 `/student/flows/{instanceId}`。
+5. 按当前账号的姓名和学号校验 `flow_roster_entries` 有效记录。
+6. 幂等创建或读取学生流程实例，并重定向至 `/student/flows/{instanceId}`。
 
 `return_ticket` 必须一次性使用、短期有效，并与浏览器会话绑定，防止开放重定向和令牌固定攻击。
 
@@ -177,6 +183,9 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 - `PUT /api/flow-instances/{instanceId}/nodes/{nodeKey}/deadline-override`
 - `GET /api/flow-versions/{versionId}/progress`
 - `GET /api/flow-instances/{instanceId}`
+- `GET /api/workflows/{flowId}/roster`
+- `POST /api/workflows/{flowId}/roster/import`
+- `DELETE /api/workflows/{flowId}/roster/{entryId}`
 
 ### 7.2 学生端
 
@@ -186,7 +195,7 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 - `POST /api/student/node-instances/{nodeInstanceId}/files`
 - `POST /api/student/node-instances/{nodeInstanceId}/submit`
 
-所有学生接口必须从登录会话取得 `student_user_id`，并验证实例所有权；客户端传入的学生标识不参与授权。
+所有学生接口必须从登录会话取得 `student_user_id`，并同时验证实例所有权和当前有效名单；客户端传入的学生标识不参与授权。
 
 ## 8. 安全与一致性
 
@@ -197,6 +206,7 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 - 上传接口校验扩展名、MIME、大小和内容安全策略。
 - 流程发布、截止时间更新、提交与审核必须使用事务和乐观锁。
 - 教师只能访问自己管理范围内的流程；学生只能访问自己的实例。
+- 名单外或已移除学生统一返回 `403`，不泄露其他名单记录。
 
 ## 9. 教师追踪界面
 
@@ -233,6 +243,8 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 - 暂存、提交、审核、退回和重新提交。
 - 并发提交、重复请求和幂等键。
 - 统一截止时间调整及个别延期恢复。
+- 名单导入、更新、撤销、恢复及审计记录。
+- 名单外学生拒绝进入；撤销后既有实例的读取、暂存和提交均被拒绝。
 
 ### 11.3 端到端测试
 
@@ -249,4 +261,3 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 3. 完成表单暂存、附件、提交、审核和 DAG 推进。
 4. 完成教师进度追踪、截止时间和个别延期。
 5. 补充审计、安全加固、并发测试和端到端测试。
-
