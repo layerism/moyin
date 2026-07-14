@@ -27,7 +27,7 @@ def create_flow(name: str, description: str) -> dict[str, object]:
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         existing = connection.execute(
-            "SELECT 1 FROM flows WHERE name = ? LIMIT 1", (name,)
+            "SELECT 1 FROM flows WHERE name = ? AND status != 'archived' LIMIT 1", (name,)
         ).fetchone()
         if existing is not None:
             raise DuplicateFlowNameError("已存在同名流程")
