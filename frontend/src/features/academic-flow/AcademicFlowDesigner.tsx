@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DragEvent, PointerEvent, WheelEvent } from "react";
+import type { DragEvent, PointerEvent } from "react";
 
 import type {
   AcademicFlowEdge,
@@ -12,7 +12,12 @@ import type {
 } from "../../types";
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
 import { ApiError, workflowApi } from "./api";
-import { getCanvasPanScroll, getCanvasZoomState, type CanvasPanStart } from "./canvasPan";
+import {
+  bindCtrlWheelListener,
+  getCanvasPanScroll,
+  getCanvasZoomState,
+  type CanvasPanStart,
+} from "./canvasPan";
 import {
   canDeleteRevisionNode,
   filterPublishedRuntimeNodes,
@@ -661,9 +666,8 @@ function FlowNodeCanvas({
     };
   };
 
-  const zoomCanvas = (event: WheelEvent<HTMLDivElement>) => {
-    if (!event.ctrlKey || !canvasRef.current) return;
-    event.preventDefault();
+  const zoomCanvas = (event: WheelEvent) => {
+    if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const next = getCanvasZoomState({
       deltaY: event.deltaY,
@@ -677,6 +681,12 @@ function FlowNodeCanvas({
     canvasRef.current.scrollLeft = next.scrollLeft;
     canvasRef.current.scrollTop = next.scrollTop;
   };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    return bindCtrlWheelListener(canvas, zoomCanvas);
+  }, [zoom]);
 
   const findMagnetTarget = (point: { x: number; y: number }, sourceNodeId: string) => {
     const magnetPadding = 36;
@@ -953,7 +963,6 @@ function FlowNodeCanvas({
         onPointerDown={startCanvasPan}
         onPointerMove={moveCanvasPointer}
         onPointerUp={endCanvasPointer}
-        onWheel={zoomCanvas}
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) {
             setSelectedEdgeId(null);

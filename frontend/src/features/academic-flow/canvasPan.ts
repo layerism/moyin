@@ -18,6 +18,20 @@ const minimumZoom = 0.5;
 const maximumZoom = 1.5;
 const zoomStep = 0.02;
 
+export function bindCtrlWheelListener(
+  target: HTMLElement,
+  onCtrlWheel: (event: WheelEvent) => void,
+) {
+  const handleWheel = (event: WheelEvent) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    onCtrlWheel(event);
+  };
+
+  target.addEventListener("wheel", handleWheel, { passive: false });
+  return () => target.removeEventListener("wheel", handleWheel);
+}
+
 export function getCanvasPanScroll(
   start: CanvasPanStart,
   current: { clientX: number; clientY: number },
