@@ -39,6 +39,13 @@ def _latest_published_version(connection: Any, flow_id: str, teacher_id: int) ->
     ).fetchone()
 
 
+def _owned_flow(connection: Any, flow_id: str, teacher_id: int) -> Any:
+    return connection.execute(
+        "SELECT * FROM flows WHERE id = ? AND owner_id = ?",
+        (flow_id, str(teacher_id)),
+    ).fetchone()
+
+
 def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:
     flow_id = str(uuid.uuid4())
     owner_id = str(teacher_id)
@@ -67,10 +74,7 @@ def create_flow(name: str, description: str, teacher_id: int) -> dict[str, objec
 
 def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
     with get_connection() as connection:
-        row = connection.execute(
-            "SELECT * FROM flows WHERE id = ? AND owner_id = ?",
-            (flow_id, str(teacher_id)),
-        ).fetchone()
+        row = _owned_flow(connection, flow_id, teacher_id)
         if row is None:
             raise KeyError(flow_id)
         published = _latest_published_version(connection, flow_id, teacher_id)
@@ -124,13 +128,11 @@ def list_flows(teacher_id: int) -> list[dict[str, object]]:
 def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
-        existing = connection.execute(
-            "SELECT status FROM flows WHERE id = ? AND owner_id = ?",
-            (flow_id, str(teacher_id)),
-        ).fetchone()
-        if existing is None:
+        connection.execute("BEGIN IMMEDIATE")
+        flow = _owned_flow(connection, flow_id, teacher_id)
+        if flow is None:
             raise KeyError(flow_id)
-        if existing["status"] == "archived":
+        if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
         published = _latest_published_version(connection, flow_id, teacher_id)
         if published:
@@ -148,28 +150,6 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
 
 
 def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
-    flow = get_flow(flow_id, teacher_id)
-    if flow["status"] == "archived":
-        raise ArchivedFlowError("已归档流程不可发布")
-    config = flow["config"]
-    assert isinstance(config, dict)
-    with get_connection() as connection:
-        published = _latest_published_version(connection, flow_id, teacher_id)
-    if published:
-        assert_published_nodes_present(json.loads(published["config_snapshot"]), config)
-    validate_flow_config(config)
-    with get_connection() as connection:
-        active_roster_count = connection.execute(
-            """
-            SELECT COUNT(*) AS count FROM flow_roster_entries
-            WHERE flow_id = ? AND status = 'active'
-            """,
-            (flow_id,),
-        ).fetchone()["count"]
-    if active_roster_count == 0:
-        raise FlowValidationError("请先导入学生名单")
-    snapshot = canonical_json(config)
-    config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
     version_id = str(uuid.uuid4())
     share_token_id = str(uuid.uuid4())
     token = secrets.token_urlsafe(32)
@@ -177,6 +157,28 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
     now = utc_now_iso()
 
     with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        flow = _owned_flow(connection, flow_id, teacher_id)
+        if flow is None:
+            raise KeyError(flow_id)
+        if flow["status"] == "archived":
+            raise ArchivedFlowError("已归档流程不可发布")
+        config = json.loads(flow["draft_config"])
+        published = _latest_published_version(connection, flow_id, teacher_id)
+        if published:
+            assert_published_nodes_present(json.loads(published["config_snapshot"]), config)
+        validate_flow_config(config)
+        active_roster_count = connection.execute(
+            """
+            SELECT COUNT(*) AS count FROM flow_roster_entries
+            WHERE flow_id = ? AND status = 'active'
+            """,
+            (flow_id,),
+        ).fetchone()["count"]
+        if active_roster_count == 0:
+            raise FlowValidationError("请先导入学生名单")
+        snapshot = canonical_json(config)
+        config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         row = connection.execute(
             "SELECT COALESCE(MAX(version_no), 0) + 1 AS next_no FROM flow_versions WHERE flow_id = ?",
             (flow_id,),
