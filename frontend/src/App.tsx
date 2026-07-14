@@ -121,8 +121,9 @@ function mapServerFlow(flow: ServerFlow): AcademicProcess {
     name: flow.name,
     nodes: flow.config.nodes ?? [],
     published: flow.status === "published",
+    publishedVersionId: flow.publishedVersionId ?? undefined,
     serverId: flow.id,
-    shareUrl: "",
+    shareUrl: flow.shareUrl,
   };
 }
 
