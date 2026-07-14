@@ -1,8 +1,11 @@
 from collections.abc import Iterator
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
+import secrets
 import sqlite3
+import uuid
 
 from fastapi.testclient import TestClient
 import pytest
@@ -10,7 +13,8 @@ import pytest
 from app.core.config import settings
 from app.core.database import get_connection
 from app.main import app
-from app.repositories.workflows import publish_flow
+from app.repositories import flow_instances
+from app.repositories.workflows import canonical_json, publish_flow, resolve_share_token
 
 
 BASE_CONFIG = {
@@ -170,6 +174,13 @@ def _node_before_data(node_instance_id: str) -> dict[str, object]:
             "SELECT * FROM submissions WHERE node_instance_id = ? ORDER BY attempt_no, id",
             (node_instance_id,),
         ).fetchall()
+        override = connection.execute(
+            """
+            SELECT * FROM student_deadline_overrides
+            WHERE flow_instance_id = ? AND node_key = ?
+            """,
+            (node["flow_instance_id"], node["node_key"]),
+        ).fetchone()
     return {
         "nodeInstance": {
             "id": node["id"],
@@ -202,7 +213,75 @@ def _node_before_data(node_instance_id: str) -> dict[str, object]:
             }
             for row in submissions
         ],
+        "deadlineOverride": (
+            {
+                "flowInstanceId": override["flow_instance_id"],
+                "nodeKey": override["node_key"],
+                "deadlineAt": override["deadline_at"],
+                "reason": override["reason"],
+                "createdBy": override["created_by"],
+                "createdAt": override["created_at"],
+            }
+            if override
+            else None
+        ),
     }
+
+
+def _insert_legacy_published_version(
+    flow_id: str, config: dict[str, object], teacher_id: int
+) -> tuple[str, str]:
+    version_id = str(uuid.uuid4())
+    token = secrets.token_urlsafe(32)
+    snapshot = canonical_json(config)
+    now = "2026-07-14T04:00:00+00:00"
+    with get_connection() as connection:
+        version_no = connection.execute(
+            "SELECT MAX(version_no) + 1 AS value FROM flow_versions WHERE flow_id = ?",
+            (flow_id,),
+        ).fetchone()["value"]
+        connection.execute(
+            """
+            INSERT INTO flow_versions
+                (id, flow_id, version_no, config_snapshot, config_hash,
+                 status, published_by, published_at)
+            VALUES (?, ?, ?, ?, ?, 'published', ?, ?)
+            """,
+            (
+                version_id,
+                flow_id,
+                version_no,
+                snapshot,
+                hashlib.sha256(snapshot.encode()).hexdigest(),
+                str(teacher_id),
+                now,
+            ),
+        )
+        for node in config["nodes"]:  # type: ignore[index]
+            connection.execute(
+                """
+                INSERT INTO flow_node_runtime_configs
+                    (flow_version_id, node_key, deadline_at, updated_by, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (version_id, node["id"], node.get("deadlineAt"), str(teacher_id), now),
+            )
+        connection.execute(
+            """
+            INSERT INTO share_tokens
+                (id, flow_version_id, token_hash, token_value, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid.uuid4()),
+                version_id,
+                hashlib.sha256(token.encode()).hexdigest(),
+                token,
+                str(teacher_id),
+                now,
+            ),
+        )
+    return version_id, token
 
 
 def test_content_change_resets_only_changed_branch_and_preserves_artifacts(
@@ -225,7 +304,10 @@ def test_content_change_resets_only_changed_branch_and_preserves_artifacts(
     assert migrated["id"] == original["id"]  # type: ignore[index]
     assert migrated["flowVersionId"] == republished["flowVersionId"]
     assert migrated["status"] == "in_progress"
-    assert {key: node["id"] for key, node in migrated_nodes.items()} == node_ids
+    assert migrated_nodes["root"]["id"] == node_ids["root"]
+    assert migrated_nodes["right"]["id"] == node_ids["right"]
+    assert migrated_nodes["left"]["id"] != node_ids["left"]
+    assert migrated_nodes["join"]["id"] != node_ids["join"]
     assert {key: node["status"] for key, node in migrated_nodes.items()} == {
         "root": "approved",
         "left": "available",
@@ -361,6 +443,13 @@ def test_invalidation_audit_captures_state_draft_and_submissions_before_delete(
     changed["nodes"][1]["requirement"] = "新的左分支要求"
 
     republished = _save_and_republish(client, context, changed)
+    expected_left.update(
+        {
+            "oldVersionId": context["published"]["flowVersionId"],  # type: ignore[index]
+            "newVersionId": republished["flowVersionId"],
+            "invalidationReasons": ["node_definition_changed"],
+        }
+    )
 
     with get_connection() as connection:
         invalidated = connection.execute(
@@ -389,12 +478,273 @@ def test_invalidation_audit_captures_state_draft_and_submissions_before_delete(
         "migratedStudentCount": 1,
         "newVersionId": republished["flowVersionId"],
         "oldVersionId": context["published"]["flowVersionId"],  # type: ignore[index]
+        "oldVersionIds": [context["published"]["flowVersionId"]],  # type: ignore[index]
         "predecessorChangedNodeIds": [],
     }
     assert token_audit is not None
     assert context["published"]["token"] not in "|".join(  # type: ignore[index]
         str(value) for value in token_audit
     )
+
+
+def test_late_draft_and_submit_using_invalidated_node_id_are_rejected(
+    client: TestClient,
+) -> None:
+    context = _completed_flow(client)
+    original = context["instance"]
+    old_left_id = _nodes(original)["left"]["id"]  # type: ignore[arg-type]
+    changed = deepcopy(BASE_CONFIG)
+    changed["nodes"][1]["requirement"] = "迁移后的左分支要求"
+
+    _save_and_republish(client, context, changed)
+
+    late_draft = client.put(
+        f"/api/student/node-instances/{old_left_id}/draft",
+        json={"payload": {"value": "stale"}},
+    )
+    late_submit = client.post(
+        f"/api/student/node-instances/{old_left_id}/submit",
+        json={"payload": {"value": "stale"}, "idempotencyKey": "stale-submit"},
+    )
+    retried_submit = client.post(
+        f"/api/student/node-instances/{old_left_id}/submit",
+        json={"payload": {"value": "stale"}, "idempotencyKey": "stale-submit"},
+    )
+    migrated = client.get(
+        f"/api/student/flow-instances/{original['id']}"  # type: ignore[index]
+    ).json()
+    new_left = _nodes(migrated)["left"]
+
+    assert late_draft.status_code == 404
+    assert late_submit.status_code == 404
+    assert retried_submit.status_code == 404
+    assert new_left["id"] != old_left_id
+    assert new_left["status"] == "available"
+    assert new_left["attemptNo"] == 0
+    assert new_left["draft"] == {}
+
+
+def test_multiple_published_versions_tokens_and_duplicate_students_are_normalized(
+    client: TestClient,
+) -> None:
+    context = _completed_flow(client)
+    flow_id = context["flow"]["id"]  # type: ignore[index]
+    version_one = context["published"]["flowVersionId"]  # type: ignore[index]
+    token_one = context["published"]["token"]  # type: ignore[index]
+    with get_connection() as connection:
+        teacher_id = connection.execute(
+            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+        ).fetchone()["id"]
+    version_two, token_two = _insert_legacy_published_version(flow_id, BASE_CONFIG, teacher_id)
+    latest_duplicate = client.post(f"/api/student/shared/{token_two}/enter").json()
+    for node_key in ("root", "left", "right", "join"):
+        latest_duplicate = _submit(client, latest_duplicate["id"], node_key)
+
+    roster = client.post(
+        f"/api/workflows/{flow_id}/roster/import",
+        json={
+            "entries": [{"studentNo": "20260002", "name": "历史版本学生"}],
+            "sourceFileName": "历史名单.xlsx",
+        },
+    )
+    assert roster.status_code == 200
+    client.post("/api/auth/logout")
+    registered = client.post(
+        "/api/auth/register",
+        json={"studentNo": "20260002", "name": "历史版本学生", "password": "Pass1234"},
+    )
+    assert registered.status_code == 201
+    old_only = client.post(f"/api/student/shared/{token_one}/enter").json()
+
+    changed = deepcopy(BASE_CONFIG)
+    changed["nodes"][1]["requirement"] = "统一迁移要求"
+    republished = _save_and_republish(client, context, changed)
+
+    with get_connection() as connection:
+        instances = connection.execute(
+            """
+            SELECT flow_instances.id, flow_instances.flow_version_id,
+                   flow_instances.student_account_id
+            FROM flow_instances
+            JOIN flow_versions ON flow_versions.id = flow_instances.flow_version_id
+            WHERE flow_versions.flow_id = ?
+            ORDER BY flow_instances.student_account_id
+            """,
+            (flow_id,),
+        ).fetchall()
+        old_statuses = connection.execute(
+            "SELECT id, status FROM flow_versions WHERE id IN (?, ?) ORDER BY id",
+            (version_one, version_two),
+        ).fetchall()
+
+    assert len(instances) == 2
+    assert {row["flow_version_id"] for row in instances} == {republished["flowVersionId"]}
+    assert latest_duplicate["id"] in {row["id"] for row in instances}
+    assert old_only["id"] in {row["id"] for row in instances}
+    assert context["instance"]["id"] not in {row["id"] for row in instances}  # type: ignore[index]
+    assert {row["status"] for row in old_statuses} == {"disabled"}
+    assert resolve_share_token(token_one)["flowVersionId"] == republished["flowVersionId"]
+    assert resolve_share_token(token_two)["flowVersionId"] == republished["flowVersionId"]
+
+
+def test_student_enter_after_republish_creates_only_a_new_version_instance(
+    client: TestClient,
+) -> None:
+    context = _completed_flow(client)
+    flow_id = context["flow"]["id"]  # type: ignore[index]
+    old_token = context["published"]["token"]  # type: ignore[index]
+    roster = client.post(
+        f"/api/workflows/{flow_id}/roster/import",
+        json={
+            "entries": [{"studentNo": "20260003", "name": "迟到学生"}],
+            "sourceFileName": "迟到名单.xlsx",
+        },
+    )
+    assert roster.status_code == 200
+    republished = _save_and_republish(client, context, deepcopy(BASE_CONFIG))
+    client.post("/api/auth/logout")
+    registered = client.post(
+        "/api/auth/register",
+        json={"studentNo": "20260003", "name": "迟到学生", "password": "Pass1234"},
+    )
+    assert registered.status_code == 201
+
+    entered = client.post(f"/api/student/shared/{old_token}/enter").json()
+
+    assert entered["flowVersionId"] == republished["flowVersionId"]
+    with get_connection() as connection:
+        versions = connection.execute(
+            """
+            SELECT flow_version_id FROM flow_instances
+            WHERE student_account_id = (
+                SELECT id FROM student_accounts WHERE student_no = '20260003'
+            )
+            """
+        ).fetchall()
+    assert [row["flow_version_id"] for row in versions] == [republished["flowVersionId"]]
+
+
+def test_partial_progress_recomputes_changed_node_with_past_deadline(
+    client: TestClient,
+) -> None:
+    context = _completed_flow(client)
+    original = context["instance"]
+    right_id = _nodes(original)["right"]["id"]  # type: ignore[arg-type]
+    with get_connection() as connection:
+        connection.execute("UPDATE node_instances SET status = 'draft' WHERE id = ?", (right_id,))
+        connection.execute(
+            """
+            INSERT INTO node_drafts (node_instance_id, payload, updated_at)
+            VALUES (?, '{"value":"partial"}', '2026-07-14T05:00:00+00:00')
+            """,
+            (right_id,),
+        )
+        connection.execute(
+            "UPDATE flow_instances SET status = 'in_progress', completed_at = NULL WHERE id = ?",
+            (original["id"],),  # type: ignore[index]
+        )
+    changed = deepcopy(BASE_CONFIG)
+    changed["nodes"][1].update(
+        {
+            "requirement": "已经过期的新要求",
+            "deadlineAt": "2020-01-01T00:00:00+00:00",
+        }
+    )
+
+    _save_and_republish(client, context, changed)
+    migrated = client.get(
+        f"/api/student/flow-instances/{original['id']}"  # type: ignore[index]
+    ).json()
+
+    assert {key: node["status"] for key, node in _nodes(migrated).items()} == {
+        "root": "approved",
+        "left": "expired",
+        "right": "draft",
+        "join": "locked",
+    }
+    assert _nodes(migrated)["right"]["draft"] == {"value": "partial"}
+
+
+def test_runtime_writes_begin_immediately_and_revalidate_current_version(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = _completed_flow(client)
+    changed = deepcopy(BASE_CONFIG)
+    changed["nodes"][1]["requirement"] = "事务协议要求"
+    republished = _save_and_republish(client, context, changed)
+    instance_id = context["instance"]["id"]  # type: ignore[index]
+    migrated = client.get(f"/api/student/flow-instances/{instance_id}").json()
+    nodes = _nodes(migrated)
+    with get_connection() as connection:
+        student_id = connection.execute(
+            "SELECT id FROM student_accounts WHERE student_no = '20260001'"
+        ).fetchone()["id"]
+        teacher_id = connection.execute(
+            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+        ).fetchone()["id"]
+
+    real_get_connection = flow_instances.get_connection
+    statements: list[str] = []
+
+    def traced_connection():
+        connection = real_get_connection()
+        connection.set_trace_callback(statements.append)
+        return connection
+
+    monkeypatch.setattr(flow_instances, "get_connection", traced_connection)
+
+    def capture(operation) -> tuple[str, list[str]]:
+        statements.clear()
+        operation()
+        return statements[0].strip().upper(), list(statements)
+
+    first_statements: list[str] = []
+    first, enter_trace = capture(
+        lambda: flow_instances.get_or_create_instance(
+            context["published"]["token"],
+            student_id,  # type: ignore[index]
+        )
+    )
+    first_statements.append(first)
+    first_statements.append(
+        capture(
+            lambda: flow_instances.save_node_draft(
+                nodes["left"]["id"], student_id, {"value": "draft"}
+            )
+        )[0]
+    )
+    first_statements.append(
+        capture(
+            lambda: flow_instances.submit_node(
+                nodes["left"]["id"], student_id, {"value": "left"}, "transactional"
+            )
+        )[0]
+    )
+    first_statements.append(
+        capture(
+            lambda: flow_instances.set_student_deadline(
+                instance_id,
+                "right",
+                "2031-01-01T00:00:00+00:00",
+                "事务覆盖",
+                teacher_id,
+            )
+        )[0]
+    )
+    first_statements.append(
+        capture(
+            lambda: flow_instances.set_global_deadline(
+                republished["flowVersionId"],
+                "right",
+                "2032-01-01T00:00:00+00:00",
+                "事务全局截止时间",
+                teacher_id,
+            )
+        )[0]
+    )
+
+    assert first_statements == ["BEGIN IMMEDIATE"] * 5
+    assert any("FROM SHARE_TOKENS" in statement.upper() for statement in enter_trace)
 
 
 def test_forced_migration_failure_rolls_back_every_republish_change(
