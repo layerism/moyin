@@ -73,6 +73,18 @@ CREATE TABLE IF NOT EXISTS flows (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS flow_roster_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    student_no TEXT NOT NULL,
+    name TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT NOT NULL,
+    UNIQUE(flow_id, student_no)
+);
+
 CREATE TABLE IF NOT EXISTS flow_versions (
     id TEXT PRIMARY KEY,
     flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
