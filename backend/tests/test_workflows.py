@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.core.config import settings
+from app.core.database import get_connection
 from app.main import app
 
 
@@ -61,6 +62,20 @@ def test_duplicate_check_uses_trimmed_name_and_allows_other_names(client: TestCl
     assert first.status_code == 201
     assert whitespace_duplicate.status_code == 409
     assert distinct.status_code == 201
+
+
+def test_archived_legacy_name_does_not_block_visible_flow_creation(client: TestClient) -> None:
+    archived = client.post("/api/workflows", json={"name": "历史归档流程"}).json()
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE flows SET status = 'archived' WHERE id = ?", (archived["id"],)
+        )
+
+    replacement = client.post("/api/workflows", json={"name": "历史归档流程"})
+
+    assert replacement.status_code == 201
+    visible = client.get("/api/workflows").json()
+    assert [flow["id"] for flow in visible] == [replacement.json()["id"]]
 
 
 def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -> None:
