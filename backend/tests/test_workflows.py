@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from copy import deepcopy
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -270,3 +271,25 @@ def test_revision_impact_is_empty_for_unpublished_flow(client: TestClient) -> No
         "invalidatedNodeIds": [],
         "affectedStudentCount": 0,
     }
+
+
+def test_publish_rejects_persisted_draft_missing_published_node(client: TestClient) -> None:
+    flow = client.post("/api/workflows", json={"name": "历史草稿发布流程"}).json()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
+    add_roster(client, flow["id"])
+    published = client.post(f"/api/workflows/{flow['id']}/publish")
+    assert published.status_code == 201
+
+    stale_draft = deepcopy(sample_config())
+    stale_draft["nodes"] = [node for node in stale_draft["nodes"] if node["id"] != "n1"]
+    stale_draft["edges"] = []
+    with get_connection() as connection:
+        connection.execute(
+            "UPDATE flows SET draft_config = ? WHERE id = ?",
+            (json.dumps(stale_draft), flow["id"]),
+        )
+
+    rejected = client.post(f"/api/workflows/{flow['id']}/publish")
+
+    assert rejected.status_code == 409
+    assert rejected.json() == {"detail": "已发布节点不可删除：n1"}
