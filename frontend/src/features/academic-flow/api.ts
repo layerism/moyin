@@ -19,6 +19,21 @@ export type ServerFlow = {
   updatedAt: string;
 };
 
+export type FlowRosterEntry = {
+  createdAt: string;
+  id: number;
+  name: string;
+  status: "active" | "revoked";
+  studentNo: string;
+  updatedAt: string;
+};
+
+export type FlowRoster = {
+  activeCount: number;
+  entries: FlowRosterEntry[];
+  revokedCount: number;
+};
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -67,6 +82,27 @@ export const workflowApi = {
   },
   remove(serverId: string) {
     return request<void>(`/api/workflows/${serverId}`, { method: "DELETE" });
+  },
+  getRoster(serverId: string) {
+    return request<FlowRoster>(`/api/workflows/${encodeURIComponent(serverId)}/roster`);
+  },
+  importRoster(
+    serverId: string,
+    payload: {
+      entries: Array<{ name: string; studentNo: string }>;
+      sourceFileName: string;
+    },
+  ) {
+    return request<FlowRoster & { summary: { added: number; restored: number; updated: number } }>(
+      `/api/workflows/${encodeURIComponent(serverId)}/roster/import`,
+      { method: "POST", body: JSON.stringify(payload) },
+    );
+  },
+  revokeRosterEntry(serverId: string, entryId: number) {
+    return request<FlowRoster>(
+      `/api/workflows/${encodeURIComponent(serverId)}/roster/${entryId}`,
+      { method: "DELETE" },
+    );
   },
   getShared(token: string) {
     return request<SharedFlow>(`/api/shared-flows/${encodeURIComponent(token)}`);

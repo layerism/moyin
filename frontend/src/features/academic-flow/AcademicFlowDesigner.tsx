@@ -11,6 +11,8 @@ import type {
   AuditScriptType,
 } from "../../types";
 import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
+import { workflowApi } from "./api";
+import { FlowRosterDialog } from "./FlowRosterDialog";
 import { getAbsoluteShareUrl } from "./shareUrl";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
 
@@ -68,6 +70,8 @@ export function AcademicFlowDesigner({
   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
+  const [showRoster, setShowRoster] = useState(false);
+  const [rosterActiveCount, setRosterActiveCount] = useState<number | null>(null);
   const [actionNotice, setActionNotice] = useState("");
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [saving, setSaving] = useState(false);
@@ -75,6 +79,22 @@ export function AcademicFlowDesigner({
   const activeNode =
     process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
   const inspectorNode = process.nodes.find((node) => node.id === inspectorNodeId) ?? null;
+  const serverFlowId = process.serverId ?? process.id;
+
+  useEffect(() => {
+    let cancelled = false;
+    workflowApi
+      .getRoster(serverFlowId)
+      .then((roster) => {
+        if (!cancelled) setRosterActiveCount(roster.activeCount);
+      })
+      .catch(() => {
+        if (!cancelled) setRosterActiveCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [serverFlowId]);
 
   const publishProcess = async () => {
     setSaving(true);
@@ -201,13 +221,31 @@ export function AcademicFlowDesigner({
             <p>流程说明：{process.description}</p>
           </div>
           <div className="academic-actions">
+            <button onClick={() => setShowRoster(true)}>
+              学生名单{rosterActiveCount === null ? "" : ` (${rosterActiveCount})`}
+            </button>
             {process.published ? (
               <button onClick={() => onOpenStudent(process.shareUrl)}>打开学生链接</button>
             ) : null}
             {process.publishedVersionId ? (
               <button onClick={() => setShowProgress(true)}>填写进度</button>
             ) : null}
-            <button disabled={saving || process.published} onClick={() => void publishProcess()}>
+            <button
+              disabled={
+                saving ||
+                process.published ||
+                rosterActiveCount === null ||
+                rosterActiveCount === 0
+              }
+              onClick={() => void publishProcess()}
+              title={
+                rosterActiveCount === null
+                  ? "正在读取学生名单"
+                  : rosterActiveCount === 0
+                    ? "请先导入学生名单"
+                    : undefined
+              }
+            >
               {process.published ? "已发布" : "发布与分享"}
             </button>
             <button disabled={saving || process.published} onClick={() => void saveProcess()}>
@@ -264,6 +302,13 @@ export function AcademicFlowDesigner({
               updateNode(nodeId, { deadlineAt })
             }
             versionId={process.publishedVersionId}
+          />
+        ) : null}
+        {showRoster ? (
+          <FlowRosterDialog
+            flowId={serverFlowId}
+            onClose={() => setShowRoster(false)}
+            onRosterChange={(roster) => setRosterActiveCount(roster.activeCount)}
           />
         ) : null}
       </section>

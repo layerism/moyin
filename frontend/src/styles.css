@@ -1118,6 +1118,291 @@ button {
   color: #ffffff;
 }
 
+.flow-roster-backdrop {
+  position: fixed;
+  z-index: 180;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 42%);
+}
+
+.flow-roster-dialog {
+  width: min(900px, 100%);
+  max-height: calc(100vh - 48px);
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(220px, 1fr);
+  overflow: hidden;
+  border: 1px solid #d7deea;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgb(15 23 42 / 24%);
+}
+
+.flow-roster-dialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e4e9f1;
+}
+
+.flow-roster-dialog header p,
+.flow-roster-dialog header h2 {
+  margin: 0;
+}
+
+.flow-roster-dialog header p {
+  margin-bottom: 3px;
+  color: #667085;
+  font-size: 12px;
+}
+
+.flow-roster-dialog header h2 {
+  font-size: 21px;
+}
+
+.flow-roster-dialog header > button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d7deea;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 20px;
+}
+
+.flow-roster-import {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e4e9f1;
+  background: #f8fafc;
+}
+
+.flow-roster-import label {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid #b8cff5;
+  border-radius: 6px;
+  background: #f3f7ff;
+  color: #175cd3;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.flow-roster-import label input {
+  display: none;
+}
+
+.flow-roster-import > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.flow-roster-import strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-roster-import small {
+  color: #667085;
+  font-size: 12px;
+}
+
+.flow-roster-import > button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #2773f6;
+  border-radius: 6px;
+  background: #2773f6;
+  color: #fff;
+  font-weight: 750;
+}
+
+.flow-roster-import > button:disabled {
+  border-color: #d0d5dd;
+  background: #eaecf0;
+  color: #98a2b3;
+}
+
+.flow-roster-preview,
+.flow-roster-message {
+  margin: 12px 20px 0;
+  padding: 10px 12px;
+  border: 1px solid #abefc6;
+  background: #ecfdf3;
+  color: #067647;
+  font-size: 12px;
+}
+
+.flow-roster-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.flow-roster-preview em {
+  width: 100%;
+  color: #b42318;
+  font-style: normal;
+}
+
+.flow-roster-preview.has-error,
+.flow-roster-message.error {
+  border-color: #fecdca;
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.flow-roster-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 20px;
+}
+
+.flow-roster-toolbar > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: #667085;
+  font-size: 12px;
+}
+
+.flow-roster-toolbar strong {
+  margin-left: 8px;
+  color: #172033;
+  font-size: 18px;
+}
+
+.flow-roster-toolbar input {
+  width: min(280px, 45%);
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+}
+
+.flow-roster-table-wrap {
+  min-height: 0;
+  overflow: auto;
+  margin: 0 20px 20px;
+  border: 1px solid #d8dee8;
+}
+
+.flow-roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.flow-roster-table th,
+.flow-roster-table td {
+  height: 44px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #edf0f4;
+  text-align: left;
+}
+
+.flow-roster-table th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  background: #f8fafc;
+  color: #475467;
+  font-size: 12px;
+}
+
+.flow-roster-table td:last-child {
+  width: 150px;
+}
+
+.flow-roster-table td button {
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid #fda29b;
+  border-radius: 5px;
+  background: #fff;
+  color: #b42318;
+  font-weight: 700;
+}
+
+.roster-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: #ecfdf3;
+  color: #067647;
+  font-size: 12px;
+}
+
+.roster-status.revoked {
+  background: #f2f4f7;
+  color: #667085;
+}
+
+.flow-roster-confirm {
+  display: flex;
+  gap: 6px;
+}
+
+.flow-roster-confirm button:first-child {
+  border-color: #d0d5dd;
+  color: #475467;
+}
+
+.flow-roster-table-wrap > p {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: #667085;
+}
+
+@media (max-width: 700px) {
+  .flow-roster-backdrop {
+    padding: 0;
+  }
+
+  .flow-roster-dialog {
+    width: 100%;
+    max-height: 100vh;
+    min-height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .flow-roster-import {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-roster-import label,
+  .flow-roster-import > button {
+    justify-content: center;
+  }
+
+  .flow-roster-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .flow-roster-toolbar input {
+    width: 100%;
+  }
+}
+
 .status-pill {
   min-height: 26px;
   display: inline-flex;
