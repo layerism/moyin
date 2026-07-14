@@ -9,7 +9,7 @@ from app.core.database import get_connection
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     analyze_revision,
-    assert_published_nodes_present,
+    assert_node_ids_present,
 )
 from app.domain.workflow_runtime import deadline_has_passed, incoming_nodes
 from app.services.security import utc_now_iso
@@ -20,6 +20,10 @@ class ArchivedFlowError(ValueError):
 
 
 class DuplicateFlowNameError(ValueError):
+    pass
+
+
+class DraftRevisionConflictError(ValueError):
     pass
 
 
@@ -80,50 +84,90 @@ def _revision_source_versions(
     ).fetchall()
 
 
-def _revision_analysis(
-    connection: Any, versions: list[Any], current_config: dict[str, Any]
-) -> dict[str, object]:
+def _build_migration_plan(
+    connection: Any,
+    versions: list[Any],
+    current_config: dict[str, Any],
+    baseline_version_id: str | None,
+) -> dict[str, Any]:
     impact_keys = (
         "addedNodeIds",
         "changedNodeIds",
         "predecessorChangedNodeIds",
         "invalidatedNodeIds",
     )
+    version_ids = [version["id"] for version in versions]
+    instances = []
+    if version_ids:
+        placeholders = ",".join("?" for _ in version_ids)
+        instances = connection.execute(
+            f"""
+            SELECT i.*, v.version_no
+            FROM flow_instances i
+            JOIN flow_versions v ON v.id = i.flow_version_id
+            WHERE i.flow_version_id IN ({placeholders})
+            ORDER BY i.student_account_id, v.version_no DESC,
+                     i.last_active_at DESC, i.id
+            """,
+            version_ids,
+        ).fetchall()
+
+    canonical_by_student: dict[int, Any] = {}
+    duplicates: list[tuple[Any, Any]] = []
+    for instance in instances:
+        canonical = canonical_by_student.setdefault(instance["student_account_id"], instance)
+        if canonical["id"] != instance["id"]:
+            duplicates.append((instance, canonical))
+
+    canonical_students_by_version: dict[str, set[int]] = {
+        version_id: set() for version_id in version_ids
+    }
+    for student_id, instance in canonical_by_student.items():
+        canonical_students_by_version[instance["flow_version_id"]].add(student_id)
+
+    version_configs = {
+        version["id"]: json.loads(version["config_snapshot"]) for version in versions
+    }
+    impacts_by_version = {
+        version["id"]: analyze_revision(version_configs[version["id"]], current_config)
+        for version in versions
+    }
     aggregate = {key: set() for key in impact_keys}
     affected_student_ids: set[int] = set()
     source_impacts = []
     for version in versions:
-        impact = analyze_revision(json.loads(version["config_snapshot"]), current_config)
-        students = []
+        impact = impacts_by_version[version["id"]]
+        students = canonical_students_by_version[version["id"]]
         if impact["invalidatedNodeIds"]:
-            students = connection.execute(
-                """
-                SELECT DISTINCT student_account_id FROM flow_instances
-                WHERE flow_version_id = ?
-                """,
-                (version["id"],),
-            ).fetchall()
-            affected_student_ids.update(row["student_account_id"] for row in students)
-        for key in impact_keys:
-            aggregate[key].update(impact[key])
+            affected_student_ids.update(students)
+        if students or version["id"] == baseline_version_id:
+            for key in impact_keys:
+                aggregate[key].update(impact[key])
         source_impacts.append(
             {
                 "versionId": version["id"],
                 "versionNo": version["version_no"],
                 "status": version["status"],
                 **impact,
-                "affectedStudentCount": len(students),
+                "affectedStudentCount": len(students) if impact["invalidatedNodeIds"] else 0,
             }
         )
 
     node_order = [node["id"] for node in current_config.get("nodes", [])]
-    return {
+    analysis = {
         **{
             key: [node_key for node_key in node_order if node_key in aggregate[key]]
             for key in impact_keys
         },
         "affectedStudentCount": len(affected_student_ids),
         "sourceVersionImpacts": source_impacts,
+    }
+    return {
+        "analysis": analysis,
+        "canonicalInstances": list(canonical_by_student.values()),
+        "duplicates": duplicates,
+        "impactsByVersion": impacts_by_version,
+        "versionConfigs": version_configs,
     }
 
 
@@ -132,6 +176,24 @@ def _owned_flow(connection: Any, flow_id: str, teacher_id: int) -> Any:
         "SELECT * FROM flows WHERE id = ? AND owner_id = ?",
         (flow_id, str(teacher_id)),
     ).fetchone()
+
+
+def _historical_node_ids(connection: Any, flow_id: str) -> list[str]:
+    rows = connection.execute(
+        """
+        SELECT config_snapshot FROM flow_versions
+        WHERE flow_id = ? ORDER BY version_no
+        """,
+        (flow_id,),
+    ).fetchall()
+    seen: set[str] = set()
+    ordered = []
+    for row in rows:
+        for node in json.loads(row["config_snapshot"]).get("nodes", []):
+            if node["id"] not in seen:
+                seen.add(node["id"])
+                ordered.append(node["id"])
+    return ordered
 
 
 def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:
@@ -224,9 +286,7 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
-        published = _latest_published_version(connection, flow_id, teacher_id)
-        if published:
-            assert_published_nodes_present(json.loads(published["config_snapshot"]), config)
+        assert_node_ids_present(_historical_node_ids(connection, flow_id), config)
         cursor = connection.execute(
             """
             UPDATE flows SET draft_config = ?, updated_at = ?
@@ -344,8 +404,11 @@ def _new_version_deadline(connection: Any, version_id: str, node_key: str) -> st
     return row["deadline_at"] if row is not None else None
 
 
-def _create_share_token(connection: Any, version_id: str, teacher_id: int, now: str) -> str:
+def _create_share_token(
+    connection: Any, version_id: str, teacher_id: int, now: str
+) -> tuple[str, str]:
     token = secrets.token_urlsafe(32)
+    token_id = str(uuid.uuid4())
     connection.execute(
         """
         INSERT INTO share_tokens
@@ -353,7 +416,7 @@ def _create_share_token(connection: Any, version_id: str, teacher_id: int, now: 
         VALUES (?, ?, ?, ?, ?, ?)
         """,
         (
-            str(uuid.uuid4()),
+            token_id,
             version_id,
             hashlib.sha256(token.encode("utf-8")).hexdigest(),
             token,
@@ -361,7 +424,20 @@ def _create_share_token(connection: Any, version_id: str, teacher_id: int, now: 
             now,
         ),
     )
-    return token
+    connection.execute(
+        """
+        INSERT INTO audit_logs
+            (actor_id, action, entity_type, entity_id, after_data, created_at)
+        VALUES (?, 'share_token_created', 'share_token', ?, ?, ?)
+        """,
+        (
+            str(teacher_id),
+            token_id,
+            canonical_json({"flowVersionId": version_id, "status": "active"}),
+            now,
+        ),
+    )
+    return token, token_id
 
 
 def _invalidation_reasons(impact: dict[str, list[str]], node_key: str) -> list[str]:
@@ -553,35 +629,13 @@ def _migrate_instance(
 
 def _migrate_instances(
     connection: Any,
-    old_versions: list[Any],
+    plan: dict[str, Any],
     new_version_id: str,
     config: dict[str, Any],
     teacher_id: int,
     now: str,
 ) -> int:
-    version_ids = [version["id"] for version in old_versions]
-    placeholders = ",".join("?" for _ in version_ids)
-    instances = connection.execute(
-        f"""
-        SELECT i.*, v.version_no
-        FROM flow_instances i
-        JOIN flow_versions v ON v.id = i.flow_version_id
-        WHERE i.flow_version_id IN ({placeholders})
-        ORDER BY i.student_account_id, v.version_no DESC, i.last_active_at DESC, i.id
-        """,
-        version_ids,
-    ).fetchall()
-    version_configs = {
-        version["id"]: json.loads(version["config_snapshot"]) for version in old_versions
-    }
-    canonical_by_student: dict[int, Any] = {}
-    duplicates: list[tuple[Any, Any]] = []
-    for instance in instances:
-        canonical = canonical_by_student.setdefault(instance["student_account_id"], instance)
-        if canonical["id"] != instance["id"]:
-            duplicates.append((instance, canonical))
-
-    for duplicate, canonical in duplicates:
+    for duplicate, canonical in plan["duplicates"]:
         before_data = _duplicate_instance_before_data(connection, duplicate, new_version_id)
         connection.execute(
             """
@@ -605,21 +659,69 @@ def _migrate_instances(
         )
         connection.execute("DELETE FROM flow_instances WHERE id = ?", (duplicate["id"],))
 
-    for instance in canonical_by_student.values():
-        source_config = version_configs[instance["flow_version_id"]]
+    for instance in plan["canonicalInstances"]:
         _migrate_instance(
             connection,
             instance,
             new_version_id,
             config,
-            analyze_revision(source_config, config),
+            plan["impactsByVersion"][instance["flow_version_id"]],
             teacher_id,
             now,
         )
-    return len(canonical_by_student)
+    return len(plan["canonicalInstances"])
 
 
-def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
+def _runtime_deadlines_for_publish(
+    connection: Any,
+    flow_id: str,
+    baseline: Any,
+    plan: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, str | None]:
+    historical_node_ids = set(_historical_node_ids(connection, flow_id))
+    candidates: dict[str, int] = {}
+    if baseline is not None:
+        candidates[baseline["id"]] = baseline["version_no"]
+    for instance in plan["canonicalInstances"]:
+        candidates[instance["flow_version_id"]] = instance["version_no"]
+    candidate_versions = [
+        version_id
+        for version_id, _ in sorted(candidates.items(), key=lambda item: item[1], reverse=True)
+    ]
+
+    runtime_by_version_and_node: dict[tuple[str, str], str | None] = {}
+    if candidate_versions:
+        placeholders = ",".join("?" for _ in candidate_versions)
+        rows = connection.execute(
+            f"""
+            SELECT flow_version_id, node_key, deadline_at
+            FROM flow_node_runtime_configs
+            WHERE flow_version_id IN ({placeholders})
+            """,
+            candidate_versions,
+        ).fetchall()
+        runtime_by_version_and_node = {
+            (row["flow_version_id"], row["node_key"]): row["deadline_at"] for row in rows
+        }
+
+    deadlines = {}
+    for node in config["nodes"]:
+        node_key = node["id"]
+        deadline = node.get("deadlineAt")
+        if node_key in historical_node_ids:
+            for version_id in candidate_versions:
+                key = (version_id, node_key)
+                if key in runtime_by_version_and_node:
+                    deadline = runtime_by_version_and_node[key]
+                    break
+        deadlines[node_key] = deadline
+    return deadlines
+
+
+def publish_flow(
+    flow_id: str, teacher_id: int, expected_draft_config_hash: str | None = None
+) -> dict[str, object]:
     version_id = str(uuid.uuid4())
     now = utc_now_iso()
 
@@ -635,9 +737,21 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         published = published_versions[-1] if published_versions else None
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
         baseline = published or (source_versions[-1] if source_versions else None)
-        if baseline:
-            assert_published_nodes_present(json.loads(baseline["config_snapshot"]), config)
         validate_flow_config(config)
+        assert_node_ids_present(_historical_node_ids(connection, flow_id), config)
+        snapshot = canonical_json(config)
+        config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
+        if baseline is not None and expected_draft_config_hash != config_hash:
+            raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
+        plan = _build_migration_plan(
+            connection,
+            source_versions,
+            config,
+            baseline["id"] if baseline else None,
+        )
+        runtime_deadlines = _runtime_deadlines_for_publish(
+            connection, flow_id, baseline, plan, config
+        )
         active_roster_count = connection.execute(
             """
             SELECT COUNT(*) AS count FROM flow_roster_entries
@@ -647,8 +761,6 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         ).fetchone()["count"]
         if active_roster_count == 0:
             raise FlowValidationError("请先导入学生名单")
-        snapshot = canonical_json(config)
-        config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         row = connection.execute(
             "SELECT COALESCE(MAX(version_no), 0) + 1 AS next_no FROM flow_versions WHERE flow_id = ?",
             (flow_id,),
@@ -669,49 +781,67 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                     (flow_version_id, node_key, deadline_at, updated_by, updated_at)
                 VALUES (?, ?, ?, ?, ?)
                 """,
-                (version_id, node["id"], node.get("deadlineAt"), str(teacher_id), now),
+                (
+                    version_id,
+                    node["id"],
+                    runtime_deadlines[node["id"]],
+                    str(teacher_id),
+                    now,
+                ),
             )
         if baseline is None:
-            token = _create_share_token(connection, version_id, teacher_id, now)
+            token, _ = _create_share_token(connection, version_id, teacher_id, now)
         else:
-            analysis = _revision_analysis(connection, source_versions, config)
+            analysis = plan["analysis"]
             migrated_student_count = _migrate_instances(
                 connection,
-                source_versions,
+                plan,
                 version_id,
                 config,
                 teacher_id,
                 now,
             )
-            active_token = connection.execute(
+            active_tokens = connection.execute(
                 """
-                SELECT t.token_value FROM share_tokens t
+                SELECT t.id, t.flow_version_id, t.token_value
+                FROM share_tokens t
                 JOIN flow_versions v ON v.id = t.flow_version_id
                 WHERE v.flow_id = ? AND v.id != ? AND t.status = 'active'
-                  AND t.token_value IS NOT NULL
                   AND (t.expires_at IS NULL OR t.expires_at > ?)
                 ORDER BY v.version_no DESC, t.created_at DESC
-                LIMIT 1
                 """,
                 (flow_id, version_id, now),
-            ).fetchone()
-            if active_token is None or not active_token["token_value"]:
-                token = _create_share_token(connection, version_id, teacher_id, now)
-                retargeted = 0
-            else:
-                token = active_token["token_value"]
-                retargeted = connection.execute(
+            ).fetchall()
+            for active_token in active_tokens:
+                connection.execute(
+                    "UPDATE share_tokens SET flow_version_id = ? WHERE id = ?",
+                    (version_id, active_token["id"]),
+                )
+                connection.execute(
                     """
-                    UPDATE share_tokens SET flow_version_id = ?
-                    WHERE status = 'active'
-                      AND (expires_at IS NULL OR expires_at > ?)
-                      AND flow_version_id IN (
-                          SELECT id FROM flow_versions
-                          WHERE flow_id = ? AND id != ?
-                      )
+                    INSERT INTO audit_logs
+                        (actor_id, action, entity_type, entity_id,
+                         before_data, after_data, created_at)
+                    VALUES (?, 'share_token_retargeted', 'share_token', ?, ?, ?, ?)
                     """,
-                    (version_id, now, flow_id, version_id),
-                ).rowcount
+                    (
+                        str(teacher_id),
+                        active_token["id"],
+                        canonical_json({"sourceVersionId": active_token["flow_version_id"]}),
+                        canonical_json({"targetVersionId": version_id}),
+                        now,
+                    ),
+                )
+            token = next(
+                (
+                    active_token["token_value"]
+                    for active_token in active_tokens
+                    if active_token["token_value"]
+                ),
+                None,
+            )
+            if token is None:
+                token, _ = _create_share_token(connection, version_id, teacher_id, now)
             connection.execute(
                 """
                 UPDATE flow_versions SET status = 'disabled'
@@ -736,26 +866,6 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                             "newVersionId": version_id,
                             **analysis,
                             "migratedStudentCount": migrated_student_count,
-                        }
-                    ),
-                    now,
-                ),
-            )
-            connection.execute(
-                """
-                INSERT INTO audit_logs
-                    (actor_id, action, entity_type, entity_id, after_data, created_at)
-                VALUES (?, 'share_token_retargeted', 'flow', ?, ?, ?)
-                """,
-                (
-                    str(teacher_id),
-                    flow_id,
-                    canonical_json(
-                        {
-                            "oldVersionId": baseline["id"],
-                            "oldVersionIds": old_version_ids,
-                            "newVersionId": version_id,
-                            "retargetedTokenCount": retargeted,
                         }
                     ),
                     now,
@@ -788,10 +898,17 @@ def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
         ).fetchone()
         if flow is None:
             raise KeyError(flow_id)
+        config = json.loads(flow["draft_config"])
+        validate_flow_config(config)
         published = _latest_published_version(connection, flow_id, teacher_id)
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
         baseline = published or (source_versions[-1] if source_versions else None)
-        analysis = _revision_analysis(connection, source_versions, json.loads(flow["draft_config"]))
+        plan = _build_migration_plan(
+            connection,
+            source_versions,
+            config,
+            baseline["id"] if baseline else None,
+        )
         next_version_no = connection.execute(
             """
             SELECT COALESCE(MAX(version_no), 0) + 1 AS value
@@ -804,7 +921,8 @@ def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
         "currentVersionId": baseline["id"] if baseline else None,
         "currentVersionNo": baseline["version_no"] if baseline else None,
         "nextVersionNo": next_version_no,
-        **analysis,
+        "draftConfigHash": hashlib.sha256(canonical_json(config).encode("utf-8")).hexdigest(),
+        **plan["analysis"],
     }
 
 
@@ -835,6 +953,17 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
                 (flow_id,),
             ).fetchall()
         ]
+        token_ids = [
+            token["id"]
+            for token in connection.execute(
+                """
+                SELECT t.id FROM share_tokens t
+                JOIN flow_versions v ON v.id = t.flow_version_id
+                WHERE v.flow_id = ?
+                """,
+                (flow_id,),
+            ).fetchall()
+        ]
 
         connection.execute(
             """
@@ -852,6 +981,11 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
             connection.execute(
                 "DELETE FROM audit_logs WHERE entity_id = ? OR entity_id LIKE ?",
                 (instance_id, f"{instance_id}:%"),
+            )
+        for token_id in token_ids:
+            connection.execute(
+                "DELETE FROM audit_logs WHERE entity_type = 'share_token' AND entity_id = ?",
+                (token_id,),
             )
 
         connection.execute(
