@@ -5,6 +5,7 @@ import {
   bindCtrlWheelListener,
   getCanvasPanScroll,
   getCanvasZoomState,
+  shouldStartCanvasPan,
 } from "../src/features/academic-flow/canvasPan.ts";
 
 test("pans the viewport opposite to pointer movement", () => {
@@ -24,6 +25,28 @@ test("clamps canvas scroll offsets at zero", () => {
       { clientX: 30, clientY: 40 },
     ),
     { left: 0, top: 0 },
+  );
+});
+
+test("starts panning from a non-interactive child of the canvas background", () => {
+  assert.equal(
+    shouldStartCanvasPan({
+      button: 0,
+      interactiveTarget: false,
+      panToolActive: true,
+    }),
+    true,
+  );
+});
+
+test("does not start canvas panning from an interactive flow element", () => {
+  assert.equal(
+    shouldStartCanvasPan({
+      button: 0,
+      interactiveTarget: true,
+      panToolActive: true,
+    }),
+    false,
   );
 });
 

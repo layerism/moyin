@@ -16,6 +16,7 @@ import {
   bindCtrlWheelListener,
   getCanvasPanScroll,
   getCanvasZoomState,
+  shouldStartCanvasPan,
   type CanvasPanStart,
 } from "./canvasPan";
 import {
@@ -858,10 +859,15 @@ function FlowNodeCanvas({
   };
 
   const startCanvasPan = (event: PointerEvent<HTMLDivElement>) => {
+    const interactiveTarget =
+      event.target instanceof Element &&
+      Boolean(event.target.closest(".canvas-node-stack, .flow-edge-group, .flow-edge-delete"));
     if (
-      !panToolActive ||
-      event.button !== 0 ||
-      event.target !== event.currentTarget ||
+      !shouldStartCanvasPan({
+        button: event.button,
+        interactiveTarget,
+        panToolActive,
+      }) ||
       !canvasRef.current
     ) {
       return;
