@@ -5,7 +5,7 @@ import uuid
 from typing import Any
 
 from app.core.database import get_connection
-from app.domain.workflow import validate_flow_config
+from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.services.security import utc_now_iso
 
 
@@ -123,6 +123,16 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
     config = flow["config"]
     assert isinstance(config, dict)
     validate_flow_config(config)
+    with get_connection() as connection:
+        active_roster_count = connection.execute(
+            """
+            SELECT COUNT(*) AS count FROM flow_roster_entries
+            WHERE flow_id = ? AND status = 'active'
+            """,
+            (flow_id,),
+        ).fetchone()["count"]
+    if active_roster_count == 0:
+        raise FlowValidationError("请先导入学生名单")
     snapshot = canonical_json(config)
     config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
     version_id = str(uuid.uuid4())
@@ -208,7 +218,10 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
         ]
 
         connection.execute(
-            "DELETE FROM audit_logs WHERE entity_type = 'flow' AND entity_id = ?",
+            """
+            DELETE FROM audit_logs
+            WHERE entity_type IN ('flow', 'flow_roster') AND entity_id = ?
+            """,
             (flow_id,),
         )
         for version_id in version_ids:

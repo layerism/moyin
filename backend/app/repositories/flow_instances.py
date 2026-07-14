@@ -9,6 +9,7 @@ from app.domain.workflow_runtime import (
     node_by_key,
     validate_submission,
 )
+from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.workflows import canonical_json, resolve_share_token
 from app.services.security import utc_now_iso
 
@@ -57,6 +58,7 @@ def get_or_create_instance(token: str, student_id: int) -> dict[str, object]:
     assert isinstance(config, dict)
     now = utc_now_iso()
     with get_connection() as connection:
+        assert_student_roster_access(connection, str(shared["flowId"]), student_id)
         row = connection.execute(
             """
             SELECT id FROM flow_instances
@@ -118,6 +120,8 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         ).fetchone()
         if instance is None:
             raise KeyError(instance_id)
+        if student_id is not None:
+            assert_student_roster_access(connection, instance["flow_id"], student_id)
         config = json.loads(instance["config_snapshot"])
         node_rows = connection.execute(
             """
@@ -169,8 +173,14 @@ def list_student_instances(student_id: int) -> list[dict[str, object]]:
             """
             SELECT i.id, i.status, i.last_active_at, f.name
             FROM flow_instances i
+            JOIN student_accounts a ON a.id = i.student_account_id
             JOIN flow_versions v ON v.id = i.flow_version_id
             JOIN flows f ON f.id = v.flow_id
+            JOIN flow_roster_entries r
+              ON r.flow_id = f.id
+             AND r.student_no = a.student_no
+             AND r.name = a.name
+             AND r.status = 'active'
             WHERE i.student_account_id = ?
             ORDER BY i.last_active_at DESC
             """,
@@ -192,15 +202,17 @@ def save_node_draft(node_instance_id: str, student_id: int, payload: dict[str, A
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT n.id, n.status, n.flow_instance_id
+            SELECT n.id, n.status, n.flow_instance_id, v.flow_id
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN flow_versions v ON v.id = i.flow_version_id
             WHERE n.id = ? AND i.student_account_id = ?
             """,
             (node_instance_id, student_id),
         ).fetchone()
         if row is None:
             raise KeyError(node_instance_id)
+        assert_student_roster_access(connection, row["flow_id"], student_id)
         if row["status"] not in {"available", "draft", "rejected"}:
             raise RuntimeConflictError("当前节点不可暂存")
         connection.execute(
@@ -250,15 +262,17 @@ def submit_node(
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT n.*, i.flow_version_id, i.student_account_id
+            SELECT n.*, i.flow_version_id, i.student_account_id, v.flow_id
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN flow_versions v ON v.id = i.flow_version_id
             WHERE n.id = ? AND i.student_account_id = ?
             """,
             (node_instance_id, student_id),
         ).fetchone()
         if row is None:
             raise KeyError(node_instance_id)
+        assert_student_roster_access(connection, row["flow_id"], student_id)
         duplicate = connection.execute(
             "SELECT id FROM submissions WHERE node_instance_id = ? AND idempotency_key = ?",
             (node_instance_id, idempotency_key),
