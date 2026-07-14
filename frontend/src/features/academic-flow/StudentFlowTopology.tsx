@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type WheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AcademicFlowEdge, AcademicFlowNode, AcademicFlowPort } from "../../types";
 import type { RuntimeNodeInstance, RuntimeNodeStatus } from "./runtimeTypes";
@@ -8,7 +8,7 @@ import {
   getStudentEdgeTarget,
   studentNodeSize,
 } from "./studentTopologyGeometry";
-import { getCanvasZoomState } from "./canvasPan";
+import { bindCtrlWheelListener, getCanvasZoomState } from "./canvasPan";
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
   approved: "已通过",
@@ -42,9 +42,8 @@ export function StudentFlowTopology({
   );
   const bounds = getStudentCanvasBounds(nodes);
   const approvedCount = runtimeNodes.filter((runtime) => runtime.status === "approved").length;
-  const zoomCanvas = (event: WheelEvent<HTMLDivElement>) => {
-    if (!event.ctrlKey || !viewportRef.current) return;
-    event.preventDefault();
+  const zoomCanvas = (event: WheelEvent) => {
+    if (!viewportRef.current) return;
     const rect = viewportRef.current.getBoundingClientRect();
     const next = getCanvasZoomState({
       deltaY: event.deltaY,
@@ -58,6 +57,12 @@ export function StudentFlowTopology({
     viewportRef.current.scrollLeft = next.scrollLeft;
     viewportRef.current.scrollTop = next.scrollTop;
   };
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    return bindCtrlWheelListener(viewport, zoomCanvas);
+  }, [zoom]);
 
   return (
     <section className="student-topology-section">
@@ -75,7 +80,7 @@ export function StudentFlowTopology({
         <span className="locked">待开放</span>
         <span className="expired">已截止</span>
       </div>
-      <div className="student-topology-viewport" onWheel={zoomCanvas} ref={viewportRef}>
+      <div className="student-topology-viewport" ref={viewportRef}>
         <div
           className="student-topology-zoom-surface"
           style={{ height: Number(bounds.height) * zoom, width: Number(bounds.width) * zoom }}

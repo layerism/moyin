@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getCanvasPanScroll, getCanvasZoomState } from "../src/features/academic-flow/canvasPan.ts";
+import {
+  bindCtrlWheelListener,
+  getCanvasPanScroll,
+  getCanvasZoomState,
+} from "../src/features/academic-flow/canvasPan.ts";
 
 test("pans the viewport opposite to pointer movement", () => {
   assert.deepEqual(
@@ -49,4 +53,38 @@ test("clamps Ctrl-wheel zoom to the supported range", () => {
     }).zoom,
     1.5,
   );
+});
+
+test("registers Ctrl-wheel zoom as a non-passive native listener", () => {
+  let registeredOptions: AddEventListenerOptions | boolean | undefined;
+  let wheelListener: ((event: WheelEvent) => void) | undefined;
+  let zoomed = false;
+  const target = {
+    addEventListener(
+      type: string,
+      listener: EventListenerOrEventListenerObject,
+      options?: AddEventListenerOptions | boolean,
+    ) {
+      assert.equal(type, "wheel");
+      registeredOptions = options;
+      wheelListener = listener as (event: WheelEvent) => void;
+    },
+    removeEventListener() {},
+  } as unknown as HTMLElement;
+
+  bindCtrlWheelListener(target, () => {
+    zoomed = true;
+  });
+
+  let prevented = false;
+  wheelListener?.({
+    ctrlKey: true,
+    preventDefault: () => {
+      prevented = true;
+    },
+  } as WheelEvent);
+
+  assert.deepEqual(registeredOptions, { passive: false });
+  assert.equal(prevented, true);
+  assert.equal(zoomed, true);
 });
