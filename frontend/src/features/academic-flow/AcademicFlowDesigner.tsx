@@ -25,6 +25,10 @@ import {
   layoutRevisionNodes,
   shouldReloadRevisionAfterConflict,
 } from "./flowRevision";
+import {
+  getInitialRevisionEditing,
+  getPublishButtonState,
+} from "./publishButtonState";
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
@@ -94,7 +98,11 @@ export function AcademicFlowDesigner({
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
   const [saving, setSaving] = useState(false);
-  const designLocked = saving || revisionImpact !== null;
+  const [revisionEditing, setRevisionEditing] = useState(() =>
+    getInitialRevisionEditing(process.published, process.hasUnpublishedChanges),
+  );
+  const operationLocked = saving || revisionImpact !== null;
+  const editorLocked = operationLocked || (process.published && !revisionEditing);
   const processEdges = process.edges ?? [];
   const activeNode =
     process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
@@ -106,9 +114,16 @@ export function AcademicFlowDesigner({
     () => filterPublishedRuntimeNodes(process.nodes, process.publishedNodeIds),
     [process.nodes, process.publishedNodeIds],
   );
+  const publishButtonState = getPublishButtonState({
+    hasUnpublishedChanges: process.hasUnpublishedChanges,
+    operationLocked,
+    published: process.published,
+    revisionEditing,
+    rosterActiveCount,
+  });
 
   const commitDesignChange = (nextProcess: AcademicProcess) => {
-    if (designLocked) return;
+    if (editorLocked) return;
     onProcessChange(
       process.published ? { ...nextProcess, hasUnpublishedChanges: true } : nextProcess,
     );
@@ -136,6 +151,7 @@ export function AcademicFlowDesigner({
     try {
       const nextProcess = await onPublishProcess(process, expectedDraftConfigHash);
       onProcessChange(nextProcess);
+      setRevisionEditing(false);
       setRevisionImpact(null);
       setActionNotice(process.published ? "重新发布成功，学生链接：" : "发布成功，学生链接：");
       setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
@@ -192,12 +208,20 @@ export function AcademicFlowDesigner({
     }
   };
 
+  const handlePublishButtonClick = () => {
+    if (publishButtonState.action === "begin-revision") {
+      setRevisionEditing(true);
+      return;
+    }
+    void preparePublish();
+  };
+
   const addNode = (
     kind: AcademicFlowNodeKind,
     title: string,
     position?: { x: number; y: number },
   ) => {
-    if (designLocked) return;
+    if (editorLocked) return;
     const nextNode = createNode(kind, title, position);
     const nextProcess = { ...process, nodes: [...process.nodes, nextNode] };
     commitDesignChange(nextProcess);
@@ -205,7 +229,7 @@ export function AcademicFlowDesigner({
   };
 
   const updateNode = (nodeId: string, value: Partial<AcademicFlowNode>) => {
-    if (designLocked) return;
+    if (editorLocked) return;
     const nextValue = { ...value };
     if (process.published) {
       delete nextValue.deadlineAt;
@@ -225,7 +249,7 @@ export function AcademicFlowDesigner({
     sourcePort: AcademicFlowPort,
     targetPort: AcademicFlowPort,
   ) => {
-    if (designLocked) return;
+    if (editorLocked) return;
     const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
     if (source === target || exists) {
       return;
@@ -245,7 +269,7 @@ export function AcademicFlowDesigner({
   };
 
   const deleteEdge = (edgeId: string) => {
-    if (designLocked) return;
+    if (editorLocked) return;
     commitDesignChange({
       ...process,
       edges: processEdges.filter((edge) => edge.id !== edgeId),
@@ -253,7 +277,7 @@ export function AcademicFlowDesigner({
   };
 
   const moveNode = (nodeId: string, direction: -1 | 1) => {
-    if (designLocked) return;
+    if (editorLocked) return;
     const currentIndex = process.nodes.findIndex((node) => node.id === nodeId);
     const nextIndex = currentIndex + direction;
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= process.nodes.length) {
@@ -268,7 +292,7 @@ export function AcademicFlowDesigner({
 
   const deleteNode = (nodeId: string) => {
     if (
-      designLocked ||
+      editorLocked ||
       !canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
     ) {
       return;
@@ -283,7 +307,7 @@ export function AcademicFlowDesigner({
   };
 
   const autoLayoutNodes = () => {
-    if (designLocked) return;
+    if (editorLocked) return;
     commitDesignChange({ ...process, nodes: layoutRevisionNodes(process.nodes) });
   };
 
@@ -333,31 +357,18 @@ export function AcademicFlowDesigner({
               <button onClick={() => setShowProgress(true)}>填写进度</button>
             ) : null}
             <button
-              disabled={
-                designLocked ||
-                rosterActiveCount === null ||
-                rosterActiveCount === 0 ||
-                (process.published && !process.hasUnpublishedChanges)
-              }
-              onClick={() => void preparePublish()}
-              title={
-                rosterActiveCount === null
-                  ? "正在读取学生名单"
-                  : rosterActiveCount === 0
-                    ? "请先导入学生名单"
-                    : process.published && !process.hasUnpublishedChanges
-                      ? "当前没有待发布的修订"
-                    : undefined
-              }
+              disabled={publishButtonState.disabled}
+              onClick={handlePublishButtonClick}
+              title={publishButtonState.title}
             >
-              {process.published ? "重新发布" : "发布与分享"}
+              {publishButtonState.label}
             </button>
-            <button disabled={designLocked} onClick={() => void saveProcess()}>
+            <button disabled={editorLocked} onClick={() => void saveProcess()}>
               {process.published ? "保存修订" : "保存草稿"}
             </button>
             <button
               className="primary-action"
-              disabled={designLocked}
+              disabled={editorLocked}
               onClick={() => void saveProcess(true)}
             >
               保存并退出
@@ -376,14 +387,14 @@ export function AcademicFlowDesigner({
         ) : null}
 
         <section className="flow-designer-grid">
-          <ComponentPalette locked={designLocked} onAddNode={addNode} />
+          <ComponentPalette locked={editorLocked} onAddNode={addNode} />
           <FlowNodeCanvas
             activeNodeId={activeNode?.id ?? ""}
             canDeleteNode={(nodeId) =>
               canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
             }
             edges={processEdges}
-            locked={designLocked}
+            locked={editorLocked}
             nodes={process.nodes}
             onAddNode={addNode}
             onAutoLayout={autoLayoutNodes}
@@ -399,7 +410,7 @@ export function AcademicFlowDesigner({
         {inspectorNode && (
           <NodeInspector
             deadlineReadOnly={process.published}
-            editingLocked={designLocked}
+            editingLocked={editorLocked}
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}
             onOpenProgress={() => {

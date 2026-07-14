@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getPublishButtonState } from "../src/features/academic-flow/publishButtonState.ts";
+import {
+  getInitialRevisionEditing,
+  getPublishButtonState,
+} from "../src/features/academic-flow/publishButtonState.ts";
 
 test("new draft uses the submit publish action", () => {
   assert.deepEqual(
@@ -75,4 +78,10 @@ test("publish explains roster and operation locks", () => {
     }).disabled,
     true,
   );
+});
+
+test("published draft changes restore revision editing on load", () => {
+  assert.equal(getInitialRevisionEditing(true, true), true);
+  assert.equal(getInitialRevisionEditing(true, false), false);
+  assert.equal(getInitialRevisionEditing(false, true), false);
 });
