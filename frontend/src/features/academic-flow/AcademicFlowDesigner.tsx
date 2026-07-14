@@ -26,8 +26,8 @@ import {
   shouldReloadRevisionAfterConflict,
 } from "./flowRevision";
 import {
-  getInitialRevisionEditing,
   getPublishButtonState,
+  getRevisionEditing,
 } from "./publishButtonState";
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
@@ -98,8 +98,11 @@ export function AcademicFlowDesigner({
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
   const [saving, setSaving] = useState(false);
-  const [revisionEditing, setRevisionEditing] = useState(() =>
-    getInitialRevisionEditing(process.published, process.hasUnpublishedChanges),
+  const [revisionEditingRequested, setRevisionEditingRequested] = useState(false);
+  const revisionEditing = getRevisionEditing(
+    process.published,
+    process.hasUnpublishedChanges,
+    revisionEditingRequested,
   );
   const operationLocked = saving || revisionImpact !== null;
   const editorLocked = operationLocked || (process.published && !revisionEditing);
@@ -151,7 +154,7 @@ export function AcademicFlowDesigner({
     try {
       const nextProcess = await onPublishProcess(process, expectedDraftConfigHash);
       onProcessChange(nextProcess);
-      setRevisionEditing(false);
+      setRevisionEditingRequested(false);
       setRevisionImpact(null);
       setActionNotice(process.published ? "重新发布成功，学生链接：" : "发布成功，学生链接：");
       setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
@@ -210,7 +213,7 @@ export function AcademicFlowDesigner({
 
   const handlePublishButtonClick = () => {
     if (publishButtonState.action === "begin-revision") {
-      setRevisionEditing(true);
+      setRevisionEditingRequested(true);
       return;
     }
     void preparePublish();

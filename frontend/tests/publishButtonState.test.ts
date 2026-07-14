@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  getInitialRevisionEditing,
   getPublishButtonState,
+  getRevisionEditing,
 } from "../src/features/academic-flow/publishButtonState.ts";
 
 test("new draft uses the submit publish action", () => {
@@ -80,8 +80,9 @@ test("publish explains roster and operation locks", () => {
   );
 });
 
-test("published draft changes restore revision editing on load", () => {
-  assert.equal(getInitialRevisionEditing(true, true), true);
-  assert.equal(getInitialRevisionEditing(true, false), false);
-  assert.equal(getInitialRevisionEditing(false, true), false);
+test("revision editing follows server changes or a local edit request", () => {
+  assert.equal(getRevisionEditing(true, true, false), true);
+  assert.equal(getRevisionEditing(true, false, false), false);
+  assert.equal(getRevisionEditing(true, false, true), true);
+  assert.equal(getRevisionEditing(false, true, true), false);
 });
