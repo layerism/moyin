@@ -2,6 +2,7 @@ import hashlib
 import json
 import secrets
 import uuid
+from collections import deque
 from typing import Any
 
 from app.core.database import get_connection
@@ -10,6 +11,7 @@ from app.domain.workflow_revision import (
     analyze_revision,
     assert_published_nodes_present,
 )
+from app.domain.workflow_runtime import deadline_has_passed, incoming_nodes
 from app.services.security import utc_now_iso
 
 
@@ -149,11 +151,212 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
     return get_flow(flow_id, teacher_id)
 
 
+def _topological_node_keys(config: dict[str, Any]) -> list[str]:
+    node_keys = [node["id"] for node in config["nodes"]]
+    indegree = {node_key: 0 for node_key in node_keys}
+    outgoing = {node_key: [] for node_key in node_keys}
+    for edge in config["edges"]:
+        outgoing[edge["source"]].append(edge["target"])
+        indegree[edge["target"]] += 1
+    pending = deque(node_key for node_key in node_keys if indegree[node_key] == 0)
+    ordered: list[str] = []
+    while pending:
+        node_key = pending.popleft()
+        ordered.append(node_key)
+        for target in outgoing[node_key]:
+            indegree[target] -= 1
+            if indegree[target] == 0:
+                pending.append(target)
+    return ordered
+
+
+def _node_invalidation_before_data(connection: Any, node: Any) -> dict[str, object]:
+    draft = connection.execute(
+        "SELECT * FROM node_drafts WHERE node_instance_id = ?", (node["id"],)
+    ).fetchone()
+    submissions = connection.execute(
+        """
+        SELECT * FROM submissions
+        WHERE node_instance_id = ?
+        ORDER BY attempt_no, id
+        """,
+        (node["id"],),
+    ).fetchall()
+    return {
+        "nodeInstance": {
+            "id": node["id"],
+            "flowInstanceId": node["flow_instance_id"],
+            "nodeKey": node["node_key"],
+            "status": node["status"],
+            "openedAt": node["opened_at"],
+            "submittedAt": node["submitted_at"],
+            "approvedAt": node["approved_at"],
+            "attemptNo": node["attempt_no"],
+        },
+        "draft": (
+            {
+                "nodeInstanceId": draft["node_instance_id"],
+                "payload": json.loads(draft["payload"]),
+                "updatedAt": draft["updated_at"],
+            }
+            if draft is not None
+            else None
+        ),
+        "submissions": [
+            {
+                "id": submission["id"],
+                "nodeInstanceId": submission["node_instance_id"],
+                "attemptNo": submission["attempt_no"],
+                "idempotencyKey": submission["idempotency_key"],
+                "payloadSnapshot": json.loads(submission["payload_snapshot"]),
+                "status": submission["status"],
+                "submittedAt": submission["submitted_at"],
+            }
+            for submission in submissions
+        ],
+    }
+
+
+def _new_version_deadline(connection: Any, version_id: str, node_key: str) -> str | None:
+    row = connection.execute(
+        """
+        SELECT deadline_at FROM flow_node_runtime_configs
+        WHERE flow_version_id = ? AND node_key = ?
+        """,
+        (version_id, node_key),
+    ).fetchone()
+    return row["deadline_at"] if row is not None else None
+
+
+def _migrate_instances(
+    connection: Any,
+    old_version_id: str,
+    new_version_id: str,
+    config: dict[str, Any],
+    impact: dict[str, list[str]],
+    teacher_id: int,
+    now: str,
+) -> int:
+    instances = connection.execute(
+        "SELECT * FROM flow_instances WHERE flow_version_id = ? ORDER BY id",
+        (old_version_id,),
+    ).fetchall()
+    incoming = incoming_nodes(config)
+    ordered_node_keys = _topological_node_keys(config)
+    added = set(impact["addedNodeIds"])
+    invalidated = set(impact["invalidatedNodeIds"])
+    recomputed = added | invalidated
+
+    for instance in instances:
+        node_rows = connection.execute(
+            "SELECT * FROM node_instances WHERE flow_instance_id = ?",
+            (instance["id"],),
+        ).fetchall()
+        existing = {row["node_key"]: row for row in node_rows}
+
+        for node_key in impact["addedNodeIds"]:
+            connection.execute(
+                """
+                INSERT INTO node_instances
+                    (id, flow_instance_id, node_key, status)
+                VALUES (?, ?, ?, 'locked')
+                """,
+                (str(uuid.uuid4()), instance["id"], node_key),
+            )
+
+        for node_key in impact["invalidatedNodeIds"]:
+            node = existing.get(node_key)
+            if node is not None:
+                before_data = _node_invalidation_before_data(connection, node)
+                connection.execute(
+                    """
+                    INSERT INTO audit_logs
+                        (actor_id, action, entity_type, entity_id, before_data, created_at)
+                    VALUES (?, 'node_submission_invalidated', 'node_instance', ?, ?, ?)
+                    """,
+                    (str(teacher_id), node["id"], canonical_json(before_data), now),
+                )
+                connection.execute(
+                    "DELETE FROM submissions WHERE node_instance_id = ?", (node["id"],)
+                )
+                connection.execute(
+                    "DELETE FROM node_drafts WHERE node_instance_id = ?", (node["id"],)
+                )
+                connection.execute(
+                    """
+                    UPDATE node_instances
+                    SET status = 'locked', opened_at = NULL, submitted_at = NULL,
+                        approved_at = NULL, attempt_no = 0
+                    WHERE id = ?
+                    """,
+                    (node["id"],),
+                )
+            connection.execute(
+                """
+                DELETE FROM student_deadline_overrides
+                WHERE flow_instance_id = ? AND node_key = ?
+                """,
+                (instance["id"], node_key),
+            )
+
+        statuses = {
+            row["node_key"]: row["status"]
+            for row in connection.execute(
+                "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
+                (instance["id"],),
+            ).fetchall()
+        }
+        for node_key in ordered_node_keys:
+            if node_key not in recomputed:
+                continue
+            predecessors = incoming[node_key]
+            unlocked = all(statuses[source] == "approved" for source in predecessors)
+            next_status = "available" if unlocked else "locked"
+            if unlocked and deadline_has_passed(
+                _new_version_deadline(connection, new_version_id, node_key)
+            ):
+                next_status = "expired"
+            connection.execute(
+                """
+                UPDATE node_instances SET status = ?, opened_at = ?
+                WHERE flow_instance_id = ? AND node_key = ?
+                """,
+                (
+                    next_status,
+                    now if next_status == "available" else None,
+                    instance["id"],
+                    node_key,
+                ),
+            )
+            statuses[node_key] = next_status
+
+        connection.execute(
+            "UPDATE flow_instances SET flow_version_id = ? WHERE id = ?",
+            (new_version_id, instance["id"]),
+        )
+        if all(status == "approved" for status in statuses.values()):
+            connection.execute(
+                """
+                UPDATE flow_instances
+                SET status = 'completed', completed_at = COALESCE(completed_at, ?)
+                WHERE id = ?
+                """,
+                (now, instance["id"]),
+            )
+        else:
+            connection.execute(
+                """
+                UPDATE flow_instances
+                SET status = 'in_progress', completed_at = NULL
+                WHERE id = ?
+                """,
+                (instance["id"],),
+            )
+    return len(instances)
+
+
 def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
     version_id = str(uuid.uuid4())
-    share_token_id = str(uuid.uuid4())
-    token = secrets.token_urlsafe(32)
-    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     now = utc_now_iso()
 
     with get_connection() as connection:
@@ -201,14 +404,98 @@ def publish_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
                 """,
                 (version_id, node["id"], node.get("deadlineAt"), str(teacher_id), now),
             )
-        connection.execute(
-            """
-            INSERT INTO share_tokens
-                (id, flow_version_id, token_hash, token_value, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (share_token_id, version_id, token_hash, token, str(teacher_id), now),
-        )
+        if published is None:
+            token = secrets.token_urlsafe(32)
+            token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+            connection.execute(
+                """
+                INSERT INTO share_tokens
+                    (id, flow_version_id, token_hash, token_value, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    version_id,
+                    token_hash,
+                    token,
+                    str(teacher_id),
+                    now,
+                ),
+            )
+        else:
+            previous_config = json.loads(published["config_snapshot"])
+            impact = analyze_revision(previous_config, config)
+            migrated_student_count = _migrate_instances(
+                connection,
+                published["id"],
+                version_id,
+                config,
+                impact,
+                teacher_id,
+                now,
+            )
+            active_token = connection.execute(
+                """
+                SELECT token_value FROM share_tokens
+                WHERE flow_version_id = ? AND status = 'active'
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (published["id"],),
+            ).fetchone()
+            if active_token is None or not active_token["token_value"]:
+                raise RuntimeError("已发布流程缺少有效分享令牌")
+            token = active_token["token_value"]
+            retargeted = connection.execute(
+                """
+                UPDATE share_tokens SET flow_version_id = ?
+                WHERE flow_version_id = ? AND status = 'active'
+                """,
+                (version_id, published["id"]),
+            ).rowcount
+            connection.execute(
+                "UPDATE flow_versions SET status = 'disabled' WHERE id = ?",
+                (published["id"],),
+            )
+            connection.execute(
+                """
+                INSERT INTO audit_logs
+                    (actor_id, action, entity_type, entity_id, after_data, created_at)
+                VALUES (?, 'workflow_republish', 'flow', ?, ?, ?)
+                """,
+                (
+                    str(teacher_id),
+                    flow_id,
+                    canonical_json(
+                        {
+                            "oldVersionId": published["id"],
+                            "newVersionId": version_id,
+                            **impact,
+                            "migratedStudentCount": migrated_student_count,
+                        }
+                    ),
+                    now,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO audit_logs
+                    (actor_id, action, entity_type, entity_id, after_data, created_at)
+                VALUES (?, 'share_token_retargeted', 'flow_version', ?, ?, ?)
+                """,
+                (
+                    str(teacher_id),
+                    published["id"],
+                    canonical_json(
+                        {
+                            "oldVersionId": published["id"],
+                            "newVersionId": version_id,
+                            "retargetedTokenCount": retargeted,
+                        }
+                    ),
+                    now,
+                ),
+            )
         connection.execute(
             """
             UPDATE flows SET status = 'published', updated_at = ?
