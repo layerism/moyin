@@ -82,9 +82,7 @@ def test_duplicate_check_uses_trimmed_name_and_allows_other_names(client: TestCl
 def test_archived_legacy_name_does_not_block_visible_flow_creation(client: TestClient) -> None:
     archived = client.post("/api/workflows", json={"name": "历史归档流程"}).json()
     with get_connection() as connection:
-        connection.execute(
-            "UPDATE flows SET status = 'archived' WHERE id = ?", (archived["id"],)
-        )
+        connection.execute("UPDATE flows SET status = 'archived' WHERE id = ?", (archived["id"],))
 
     replacement = client.post("/api/workflows", json={"name": "历史归档流程"})
 
@@ -126,9 +124,7 @@ def test_teacher_can_only_access_owned_flows(client: TestClient) -> None:
         json={"name": "测试教师", "employeeNo": "TW001", "password": "Pass1234"},
     )
     assert login.status_code == 200
-    assert [flow["id"] for flow in client.get("/api/workflows").json()] == [
-        teacher_a_flow["id"]
-    ]
+    assert [flow["id"] for flow in client.get("/api/workflows").json()] == [teacher_a_flow["id"]]
 
 
 def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -> None:
@@ -235,6 +231,18 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
         "predecessorChangedNodeIds": [],
         "invalidatedNodeIds": ["n1", "n2"],
         "affectedStudentCount": 3,
+        "sourceVersionImpacts": [
+            {
+                "versionId": published["flowVersionId"],
+                "versionNo": 1,
+                "status": "published",
+                "addedNodeIds": [],
+                "changedNodeIds": ["n1"],
+                "predecessorChangedNodeIds": [],
+                "invalidatedNodeIds": ["n1", "n2"],
+                "affectedStudentCount": 3,
+            }
+        ],
     }
 
     without_published_node = deepcopy(changed)
@@ -270,6 +278,7 @@ def test_revision_impact_is_empty_for_unpublished_flow(client: TestClient) -> No
         "predecessorChangedNodeIds": [],
         "invalidatedNodeIds": [],
         "affectedStudentCount": 0,
+        "sourceVersionImpacts": [],
     }
 
 
