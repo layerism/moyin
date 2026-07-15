@@ -7,7 +7,7 @@ import type {
   StudentIdentity,
   WorkflowProgress,
 } from "./runtimeTypes";
-import { createPublishRequestPayload } from "./flowRevision";
+import { createFlowConfig, createPublishRequestPayload } from "./flowRevision";
 
 export type ServerFlow = {
   config: { edges: AcademicProcess["edges"]; nodes: AcademicProcess["nodes"] };
@@ -82,16 +82,27 @@ export const workflowApi = {
       body: JSON.stringify({ config: { nodes: process.nodes, edges: process.edges } }),
     });
   },
-  getRevisionImpact(serverId: string) {
+  getRevisionImpact(serverId: string, process: AcademicProcess) {
     return request<RevisionImpact>(
       `/api/workflows/${encodeURIComponent(serverId)}/revision-impact`,
-      { method: "POST" },
+      {
+        method: "POST",
+        body: JSON.stringify({ config: createFlowConfig(process) }),
+      },
     );
   },
-  publish(serverId: string, expectedDraftConfigHash?: string | null) {
+  publish(
+    serverId: string,
+    process: AcademicProcess,
+    expectedDraftConfigHash?: string | null,
+    expectedCurrentVersionId?: string | null,
+  ) {
     return request<PublishedFlow>(`/api/workflows/${encodeURIComponent(serverId)}/publish`, {
       method: "POST",
-      body: JSON.stringify(createPublishRequestPayload(expectedDraftConfigHash)),
+      body: JSON.stringify({
+        config: createFlowConfig(process),
+        ...createPublishRequestPayload(expectedDraftConfigHash, expectedCurrentVersionId),
+      }),
     });
   },
   remove(serverId: string) {

@@ -3,16 +3,12 @@ export type PublishButtonAction = "publish" | "begin-revision" | "republish";
 export type PublishButtonState = {
   action: PublishButtonAction;
   disabled: boolean;
-  label: "提交发布" | "流程修改" | "重新发布";
+  label: "提交发布" | "解锁编辑" | "重新发布";
   title: string | undefined;
 };
 
-export function getRevisionEditing(
-  published: boolean,
-  hasUnpublishedChanges: boolean,
-  revisionEditingRequested: boolean,
-) {
-  return published && (hasUnpublishedChanges || revisionEditingRequested);
+export function getRevisionEditing(published: boolean, revisionEditingRequested: boolean) {
+  return published && revisionEditingRequested;
 }
 
 export function getPublishButtonState(input: {
@@ -26,7 +22,7 @@ export function getPublishButtonState(input: {
     return {
       action: "begin-revision",
       disabled: input.operationLocked,
-      label: "流程修改",
+      label: "解锁编辑",
       title: undefined,
     };
   }

@@ -75,7 +75,6 @@ export function AcademicFlowDesigner({
   onOpenStudent,
   onPublishProcess,
   onProcessChange,
-  onSaveProcess,
   process,
 }: {
   onBack: () => void;
@@ -84,11 +83,12 @@ export function AcademicFlowDesigner({
   onPublishProcess: (
     process: AcademicProcess,
     expectedDraftConfigHash?: string | null,
+    expectedCurrentVersionId?: string | null,
   ) => Promise<AcademicProcess>;
   onProcessChange: (process: AcademicProcess) => void;
-  onSaveProcess: (process: AcademicProcess) => Promise<AcademicProcess>;
   process: AcademicProcess;
 }) {
+  const [workingProcess, setWorkingProcess] = useState(() => structuredClone(process));
   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
@@ -97,40 +97,68 @@ export function AcademicFlowDesigner({
   const [actionNotice, setActionNotice] = useState("");
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
+  const [pendingPublishProcess, setPendingPublishProcess] = useState<AcademicProcess | null>(null);
   const [saving, setSaving] = useState(false);
   const [revisionEditingRequested, setRevisionEditingRequested] = useState(false);
+  const [revisionDirty, setRevisionDirty] = useState(false);
   const revisionEditing = getRevisionEditing(
-    process.published,
-    process.hasUnpublishedChanges,
+    workingProcess.published,
     revisionEditingRequested,
   );
   const operationLocked = saving || revisionImpact !== null;
-  const editorLocked = operationLocked || (process.published && !revisionEditing);
-  const processEdges = process.edges ?? [];
+  const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
+  const processEdges = workingProcess.edges ?? [];
   const activeNode =
-    process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
-  const inspectorNode = process.nodes.find((node) => node.id === inspectorNodeId) ?? null;
-  const serverFlowId = process.serverId ?? process.id;
-  const existingNodeIds = process.nodes.map((node) => node.id);
-  const protectedNodeIds = process.published ? process.publishedNodeIds : [];
+    workingProcess.nodes.find((node) => node.id === activeNodeId) ??
+    workingProcess.nodes[0] ??
+    null;
+  const inspectorNode =
+    workingProcess.nodes.find((node) => node.id === inspectorNodeId) ?? null;
+  const serverFlowId = workingProcess.serverId ?? workingProcess.id;
+  const existingNodeIds = workingProcess.nodes.map((node) => node.id);
+  const protectedNodeIds = workingProcess.published ? workingProcess.publishedNodeIds : [];
   const publishedRuntimeNodes = useMemo(
     () => filterPublishedRuntimeNodes(process.nodes, process.publishedNodeIds),
     [process.nodes, process.publishedNodeIds],
   );
   const publishButtonState = getPublishButtonState({
-    hasUnpublishedChanges: process.hasUnpublishedChanges,
+    hasUnpublishedChanges: revisionDirty,
     operationLocked,
-    published: process.published,
+    published: workingProcess.published,
     revisionEditing,
     rosterActiveCount,
   });
 
   const commitDesignChange = (nextProcess: AcademicProcess) => {
     if (editorLocked) return;
-    onProcessChange(
-      process.published ? { ...nextProcess, hasUnpublishedChanges: true } : nextProcess,
-    );
+    setWorkingProcess({ ...nextProcess, hasUnpublishedChanges: true });
+    setRevisionDirty(true);
   };
+
+  const confirmDiscard = (navigate: () => void) => {
+    if (!revisionDirty || window.confirm("未发布修改将丢失，确认离开吗？")) {
+      navigate();
+    }
+  };
+
+  useEffect(() => {
+    setWorkingProcess(structuredClone(process));
+    setActiveNodeId(process.nodes[0]?.id ?? "");
+    setRevisionEditingRequested(false);
+    setRevisionDirty(false);
+    setRevisionImpact(null);
+    setPendingPublishProcess(null);
+  }, [process.id, process.publishedVersionId]);
+
+  useEffect(() => {
+    if (!revisionDirty) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [revisionDirty]);
 
   useEffect(() => {
     let cancelled = false;
@@ -147,25 +175,37 @@ export function AcademicFlowDesigner({
     };
   }, [serverFlowId]);
 
-  const publishProcess = async (expectedDraftConfigHash?: string | null) => {
+  const publishProcess = async (
+    candidate: AcademicProcess,
+    expectedDraftConfigHash?: string | null,
+    expectedCurrentVersionId?: string | null,
+  ) => {
     setSaving(true);
     setActionNotice("");
     setPublishedShareUrl("");
     try {
-      const nextProcess = await onPublishProcess(process, expectedDraftConfigHash);
+      const nextProcess = await onPublishProcess(
+        candidate,
+        expectedDraftConfigHash,
+        expectedCurrentVersionId,
+      );
       onProcessChange(nextProcess);
+      setWorkingProcess(structuredClone(nextProcess));
       setRevisionEditingRequested(false);
+      setRevisionDirty(false);
       setRevisionImpact(null);
-      setActionNotice(process.published ? "重新发布成功，学生链接：" : "发布成功，学生链接：");
+      setPendingPublishProcess(null);
+      setActionNotice(candidate.published ? "重新发布成功，学生链接：" : "发布成功，学生链接：");
       setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
     } catch (reason) {
       const shouldReloadRevision =
         reason instanceof ApiError
           ? shouldReloadRevisionAfterConflict(reason.status, expectedDraftConfigHash)
           : false;
+      setRevisionImpact(null);
+      setPendingPublishProcess(null);
       if (shouldReloadRevision) {
-        setRevisionImpact(null);
-        setActionNotice("草稿已变化，请重新预览影响");
+        setActionNotice("发布基准已变化，请重新预览影响");
         return;
       }
       setActionNotice(reason instanceof Error ? reason.message : "发布失败");
@@ -174,25 +214,10 @@ export function AcademicFlowDesigner({
     }
   };
 
-  const saveProcess = async (exitAfterSave = false) => {
-    setSaving(true);
-    setActionNotice("");
-    setPublishedShareUrl("");
-    try {
-      const nextProcess = await onSaveProcess(process);
-      onProcessChange(nextProcess);
-      setActionNotice(process.published ? "修订已保存到数据库" : "草稿已保存到数据库");
-      if (exitAfterSave) onBack();
-    } catch (reason) {
-      setActionNotice(reason instanceof Error ? reason.message : "保存失败");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const preparePublish = async () => {
-    if (!process.published) {
-      await publishProcess();
+    const candidate = structuredClone(workingProcess);
+    if (!workingProcess.published) {
+      await publishProcess(candidate);
       return;
     }
 
@@ -200,11 +225,11 @@ export function AcademicFlowDesigner({
     setActionNotice("");
     setPublishedShareUrl("");
     try {
-      const savedProcess = await onSaveProcess(process);
-      onProcessChange(savedProcess);
-      const impact = await workflowApi.getRevisionImpact(savedProcess.serverId ?? savedProcess.id);
+      const impact = await workflowApi.getRevisionImpact(serverFlowId, candidate);
+      setPendingPublishProcess(candidate);
       setRevisionImpact(impact);
     } catch (reason) {
+      setPendingPublishProcess(null);
       setActionNotice(reason instanceof Error ? reason.message : "修订影响读取失败");
     } finally {
       setSaving(false);
@@ -226,7 +251,10 @@ export function AcademicFlowDesigner({
   ) => {
     if (editorLocked) return;
     const nextNode = createNode(kind, title, position);
-    const nextProcess = { ...process, nodes: [...process.nodes, nextNode] };
+    const nextProcess = {
+      ...workingProcess,
+      nodes: [...workingProcess.nodes, nextNode],
+    };
     commitDesignChange(nextProcess);
     setActiveNodeId(nextNode.id);
   };
@@ -234,15 +262,17 @@ export function AcademicFlowDesigner({
   const updateNode = (nodeId: string, value: Partial<AcademicFlowNode>) => {
     if (editorLocked) return;
     const nextValue = { ...value };
-    if (process.published) {
+    if (workingProcess.published) {
       delete nextValue.deadlineAt;
     }
     if (Object.keys(nextValue).length === 0) {
       return;
     }
     commitDesignChange({
-      ...process,
-      nodes: process.nodes.map((node) => (node.id === nodeId ? { ...node, ...nextValue } : node)),
+      ...workingProcess,
+      nodes: workingProcess.nodes.map((node) =>
+        node.id === nodeId ? { ...node, ...nextValue } : node,
+      ),
     });
   };
 
@@ -265,32 +295,32 @@ export function AcademicFlowDesigner({
       targetPort,
     };
     const nextEdges = [...processEdges, nextEdge];
-    if (hasCycle(process.nodes.map((node) => node.id), nextEdges)) {
+    if (hasCycle(workingProcess.nodes.map((node) => node.id), nextEdges)) {
       return;
     }
-    commitDesignChange({ ...process, edges: nextEdges });
+    commitDesignChange({ ...workingProcess, edges: nextEdges });
   };
 
   const deleteEdge = (edgeId: string) => {
     if (editorLocked) return;
     commitDesignChange({
-      ...process,
+      ...workingProcess,
       edges: processEdges.filter((edge) => edge.id !== edgeId),
     });
   };
 
   const moveNode = (nodeId: string, direction: -1 | 1) => {
     if (editorLocked) return;
-    const currentIndex = process.nodes.findIndex((node) => node.id === nodeId);
+    const currentIndex = workingProcess.nodes.findIndex((node) => node.id === nodeId);
     const nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= process.nodes.length) {
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= workingProcess.nodes.length) {
       return;
     }
 
-    const nodes = [...process.nodes];
+    const nodes = [...workingProcess.nodes];
     const [target] = nodes.splice(currentIndex, 1);
     nodes.splice(nextIndex, 0, target);
-    commitDesignChange({ ...process, nodes });
+    commitDesignChange({ ...workingProcess, nodes });
   };
 
   const deleteNode = (nodeId: string) => {
@@ -300,9 +330,9 @@ export function AcademicFlowDesigner({
     ) {
       return;
     }
-    const nodes = process.nodes.filter((node) => node.id !== nodeId);
+    const nodes = workingProcess.nodes.filter((node) => node.id !== nodeId);
     const edges = processEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
-    commitDesignChange({ ...process, edges, nodes });
+    commitDesignChange({ ...workingProcess, edges, nodes });
     setActiveNodeId(nodes[0]?.id ?? "");
     if (inspectorNodeId === nodeId) {
       setInspectorNodeId(null);
@@ -311,70 +341,73 @@ export function AcademicFlowDesigner({
 
   const autoLayoutNodes = () => {
     if (editorLocked) return;
-    commitDesignChange({ ...process, nodes: layoutRevisionNodes(process.nodes) });
+    commitDesignChange({
+      ...workingProcess,
+      nodes: layoutRevisionNodes(workingProcess.nodes),
+    });
   };
 
   return (
     <main className="academic-standalone-page">
-      <AcademicStandaloneHeader onBack={onBack} onHome={onHome} />
+      <AcademicStandaloneHeader
+        onBack={() => confirmDiscard(onBack)}
+        onHome={() => confirmDiscard(onHome)}
+      />
       <section className="academic-workspace-main">
         <header className="academic-topbar">
           <div>
             <div className="drive-breadcrumb academic-breadcrumb">
               <span>首页</span>
               <span>›</span>
-              <button className="breadcrumb-button" onClick={onBack}>
+              <button className="breadcrumb-button" onClick={() => confirmDiscard(onBack)}>
                 教务流程
               </button>
               <span>›</span>
-              <strong>{process.name}</strong>
+              <strong>{workingProcess.name}</strong>
             </div>
             <div className="academic-title-row">
-              <h1>{process.name}</h1>
+              <h1>{workingProcess.name}</h1>
               <span
                 className={
-                  process.published
-                    ? process.hasUnpublishedChanges
+                  workingProcess.published
+                    ? revisionEditing
                       ? "status-pill revision"
                       : "status-pill ok"
                     : "status-pill"
                 }
               >
-                {process.published
-                  ? process.hasUnpublishedChanges
+                {workingProcess.published
+                  ? revisionEditing
                     ? "修订中"
                     : "已发布"
                   : "草稿"}
               </span>
             </div>
-            <p>流程说明：{process.description}</p>
+            <p>流程说明：{workingProcess.description}</p>
           </div>
           <div className="academic-actions">
             <button onClick={() => setShowRoster(true)}>
               学生名单{rosterActiveCount === null ? "" : ` (${rosterActiveCount})`}
             </button>
-            {process.published ? (
-              <button onClick={() => onOpenStudent(process.shareUrl)}>打开学生链接</button>
+            {workingProcess.published ? (
+              <button
+                onClick={() =>
+                  confirmDiscard(() => onOpenStudent(workingProcess.shareUrl))
+                }
+              >
+                打开学生链接
+              </button>
             ) : null}
-            {process.publishedVersionId ? (
+            {workingProcess.publishedVersionId ? (
               <button onClick={() => setShowProgress(true)}>填写进度</button>
             ) : null}
             <button
+              className="primary-action"
               disabled={publishButtonState.disabled}
               onClick={handlePublishButtonClick}
               title={publishButtonState.title}
             >
               {publishButtonState.label}
-            </button>
-            <button disabled={editorLocked} onClick={() => void saveProcess()}>
-              {process.published ? "保存修订" : "保存草稿"}
-            </button>
-            <button
-              className="primary-action"
-              disabled={editorLocked}
-              onClick={() => void saveProcess(true)}
-            >
-              保存并退出
             </button>
           </div>
         </header>
@@ -398,7 +431,7 @@ export function AcademicFlowDesigner({
             }
             edges={processEdges}
             locked={editorLocked}
-            nodes={process.nodes}
+            nodes={workingProcess.nodes}
             onAddNode={addNode}
             onAutoLayout={autoLayoutNodes}
             onConnectNodes={connectNodes}
@@ -412,7 +445,7 @@ export function AcademicFlowDesigner({
         </section>
         {inspectorNode && (
           <NodeInspector
-            deadlineReadOnly={process.published}
+            deadlineReadOnly={workingProcess.published}
             editingLocked={editorLocked}
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}
@@ -423,12 +456,12 @@ export function AcademicFlowDesigner({
             onUpdateNode={updateNode}
           />
         )}
-        {showProgress && process.publishedVersionId ? (
+        {showProgress && workingProcess.publishedVersionId ? (
           <TeacherProgressPanel
             nodes={publishedRuntimeNodes}
             onClose={() => setShowProgress(false)}
             onDeadlineChange={() => undefined}
-            versionId={process.publishedVersionId}
+            versionId={workingProcess.publishedVersionId}
           />
         ) : null}
         {showRoster ? (
@@ -442,8 +475,18 @@ export function AcademicFlowDesigner({
           <RevisionImpactDialog
             confirming={saving}
             impact={revisionImpact}
-            onCancel={() => setRevisionImpact(null)}
-            onConfirm={() => void publishProcess(revisionImpact.draftConfigHash)}
+            onCancel={() => {
+              setRevisionImpact(null);
+              setPendingPublishProcess(null);
+            }}
+            onConfirm={() => {
+              if (!pendingPublishProcess) return;
+              void publishProcess(
+                pendingPublishProcess,
+                revisionImpact.draftConfigHash,
+                revisionImpact.currentVersionId,
+              );
+            }}
           />
         ) : null}
       </section>

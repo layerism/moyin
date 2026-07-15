@@ -4,11 +4,13 @@ import test from "node:test";
 import {
   canEditRevisionNodeDeadline,
   canDeleteRevisionNode,
+  createFlowConfig,
   createPublishRequestPayload,
   filterPublishedRuntimeNodes,
   layoutRevisionNodes,
   shouldReloadRevisionAfterConflict,
 } from "../src/features/academic-flow/flowRevision.ts";
+import type { AcademicProcess } from "../src/types.ts";
 
 test("published nodes cannot be deleted from a revision", () => {
   assert.equal(canDeleteRevisionNode("old", ["old"]), false);
@@ -62,6 +64,18 @@ test("publish payload binds the previewed draft and current version baseline", (
   assert.deepEqual(createPublishRequestPayload(), {
     expectedDraftConfigHash: null,
     expectedCurrentVersionId: null,
+  });
+});
+
+test("preview and publish share the exact process configuration", () => {
+  const process = {
+    edges: [{ id: "edge", source: "one", target: "two" }],
+    nodes: [{ id: "one" }, { id: "two" }],
+  } as unknown as AcademicProcess;
+
+  assert.deepEqual(createFlowConfig(process), {
+    edges: process.edges,
+    nodes: process.nodes,
   });
 });
 

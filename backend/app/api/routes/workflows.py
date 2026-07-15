@@ -34,6 +34,7 @@ class FlowConfigRequest(BaseModel):
 
 
 class PublishFlowRequest(BaseModel):
+    config: dict[str, Any] | None = None
     expectedDraftConfigHash: str | None = None
     expectedCurrentVersionId: str | None = None
 
@@ -99,10 +100,15 @@ def put_draft(
 @router.post("/{flow_id}/revision-impact")
 def revision_impact(
     flow_id: str,
+    payload: FlowConfigRequest | None = None,
     teacher: dict[str, object] = Depends(get_current_teacher),
 ) -> dict[str, object]:
     try:
-        return get_revision_impact(flow_id, int(teacher["id"]))
+        return get_revision_impact(
+            flow_id,
+            int(teacher["id"]),
+            payload.config if payload else None,
+        )
     except KeyError as exc:
         raise not_found() from exc
     except FlowValidationError as exc:
@@ -123,6 +129,7 @@ def publish(
             int(teacher["id"]),
             payload.expectedDraftConfigHash if payload else None,
             payload.expectedCurrentVersionId if payload else None,
+            payload.config if payload else None,
         )
     except KeyError as exc:
         raise not_found() from exc

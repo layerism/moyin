@@ -171,6 +171,10 @@ def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> No
 
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": changed})
 
+    reloaded = client.get(f"/api/workflows/{flow['id']}").json()
+    assert reloaded["config"]["nodes"][0]["title"] == "基本信息"
+    assert reloaded["hasUnpublishedChanges"] is False
+
     registered = client.post(
         "/api/auth/student/register",
         json={"name": "流程学生", "studentNo": "W001", "password": "Pass1234"},
@@ -219,7 +223,7 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
     changed["nodes"][0]["title"] = "修改后的基本信息"
     saved = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": changed})
     assert saved.status_code == 200
-    assert saved.json()["hasUnpublishedChanges"] is True
+    assert saved.json()["hasUnpublishedChanges"] is False
 
     impact = client.post(f"/api/workflows/{flow['id']}/revision-impact")
     assert impact.status_code == 200
@@ -265,6 +269,53 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
         json={"name": "另一位教师", "employeeNo": "TW002", "password": "Pass1234"},
     )
     assert client.post(f"/api/workflows/{flow['id']}/revision-impact").status_code == 404
+
+
+def test_payload_revision_preview_is_stateless_until_confirmed_publish(
+    client: TestClient,
+) -> None:
+    flow = client.post("/api/workflows", json={"name": "本地修订发布"}).json()
+    original = sample_config()
+    client.put(f"/api/workflows/{flow['id']}/draft", json={"config": original})
+    add_roster(client, flow["id"])
+    first = client.post(f"/api/workflows/{flow['id']}/publish").json()
+    changed = deepcopy(original)
+    changed["nodes"][0]["title"] = "仅在浏览器修改"
+
+    preview = client.post(
+        f"/api/workflows/{flow['id']}/revision-impact",
+        json={"config": changed},
+    )
+
+    assert preview.status_code == 200
+    with get_connection() as connection:
+        persisted_before_confirm = json.loads(
+            connection.execute(
+                "SELECT draft_config FROM flows WHERE id = ?", (flow["id"],)
+            ).fetchone()["draft_config"]
+        )
+    assert persisted_before_confirm == original
+
+    published = client.post(
+        f"/api/workflows/{flow['id']}/publish",
+        json={
+            "config": changed,
+            "expectedDraftConfigHash": preview.json()["draftConfigHash"],
+            "expectedCurrentVersionId": first["flowVersionId"],
+        },
+    )
+
+    assert published.status_code == 201
+    with get_connection() as connection:
+        row = connection.execute(
+            "SELECT draft_config FROM flows WHERE id = ?", (flow["id"],)
+        ).fetchone()
+        version_count = connection.execute(
+            "SELECT COUNT(*) AS count FROM flow_versions WHERE flow_id = ?",
+            (flow["id"],),
+        ).fetchone()["count"]
+    assert json.loads(row["draft_config"]) == changed
+    assert version_count == 2
 
 
 def test_revision_impact_is_empty_for_unpublished_flow(client: TestClient) -> None:
