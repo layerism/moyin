@@ -129,9 +129,16 @@ export function StudentRuntimePage({
   return (
     <main className="student-runtime-page">
       <header className="student-runtime-header">
-        <div>
+        <div className="runtime-flow-summary">
           <span className="oa-brand-mark">OA</span>
-          <strong>{instance.name}</strong>
+          <div>
+            <small>流程说明</small>
+            <strong>{instance.name}</strong>
+            <p>{instance.description}</p>
+          </div>
+          <strong className={`runtime-overall-status ${instance.status}`}>
+            {instance.status === "completed" ? "全部完成" : "填写中"}
+          </strong>
         </div>
         <div className="runtime-student-identity">
           <span>{instance.student.name}</span>
@@ -139,19 +146,11 @@ export function StudentRuntimePage({
           <button onClick={onHome}>返回首页</button>
         </div>
       </header>
-      <section className="student-runtime-intro">
-        <div>
-          <p>流程说明</p>
-          <h1>{instance.name}</h1>
-          <span>{instance.description}</span>
-        </div>
-        <strong className={`runtime-overall-status ${instance.status}`}>
-          {instance.status === "completed" ? "全部完成" : "填写中"}
-        </strong>
-      </section>
-      <section className="runtime-notice" aria-live="polite">
-        {notice}
-      </section>
+      {notice ? (
+        <section className="runtime-notice" aria-live="polite">
+          {notice}
+        </section>
+      ) : null}
       <StudentFlowTopology
         edges={instance.config.edges}
         nodes={instance.config.nodes}

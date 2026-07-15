@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import type { AcademicFlowEdge, AcademicFlowNode, AcademicFlowPort } from "../../types";
 import type { RuntimeNodeInstance, RuntimeNodeStatus } from "./runtimeTypes";
@@ -8,7 +8,13 @@ import {
   getStudentEdgeTarget,
   studentNodeSize,
 } from "./studentTopologyGeometry";
-import { bindCtrlWheelListener, getCanvasZoomState } from "./canvasPan";
+import {
+  bindCtrlWheelListener,
+  getCanvasPanOffset,
+  getCanvasViewportZoomState,
+  shouldStartCanvasPan,
+  type CanvasPanStart,
+} from "./canvasPan";
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
   approved: "已通过",
@@ -36,6 +42,8 @@ export function StudentFlowTopology({
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
+  const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
   const runtimeByKey = useMemo(
     () => new Map(runtimeNodes.map((runtime) => [runtime.nodeKey, runtime])),
     [runtimeNodes],
@@ -45,24 +53,48 @@ export function StudentFlowTopology({
   const zoomCanvas = (event: WheelEvent) => {
     if (!viewportRef.current) return;
     const rect = viewportRef.current.getBoundingClientRect();
-    const next = getCanvasZoomState({
+    const next = getCanvasViewportZoomState({
       deltaY: event.deltaY,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-      scrollLeft: viewportRef.current.scrollLeft,
-      scrollTop: viewportRef.current.scrollTop,
+      offsetX: viewportOffset.x,
+      offsetY: viewportOffset.y,
+      pointerX: event.clientX - rect.left,
+      pointerY: event.clientY - rect.top,
       zoom,
     });
     setZoom(next.zoom);
-    viewportRef.current.scrollLeft = next.scrollLeft;
-    viewportRef.current.scrollTop = next.scrollTop;
+    setViewportOffset({ x: next.offsetX, y: next.offsetY });
   };
 
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
     return bindCtrlWheelListener(viewport, zoomCanvas);
-  }, [zoom]);
+  }, [viewportOffset, zoom]);
+
+  const startCanvasPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!shouldStartCanvasPan({ button: event.button })) return;
+    event.preventDefault();
+    setPanStart({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      offsetX: viewportOffset.x,
+      offsetY: viewportOffset.y,
+    });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveCanvas = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!panStart) return;
+    setViewportOffset(getCanvasPanOffset(panStart, event));
+  };
+
+  const endCanvasPan = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!panStart) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setPanStart(null);
+  };
 
   return (
     <section className="student-topology-section">
@@ -80,10 +112,26 @@ export function StudentFlowTopology({
         <span className="locked">待开放</span>
         <span className="expired">已截止</span>
       </div>
-      <div className="student-topology-viewport" ref={viewportRef}>
+      <div
+        className={`student-topology-viewport ${panStart ? "is-panning" : ""}`}
+        onContextMenu={(event) => event.preventDefault()}
+        onPointerCancel={endCanvasPan}
+        onPointerDown={startCanvasPan}
+        onPointerMove={moveCanvas}
+        onPointerUp={endCanvasPan}
+        ref={viewportRef}
+        style={{
+          backgroundPosition: `${viewportOffset.x}px ${viewportOffset.y}px`,
+          backgroundSize: `${16 * zoom}px ${16 * zoom}px`,
+        }}
+      >
         <div
           className="student-topology-zoom-surface"
-          style={{ height: Number(bounds.height) * zoom, width: Number(bounds.width) * zoom }}
+          style={{
+            height: Number(bounds.height) * zoom,
+            transform: `translate(${viewportOffset.x}px, ${viewportOffset.y}px)`,
+            width: Number(bounds.width) * zoom,
+          }}
         >
           <div
             className="student-topology-canvas student-topology-zoom-content"
