@@ -349,7 +349,6 @@ def test_added_node_is_created_and_rewired_successor_is_reset(client: TestClient
     context = _completed_flow(client)
     original = context["instance"]
     changed = deepcopy(BASE_CONFIG)
-    changed["edges"].remove(next(edge for edge in changed["edges"] if edge["id"] == "left-join"))
     changed["edges"].extend(
         [
             {"id": "left-review", "source": "left", "target": "review"},
@@ -978,7 +977,6 @@ def test_get_instance_uses_one_snapshot_when_republish_commits_between_selects(
     instance_id = context["instance"]["id"]  # type: ignore[index]
     old_version_id = context["published"]["flowVersionId"]  # type: ignore[index]
     changed = deepcopy(BASE_CONFIG)
-    changed["edges"].remove(next(edge for edge in changed["edges"] if edge["id"] == "left-join"))
     changed["edges"].extend(
         [
             {"id": "left-review", "source": "left", "target": "review"},
