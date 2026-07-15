@@ -1785,13 +1785,13 @@ button {
   pointer-events: stroke;
 }
 
-.flow-edge-group:hover .flow-edge-line,
+.flow-edge-group.deletable:hover .flow-edge-line,
 .flow-edge-group.selected .flow-edge-line {
   stroke: #ef4444;
   stroke-width: 3;
 }
 
-.flow-edge-group:hover .flow-edge-arrow {
+.flow-edge-group.deletable:hover .flow-edge-arrow {
   fill: #ef4444;
 }
 
@@ -1874,10 +1874,22 @@ button {
   border-radius: 8px;
   background: #ffffff;
   color: #172033;
-  cursor: move;
+  cursor: default;
   text-align: left;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   user-select: none;
+}
+
+.flow-node.movable {
+  cursor: move;
+}
+
+.dag-canvas.pan-tool-active .flow-node {
+  cursor: grab;
+}
+
+.dag-canvas.pan-tool-active.is-panning .flow-node {
+  cursor: grabbing;
 }
 
 .flow-node.selected {
