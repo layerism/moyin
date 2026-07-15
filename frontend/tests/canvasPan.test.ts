@@ -3,28 +3,43 @@ import test from "node:test";
 
 import {
   bindCtrlWheelListener,
-  getCanvasPanScroll,
+  getCanvasPanOffset,
+  getCanvasViewportZoomState,
   getCanvasZoomState,
   shouldStartCanvasPan,
 } from "../src/features/academic-flow/canvasPan.ts";
 
-test("pans the viewport opposite to pointer movement", () => {
+test("moves the viewport without clamping its offset", () => {
   assert.deepEqual(
-    getCanvasPanScroll(
-      { clientX: 120, clientY: 80, scrollLeft: 300, scrollTop: 200 },
+    getCanvasPanOffset(
+      { clientX: 120, clientY: 80, offsetX: 300, offsetY: 200 },
       { clientX: 90, clientY: 130 },
     ),
-    { left: 330, top: 150 },
+    { x: 270, y: 250 },
   );
 });
 
-test("clamps canvas scroll offsets at zero", () => {
+test("allows the viewport to move beyond its original boundary", () => {
   assert.deepEqual(
-    getCanvasPanScroll(
-      { clientX: 10, clientY: 10, scrollLeft: 4, scrollTop: 6 },
+    getCanvasPanOffset(
+      { clientX: 10, clientY: 10, offsetX: 4, offsetY: 6 },
       { clientX: 30, clientY: 40 },
     ),
-    { left: 0, top: 0 },
+    { x: 24, y: 36 },
+  );
+});
+
+test("viewport zoom preserves the pointer anchor", () => {
+  assert.deepEqual(
+    getCanvasViewportZoomState({
+      deltaY: -120,
+      offsetX: 40,
+      offsetY: 20,
+      pointerX: 240,
+      pointerY: 120,
+      zoom: 1,
+    }),
+    { offsetX: 36, offsetY: 18, zoom: 1.02 },
   );
 });
 

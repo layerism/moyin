@@ -1,8 +1,17 @@
 export type CanvasPanStart = {
   clientX: number;
   clientY: number;
-  scrollLeft: number;
-  scrollTop: number;
+  offsetX: number;
+  offsetY: number;
+};
+
+export type CanvasViewportZoomInput = {
+  deltaY: number;
+  offsetX: number;
+  offsetY: number;
+  pointerX: number;
+  pointerY: number;
+  zoom: number;
 };
 
 export type CanvasZoomInput = {
@@ -40,21 +49,29 @@ export function bindCtrlWheelListener(
   return () => target.removeEventListener("wheel", handleWheel);
 }
 
-export function getCanvasPanScroll(
+export function getCanvasPanOffset(
   start: CanvasPanStart,
   current: { clientX: number; clientY: number },
 ) {
   return {
-    left: Math.max(0, start.scrollLeft - (current.clientX - start.clientX)),
-    top: Math.max(0, start.scrollTop - (current.clientY - start.clientY)),
+    x: start.offsetX + current.clientX - start.clientX,
+    y: start.offsetY + current.clientY - start.clientY,
+  };
+}
+
+export function getCanvasViewportZoomState(input: CanvasViewportZoomInput) {
+  const zoom = nextZoom(input.zoom, input.deltaY);
+  const worldX = (input.pointerX - input.offsetX) / input.zoom;
+  const worldY = (input.pointerY - input.offsetY) / input.zoom;
+  return {
+    offsetX: input.pointerX - worldX * zoom,
+    offsetY: input.pointerY - worldY * zoom,
+    zoom,
   };
 }
 
 export function getCanvasZoomState(input: CanvasZoomInput) {
-  const zoom = Math.min(
-    maximumZoom,
-    Math.max(minimumZoom, input.zoom + (input.deltaY < 0 ? zoomStep : -zoomStep)),
-  );
+  const zoom = nextZoom(input.zoom, input.deltaY);
   const ratio = zoom / input.zoom;
 
   return {
@@ -62,4 +79,11 @@ export function getCanvasZoomState(input: CanvasZoomInput) {
     scrollTop: Math.max(0, (input.scrollTop + input.offsetY) * ratio - input.offsetY),
     zoom,
   };
+}
+
+function nextZoom(zoom: number, deltaY: number) {
+  return Math.min(
+    maximumZoom,
+    Math.max(minimumZoom, zoom + (deltaY < 0 ? zoomStep : -zoomStep)),
+  );
 }

@@ -14,8 +14,8 @@ import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowDa
 import { ApiError, workflowApi } from "./api";
 import {
   bindCtrlWheelListener,
-  getCanvasPanScroll,
-  getCanvasZoomState,
+  getCanvasPanOffset,
+  getCanvasViewportZoomState,
   shouldStartCanvasPan,
   type CanvasPanStart,
 } from "./canvasPan";
@@ -701,6 +701,7 @@ function FlowNodeCanvas({
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const canvasSurfaceRef = useRef<HTMLDivElement | null>(null);
   const connectingFromRef = useRef<ConnectionDraft | null>(null);
   const [connectingFrom, setConnectingFrom] = useState<ConnectionDraft | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<{
@@ -713,6 +714,7 @@ function FlowNodeCanvas({
   const [connectionPreviewTargetId, setConnectionPreviewTargetId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
+  const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [draggingNode, setDraggingNode] = useState<{
     id: string;
@@ -778,37 +780,36 @@ function FlowNodeCanvas({
   }, [canDeleteEdge, locked, onDeleteEdge, selectedEdgeId]);
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
+    const rect = canvasSurfaceRef.current?.getBoundingClientRect();
     if (!rect) {
       return { x: 0, y: 0 };
     }
     return {
-      x: (clientX - rect.left + (canvasRef.current?.scrollLeft ?? 0)) / zoom,
-      y: (clientY - rect.top + (canvasRef.current?.scrollTop ?? 0)) / zoom,
+      x: (clientX - rect.left) / zoom,
+      y: (clientY - rect.top) / zoom,
     };
   };
 
   const zoomCanvas = (event: WheelEvent) => {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const next = getCanvasZoomState({
+    if (!canvasSurfaceRef.current) return;
+    const surfaceRect = canvasSurfaceRef.current.getBoundingClientRect();
+    const next = getCanvasViewportZoomState({
       deltaY: event.deltaY,
-      offsetX: event.clientX - rect.left,
-      offsetY: event.clientY - rect.top,
-      scrollLeft: canvasRef.current.scrollLeft,
-      scrollTop: canvasRef.current.scrollTop,
+      offsetX: viewportOffset.x,
+      offsetY: viewportOffset.y,
+      pointerX: event.clientX - (surfaceRect.left - viewportOffset.x),
+      pointerY: event.clientY - (surfaceRect.top - viewportOffset.y),
       zoom,
     });
     setZoom(next.zoom);
-    canvasRef.current.scrollLeft = next.scrollLeft;
-    canvasRef.current.scrollTop = next.scrollTop;
+    setViewportOffset({ x: next.offsetX, y: next.offsetY });
   };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     return bindCtrlWheelListener(canvas, zoomCanvas);
-  }, [zoom]);
+  }, [viewportOffset, zoom]);
 
   const findMagnetTarget = (point: { x: number; y: number }, sourceNodeId: string) => {
     const magnetPadding = 36;
@@ -996,17 +997,15 @@ function FlowNodeCanvas({
     setPanStart({
       clientX: event.clientX,
       clientY: event.clientY,
-      scrollLeft: canvasRef.current.scrollLeft,
-      scrollTop: canvasRef.current.scrollTop,
+      offsetX: viewportOffset.x,
+      offsetY: viewportOffset.y,
     });
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const moveCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
-    if (panStart && canvasRef.current) {
-      const nextScroll = getCanvasPanScroll(panStart, event);
-      canvasRef.current.scrollLeft = nextScroll.left;
-      canvasRef.current.scrollTop = nextScroll.top;
+    if (panStart) {
+      setViewportOffset(getCanvasPanOffset(panStart, event));
       return;
     }
     updateConnectionPreview(event.clientX, event.clientY);
@@ -1085,8 +1084,20 @@ function FlowNodeCanvas({
           }
         }}
         ref={canvasRef}
+        style={{
+          backgroundPosition: `${viewportOffset.x}px ${viewportOffset.y}px`,
+          backgroundSize: `${16 * zoom}px ${16 * zoom}px`,
+        }}
       >
-        <div className="canvas-zoom-surface" style={{ height: 1000 * zoom, width: 1200 * zoom }}>
+        <div
+          className="canvas-zoom-surface"
+          ref={canvasSurfaceRef}
+          style={{
+            height: 1000 * zoom,
+            transform: `translate(${viewportOffset.x}px, ${viewportOffset.y}px)`,
+            width: 1200 * zoom,
+          }}
+        >
           <div className="canvas-zoom-content" style={{ transform: `scale(${zoom})` }}>
             <svg className="flow-edge-layer">
           {edgeLines.map((edge) => {

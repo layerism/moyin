@@ -1731,7 +1731,7 @@ button {
   min-width: 100%;
   min-height: 780px;
   position: relative;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .canvas-zoom-surface,
