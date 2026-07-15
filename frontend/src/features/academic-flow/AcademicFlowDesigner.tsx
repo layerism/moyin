@@ -24,6 +24,7 @@ import {
   canDeleteRevisionNode,
   filterPublishedRuntimeNodes,
   layoutRevisionNodes,
+  preservePublishedEdges,
   shouldReloadRevisionAfterConflict,
 } from "./flowRevision";
 import {
@@ -140,7 +141,13 @@ export function AcademicFlowDesigner({
 
   const commitDesignChange = (nextProcess: AcademicProcess) => {
     if (editorLocked) return;
-    setWorkingProcess({ ...nextProcess, hasUnpublishedChanges: true });
+    setWorkingProcess({
+      ...nextProcess,
+      edges: process.published
+        ? preservePublishedEdges(nextProcess.edges, process.edges)
+        : nextProcess.edges,
+      hasUnpublishedChanges: true,
+    });
     setRevisionDirty(true);
   };
 
@@ -160,6 +167,14 @@ export function AcademicFlowDesigner({
     setRevisionImpact(null);
     setPendingPublishProcess(null);
   }, [process.id, process.publishedVersionId]);
+
+  useEffect(() => {
+    if (!process.published) return;
+    setWorkingProcess((current) => {
+      const edges = preservePublishedEdges(current.edges, process.edges);
+      return edges === current.edges ? current : { ...current, edges };
+    });
+  }, [process.edges, process.published, process.publishedVersionId]);
 
   useEffect(() => {
     if (!revisionDirty) return;

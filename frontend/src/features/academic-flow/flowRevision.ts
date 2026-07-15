@@ -1,4 +1,4 @@
-import type { AcademicProcess } from "../../types";
+import type { AcademicFlowEdge, AcademicProcess } from "../../types";
 
 type IdentifiedNode = { id: string };
 type PositionedNode = IdentifiedNode & { x: number; y: number };
@@ -38,6 +38,28 @@ export function canDeleteRevisionEdge(
   publishedEdgeIds: readonly string[],
 ) {
   return !publishedEdgeIds.includes(edgeId);
+}
+
+export function preservePublishedEdges(
+  currentEdges: AcademicFlowEdge[],
+  publishedEdges: readonly AcademicFlowEdge[],
+) {
+  const currentById = new Map(currentEdges.map((edge) => [edge.id, edge]));
+  const publishedIds = new Set(publishedEdges.map((edge) => edge.id));
+  const publishedEdgesUnchanged = publishedEdges.every((publishedEdge) => {
+    const currentEdge = currentById.get(publishedEdge.id);
+    return (
+      currentEdge?.source === publishedEdge.source &&
+      currentEdge.target === publishedEdge.target &&
+      currentEdge.sourcePort === publishedEdge.sourcePort &&
+      currentEdge.targetPort === publishedEdge.targetPort
+    );
+  });
+  if (publishedEdgesUnchanged) return currentEdges;
+  return [
+    ...publishedEdges,
+    ...currentEdges.filter((edge) => !publishedIds.has(edge.id)),
+  ];
 }
 
 export function canEditRevisionNodeDeadline(

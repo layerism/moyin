@@ -9,6 +9,7 @@ import {
   createPublishRequestPayload,
   filterPublishedRuntimeNodes,
   layoutRevisionNodes,
+  preservePublishedEdges,
   shouldReloadRevisionAfterConflict,
 } from "../src/features/academic-flow/flowRevision.ts";
 import type { AcademicProcess } from "../src/types.ts";
@@ -24,6 +25,16 @@ test("new unpublished nodes can be deleted", () => {
 test("only edges added in the current revision can be deleted", () => {
   assert.equal(canDeleteRevisionEdge("published-edge", ["published-edge"]), false);
   assert.equal(canDeleteRevisionEdge("new-edge", ["published-edge"]), true);
+});
+
+test("missing published edges are restored while revision edges are retained", () => {
+  const published = [{ id: "old", source: "a", target: "b" }];
+  const revision = [{ id: "new", source: "b", target: "c" }];
+
+  assert.deepEqual(preservePublishedEdges(revision, published), [
+    published[0],
+    revision[0],
+  ]);
 });
 
 test("missing published metadata fails closed for existing nodes", () => {
