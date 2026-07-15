@@ -746,6 +746,12 @@ function FlowNodeCanvas({
   const selectedEdge = edgeLines.find((edge) => edge.id === selectedEdgeId) ?? null;
 
   useEffect(() => {
+    if (selectedEdgeId && !canDeleteEdge(selectedEdgeId)) {
+      setSelectedEdgeId(null);
+    }
+  }, [canDeleteEdge, selectedEdgeId]);
+
+  useEffect(() => {
     const deleteSelectedEdge = (event: KeyboardEvent) => {
       if (
         locked ||
@@ -1100,7 +1106,7 @@ function FlowNodeCanvas({
                   className="flow-edge-arrow"
                   points={createArrowPolygon(edge.targetX, edge.targetY, edge.targetPort)}
                 />
-                {!locked ? (
+                {!locked && canDeleteEdge(edge.id) ? (
                   <path
                     aria-label="选择连接线"
                     className="flow-edge-hitbox"
