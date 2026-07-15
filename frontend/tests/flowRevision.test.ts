@@ -5,6 +5,7 @@ import {
   canDeleteRevisionEdge,
   canEditRevisionNodeDeadline,
   canDeleteRevisionNode,
+  canMoveRevisionNode,
   createFlowConfig,
   createPublishRequestPayload,
   filterPublishedRuntimeNodes,
@@ -20,6 +21,14 @@ test("published nodes cannot be deleted from a revision", () => {
 
 test("new unpublished nodes can be deleted", () => {
   assert.equal(canDeleteRevisionNode("new", ["old"]), true);
+});
+
+test("only nodes added in the current revision can be moved", () => {
+  const currentNodes = ["published", "new"];
+
+  assert.equal(canMoveRevisionNode("published", ["published"], currentNodes), false);
+  assert.equal(canMoveRevisionNode("new", ["published"], currentNodes), true);
+  assert.equal(canMoveRevisionNode("new", undefined, currentNodes), false);
 });
 
 test("only edges added in the current revision can be deleted", () => {
