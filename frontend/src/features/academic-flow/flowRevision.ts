@@ -33,6 +33,13 @@ export function canDeleteRevisionNode(
   return !(publishedNodeIds ?? existingNodeIds).includes(nodeId);
 }
 
+export function canDeleteRevisionEdge(
+  edgeId: string,
+  publishedEdgeIds: readonly string[],
+) {
+  return !publishedEdgeIds.includes(edgeId);
+}
+
 export function canEditRevisionNodeDeadline(
   nodeId: string,
   publishedNodeIds: readonly string[] | undefined,

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 from app.domain.workflow import FlowValidationError, validate_flow_config
-from app.domain.workflow_revision import PublishedNodeDeletionError
+from app.domain.workflow_revision import PublishedEdgeDeletionError, PublishedNodeDeletionError
 from app.repositories.workflows import (
     ArchivedFlowError,
     DraftRevisionConflictError,
@@ -95,6 +95,8 @@ def put_draft(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PublishedNodeDeletionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PublishedEdgeDeletionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/{flow_id}/revision-impact")
@@ -114,6 +116,8 @@ def revision_impact(
     except FlowValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except PublishedNodeDeletionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PublishedEdgeDeletionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
@@ -138,6 +142,8 @@ def publish(
     except ArchivedFlowError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PublishedNodeDeletionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except PublishedEdgeDeletionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except DraftRevisionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

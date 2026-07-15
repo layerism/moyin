@@ -9,6 +9,7 @@ from app.core.database import get_connection
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     analyze_revision,
+    assert_edge_keys_present,
     assert_node_ids_present,
 )
 from app.domain.workflow_runtime import deadline_has_passed, incoming_nodes
@@ -210,10 +211,30 @@ def _historical_node_ids(connection: Any, flow_id: str) -> list[str]:
     return ordered
 
 
-def _assert_no_published_node_deletions(
+def _historical_edges(connection: Any, flow_id: str) -> list[dict[str, str]]:
+    rows = connection.execute(
+        """
+        SELECT config_snapshot FROM flow_versions
+        WHERE flow_id = ? ORDER BY version_no
+        """,
+        (flow_id,),
+    ).fetchall()
+    seen: set[tuple[str, str]] = set()
+    ordered = []
+    for row in rows:
+        for edge in json.loads(row["config_snapshot"]).get("edges", []):
+            edge_key = (edge["source"], edge["target"])
+            if edge_key not in seen:
+                seen.add(edge_key)
+                ordered.append({"source": edge["source"], "target": edge["target"]})
+    return ordered
+
+
+def _assert_no_published_structure_deletions(
     connection: Any, flow_id: str, config: dict[str, Any]
 ) -> None:
     assert_node_ids_present(_historical_node_ids(connection, flow_id), config)
+    assert_edge_keys_present(_historical_edges(connection, flow_id), config)
 
 
 def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:
@@ -306,7 +327,7 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
-        _assert_no_published_node_deletions(connection, flow_id, config)
+        _assert_no_published_structure_deletions(connection, flow_id, config)
         cursor = connection.execute(
             """
             UPDATE flows SET draft_config = ?, updated_at = ?
@@ -761,7 +782,7 @@ def publish_flow(
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         if baseline is not None and expected_draft_config_hash is None:
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
-        _assert_no_published_node_deletions(connection, flow_id, config)
+        _assert_no_published_structure_deletions(connection, flow_id, config)
         validate_flow_config(config)
         plan = _build_migration_plan(
             connection,
@@ -925,7 +946,7 @@ def get_revision_impact(
             if supplied_config is not None
             else json.loads(flow["draft_config"])
         )
-        _assert_no_published_node_deletions(connection, flow_id, config)
+        _assert_no_published_structure_deletions(connection, flow_id, config)
         validate_flow_config(config)
         published = _latest_published_version(connection, flow_id, teacher_id)
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)

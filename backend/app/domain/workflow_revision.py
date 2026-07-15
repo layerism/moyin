@@ -6,6 +6,10 @@ class PublishedNodeDeletionError(ValueError):
     pass
 
 
+class PublishedEdgeDeletionError(ValueError):
+    pass
+
+
 BUSINESS_NODE_FIELDS = (
     "kind",
     "title",
@@ -84,6 +88,10 @@ def assert_published_nodes_present(previous: dict, current: dict) -> None:
     assert_node_ids_present((node["id"] for node in previous["nodes"]), current)
 
 
+def assert_published_edges_present(previous: dict, current: dict) -> None:
+    assert_edge_keys_present(previous.get("edges", []), current)
+
+
 def assert_node_ids_present(required_node_ids: Iterable[str], current: dict) -> None:
     nodes = current.get("nodes")
     current_node_ids = (
@@ -94,3 +102,21 @@ def assert_node_ids_present(required_node_ids: Iterable[str], current: dict) -> 
     for node_id in required_node_ids:
         if node_id not in current_node_ids:
             raise PublishedNodeDeletionError(f"已发布节点不可删除：{node_id}")
+
+
+def assert_edge_keys_present(required_edges: Iterable[dict], current: dict) -> None:
+    edges = current.get("edges")
+    current_edge_keys = (
+        {
+            (edge.get("source"), edge.get("target"))
+            for edge in edges
+            if isinstance(edge, dict)
+        }
+        if isinstance(edges, list)
+        else set()
+    )
+    for edge in required_edges:
+        edge_key = (edge.get("source"), edge.get("target"))
+        if edge_key not in current_edge_keys:
+            source, target = edge_key
+            raise PublishedEdgeDeletionError(f"已发布连线不可删除：{source} → {target}")
