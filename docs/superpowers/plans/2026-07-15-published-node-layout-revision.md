@@ -34,7 +34,10 @@
 
 ```ts
 test("published and new nodes can both move during an unlocked revision", () => {
-  assert.equal(canMoveRevisionNode(), true);
+  const currentNodes = ["published", "new"];
+
+  assert.equal(canMoveRevisionNode("published", ["published"], currentNodes), true);
+  assert.equal(canMoveRevisionNode("new", ["published"], currentNodes), true);
 });
 ```
 
@@ -49,7 +52,7 @@ cd frontend
 node --experimental-strip-types --test tests/flowRevision.test.ts
 ```
 
-Expected: FAIL because the current `canMoveRevisionNode` requires node metadata and returns `false` for published nodes.
+Expected: FAIL because the current `canMoveRevisionNode` returns `false` for the explicit published node.
 
 - [ ] **Step 3: Implement the minimal frontend movement policy**
 
