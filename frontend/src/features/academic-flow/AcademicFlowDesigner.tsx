@@ -291,10 +291,6 @@ export function AcademicFlowDesigner({
     const nextValue = { ...value };
     if (workingProcess.published) {
       delete nextValue.deadlineAt;
-      if (!canMoveRevisionNode(nodeId, protectedNodeIds, existingNodeIds)) {
-        delete nextValue.x;
-        delete nextValue.y;
-      }
     }
     if (Object.keys(nextValue).length === 0) {
       return;
@@ -466,9 +462,7 @@ export function AcademicFlowDesigner({
             canDeleteNode={(nodeId) =>
               canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
             }
-            canMoveNode={(nodeId) =>
-              canMoveRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
-            }
+            canMoveNode={() => canMoveRevisionNode()}
             edges={processEdges}
             locked={editorLocked}
             nodeMovementLocked={workingProcess.published}
