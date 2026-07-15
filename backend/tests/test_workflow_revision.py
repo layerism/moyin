@@ -5,10 +5,8 @@ import pytest
 from app.domain.workflow_revision import (
     PublishedEdgeDeletionError,
     PublishedNodeDeletionError,
-    PublishedNodeMovementError,
     analyze_revision,
     assert_published_edges_present,
-    assert_published_node_positions_unchanged,
     assert_published_nodes_present,
 )
 
@@ -105,9 +103,8 @@ def test_published_edge_deletion_is_rejected():
         assert_published_edges_present(BASE_CONFIG, current)
 
 
-def test_published_node_movement_is_rejected():
+def test_published_node_movement_is_layout_only():
     current = deepcopy(BASE_CONFIG)
-    current["nodes"][0]["x"] = 640
+    current["nodes"][0].update({"x": 640, "y": 320})
 
-    with pytest.raises(PublishedNodeMovementError, match="已发布节点不可移动"):
-        assert_published_node_positions_unchanged(BASE_CONFIG, current)
+    assert analyze_revision(BASE_CONFIG, current)["invalidatedNodeIds"] == []

@@ -11,7 +11,6 @@ from app.domain.workflow_revision import (
     analyze_revision,
     assert_edge_keys_present,
     assert_node_ids_present,
-    assert_published_node_positions_unchanged,
 )
 from app.domain.workflow_runtime import deadline_has_passed, incoming_nodes
 from app.services.security import utc_now_iso
@@ -248,9 +247,6 @@ def _assert_no_published_structure_deletions(
 ) -> None:
     assert_node_ids_present(_historical_node_ids(connection, flow_id), config)
     assert_edge_keys_present(_historical_edges(connection, flow_id), config)
-    published_config = _current_published_config(connection, flow_id)
-    if published_config is not None:
-        assert_published_node_positions_unchanged(published_config, config)
 
 
 def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:

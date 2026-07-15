@@ -409,9 +409,16 @@ def test_layout_only_republish_preserves_all_progress_and_has_no_invalidation_au
     ).json()
     assert migrated["flowVersionId"] == republished["flowVersionId"]
     with get_connection() as connection:
+        version = connection.execute(
+            "SELECT config_snapshot FROM flow_versions WHERE id = ?",
+            (republished["flowVersionId"],),
+        ).fetchone()
         count = connection.execute(
             "SELECT COUNT(*) AS count FROM audit_logs WHERE action = 'node_submission_invalidated'"
         ).fetchone()["count"]
+    snapshot = json.loads(version["config_snapshot"])
+    root = next(node for node in snapshot["nodes"] if node["id"] == "root")
+    assert (root["x"], root["y"]) == (300, 120)
     assert count == 0
 
 
