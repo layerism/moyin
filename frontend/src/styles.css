@@ -1746,13 +1746,9 @@ button {
   transform-origin: 0 0;
 }
 
-.dag-canvas.pan-tool-active {
-  cursor: grab;
-  touch-action: none;
-}
-
-.dag-canvas.pan-tool-active.is-panning {
+.dag-canvas.is-panning {
   cursor: grabbing;
+  touch-action: none;
   user-select: none;
 }
 
@@ -1884,15 +1880,7 @@ button {
   cursor: move;
 }
 
-.dag-canvas.pan-tool-active .flow-node {
-  cursor: grab;
-}
-
-.dag-canvas.pan-tool-active .flow-node.movable {
-  cursor: move;
-}
-
-.dag-canvas.pan-tool-active.is-panning .flow-node {
+.dag-canvas.is-panning .flow-node {
   cursor: grabbing;
 }
 
