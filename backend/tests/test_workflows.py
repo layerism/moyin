@@ -360,7 +360,7 @@ def test_revision_impact_rejects_invalid_dag_with_422(
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
     add_roster(client, flow["id"])
     client.post(f"/api/workflows/{flow['id']}/publish")
-    config["edges"] = edges
+    config["edges"] = [*config["edges"], *edges]
     saved = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
     assert saved.status_code == 200
 
