@@ -33,12 +33,8 @@ export function canDeleteRevisionNode(
   return !(publishedNodeIds ?? existingNodeIds).includes(nodeId);
 }
 
-export function canMoveRevisionNode(
-  nodeId: string,
-  publishedNodeIds: readonly string[] | undefined,
-  existingNodeIds: readonly string[] = [],
-) {
-  return canDeleteRevisionNode(nodeId, publishedNodeIds, existingNodeIds);
+export function canMoveRevisionNode() {
+  return true;
 }
 
 export function canDeleteRevisionEdge(
