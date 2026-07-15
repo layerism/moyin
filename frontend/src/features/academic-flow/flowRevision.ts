@@ -1,5 +1,11 @@
+import type { AcademicProcess } from "../../types";
+
 type IdentifiedNode = { id: string };
 type PositionedNode = IdentifiedNode & { x: number; y: number };
+
+export function createFlowConfig(process: AcademicProcess) {
+  return { edges: process.edges, nodes: process.nodes };
+}
 
 export function createPublishRequestPayload(
   expectedDraftConfigHash?: string | null,

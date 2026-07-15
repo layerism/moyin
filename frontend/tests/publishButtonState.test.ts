@@ -19,7 +19,7 @@ test("new draft uses the submit publish action", () => {
   );
 });
 
-test("clean published flow uses the begin revision action", () => {
+test("locked published flow uses the unlock edit action", () => {
   assert.deepEqual(
     getPublishButtonState({
       hasUnpublishedChanges: false,
@@ -28,7 +28,7 @@ test("clean published flow uses the begin revision action", () => {
       revisionEditing: false,
       rosterActiveCount: 1,
     }),
-    { action: "begin-revision", disabled: false, label: "流程修改", title: undefined },
+    { action: "begin-revision", disabled: false, label: "解锁编辑", title: undefined },
   );
 });
 
@@ -80,9 +80,8 @@ test("publish explains roster and operation locks", () => {
   );
 });
 
-test("revision editing follows server changes or a local edit request", () => {
-  assert.equal(getRevisionEditing(true, true, false), true);
-  assert.equal(getRevisionEditing(true, false, false), false);
-  assert.equal(getRevisionEditing(true, false, true), true);
-  assert.equal(getRevisionEditing(false, true, true), false);
+test("revision editing follows only the local unlock request", () => {
+  assert.equal(getRevisionEditing(true, false), false);
+  assert.equal(getRevisionEditing(true, true), true);
+  assert.equal(getRevisionEditing(false, true), false);
 });

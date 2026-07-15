@@ -281,20 +281,18 @@ export function App() {
     setScreen("academicFlowShared");
   };
 
-  const saveAcademicProcess = async (process: AcademicProcess) => {
-    const serverId = process.serverId ?? (await workflowApi.createFlow(process)).id;
-    const saved = await workflowApi.saveDraft(serverId, process);
-    return mapServerFlow(saved);
-  };
-
   const publishAcademicProcess = async (
     process: AcademicProcess,
     expectedDraftConfigHash?: string | null,
+    expectedCurrentVersionId?: string | null,
   ) => {
-    const saved = expectedDraftConfigHash == null ? await saveAcademicProcess(process) : process;
+    const serverId = process.serverId ?? (await workflowApi.createFlow(process)).id;
+    const saved = { ...process, id: serverId, serverId };
     const published = await workflowApi.publish(
-      saved.serverId ?? saved.id,
+      serverId,
+      saved,
       expectedDraftConfigHash,
+      expectedCurrentVersionId,
     );
     return {
       ...saved,
@@ -597,7 +595,6 @@ export function App() {
           onOpenStudent={openStudentFlow}
           onPublishProcess={publishAcademicProcess}
           onProcessChange={updateAcademicProcess}
-          onSaveProcess={saveAcademicProcess}
         />
       );
     }
@@ -610,7 +607,6 @@ export function App() {
         onOpenStudent={openStudentFlow}
         onPublishProcess={publishAcademicProcess}
         onProcessChange={updateAcademicProcess}
-        onSaveProcess={saveAcademicProcess}
       />
     );
   }

@@ -265,7 +265,7 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         )
     draft_config = json.loads(row["draft_config"])
     published_config = json.loads(published["config_snapshot"]) if published else None
-    draft_hash = hashlib.sha256(canonical_json(draft_config).encode("utf-8")).hexdigest()
+    visible_config = published_config if published_config is not None else draft_config
     return {
         "id": row["id"],
         "name": row["name"],
@@ -274,11 +274,11 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         if published_config
         else [],
         "publishedVersionNo": published["version_no"] if published else None,
-        "hasUnpublishedChanges": bool(published and published["config_hash"] != draft_hash),
+        "hasUnpublishedChanges": False,
         "shareUrl": f"/s/{token['token_value']}" if token and token["token_value"] else "",
         "description": row["description"],
         "status": row["status"],
-        "config": draft_config,
+        "config": visible_config,
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
@@ -728,6 +728,7 @@ def publish_flow(
     teacher_id: int,
     expected_draft_config_hash: str | None = None,
     expected_current_version_id: str | None = None,
+    supplied_config: dict[str, Any] | None = None,
 ) -> dict[str, object]:
     version_id = str(uuid.uuid4())
     now = utc_now_iso()
@@ -739,7 +740,7 @@ def publish_flow(
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可发布")
-        config = json.loads(flow["draft_config"])
+        config = supplied_config if supplied_config is not None else json.loads(flow["draft_config"])
         snapshot = canonical_json(config)
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         if expected_draft_config_hash is not None and expected_draft_config_hash != config_hash:
@@ -890,10 +891,10 @@ def publish_flow(
             )
         connection.execute(
             """
-            UPDATE flows SET status = 'published', updated_at = ?
+            UPDATE flows SET draft_config = ?, status = 'published', updated_at = ?
             WHERE id = ? AND owner_id = ?
             """,
-            (now, flow_id, str(teacher_id)),
+            (snapshot, now, flow_id, str(teacher_id)),
         )
     return {
         "flowId": flow_id,
@@ -905,7 +906,11 @@ def publish_flow(
     }
 
 
-def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
+def get_revision_impact(
+    flow_id: str,
+    teacher_id: int,
+    supplied_config: dict[str, Any] | None = None,
+) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN")
@@ -915,7 +920,11 @@ def get_revision_impact(flow_id: str, teacher_id: int) -> dict[str, object]:
         ).fetchone()
         if flow is None:
             raise KeyError(flow_id)
-        config = json.loads(flow["draft_config"])
+        config = (
+            supplied_config
+            if supplied_config is not None
+            else json.loads(flow["draft_config"])
+        )
         _assert_no_published_node_deletions(connection, flow_id, config)
         validate_flow_config(config)
         published = _latest_published_version(connection, flow_id, teacher_id)
