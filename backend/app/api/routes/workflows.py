@@ -7,7 +7,6 @@ from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     PublishedEdgeDeletionError,
     PublishedNodeDeletionError,
-    PublishedNodeMovementError,
 )
 from app.repositories.workflows import (
     ArchivedFlowError,
@@ -101,8 +100,6 @@ def put_draft(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PublishedEdgeDeletionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except PublishedNodeMovementError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/{flow_id}/revision-impact")
@@ -124,8 +121,6 @@ def revision_impact(
     except PublishedNodeDeletionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PublishedEdgeDeletionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except PublishedNodeMovementError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
@@ -152,8 +147,6 @@ def publish(
     except PublishedNodeDeletionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PublishedEdgeDeletionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except PublishedNodeMovementError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except DraftRevisionConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
