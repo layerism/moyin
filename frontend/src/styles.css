@@ -2942,10 +2942,11 @@ button {
   flex: none;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 24px;
-  padding: 0 clamp(20px, 6vw, 80px);
+  gap: 28px;
+  padding: 0 clamp(20px, 4vw, 56px);
   border-bottom: 1px solid #d8dee8;
   background: #fff;
+  box-shadow: 0 2px 10px rgb(16 24 40 / 4%);
 }
 
 .runtime-flow-summary,
@@ -2957,25 +2958,48 @@ button {
 
 .runtime-flow-summary {
   min-width: 0;
+  gap: 14px;
 }
 
-.runtime-flow-summary > div {
+.student-runtime-header .oa-brand-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 9px;
+  box-shadow: 0 6px 14px rgb(39 115 246 / 18%);
+}
+
+.runtime-flow-copy {
   display: grid;
   min-width: 0;
-  gap: 2px;
+  gap: 1px;
 }
 
-.runtime-flow-summary > div small {
+.runtime-flow-copy small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: #667085;
   font-size: 11px;
   font-weight: 700;
 }
 
-.runtime-flow-summary > div strong {
-  font-size: 18px;
+.runtime-flow-copy small::before {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2878f0;
+  content: "";
 }
 
-.runtime-flow-summary > div p {
+.runtime-flow-copy strong {
+  color: #101828;
+  font-size: 19px;
+  line-height: 1.25;
+}
+
+.runtime-flow-copy p {
+  max-width: min(42vw, 560px);
   overflow: hidden;
   margin: 0;
   color: #667085;
@@ -2984,15 +3008,53 @@ button {
   white-space: nowrap;
 }
 
-.runtime-student-identity small {
+.runtime-student-identity {
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.runtime-student-avatar {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf2ff;
+  color: #175cd3;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.runtime-student-details {
+  display: grid;
+  gap: 1px;
+}
+
+.runtime-student-details strong {
+  color: #101828;
+  font-size: 13px;
+}
+
+.runtime-student-details small {
   color: #667085;
+  font-size: 11px;
 }
 
 .runtime-student-identity button {
-  padding: 8px 12px;
-  border: 1px solid #cfd7e5;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 11px;
+  border: 1px solid #d7deea;
   border-radius: 6px;
   background: #fff;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .student-topology-section,
@@ -3003,13 +3065,17 @@ button {
 }
 
 .runtime-overall-status {
-  padding: 7px 11px;
-  border-radius: 6px;
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
   background: #eaf2ff;
   color: #175cd3;
+  font-size: 13px;
 }
 
 .runtime-overall-status.completed {
+  border-color: #abefc6;
   background: #e8f7ef;
   color: #087443;
 }
@@ -3589,8 +3655,19 @@ button {
   .student-runtime-header,
   .runtime-flow-summary {
     align-items: flex-start;
-    flex-direction: column;
     gap: 12px;
+  }
+
+  .runtime-flow-summary {
+    flex-wrap: wrap;
+  }
+
+  .runtime-flow-copy {
+    flex: 1;
+  }
+
+  .runtime-flow-copy p {
+    max-width: calc(100vw - 110px);
   }
 
   .student-runtime-page {
@@ -3601,6 +3678,8 @@ button {
 
   .student-runtime-header {
     display: flex;
+    align-items: stretch;
+    flex-direction: column;
     padding: 14px 18px;
   }
 
@@ -3611,6 +3690,10 @@ button {
 
   .runtime-student-identity {
     flex-wrap: wrap;
+  }
+
+  .runtime-student-identity button {
+    margin-left: auto;
   }
 
   .runtime-node-card > header {
