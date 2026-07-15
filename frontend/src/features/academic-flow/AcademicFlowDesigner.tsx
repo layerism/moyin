@@ -290,6 +290,8 @@ export function AcademicFlowDesigner({
     const nextValue = { ...value };
     if (workingProcess.published) {
       delete nextValue.deadlineAt;
+      delete nextValue.x;
+      delete nextValue.y;
     }
     if (Object.keys(nextValue).length === 0) {
       return;
@@ -336,7 +338,7 @@ export function AcademicFlowDesigner({
   };
 
   const moveNode = (nodeId: string, direction: -1 | 1) => {
-    if (editorLocked) return;
+    if (editorLocked || workingProcess.published) return;
     const currentIndex = workingProcess.nodes.findIndex((node) => node.id === nodeId);
     const nextIndex = currentIndex + direction;
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= workingProcess.nodes.length) {
@@ -366,7 +368,7 @@ export function AcademicFlowDesigner({
   };
 
   const autoLayoutNodes = () => {
-    if (editorLocked) return;
+    if (editorLocked || workingProcess.published) return;
     commitDesignChange({
       ...workingProcess,
       nodes: layoutRevisionNodes(workingProcess.nodes),
@@ -463,6 +465,7 @@ export function AcademicFlowDesigner({
             }
             edges={processEdges}
             locked={editorLocked}
+            nodeMovementLocked={workingProcess.published}
             nodes={workingProcess.nodes}
             onAddNode={addNode}
             onAutoLayout={autoLayoutNodes}
@@ -651,6 +654,7 @@ function FlowNodeCanvas({
   canDeleteNode,
   edges,
   locked,
+  nodeMovementLocked,
   nodes,
   onAddNode,
   onAutoLayout,
@@ -667,6 +671,7 @@ function FlowNodeCanvas({
   canDeleteNode: (nodeId: string) => boolean;
   edges: AcademicFlowEdge[];
   locked: boolean;
+  nodeMovementLocked: boolean;
   nodes: AcademicFlowNode[];
   onAddNode: (
     kind: AcademicFlowNodeKind,
@@ -852,7 +857,11 @@ function FlowNodeCanvas({
   };
 
   const startNodeDrag = (event: PointerEvent<HTMLButtonElement>, node: AcademicFlowNode) => {
-    if (locked || (event.target as HTMLElement).closest(".connection-port")) {
+    if (
+      locked ||
+      nodeMovementLocked ||
+      (event.target as HTMLElement).closest(".connection-port")
+    ) {
       return;
     }
     const point = getCanvasPoint(event.clientX, event.clientY);
@@ -861,7 +870,7 @@ function FlowNodeCanvas({
   };
 
   const dragNode = (event: PointerEvent<HTMLButtonElement>) => {
-    if (!draggingNode) {
+    if (nodeMovementLocked || !draggingNode) {
       return;
     }
     const point = getCanvasPoint(event.clientX, event.clientY);
@@ -957,7 +966,7 @@ function FlowNodeCanvas({
   };
 
   const autoLayout = () => {
-    if (locked) return;
+    if (locked || nodeMovementLocked) return;
     onAutoLayout();
   };
 
@@ -1052,7 +1061,7 @@ function FlowNodeCanvas({
             <span aria-hidden="true">✋</span>
           </button>
           <button type="button">{Math.round(zoom * 100)}%</button>
-          <button disabled={locked} onClick={autoLayout} type="button">
+          <button disabled={locked || nodeMovementLocked} onClick={autoLayout} type="button">
             自动布局
           </button>
         </div>
@@ -1242,12 +1251,16 @@ function FlowNodeCanvas({
                 >
                   ⚙
                 </button>
-                <button onClick={() => onMoveNode(node.id, -1)} type="button">
-                  ↑
-                </button>
-                <button onClick={() => onMoveNode(node.id, 1)} type="button">
-                  ↓
-                </button>
+                {!nodeMovementLocked ? (
+                  <>
+                    <button onClick={() => onMoveNode(node.id, -1)} type="button">
+                      ↑
+                    </button>
+                    <button onClick={() => onMoveNode(node.id, 1)} type="button">
+                      ↓
+                    </button>
+                  </>
+                ) : null}
                 {canDeleteNode(node.id) ? (
                   <button
                     aria-label="删除节点"

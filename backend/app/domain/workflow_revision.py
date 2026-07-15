@@ -10,6 +10,10 @@ class PublishedEdgeDeletionError(ValueError):
     pass
 
 
+class PublishedNodeMovementError(ValueError):
+    pass
+
+
 BUSINESS_NODE_FIELDS = (
     "kind",
     "title",
@@ -90,6 +94,20 @@ def assert_published_nodes_present(previous: dict, current: dict) -> None:
 
 def assert_published_edges_present(previous: dict, current: dict) -> None:
     assert_edge_keys_present(previous.get("edges", []), current)
+
+
+def assert_published_node_positions_unchanged(previous: dict, current: dict) -> None:
+    previous_nodes = {node["id"]: node for node in previous.get("nodes", [])}
+    current_nodes = {node["id"]: node for node in current.get("nodes", [])}
+    for node_id, previous_node in previous_nodes.items():
+        current_node = current_nodes.get(node_id)
+        if current_node is None:
+            continue
+        if (current_node.get("x"), current_node.get("y")) != (
+            previous_node.get("x"),
+            previous_node.get("y"),
+        ):
+            raise PublishedNodeMovementError(f"已发布节点不可移动：{node_id}")
 
 
 def assert_node_ids_present(required_node_ids: Iterable[str], current: dict) -> None:
