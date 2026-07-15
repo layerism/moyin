@@ -129,6 +129,17 @@ export function StudentRuntimePage({
   return (
     <main className="student-runtime-page">
       <header className="student-runtime-header">
+        <button
+          aria-label="返回首页"
+          className="runtime-home-button"
+          onClick={onHome}
+          title="返回首页"
+          type="button"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
         <div className="runtime-flow-summary">
           <span className="oa-brand-mark">OA</span>
           <div className="runtime-flow-copy">
@@ -148,10 +159,6 @@ export function StudentRuntimePage({
             <strong>{instance.student.name}</strong>
             <small>{instance.student.studentNo}</small>
           </div>
-          <button onClick={onHome}>
-            <span aria-hidden="true">←</span>
-            返回首页
-          </button>
         </div>
       </header>
       {notice ? (
