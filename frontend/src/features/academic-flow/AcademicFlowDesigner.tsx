@@ -34,6 +34,7 @@ import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
 import { getAbsoluteShareUrl } from "./shareUrl";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
+import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 
 const statusLabels: Record<AcademicFlowNodeStatus, string> = {
   approved: "已通过",
@@ -69,6 +70,11 @@ type ConnectionDraft = {
   port: AcademicFlowPort;
 };
 
+type PendingNavigation = {
+  destination: string;
+  run: () => void;
+};
+
 export function AcademicFlowDesigner({
   onBack,
   onHome,
@@ -98,6 +104,7 @@ export function AcademicFlowDesigner({
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
   const [pendingPublishProcess, setPendingPublishProcess] = useState<AcademicProcess | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
   const [saving, setSaving] = useState(false);
   const [revisionEditingRequested, setRevisionEditingRequested] = useState(false);
   const [revisionDirty, setRevisionDirty] = useState(false);
@@ -105,7 +112,7 @@ export function AcademicFlowDesigner({
     workingProcess.published,
     revisionEditingRequested,
   );
-  const operationLocked = saving || revisionImpact !== null;
+  const operationLocked = saving || revisionImpact !== null || pendingNavigation !== null;
   const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
   const processEdges = workingProcess.edges ?? [];
   const activeNode =
@@ -135,10 +142,12 @@ export function AcademicFlowDesigner({
     setRevisionDirty(true);
   };
 
-  const confirmDiscard = (navigate: () => void) => {
-    if (!revisionDirty || window.confirm("未发布修改将丢失，确认离开吗？")) {
+  const requestNavigation = (destination: string, navigate: () => void) => {
+    if (!revisionDirty) {
       navigate();
+      return;
     }
+    setPendingNavigation({ destination, run: navigate });
   };
 
   useEffect(() => {
@@ -350,8 +359,8 @@ export function AcademicFlowDesigner({
   return (
     <main className="academic-standalone-page">
       <AcademicStandaloneHeader
-        onBack={() => confirmDiscard(onBack)}
-        onHome={() => confirmDiscard(onHome)}
+        onBack={() => requestNavigation("教务流程列表", onBack)}
+        onHome={() => requestNavigation("首页", onHome)}
       />
       <section className="academic-workspace-main">
         <header className="academic-topbar">
@@ -359,7 +368,10 @@ export function AcademicFlowDesigner({
             <div className="drive-breadcrumb academic-breadcrumb">
               <span>首页</span>
               <span>›</span>
-              <button className="breadcrumb-button" onClick={() => confirmDiscard(onBack)}>
+              <button
+                className="breadcrumb-button"
+                onClick={() => requestNavigation("教务流程列表", onBack)}
+              >
                 教务流程
               </button>
               <span>›</span>
@@ -392,7 +404,9 @@ export function AcademicFlowDesigner({
             {workingProcess.published ? (
               <button
                 onClick={() =>
-                  confirmDiscard(() => onOpenStudent(workingProcess.shareUrl))
+                  requestNavigation("学生填写页面", () =>
+                    onOpenStudent(workingProcess.shareUrl),
+                  )
                 }
               >
                 打开学生链接
@@ -486,6 +500,17 @@ export function AcademicFlowDesigner({
                 revisionImpact.draftConfigHash,
                 revisionImpact.currentVersionId,
               );
+            }}
+          />
+        ) : null}
+        {pendingNavigation ? (
+          <UnsavedChangesDialog
+            destination={pendingNavigation.destination}
+            onCancel={() => setPendingNavigation(null)}
+            onConfirm={() => {
+              const navigate = pendingNavigation.run;
+              setPendingNavigation(null);
+              navigate();
             }}
           />
         ) : null}
