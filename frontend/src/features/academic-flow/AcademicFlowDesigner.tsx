@@ -36,6 +36,7 @@ import { FlowRosterDialog } from "./FlowRosterDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
 import { getAbsoluteShareUrl } from "./shareUrl";
+import { StudentLinkDialog } from "./StudentLinkDialog";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 
@@ -102,6 +103,7 @@ export function AcademicFlowDesigner({
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
+  const [showStudentLinks, setShowStudentLinks] = useState(false);
   const [rosterActiveCount, setRosterActiveCount] = useState<number | null>(null);
   const [actionNotice, setActionNotice] = useState("");
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
@@ -420,13 +422,7 @@ export function AcademicFlowDesigner({
               学生名单{rosterActiveCount === null ? "" : ` (${rosterActiveCount})`}
             </button>
             {workingProcess.published ? (
-              <button
-                onClick={() =>
-                  requestNavigation("学生填写页面", () =>
-                    onOpenStudent(workingProcess.shareUrl),
-                  )
-                }
-              >
+              <button onClick={() => setShowStudentLinks(true)}>
                 打开学生链接
               </button>
             ) : null}
@@ -504,6 +500,18 @@ export function AcademicFlowDesigner({
             flowId={serverFlowId}
             onClose={() => setShowRoster(false)}
             onRosterChange={(roster) => setRosterActiveCount(roster.activeCount)}
+          />
+        ) : null}
+        {showStudentLinks ? (
+          <StudentLinkDialog
+            flowName={workingProcess.name}
+            onClose={() => setShowStudentLinks(false)}
+            onOpen={() =>
+              requestNavigation("学生填写页面", () =>
+                onOpenStudent(workingProcess.shareUrl),
+              )
+            }
+            shareUrl={workingProcess.shareUrl}
           />
         ) : null}
         {revisionImpact ? (
