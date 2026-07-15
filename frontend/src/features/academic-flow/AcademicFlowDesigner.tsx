@@ -20,6 +20,7 @@ import {
   type CanvasPanStart,
 } from "./canvasPan";
 import {
+  canDeleteRevisionEdge,
   canDeleteRevisionNode,
   filterPublishedRuntimeNodes,
   layoutRevisionNodes,
@@ -124,6 +125,7 @@ export function AcademicFlowDesigner({
   const serverFlowId = workingProcess.serverId ?? workingProcess.id;
   const existingNodeIds = workingProcess.nodes.map((node) => node.id);
   const protectedNodeIds = workingProcess.published ? workingProcess.publishedNodeIds : [];
+  const protectedEdgeIds = process.published ? process.edges.map((edge) => edge.id) : [];
   const publishedRuntimeNodes = useMemo(
     () => filterPublishedRuntimeNodes(process.nodes, process.publishedNodeIds),
     [process.nodes, process.publishedNodeIds],
@@ -311,7 +313,7 @@ export function AcademicFlowDesigner({
   };
 
   const deleteEdge = (edgeId: string) => {
-    if (editorLocked) return;
+    if (editorLocked || !canDeleteRevisionEdge(edgeId, protectedEdgeIds)) return;
     commitDesignChange({
       ...workingProcess,
       edges: processEdges.filter((edge) => edge.id !== edgeId),
@@ -440,6 +442,7 @@ export function AcademicFlowDesigner({
           <ComponentPalette locked={editorLocked} onAddNode={addNode} />
           <FlowNodeCanvas
             activeNodeId={activeNode?.id ?? ""}
+            canDeleteEdge={(edgeId) => canDeleteRevisionEdge(edgeId, protectedEdgeIds)}
             canDeleteNode={(nodeId) =>
               canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
             }
@@ -629,6 +632,7 @@ function ComponentPalette({
 
 function FlowNodeCanvas({
   activeNodeId,
+  canDeleteEdge,
   canDeleteNode,
   edges,
   locked,
@@ -644,6 +648,7 @@ function FlowNodeCanvas({
   onUpdateNode,
 }: {
   activeNodeId: string;
+  canDeleteEdge: (edgeId: string) => boolean;
   canDeleteNode: (nodeId: string) => boolean;
   edges: AcademicFlowEdge[];
   locked: boolean;
@@ -725,6 +730,7 @@ function FlowNodeCanvas({
       if (
         locked ||
         !selectedEdgeId ||
+        !canDeleteEdge(selectedEdgeId) ||
         (event.key !== "Backspace" && event.key !== "Delete")
       ) {
         return;
@@ -736,7 +742,7 @@ function FlowNodeCanvas({
 
     window.addEventListener("keydown", deleteSelectedEdge);
     return () => window.removeEventListener("keydown", deleteSelectedEdge);
-  }, [locked, onDeleteEdge, selectedEdgeId]);
+  }, [canDeleteEdge, locked, onDeleteEdge, selectedEdgeId]);
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -1106,7 +1112,7 @@ function FlowNodeCanvas({
               </>
             )}
             </svg>
-            {!locked && selectedEdge && (
+            {!locked && selectedEdge && canDeleteEdge(selectedEdge.id) && (
           <button
             aria-label="删除连接线"
             className="flow-edge-delete"

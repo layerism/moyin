@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  canDeleteRevisionEdge,
   canEditRevisionNodeDeadline,
   canDeleteRevisionNode,
   createFlowConfig,
@@ -18,6 +19,11 @@ test("published nodes cannot be deleted from a revision", () => {
 
 test("new unpublished nodes can be deleted", () => {
   assert.equal(canDeleteRevisionNode("new", ["old"]), true);
+});
+
+test("only edges added in the current revision can be deleted", () => {
+  assert.equal(canDeleteRevisionEdge("published-edge", ["published-edge"]), false);
+  assert.equal(canDeleteRevisionEdge("new-edge", ["published-edge"]), true);
 });
 
 test("missing published metadata fails closed for existing nodes", () => {
