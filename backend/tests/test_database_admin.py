@@ -78,3 +78,29 @@ def test_super_admin_update_creates_backup_and_redacted_audit(client: TestClient
     assert audit is not None
     assert audit["actor_id"]
     assert "管理员维护后的说明" in audit["after_data"]
+
+
+def test_super_admin_delete_creates_backup_and_audit(client: TestClient) -> None:
+    register_teacher(client, "A300")
+    promote_current_teacher("A300")
+    flow = client.post("/api/workflows", json={"name": "待删除流程"}).json()
+
+    response = client.request(
+        "DELETE",
+        "/api/admin/database/tables/flows/rows",
+        json={"key": {"id": flow["id"]}, "reason": "清理错误创建的流程"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"deleted": True, "backupCreated": True}
+    with get_connection() as connection:
+        deleted = connection.execute(
+            "SELECT id FROM flows WHERE id = ?", (flow["id"],)
+        ).fetchone()
+        audit = connection.execute(
+            "SELECT * FROM audit_logs WHERE action = 'admin_delete'"
+        ).fetchone()
+    assert deleted is None
+    assert audit is not None
+    assert flow["id"] in audit["entity_id"]
+    assert "待删除流程" in audit["before_data"]

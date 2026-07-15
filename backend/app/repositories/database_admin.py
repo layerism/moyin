@@ -159,6 +159,53 @@ def update_admin_row(
     return {"row": redacted_after, "backupCreated": True}
 
 
+def delete_admin_row(
+    table: str,
+    key: dict[str, Any],
+    reason: str,
+    actor_id: int,
+) -> dict[str, object]:
+    _policy(table)
+    with get_connection() as connection:
+        primary_keys = _primary_keys(connection, table)
+    if not primary_keys or set(key) != set(primary_keys):
+        raise DatabaseAdminError("必须提供完整的主键")
+    if not reason.strip():
+        raise DatabaseAdminError("请填写删除原因")
+
+    _backup_database()
+    where_clause = " AND ".join(f'"{column}" = ?' for column in primary_keys)
+    key_values = [key[column] for column in primary_keys]
+    try:
+        with get_connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            before = connection.execute(
+                f'SELECT * FROM "{table}" WHERE {where_clause}', key_values
+            ).fetchone()
+            if before is None:
+                raise KeyError(table)
+            redacted_before = _redact_row(dict(before))
+            connection.execute(f'DELETE FROM "{table}" WHERE {where_clause}', key_values)
+            connection.execute(
+                """
+                INSERT INTO audit_logs
+                    (actor_id, action, entity_type, entity_id, before_data, after_data, reason, created_at)
+                VALUES (?, 'admin_delete', ?, ?, ?, NULL, ?, ?)
+                """,
+                (
+                    str(actor_id),
+                    f"database:{table}",
+                    json.dumps(key, ensure_ascii=False, sort_keys=True),
+                    json.dumps(redacted_before, ensure_ascii=False, sort_keys=True),
+                    reason.strip(),
+                    datetime.now(UTC).isoformat(),
+                ),
+            )
+    except sqlite3.IntegrityError as exc:
+        raise DatabaseAdminError("该记录存在受保护的关联数据，无法删除") from exc
+    return {"deleted": True, "backupCreated": True}
+
+
 def _policy(table: str) -> TablePolicy:
     policy = TABLE_POLICIES.get(table)
     if policy is None:
