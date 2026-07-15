@@ -22,6 +22,7 @@ import {
 import {
   canDeleteRevisionEdge,
   canDeleteRevisionNode,
+  canMoveRevisionNode,
   filterPublishedRuntimeNodes,
   layoutRevisionNodes,
   preservePublishedEdges,
@@ -290,8 +291,10 @@ export function AcademicFlowDesigner({
     const nextValue = { ...value };
     if (workingProcess.published) {
       delete nextValue.deadlineAt;
-      delete nextValue.x;
-      delete nextValue.y;
+      if (!canMoveRevisionNode(nodeId, protectedNodeIds, existingNodeIds)) {
+        delete nextValue.x;
+        delete nextValue.y;
+      }
     }
     if (Object.keys(nextValue).length === 0) {
       return;
@@ -462,6 +465,9 @@ export function AcademicFlowDesigner({
             canDeleteEdge={(edgeId) => canDeleteRevisionEdge(edgeId, protectedEdgeIds)}
             canDeleteNode={(nodeId) =>
               canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
+            }
+            canMoveNode={(nodeId) =>
+              canMoveRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
             }
             edges={processEdges}
             locked={editorLocked}
@@ -652,6 +658,7 @@ function FlowNodeCanvas({
   activeNodeId,
   canDeleteEdge,
   canDeleteNode,
+  canMoveNode,
   edges,
   locked,
   nodeMovementLocked,
@@ -669,6 +676,7 @@ function FlowNodeCanvas({
   activeNodeId: string;
   canDeleteEdge: (edgeId: string) => boolean;
   canDeleteNode: (nodeId: string) => boolean;
+  canMoveNode: (nodeId: string) => boolean;
   edges: AcademicFlowEdge[];
   locked: boolean;
   nodeMovementLocked: boolean;
@@ -865,7 +873,7 @@ function FlowNodeCanvas({
   const startNodeDrag = (event: PointerEvent<HTMLButtonElement>, node: AcademicFlowNode) => {
     if (
       locked ||
-      nodeMovementLocked ||
+      !canMoveNode(node.id) ||
       (event.target as HTMLElement).closest(".connection-port")
     ) {
       return;
@@ -876,7 +884,7 @@ function FlowNodeCanvas({
   };
 
   const dragNode = (event: PointerEvent<HTMLButtonElement>) => {
-    if (nodeMovementLocked || !draggingNode) {
+    if (!draggingNode || !canMoveNode(draggingNode.id)) {
       return;
     }
     const point = getCanvasPoint(event.clientX, event.clientY);
