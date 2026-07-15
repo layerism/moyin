@@ -107,6 +107,7 @@ git commit -m "Allow published nodes to move during revisions"
 - Modify: `backend/tests/test_workflow_republish.py`
 - Modify: `backend/app/domain/workflow_revision.py`
 - Modify: `backend/app/repositories/workflows.py`
+- Modify: `backend/app/api/routes/workflows.py`
 
 **Interfaces:**
 - Consumes: `analyze_revision(previous, current)` and `_assert_no_published_structure_deletions(connection, flow_id, config)`.
@@ -162,7 +163,7 @@ def _assert_no_published_structure_deletions(
     assert_edge_keys_present(_historical_edges(connection, flow_id), config)
 ```
 
-Remove the obsolete import from `backend/app/repositories/workflows.py`. Do not change `analyze_revision`; its business fingerprint already excludes `x`, `y`, `deadlineAt`, and preview status.
+Remove the obsolete imports and `except PublishedNodeMovementError` branches from `backend/app/repositories/workflows.py` and `backend/app/api/routes/workflows.py`. Do not change `analyze_revision`; its business fingerprint already excludes `x`, `y`, `deadlineAt`, and preview status.
 
 - [ ] **Step 4: Run focused backend tests and verify GREEN**
 
@@ -182,7 +183,8 @@ Expected: all selected tests pass; the layout-only republish creates a new snaps
 git add backend/tests/test_workflow_revision.py \
   backend/tests/test_workflow_republish.py \
   backend/app/domain/workflow_revision.py \
-  backend/app/repositories/workflows.py
+  backend/app/repositories/workflows.py \
+  backend/app/api/routes/workflows.py
 git commit -m "Persist published node layout revisions"
 ```
 
