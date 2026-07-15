@@ -760,6 +760,12 @@ function FlowNodeCanvas({
   }, [canDeleteEdge, selectedEdgeId]);
 
   useEffect(() => {
+    if (panToolActive) {
+      setSelectedEdgeId(null);
+    }
+  }, [panToolActive]);
+
+  useEffect(() => {
     const deleteSelectedEdge = (event: KeyboardEvent) => {
       if (
         locked ||
@@ -873,6 +879,7 @@ function FlowNodeCanvas({
   const startNodeDrag = (event: PointerEvent<HTMLButtonElement>, node: AcademicFlowNode) => {
     if (
       locked ||
+      panToolActive ||
       !canMoveNode(node.id) ||
       (event.target as HTMLElement).closest(".connection-port")
     ) {
@@ -986,6 +993,7 @@ function FlowNodeCanvas({
 
   const startCanvasPan = (event: PointerEvent<HTMLDivElement>) => {
     const interactiveTarget =
+      !panToolActive &&
       event.target instanceof Element &&
       Boolean(event.target.closest(".canvas-node-stack, .flow-edge-group, .flow-edge-delete"));
     if (
@@ -1107,14 +1115,20 @@ function FlowNodeCanvas({
             <svg className="flow-edge-layer">
           {edgeLines.map((edge) => {
             const path = createOrthogonalPath(edge, nodes);
+            const deletable = !locked && canDeleteEdge(edge.id);
             return (
-              <g className={`flow-edge-group ${edge.id === selectedEdgeId ? "selected" : ""}`} key={edge.id}>
+              <g
+                className={`flow-edge-group ${deletable ? "deletable" : "protected"} ${
+                  edge.id === selectedEdgeId ? "selected" : ""
+                }`}
+                key={edge.id}
+              >
                 <path className="flow-edge-line" d={path} />
                 <polygon
                   className="flow-edge-arrow"
                   points={createArrowPolygon(edge.targetX, edge.targetY, edge.targetPort)}
                 />
-                {!locked && canDeleteEdge(edge.id) ? (
+                {deletable && !panToolActive ? (
                   <path
                     aria-label="选择连接线"
                     className="flow-edge-hitbox"
@@ -1150,7 +1164,7 @@ function FlowNodeCanvas({
               </>
             )}
             </svg>
-            {!locked && selectedEdge && canDeleteEdge(selectedEdge.id) && (
+            {!locked && !panToolActive && selectedEdge && canDeleteEdge(selectedEdge.id) && (
           <button
             aria-label="删除连接线"
             className="flow-edge-delete"
@@ -1171,7 +1185,9 @@ function FlowNodeCanvas({
             style={{ left: node.x, top: node.y }}
           >
             <button
-              className={`flow-node ${node.status} ${node.id === activeNodeId ? "selected" : ""}`}
+              className={`flow-node ${node.status} ${
+                canMoveNode(node.id) ? "movable" : "protected"
+              } ${node.id === activeNodeId ? "selected" : ""}`}
               onClick={() => onSelectNode(node.id)}
               onPointerDown={(event) => startNodeDrag(event, node)}
               onPointerMove={dragNode}
@@ -1179,7 +1195,7 @@ function FlowNodeCanvas({
               type="button"
               style={{ width: nodeSize.width }}
             >
-              {!locked && connectionPorts.map((port) => (
+              {!locked && !panToolActive && connectionPorts.map((port) => (
                 <span
                   className={`connection-port ${port} ${
                     connectingFrom && connectingFrom.nodeId !== node.id ? "connectable" : ""
@@ -1255,7 +1271,7 @@ function FlowNodeCanvas({
                 <i>{statusLabels[node.status]}</i>
               </span>
             </button>
-            {!locked && node.id === activeNodeId && (
+            {!locked && !panToolActive && node.id === activeNodeId && (
               <div className="node-quick-actions" aria-label="节点操作">
                 <button
                   className="node-config-action"
