@@ -28,38 +28,12 @@ test("clamps canvas scroll offsets at zero", () => {
   );
 });
 
-test("starts panning from a non-interactive child of the canvas background", () => {
-  assert.equal(
-    shouldStartCanvasPan({
-      button: 0,
-      interactiveTarget: false,
-      panToolActive: true,
-    }),
-    true,
-  );
+test("starts canvas panning with the right mouse button", () => {
+  assert.equal(shouldStartCanvasPan({ button: 2 }), true);
 });
 
-test("does not start canvas panning from an interactive flow element", () => {
-  assert.equal(
-    shouldStartCanvasPan({
-      button: 0,
-      interactiveTarget: true,
-      panToolActive: true,
-    }),
-    false,
-  );
-});
-
-test("movable revision nodes take priority over the active pan tool", () => {
-  assert.equal(
-    shouldStartCanvasPan({
-      button: 0,
-      interactiveTarget: false,
-      movableNodeTarget: true,
-      panToolActive: true,
-    }),
-    false,
-  );
+test("does not start canvas panning with the left mouse button", () => {
+  assert.equal(shouldStartCanvasPan({ button: 0 }), false);
 });
 
 test("zooms slowly while preserving the pointer anchor", () => {

@@ -712,7 +712,6 @@ function FlowNodeCanvas({
   );
   const [connectionPreviewTargetId, setConnectionPreviewTargetId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [panToolActive, setPanToolActive] = useState(false);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
   const [zoom, setZoom] = useState(1);
   const [draggingNode, setDraggingNode] = useState<{
@@ -872,6 +871,7 @@ function FlowNodeCanvas({
 
   const startNodeDrag = (event: PointerEvent<HTMLButtonElement>, node: AcademicFlowNode) => {
     if (
+      event.button !== 0 ||
       locked ||
       !canMoveNode(node.id) ||
       (event.target as HTMLElement).closest(".connection-port")
@@ -985,20 +985,8 @@ function FlowNodeCanvas({
   };
 
   const startCanvasPan = (event: PointerEvent<HTMLDivElement>) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const interactiveTarget = Boolean(
-      target?.closest(
-        ".connection-port, .node-quick-actions, .flow-edge-hitbox, .flow-edge-delete",
-      ),
-    );
-    const movableNodeTarget = Boolean(target?.closest(".flow-node.movable"));
     if (
-      !shouldStartCanvasPan({
-        button: event.button,
-        interactiveTarget,
-        movableNodeTarget,
-        panToolActive,
-      }) ||
+      !shouldStartCanvasPan({ button: event.button }) ||
       !canvasRef.current
     ) {
       return;
@@ -1069,16 +1057,6 @@ function FlowNodeCanvas({
       <div className="panel-heading">
         <h2>流程画布</h2>
         <div className="canvas-toolbar">
-          <button
-            aria-label="手形工具"
-            aria-pressed={panToolActive}
-            className={`canvas-pan-tool ${panToolActive ? "active" : ""}`}
-            onClick={() => setPanToolActive((active) => !active)}
-            title="拖动画布"
-            type="button"
-          >
-            <span aria-hidden="true">✋</span>
-          </button>
           <button type="button">{Math.round(zoom * 100)}%</button>
           <button disabled={locked || nodeMovementLocked} onClick={autoLayout} type="button">
             自动布局
@@ -1086,7 +1064,8 @@ function FlowNodeCanvas({
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${panToolActive ? "pan-tool-active" : ""} ${panStart ? "is-panning" : ""}`}
+        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""}`}
+        onContextMenu={(event) => event.preventDefault()}
         onDragOver={(event) => {
           if (locked) {
             return;
@@ -1223,6 +1202,9 @@ function FlowNodeCanvas({
                     setConnectionSource(null);
                   }}
                   onPointerDown={(event) => {
+                    if (event.button !== 0) {
+                      return;
+                    }
                     event.stopPropagation();
                     const activeConnection = connectingFromRef.current ?? connectingFrom;
                     if (activeConnection && activeConnection.nodeId !== node.id) {

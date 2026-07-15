@@ -16,9 +16,6 @@ export type CanvasZoomInput = {
 
 export type CanvasPanStartInput = {
   button: number;
-  interactiveTarget: boolean;
-  movableNodeTarget?: boolean;
-  panToolActive: boolean;
 };
 
 const minimumZoom = 0.5;
@@ -26,12 +23,7 @@ const maximumZoom = 1.5;
 const zoomStep = 0.02;
 
 export function shouldStartCanvasPan(input: CanvasPanStartInput) {
-  return (
-    input.panToolActive &&
-    input.button === 0 &&
-    !input.interactiveTarget &&
-    !input.movableNodeTarget
-  );
+  return input.button === 2;
 }
 
 export function bindCtrlWheelListener(
