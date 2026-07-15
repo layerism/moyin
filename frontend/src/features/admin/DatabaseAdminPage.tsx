@@ -24,6 +24,7 @@ export function DatabaseAdminPage({
   const [rowPage, setRowPage] = useState<AdminRows | null>(null);
   const [offset, setOffset] = useState(0);
   const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null);
+  const [deletingRow, setDeletingRow] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -53,6 +54,7 @@ export function DatabaseAdminPage({
         setSchema(nextSchema);
         setRowPage(rows);
         setEditingRow(null);
+        setDeletingRow(null);
       })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
@@ -129,6 +131,7 @@ export function DatabaseAdminPage({
           {notice ? <p className="database-admin-message">{notice}</p> : null}
           <DatabaseRowsTable
             loading={loading}
+            onDelete={setDeletingRow}
             onEdit={setEditingRow}
             rows={rowPage?.rows ?? []}
             schema={schema}
@@ -162,17 +165,39 @@ export function DatabaseAdminPage({
           table={activeTable}
         />
       ) : null}
+      {deletingRow && schema ? (
+        <DatabaseRowDeleteDialog
+          key={`${activeTable}-${JSON.stringify(primaryKey(schema, deletingRow))}`}
+          onClose={() => setDeletingRow(null)}
+          onDeleted={async () => {
+            setDeletingRow(null);
+            setNotice("记录已删除；删除前数据库备份和审计记录已生成");
+            const rows = await databaseAdminApi.getRows(activeTable, offset, PAGE_SIZE);
+            if (rows.rows.length === 0 && offset > 0) {
+              setOffset(Math.max(0, offset - PAGE_SIZE));
+            } else {
+              setRowPage(rows);
+            }
+            await loadTables();
+          }}
+          row={deletingRow}
+          schema={schema}
+          table={activeTable}
+        />
+      ) : null}
     </main>
   );
 }
 
 function DatabaseRowsTable({
   loading,
+  onDelete,
   onEdit,
   rows,
   schema,
 }: {
   loading: boolean;
+  onDelete: (row: Record<string, unknown>) => void;
   onEdit: (row: Record<string, unknown>) => void;
   rows: Array<Record<string, unknown>>;
   schema: AdminTableSchema | null;
@@ -196,11 +221,90 @@ function DatabaseRowsTable({
                   {displayValue(row[column.name])}
                 </td>
               ))}
-              <td><button onClick={() => onEdit(row)}>查看</button></td>
+              <td>
+                <div className="database-row-actions">
+                  <button onClick={() => onEdit(row)}>查看</button>
+                  <button className="danger" onClick={() => onDelete(row)}>删除</button>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function DatabaseRowDeleteDialog({
+  onClose,
+  onDeleted,
+  row,
+  schema,
+  table,
+}: {
+  onClose: () => void;
+  onDeleted: () => Promise<void>;
+  row: Record<string, unknown>;
+  schema: AdminTableSchema;
+  table: string;
+}) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const key = primaryKey(schema, row);
+
+  const remove = async () => {
+    if (!reason.trim()) {
+      setError("请填写删除原因");
+      return;
+    }
+    setDeleting(true);
+    setError("");
+    try {
+      await databaseAdminApi.deleteRow(table, { key, reason: reason.trim() });
+      await onDeleted();
+    } catch (reasonValue) {
+      setError(reasonValue instanceof Error ? reasonValue.message : "删除失败");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="database-editor-backdrop database-delete-backdrop" onMouseDown={onClose}>
+      <section
+        aria-labelledby="database-delete-title"
+        aria-modal="true"
+        className="database-delete-dialog"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="database-delete-icon" aria-hidden="true">!</div>
+        <h2 id="database-delete-title">确认删除这条记录？</h2>
+        <p>删除后无法撤销，关联数据可能同时被删除。系统将在执行前自动备份数据库。</p>
+        <dl>
+          <div><dt>数据表</dt><dd>{table}</dd></div>
+          <div><dt>主键</dt><dd>{JSON.stringify(key)}</dd></div>
+        </dl>
+        <label>
+          <span>删除原因</span>
+          <input
+            autoFocus
+            disabled={deleting}
+            maxLength={300}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="请说明删除原因（必填）"
+            value={reason}
+          />
+        </label>
+        {error ? <p className="database-delete-error" role="alert">{error}</p> : null}
+        <footer>
+          <button disabled={deleting} onClick={onClose}>取消</button>
+          <button className="danger-action" disabled={deleting} onClick={() => void remove()}>
+            {deleting ? "正在删除" : "确认删除"}
+          </button>
+        </footer>
+      </section>
     </div>
   );
 }

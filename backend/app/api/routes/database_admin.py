@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.repositories.database_admin import (
     DatabaseAdminError,
+    delete_admin_row,
     get_admin_table_schema,
     list_admin_rows,
     list_admin_tables,
@@ -19,6 +20,11 @@ router = APIRouter(dependencies=[Depends(get_current_super_admin)])
 class UpdateRowRequest(BaseModel):
     key: dict[str, Any]
     changes: dict[str, Any]
+    reason: str = Field(min_length=1, max_length=300)
+
+
+class DeleteRowRequest(BaseModel):
+    key: dict[str, Any]
     reason: str = Field(min_length=1, max_length=300)
 
 
@@ -58,6 +64,25 @@ def patch_table_row(
             table,
             payload.key,
             payload.changes,
+            payload.reason,
+            int(admin["id"]),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="数据表或记录不存在") from exc
+    except DatabaseAdminError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/tables/{table}/rows")
+def delete_table_row(
+    table: str,
+    payload: DeleteRowRequest,
+    admin: dict[str, object] = Depends(get_current_super_admin),
+) -> dict[str, object]:
+    try:
+        return delete_admin_row(
+            table,
+            payload.key,
             payload.reason,
             int(admin["id"]),
         )

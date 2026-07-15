@@ -63,4 +63,13 @@ export const databaseAdminApi = {
       { method: "PATCH", body: JSON.stringify(payload) },
     );
   },
+  deleteRow(
+    table: string,
+    payload: { key: Record<string, unknown>; reason: string },
+  ) {
+    return request<{ backupCreated: boolean; deleted: boolean }>(
+      `/api/admin/database/tables/${encodeURIComponent(table)}/rows`,
+      { method: "DELETE", body: JSON.stringify(payload) },
+    );
+  },
 };
