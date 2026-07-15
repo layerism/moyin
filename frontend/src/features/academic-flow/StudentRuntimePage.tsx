@@ -131,7 +131,7 @@ export function StudentRuntimePage({
       <header className="student-runtime-header">
         <div className="runtime-flow-summary">
           <span className="oa-brand-mark">OA</span>
-          <div>
+          <div className="runtime-flow-copy">
             <small>流程说明</small>
             <strong>{instance.name}</strong>
             <p>{instance.description}</p>
@@ -141,9 +141,17 @@ export function StudentRuntimePage({
           </strong>
         </div>
         <div className="runtime-student-identity">
-          <span>{instance.student.name}</span>
-          <small>{instance.student.studentNo}</small>
-          <button onClick={onHome}>返回首页</button>
+          <span aria-hidden="true" className="runtime-student-avatar">
+            {instance.student.name.slice(0, 1) || "学"}
+          </span>
+          <div className="runtime-student-details">
+            <strong>{instance.student.name}</strong>
+            <small>{instance.student.studentNo}</small>
+          </div>
+          <button onClick={onHome}>
+            <span aria-hidden="true">←</span>
+            返回首页
+          </button>
         </div>
       </header>
       {notice ? (
