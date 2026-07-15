@@ -50,6 +50,18 @@ test("does not start canvas panning from an interactive flow element", () => {
   );
 });
 
+test("movable revision nodes take priority over the active pan tool", () => {
+  assert.equal(
+    shouldStartCanvasPan({
+      button: 0,
+      interactiveTarget: false,
+      movableNodeTarget: true,
+      panToolActive: true,
+    }),
+    false,
+  );
+});
+
 test("zooms slowly while preserving the pointer anchor", () => {
   assert.deepEqual(
     getCanvasZoomState({

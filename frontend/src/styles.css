@@ -1888,6 +1888,10 @@ button {
   cursor: grab;
 }
 
+.dag-canvas.pan-tool-active .flow-node.movable {
+  cursor: move;
+}
+
 .dag-canvas.pan-tool-active.is-panning .flow-node {
   cursor: grabbing;
 }
