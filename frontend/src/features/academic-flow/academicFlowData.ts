@@ -91,6 +91,9 @@ export function getAuditScriptLabel(value: AuditScriptType) {
   if (value === "mjs") {
     return "Node.js (.mjs)";
   }
+  if (value === "js") {
+    return "JavaScript (.js)";
+  }
   return "不启用脚本";
 }
 

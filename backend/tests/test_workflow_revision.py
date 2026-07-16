@@ -108,3 +108,29 @@ def test_published_node_movement_is_layout_only():
     current["nodes"][0].update({"x": 640, "y": 320})
 
     assert analyze_revision(BASE_CONFIG, current)["invalidatedNodeIds"] == []
+
+
+def test_audit_script_version_change_invalidates_the_published_file_node():
+    previous = {
+        "nodes": [
+            {
+                "id": "file",
+                "kind": "file",
+                "title": "材料",
+                "requirement": "上传材料",
+                "auditScriptId": "script-1",
+                "auditScriptVersion": 1,
+                "auditScriptHash": "old-hash",
+            }
+        ],
+        "edges": [],
+    }
+    current = deepcopy(previous)
+    current["nodes"][0].update(
+        {"auditScriptVersion": 2, "auditScriptHash": "new-hash"}
+    )
+
+    impact = analyze_revision(previous, current)
+
+    assert impact["changedNodeIds"] == ["file"]
+    assert impact["invalidatedNodeIds"] == ["file"]
