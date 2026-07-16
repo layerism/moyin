@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.repositories.flow_instances import (
@@ -7,6 +9,17 @@ from app.repositories.flow_instances import (
     set_student_deadline,
 )
 from app.services.security import get_current_teacher
+from app.services.security import get_current_super_admin
+from app.repositories.audit_scripts import (
+    AuditScriptConflictError,
+    AuditScriptNotFoundError,
+    AuditScriptValidationError,
+    archive_audit_script,
+    create_audit_script,
+    create_audit_script_version,
+    list_audit_scripts,
+)
+from app.services.audit_script_templates import get_template_source
 
 router = APIRouter(dependencies=[Depends(get_current_teacher)])
 
@@ -14,6 +27,73 @@ router = APIRouter(dependencies=[Depends(get_current_teacher)])
 class DeadlineRequest(BaseModel):
     deadlineAt: str
     reason: str = Field(min_length=1, max_length=500)
+
+
+@router.get("/audit-scripts")
+def get_audit_scripts() -> list[dict[str, object]]:
+    return list_audit_scripts()
+
+
+@router.get("/audit-scripts/templates/{language}")
+def download_audit_script_template(
+    language: Literal["python", "javascript"],
+    _: dict[str, object] = Depends(get_current_super_admin),
+) -> Response:
+    source, filename = get_template_source(language)
+    return Response(
+        content=source,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/audit-scripts", status_code=status.HTTP_201_CREATED)
+async def post_audit_script(
+    name: Annotated[str, Form(min_length=1, max_length=120)],
+    file: Annotated[UploadFile, File()],
+    admin: dict[str, object] = Depends(get_current_super_admin),
+) -> dict[str, object]:
+    content = await file.read()
+    return _create_script_response(
+        lambda: create_audit_script(name, file.filename or "", content, int(admin["id"]))
+    )
+
+
+@router.put("/audit-scripts/{script_id}")
+async def put_audit_script(
+    script_id: str,
+    file: Annotated[UploadFile, File()],
+    admin: dict[str, object] = Depends(get_current_super_admin),
+) -> dict[str, object]:
+    content = await file.read()
+    return _create_script_response(
+        lambda: create_audit_script_version(
+            script_id, file.filename or "", content, int(admin["id"])
+        )
+    )
+
+
+@router.delete("/audit-scripts/{script_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_audit_script(
+    script_id: str,
+    admin: dict[str, object] = Depends(get_current_super_admin),
+) -> Response:
+    try:
+        archive_audit_script(script_id, int(admin["id"]))
+    except AuditScriptNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="审核脚本不存在") from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _create_script_response(operation) -> dict[str, object]:
+    try:
+        return operation()
+    except AuditScriptNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="审核脚本不存在") from exc
+    except AuditScriptConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AuditScriptValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.patch("/versions/{version_id}/nodes/{node_key}/deadline")

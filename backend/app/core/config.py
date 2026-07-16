@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +15,8 @@ class Settings(BaseSettings):
     oss_access_key_id: str = ""
     oss_access_key_secret: str = ""
     oss_signed_url_expires_seconds: int = 600
+    audit_scripts_root: str = str(Path(__file__).resolve().parents[2] / "scripts")
+    audit_script_max_bytes: int = 1_048_576
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

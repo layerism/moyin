@@ -178,6 +178,28 @@ CREATE INDEX IF NOT EXISTS idx_uploaded_files_node
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_submission
     ON uploaded_files(submission_id);
 
+CREATE TABLE IF NOT EXISTS audit_scripts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    language TEXT NOT NULL CHECK (language IN ('py', 'js')),
+    current_version INTEGER NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    created_at TEXT NOT NULL,
+    archived_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_script_versions (
+    script_id TEXT NOT NULL REFERENCES audit_scripts(id) ON DELETE CASCADE,
+    version_no INTEGER NOT NULL,
+    entry_filename TEXT NOT NULL,
+    directory_path TEXT NOT NULL UNIQUE,
+    sha256 TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
+    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (script_id, version_no)
+);
+
 CREATE TABLE IF NOT EXISTS student_deadline_overrides (
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
