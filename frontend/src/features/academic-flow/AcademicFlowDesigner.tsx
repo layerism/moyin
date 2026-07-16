@@ -338,20 +338,6 @@ export function AcademicFlowDesigner({
     });
   };
 
-  const moveNode = (nodeId: string, direction: -1 | 1) => {
-    if (editorLocked || workingProcess.published) return;
-    const currentIndex = workingProcess.nodes.findIndex((node) => node.id === nodeId);
-    const nextIndex = currentIndex + direction;
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= workingProcess.nodes.length) {
-      return;
-    }
-
-    const nodes = [...workingProcess.nodes];
-    const [target] = nodes.splice(currentIndex, 1);
-    nodes.splice(nextIndex, 0, target);
-    commitDesignChange({ ...workingProcess, nodes });
-  };
-
   const deleteNode = (nodeId: string) => {
     if (
       editorLocked ||
@@ -468,7 +454,6 @@ export function AcademicFlowDesigner({
             onConnectNodes={connectNodes}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
-            onMoveNode={moveNode}
             onOpenInspector={setInspectorNodeId}
             onSelectNode={setActiveNodeId}
             onUpdateNode={updateNode}
@@ -671,7 +656,6 @@ function FlowNodeCanvas({
   onConnectNodes,
   onDeleteEdge,
   onDeleteNode,
-  onMoveNode,
   onOpenInspector,
   onSelectNode,
   onUpdateNode,
@@ -698,7 +682,6 @@ function FlowNodeCanvas({
   ) => void;
   onDeleteEdge: (edgeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
-  onMoveNode: (nodeId: string, direction: -1 | 1) => void;
   onOpenInspector: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
@@ -1274,16 +1257,6 @@ function FlowNodeCanvas({
                 >
                   ⚙
                 </button>
-                {!nodeMovementLocked ? (
-                  <>
-                    <button onClick={() => onMoveNode(node.id, -1)} type="button">
-                      ↑
-                    </button>
-                    <button onClick={() => onMoveNode(node.id, 1)} type="button">
-                      ↓
-                    </button>
-                  </>
-                ) : null}
                 {canDeleteNode(node.id) ? (
                   <button
                     aria-label="删除节点"
