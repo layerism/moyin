@@ -16,10 +16,9 @@ import {
   getNodeSettingCapabilities,
   getFileTypeRestrictionPreset,
   nodeTemplates,
-  resolveStandardAuditScript,
-  standardAuditScripts,
 } from "./academicFlowData";
 import { ApiError, workflowApi } from "./api";
+import { AuditScriptSelector } from "./AuditScriptSelector";
 import {
   bindCtrlWheelListener,
   getCanvasPanOffset,
@@ -94,6 +93,7 @@ export function AcademicFlowDesigner({
   onPublishProcess,
   onProcessChange,
   process,
+  isSuperAdmin,
 }: {
   onBack: () => void;
   onHome: () => void;
@@ -105,6 +105,7 @@ export function AcademicFlowDesigner({
   ) => Promise<AcademicProcess>;
   onProcessChange: (process: AcademicProcess) => void;
   process: AcademicProcess;
+  isSuperAdmin: boolean;
 }) {
   const [workingProcess, setWorkingProcess] = useState(() => structuredClone(process));
   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
@@ -471,6 +472,7 @@ export function AcademicFlowDesigner({
           <NodeInspector
             deadlineReadOnly={workingProcess.published}
             editingLocked={editorLocked}
+            isSuperAdmin={isSuperAdmin}
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}
             onOpenProgress={() => {
@@ -1301,6 +1303,7 @@ function FlowNodeCanvas({
 function NodeInspector({
   deadlineReadOnly,
   editingLocked,
+  isSuperAdmin,
   node,
   onClose,
   onOpenProgress,
@@ -1309,6 +1312,7 @@ function NodeInspector({
 }: {
   deadlineReadOnly: boolean;
   editingLocked: boolean;
+  isSuperAdmin: boolean;
   node: AcademicFlowNode | null;
   onClose: () => void;
   onOpenProgress: () => void;
@@ -1489,28 +1493,11 @@ function NodeInspector({
               </label>
             </section>
 
-            <section className="inspector-section">
-              <h3>标准审核脚本</h3>
-              <label>
-                <span>材料审核脚本</span>
-                <select
-                  value={node.auditScriptName}
-                  onChange={(event) => {
-                    const script = resolveStandardAuditScript(event.target.value);
-                    onUpdateNode(node.id, {
-                      auditScriptName: script.name,
-                      auditScriptType: script.type,
-                    });
-                  }}
-                >
-                  {standardAuditScripts.map((script) => (
-                    <option key={script.name || "none"} value={script.name}>
-                      {script.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </section>
+            <AuditScriptSelector
+              isSuperAdmin={isSuperAdmin}
+              node={node}
+              onChange={(patch) => onUpdateNode(node.id, patch)}
+            />
           </>
         ) : null}
         </fieldset>
