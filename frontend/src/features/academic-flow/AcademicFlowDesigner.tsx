@@ -485,6 +485,7 @@ export function AcademicFlowDesigner({
               setShowProgress(true);
             }}
             onUpdateNode={updateNode}
+            publishedRevision={workingProcess.published && revisionEditing}
           />
         )}
         {showProgress && workingProcess.publishedVersionId ? (
@@ -1323,6 +1324,7 @@ function NodeInspector({
   onClose,
   onOpenProgress,
   onUpdateNode,
+  publishedRevision,
 }: {
   deadlineReadOnly: boolean;
   editingLocked: boolean;
@@ -1330,6 +1332,7 @@ function NodeInspector({
   onClose: () => void;
   onOpenProgress: () => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
+  publishedRevision: boolean;
 }) {
   if (!node) {
     return null;
@@ -1361,16 +1364,22 @@ function NodeInspector({
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <div className="panel-heading inspector-modal-heading">
+        <header className="panel-heading inspector-modal-heading">
           <div>
-            <h2>节点设置</h2>
-            <span>{kindLabels[node.kind]}</span>
+            <span>节点设置</span>
+            <h2>{node.title}</h2>
           </div>
+          <em>{kindLabels[node.kind]}</em>
           <button aria-label="关闭节点设置" onClick={onClose} type="button">
             ×
           </button>
-        </div>
+        </header>
         <fieldset className="node-inspector-fields" disabled={editingLocked}>
+        {publishedRevision ? (
+          <p className="node-inspector-revision-note">
+            当前为发布后修订。节点配置可以修改，重新发布后生效；运行时截止时间请在填写进度中调整。
+          </p>
+        ) : null}
         <label>
           <span>节点标题</span>
           <input
@@ -1498,6 +1507,16 @@ function NodeInspector({
           </label>
         </section>
         </fieldset>
+        <footer className="node-inspector-footer">
+          <span>
+            {publishedRevision
+              ? "修改仅保存在当前页面，重新发布后写入新版本。"
+              : "修改仅保存在当前页面，提交发布后写入流程版本。"}
+          </span>
+          <button className="primary-action" onClick={onClose} type="button">
+            完成
+          </button>
+        </footer>
       </aside>
     </div>
   );
