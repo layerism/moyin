@@ -1,5 +1,6 @@
 import type { AcademicProcess } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
+import type { AuditScriptSummary } from "./auditScripts";
 import type {
   PublishedFlow,
   RevisionImpact,
@@ -69,6 +70,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
   return response.json() as Promise<T>;
+}
+
+async function requestBlob(path: string): Promise<Blob> {
+  const response = await fetch(path, { credentials: "include" });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new ApiError(response.status, body?.detail ?? "请求失败");
+  }
+  return response.blob();
 }
 
 export const workflowApi = {
@@ -187,6 +197,21 @@ export const workflowApi = {
       `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/file`,
       { method: "POST", body: createFileUploadBody(file) },
     );
+  },
+  listAuditScripts() {
+    return request<AuditScriptSummary[]>("/api/workflow-admin/audit-scripts");
+  },
+  uploadAuditScript(name: string, file: File) {
+    const body = new FormData();
+    body.append("name", name);
+    body.append("file", file);
+    return request<AuditScriptSummary>("/api/workflow-admin/audit-scripts", {
+      method: "POST",
+      body,
+    });
+  },
+  downloadAuditScriptTemplate(language: "javascript" | "python") {
+    return requestBlob(`/api/workflow-admin/audit-scripts/templates/${language}`);
   },
   getProgress(versionId: string) {
     return request<WorkflowProgress>(
