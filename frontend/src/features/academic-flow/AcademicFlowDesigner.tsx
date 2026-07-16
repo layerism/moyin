@@ -8,13 +8,15 @@ import type {
   AcademicFlowPort,
   AcademicFlowNodeStatus,
   AcademicProcess,
-  AuditScriptType,
 } from "../../types";
 import {
+  allowedFileExtensions,
   createNode,
-  getAuditScriptLabel,
-  hasFileUploadSettings,
+  fileSizeLimitOptions,
+  getNodeSettingCapabilities,
   nodeTemplates,
+  resolveStandardAuditScript,
+  standardAuditScripts,
 } from "./academicFlowData";
 import { ApiError, workflowApi } from "./api";
 import {
@@ -1316,6 +1318,8 @@ function NodeInspector({
     return null;
   }
 
+  const settingCapabilities = getNodeSettingCapabilities(node.kind);
+
   const addInfoField = () => {
     onUpdateNode(node.id, { infoFields: [...node.infoFields, "新增字段"] });
   };
@@ -1396,94 +1400,116 @@ function NodeInspector({
             </small>
           ) : null}
         </label>
-        <label className="inspector-checkbox-row">
-          <input
-            checked={node.autoApprove ?? true}
-            type="checkbox"
-            onChange={(event) => onUpdateNode(node.id, { autoApprove: event.target.checked })}
-          />
-          <span>提交后自动通过</span>
-        </label>
-        <label>
-          <span>审核状态</span>
-          <select
-            value={node.status}
-            onChange={(event) =>
-              onUpdateNode(node.id, { status: event.target.value as AcademicFlowNodeStatus })
-            }
-          >
-            <option value="approved">已通过</option>
-            <option value="ready">可填写</option>
-            <option value="pending">审核中</option>
-            <option value="disabled">待开放</option>
-          </select>
-        </label>
+        {settingCapabilities.configuresSubmissionState ? (
+          <>
+            <label className="inspector-checkbox-row">
+              <input
+                checked={node.autoApprove ?? true}
+                type="checkbox"
+                onChange={(event) => onUpdateNode(node.id, { autoApprove: event.target.checked })}
+              />
+              <span>提交后自动通过</span>
+            </label>
+            <label>
+              <span>审核状态</span>
+              <select
+                value={node.status}
+                onChange={(event) =>
+                  onUpdateNode(node.id, { status: event.target.value as AcademicFlowNodeStatus })
+                }
+              >
+                <option value="approved">已通过</option>
+                <option value="ready">可填写</option>
+                <option value="pending">审核中</option>
+                <option value="disabled">待开放</option>
+              </select>
+            </label>
+          </>
+        ) : null}
 
-        <section className="inspector-section">
-          <div className="section-heading">
-            <h3>采集用户信息</h3>
-            <button onClick={addInfoField} type="button">
-              + 添加字段
-            </button>
-          </div>
-          {node.infoFields.map((field, index) => (
-            <div className="field-row" key={`${field}-${index}`}>
-              <span>☰</span>
-              <input value={field} onChange={(event) => updateInfoField(index, event.target.value)} />
-              <em>必填</em>
-              <button onClick={() => deleteInfoField(index)} type="button">
-                ×
+        {settingCapabilities.collectsInformation ? (
+          <section className="inspector-section">
+            <div className="section-heading">
+              <h3>采集用户信息</h3>
+              <button onClick={addInfoField} type="button">
+                + 添加字段
               </button>
             </div>
-          ))}
-          {node.infoFields.length === 0 && <p className="muted-line">该节点暂无用户信息字段。</p>}
-        </section>
+            {node.infoFields.map((field, index) => (
+              <div className="field-row" key={`${field}-${index}`}>
+                <span>☰</span>
+                <input value={field} onChange={(event) => updateInfoField(index, event.target.value)} />
+                <em>必填</em>
+                <button onClick={() => deleteInfoField(index)} type="button">
+                  ×
+                </button>
+              </div>
+            ))}
+            {node.infoFields.length === 0 && <p className="muted-line">该节点暂无用户信息字段。</p>}
+          </section>
+        ) : null}
 
-        {hasFileUploadSettings(node.kind) ? (
+        {settingCapabilities.configuresMaterialReview ? (
           <>
             <section className="inspector-section">
-              <h3>文件上传要求</h3>
+              <h3>材料审核</h3>
               <label>
-                <span>文件类型限制</span>
-                <input
-                  value={node.fileExtensions}
-                  onChange={(event) => onUpdateNode(node.id, { fileExtensions: event.target.value })}
-                  placeholder="pdf, doc, docx, zip"
-                />
+                <span>允许的文件类型（可多选）</span>
+                <select
+                  multiple
+                  size={4}
+                  value={node.fileExtensions.split(",").map((value) => value.trim()).filter(Boolean)}
+                  onChange={(event) =>
+                    onUpdateNode(node.id, {
+                      fileExtensions: Array.from(
+                        event.target.selectedOptions,
+                        (option) => option.value,
+                      ).join(", "),
+                    })
+                  }
+                >
+                  {allowedFileExtensions.map((extension) => (
+                    <option key={extension} value={extension}>
+                      .{extension}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label>
-                <span>单个文件大小上限</span>
-                <input
+                <span>单个文件大小上限（M）</span>
+                <select
                   value={node.fileLimitMb}
                   onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
-                  placeholder="50"
-                />
+                >
+                  {fileSizeLimitOptions.map((limit) => (
+                    <option key={limit} value={limit}>
+                      {limit} M
+                    </option>
+                  ))}
+                </select>
               </label>
             </section>
 
             <section className="inspector-section">
-              <h3>审核脚本（文件规范校验）</h3>
+              <h3>标准审核脚本</h3>
               <label>
-                <span>脚本类型</span>
+                <span>材料审核脚本</span>
                 <select
-                  value={node.auditScriptType}
-                  onChange={(event) =>
-                    onUpdateNode(node.id, { auditScriptType: event.target.value as AuditScriptType })
-                  }
-                >
-                  <option value="none">{getAuditScriptLabel("none")}</option>
-                  <option value="py">{getAuditScriptLabel("py")}</option>
-                  <option value="mjs">{getAuditScriptLabel("mjs")}</option>
-                </select>
-              </label>
-              <label>
-                <span>脚本文件</span>
-                <input
-                  disabled={node.auditScriptType === "none"}
                   value={node.auditScriptName}
-                  onChange={(event) => onUpdateNode(node.id, { auditScriptName: event.target.value })}
-                  placeholder="check_material.py"
-                />
+                  onChange={(event) => {
+                    const script = resolveStandardAuditScript(event.target.value);
+                    onUpdateNode(node.id, {
+                      auditScriptName: script.name,
+                      auditScriptType: script.type,
+                    });
+                  }}
+                >
+                  {standardAuditScripts.map((script) => (
+                    <option key={script.name || "none"} value={script.name}>
+                      {script.label}
+                    </option>
+                  ))}
+                </select>
               </label>
             </section>
           </>
