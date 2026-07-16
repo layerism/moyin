@@ -67,14 +67,17 @@ export type StudentAccount = {
   studentNo: string;
 };
 
-export type AuditScriptType = "mjs" | "none" | "py";
+export type AuditScriptType = "js" | "mjs" | "none" | "py";
 export type AcademicFlowNodeStatus = "approved" | "disabled" | "pending" | "ready";
 export type AcademicFlowNodeKind = "announcement" | "confirmation" | "file" | "form";
 export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
 
 export type AcademicFlowNode = {
+  auditScriptHash?: string;
+  auditScriptId?: string;
   auditScriptName: string;
   auditScriptType: AuditScriptType;
+  auditScriptVersion?: number;
   deadlineAt?: string | null;
   fileExtensions: string;
   fileLimitMb: string;
