@@ -7,6 +7,12 @@ class Settings(BaseSettings):
     storage_root: str = "storage"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost"]
     database_path: str = "storage/app.db"
+    oss_endpoint: str = ""
+    oss_bucket: str = ""
+    oss_prefix: str = "coze/files"
+    oss_access_key_id: str = ""
+    oss_access_key_secret: str = ""
+    oss_signed_url_expires_seconds: int = 600
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

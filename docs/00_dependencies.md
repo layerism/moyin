@@ -78,8 +78,10 @@
 | `JWT_SECRET_KEY` | JWT 签名密钥 |
 | `OSS_ENDPOINT` | 阿里云 OSS endpoint |
 | `OSS_BUCKET` | OSS bucket |
+| `OSS_PREFIX` | OSS 对象根前缀，默认 `coze/files` |
 | `OSS_ACCESS_KEY_ID` | OSS AccessKey ID |
 | `OSS_ACCESS_KEY_SECRET` | OSS AccessKey Secret |
+| `OSS_SIGNED_URL_EXPIRES_SECONDS` | 下载签名 URL 有效期，默认 600 秒 |
 | `AI_API_BASE_URL` | AI 服务地址，按需配置 |
 | `AI_API_KEY` | AI 服务密钥，按需配置 |
 | `DOCX_WORKER_TIMEOUT_SECONDS` | DOCX 脚本运行超时时间 |
