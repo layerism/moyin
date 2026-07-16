@@ -10,7 +10,12 @@ import type {
   AcademicProcess,
   AuditScriptType,
 } from "../../types";
-import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
+import {
+  createNode,
+  getAuditScriptLabel,
+  hasFileUploadSettings,
+  nodeTemplates,
+} from "./academicFlowData";
 import { ApiError, workflowApi } from "./api";
 import {
   bindCtrlWheelListener,
@@ -1434,51 +1439,55 @@ function NodeInspector({
           {node.infoFields.length === 0 && <p className="muted-line">该节点暂无用户信息字段。</p>}
         </section>
 
-        <section className="inspector-section">
-          <h3>文件上传要求</h3>
-          <label>
-            <span>文件类型限制</span>
-            <input
-              value={node.fileExtensions}
-              onChange={(event) => onUpdateNode(node.id, { fileExtensions: event.target.value })}
-              placeholder="pdf, doc, docx, zip"
-            />
-          </label>
-          <label>
-            <span>单个文件大小上限</span>
-            <input
-              value={node.fileLimitMb}
-              onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
-              placeholder="50"
-            />
-          </label>
-        </section>
+        {hasFileUploadSettings(node.kind) ? (
+          <>
+            <section className="inspector-section">
+              <h3>文件上传要求</h3>
+              <label>
+                <span>文件类型限制</span>
+                <input
+                  value={node.fileExtensions}
+                  onChange={(event) => onUpdateNode(node.id, { fileExtensions: event.target.value })}
+                  placeholder="pdf, doc, docx, zip"
+                />
+              </label>
+              <label>
+                <span>单个文件大小上限</span>
+                <input
+                  value={node.fileLimitMb}
+                  onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
+                  placeholder="50"
+                />
+              </label>
+            </section>
 
-        <section className="inspector-section">
-          <h3>审核脚本（文件规范校验）</h3>
-          <label>
-            <span>脚本类型</span>
-            <select
-              value={node.auditScriptType}
-              onChange={(event) =>
-                onUpdateNode(node.id, { auditScriptType: event.target.value as AuditScriptType })
-              }
-            >
-              <option value="none">{getAuditScriptLabel("none")}</option>
-              <option value="py">{getAuditScriptLabel("py")}</option>
-              <option value="mjs">{getAuditScriptLabel("mjs")}</option>
-            </select>
-          </label>
-          <label>
-            <span>脚本文件</span>
-            <input
-              disabled={node.auditScriptType === "none"}
-              value={node.auditScriptName}
-              onChange={(event) => onUpdateNode(node.id, { auditScriptName: event.target.value })}
-              placeholder="check_material.py"
-            />
-          </label>
-        </section>
+            <section className="inspector-section">
+              <h3>审核脚本（文件规范校验）</h3>
+              <label>
+                <span>脚本类型</span>
+                <select
+                  value={node.auditScriptType}
+                  onChange={(event) =>
+                    onUpdateNode(node.id, { auditScriptType: event.target.value as AuditScriptType })
+                  }
+                >
+                  <option value="none">{getAuditScriptLabel("none")}</option>
+                  <option value="py">{getAuditScriptLabel("py")}</option>
+                  <option value="mjs">{getAuditScriptLabel("mjs")}</option>
+                </select>
+              </label>
+              <label>
+                <span>脚本文件</span>
+                <input
+                  disabled={node.auditScriptType === "none"}
+                  value={node.auditScriptName}
+                  onChange={(event) => onUpdateNode(node.id, { auditScriptName: event.target.value })}
+                  placeholder="check_material.py"
+                />
+              </label>
+            </section>
+          </>
+        ) : null}
         </fieldset>
         <footer className="node-inspector-footer">
           <span>
