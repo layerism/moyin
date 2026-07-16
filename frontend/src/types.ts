@@ -73,7 +73,6 @@ export type AcademicFlowNodeKind = "announcement" | "confirmation" | "file" | "f
 export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
 
 export type AcademicFlowNode = {
-  autoApprove?: boolean;
   auditScriptName: string;
   auditScriptType: AuditScriptType;
   deadlineAt?: string | null;
