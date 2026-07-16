@@ -158,6 +158,26 @@ CREATE TABLE IF NOT EXISTS submissions (
     UNIQUE(node_instance_id, idempotency_key)
 );
 
+CREATE TABLE IF NOT EXISTS uploaded_files (
+    id TEXT PRIMARY KEY,
+    node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
+    student_account_id INTEGER NOT NULL REFERENCES student_accounts(id) ON DELETE CASCADE,
+    submission_id TEXT REFERENCES submissions(id) ON DELETE SET NULL,
+    storage_key TEXT NOT NULL UNIQUE,
+    original_name TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
+    sha256 TEXT NOT NULL,
+    etag TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_uploaded_files_node
+    ON uploaded_files(node_instance_id, student_account_id);
+
+CREATE INDEX IF NOT EXISTS idx_uploaded_files_submission
+    ON uploaded_files(submission_id);
+
 CREATE TABLE IF NOT EXISTS student_deadline_overrides (
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
