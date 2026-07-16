@@ -18,12 +18,16 @@ export const nodeTemplates: Array<{
 ];
 
 export const fileTypeRestrictionPresets = [
-  { extensions: "pdf, doc, docx", label: "文字文档", value: "document" },
-  { extensions: "pdf, doc, docx, zip", label: "常用材料", value: "common-document" },
-  { extensions: "xls, xlsx", label: "表格文档", value: "spreadsheet" },
-  { extensions: "ppt, pptx", label: "演示文稿", value: "presentation" },
-  { extensions: "jpg, jpeg, png", label: "图片文件", value: "image" },
-  { extensions: "zip", label: "压缩文件", value: "archive" },
+  { extensions: "pdf, doc, docx", label: "文字文档（.pdf、.doc、.docx）", value: "document" },
+  {
+    extensions: "pdf, doc, docx, zip",
+    label: "常用材料（.pdf、.doc、.docx、.zip）",
+    value: "common-document",
+  },
+  { extensions: "xls, xlsx", label: "表格文档（.xls、.xlsx）", value: "spreadsheet" },
+  { extensions: "ppt, pptx", label: "演示文稿（.ppt、.pptx）", value: "presentation" },
+  { extensions: "jpg, jpeg, png", label: "图片文件（.jpg、.jpeg、.png）", value: "image" },
+  { extensions: "zip", label: "压缩文件（.zip）", value: "archive" },
 ];
 
 export const standardAuditScripts: Array<{
