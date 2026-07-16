@@ -6,11 +6,14 @@ import {
   resolveStandardAuditScript,
 } from "../src/features/academic-flow/academicFlowData.ts";
 
-test("通知公告节点不提供采集、提交状态或材料审核设置", () => {
+test("节点设置不提供运行时提交或审核状态配置", () => {
   assert.deepEqual(getNodeSettingCapabilities("announcement"), {
     collectsInformation: false,
     configuresMaterialReview: false,
-    configuresSubmissionState: false,
+  });
+  assert.deepEqual(getNodeSettingCapabilities("file"), {
+    collectsInformation: false,
+    configuresMaterialReview: true,
   });
 });
 

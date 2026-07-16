@@ -70,7 +70,6 @@ export function createNode(
   return {
     auditScriptName: kind === "file" ? "check_material.py" : "",
     auditScriptType: kind === "file" ? "py" : "none",
-    autoApprove: kind !== "file",
     deadlineAt: null,
     fileExtensions: kind === "file" ? "pdf, doc, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",
@@ -120,7 +119,6 @@ export function getNodeSettingCapabilities(kind: AcademicFlowNodeKind) {
   return {
     collectsInformation: kind === "form",
     configuresMaterialReview: kind === "file",
-    configuresSubmissionState: kind !== "announcement",
   };
 }
 

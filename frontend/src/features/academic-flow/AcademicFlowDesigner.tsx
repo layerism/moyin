@@ -1403,33 +1403,6 @@ function NodeInspector({
             </small>
           ) : null}
         </label>
-        {settingCapabilities.configuresSubmissionState ? (
-          <>
-            <label className="inspector-checkbox-row">
-              <input
-                checked={node.autoApprove ?? true}
-                type="checkbox"
-                onChange={(event) => onUpdateNode(node.id, { autoApprove: event.target.checked })}
-              />
-              <span>提交后自动通过</span>
-            </label>
-            <label>
-              <span>审核状态</span>
-              <select
-                value={node.status}
-                onChange={(event) =>
-                  onUpdateNode(node.id, { status: event.target.value as AcademicFlowNodeStatus })
-                }
-              >
-                <option value="approved">已通过</option>
-                <option value="ready">可填写</option>
-                <option value="pending">审核中</option>
-                <option value="disabled">待开放</option>
-              </select>
-            </label>
-          </>
-        ) : null}
-
         {settingCapabilities.collectsInformation ? (
           <section className="inspector-section">
             <div className="section-heading">
