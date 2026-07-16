@@ -72,6 +72,10 @@ export function getAuditScriptLabel(value: AuditScriptType) {
   return "不启用脚本";
 }
 
+export function hasFileUploadSettings(kind: AcademicFlowNodeKind) {
+  return kind === "file";
+}
+
 function createEncryptedSlug() {
   return `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
