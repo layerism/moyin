@@ -79,7 +79,7 @@
 | `node_instances` | `id`, `flow_instance_id`, `node_key`, `status`, `opened_at`, `submitted_at`, `approved_at`, `attempt_no` | 学生节点状态 |
 | `node_drafts` | `node_instance_id`, `payload`, `updated_at` | 当前暂存数据 |
 | `submissions` | `id`, `node_instance_id`, `attempt_no`, `payload_snapshot`, `submitted_at`, `status` | 不可变提交版本 |
-| `submission_files` | `id`, `submission_id`, `storage_key`, `original_name`, `mime_type`, `size_bytes`, `sha256` | 附件元数据 |
+| `uploaded_files` | `id`, `node_instance_id`, `student_account_id`, `submission_id`, `storage_key`, `original_name`, `content_type`, `size_bytes`, `sha256`, `etag` | OSS 附件元数据；上传后暂存，提交成功后关联 submission |
 | `student_deadline_overrides` | `flow_instance_id`, `node_key`, `deadline_at`, `reason`, `created_by`, `created_at` | 个别学生延期 |
 | `audit_logs` | `id`, `actor_id`, `action`, `entity_type`, `entity_id`, `before_data`, `after_data`, `reason`, `created_at` | 统一审计记录 |
 
@@ -89,6 +89,7 @@
 - `flow_instances(flow_version_id, student_user_id)` 唯一；
 - `node_instances(flow_instance_id, node_key)` 唯一；
 - `submissions(node_instance_id, attempt_no)` 唯一；
+- `uploaded_files(storage_key)` 唯一；未提交附件只能被所属学生和节点引用；
 - 所有状态迁移在数据库事务中完成。
 
 ## 5. 状态模型
@@ -163,6 +164,8 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 
 提交接口必须使用幂等键，避免网络重试生成重复提交。
 
+文件节点先调用 `POST /api/student/node-instances/{nodeInstanceId}/file`，后端校验学生权限、文件后缀、大小和 SHA-256 后，将二进制写入阿里云 OSS 私有前缀 `coze/files/`，并返回 `fileId`。提交接口只接受同一学生、同一节点且尚未关联提交的 `fileId`，服务端重新读取附件元数据后写入提交快照。下载通过 `GET /api/student/files/{fileId}/download` 生成 600 秒有效的签名 URL。
+
 ### 6.4 截止与延期
 
 1. 教师修改统一截止时间时，仅更新 `flow_node_runtime_configs`。
@@ -203,6 +206,8 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 - 令牌在日志、监控、分析参数和 Referer 中必须脱敏。
 - 登录密码使用成熟密码哈希算法；认证会话使用 `HttpOnly`、`Secure`、`SameSite` Cookie。
 - 附件保存至对象存储或受控文件存储，数据库只保存存储键和校验信息。
+- 当前实现使用阿里云 OSS：`OSS_ENDPOINT`、`OSS_BUCKET`、`OSS_PREFIX`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET` 和 `OSS_SIGNED_URL_EXPIRES_SECONDS` 从后端 `.env` 读取；AccessKey 不下发到浏览器。
+- OSS 上传成功但数据库写入失败时删除对象；同一节点重新上传时清理未关联 submission 的旧对象。
 - 上传接口校验扩展名、MIME、大小和内容安全策略。
 - 流程发布、截止时间更新、提交与审核必须使用事务和乐观锁。
 - 教师只能访问自己管理范围内的流程；学生只能访问自己的实例。
