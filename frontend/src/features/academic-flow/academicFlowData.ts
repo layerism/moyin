@@ -17,6 +17,32 @@ export const nodeTemplates: Array<{
   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
 ];
 
+export const allowedFileExtensions = [
+  "pdf",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "zip",
+  "jpg",
+  "jpeg",
+  "png",
+];
+
+export const fileSizeLimitOptions = ["5", "10", "20", "50", "100"];
+
+export const standardAuditScripts: Array<{
+  label: string;
+  name: string;
+  type: AuditScriptType;
+}> = [
+  { label: "不启用材料审核", name: "", type: "none" },
+  { label: "材料基础校验（Python）", name: "check_material.py", type: "py" },
+  { label: "材料命名校验（JavaScript）", name: "check_filename.mjs", type: "mjs" },
+];
+
 export function createAcademicProcess(name: string, id = `academic-${Date.now()}`): AcademicProcess {
   const encryptedSlug = createEncryptedSlug();
   return {
@@ -73,7 +99,23 @@ export function getAuditScriptLabel(value: AuditScriptType) {
 }
 
 export function hasFileUploadSettings(kind: AcademicFlowNodeKind) {
-  return kind === "file";
+  return getNodeSettingCapabilities(kind).configuresMaterialReview;
+}
+
+export function getNodeSettingCapabilities(kind: AcademicFlowNodeKind) {
+  return {
+    collectsInformation: kind === "form",
+    configuresMaterialReview: kind === "file",
+    configuresSubmissionState: kind !== "announcement",
+  };
+}
+
+export function resolveStandardAuditScript(name: string) {
+  const script = standardAuditScripts.find((item) => item.name === name);
+  return {
+    name: script?.name ?? "",
+    type: script?.type ?? "none",
+  };
 }
 
 function createEncryptedSlug() {
