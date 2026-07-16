@@ -2164,15 +2164,16 @@ button {
 .inspector-panel {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 0;
 }
 
 .node-inspector-fields {
   min-inline-size: 0;
   display: grid;
-  gap: 14px;
+  gap: 16px;
   margin: 0;
-  padding: 0;
+  padding: 20px 22px 24px;
+  overflow: auto;
   border: 0;
 }
 
@@ -2184,25 +2185,63 @@ button {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgba(15, 23, 42, 0.16);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.38);
+  backdrop-filter: blur(2px);
 }
 
 .node-inspector-modal {
-  width: min(390px, calc(100vw - 32px));
-  max-height: calc(100vh - 120px);
-  position: fixed;
-  top: 88px;
-  right: 28px;
-  overflow: auto;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid #d7e1ee;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+  box-shadow: 0 28px 84px rgba(15, 23, 42, 0.28);
+}
+
+.inspector-modal-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e7ecf3;
 }
 
 .inspector-modal-heading > div {
   display: grid;
-  gap: 4px;
+  gap: 2px;
+}
+
+.inspector-modal-heading > div > span {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.inspector-modal-heading h2 {
+  margin: 0;
+  overflow: hidden;
+  color: #101828;
+  font-size: 21px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-modal-heading > em {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eaf2ff;
+  color: #175cd3;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
 }
 
 .inspector-modal-heading button {
@@ -2214,6 +2253,17 @@ button {
   color: #475569;
   font-size: 18px;
   font-weight: 800;
+}
+
+.node-inspector-revision-note {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #fedf89;
+  border-radius: 7px;
+  background: #fffaeb;
+  color: #854a0e;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .inspector-panel label,
@@ -2264,8 +2314,10 @@ button {
 .inspector-section {
   display: grid;
   gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid #eef2f7;
+  padding: 15px;
+  border: 1px solid #e5eaf1;
+  border-radius: 8px;
+  background: #f8fafc;
 }
 
 .inspector-section h3 {
@@ -2299,6 +2351,44 @@ button {
   height: 24px;
   border-radius: 5px;
   background: transparent;
+}
+
+.node-inspector-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 22px;
+  border-top: 1px solid #e7ecf3;
+  background: #fff;
+}
+
+.node-inspector-footer span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.node-inspector-footer button {
+  min-width: 82px;
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+}
+
+@media (max-width: 760px) {
+  .node-inspector-backdrop {
+    padding: 12px;
+  }
+
+  .node-inspector-modal {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+  }
+
+  .node-inspector-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .student-preview-shell {
