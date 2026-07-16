@@ -1,4 +1,5 @@
 import type { AcademicProcess } from "../../types";
+import { createFileUploadBody, type UploadedFile } from "./fileUpload";
 import type {
   PublishedFlow,
   RevisionImpact,
@@ -40,19 +41,23 @@ export type FlowRoster = {
 };
 
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
+  public status: number;
+
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isMultipart =
+    typeof FormData !== "undefined" && init?.body instanceof FormData;
   const response = await fetch(path, {
     ...init,
     credentials: "include",
-    headers: init?.body
+    headers: isMultipart
+      ? init?.headers
+      : init?.body
       ? { "Content-Type": "application/json", ...init.headers }
       : init?.headers,
   });
@@ -175,6 +180,12 @@ export const workflowApi = {
     return request<RuntimeFlowInstance>(
       `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/submit`,
       { method: "POST", body: JSON.stringify({ payload, idempotencyKey }) },
+    );
+  },
+  uploadFile(nodeInstanceId: string, file: File) {
+    return request<UploadedFile>(
+      `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/file`,
+      { method: "POST", body: createFileUploadBody(file) },
     );
   },
   getProgress(versionId: string) {

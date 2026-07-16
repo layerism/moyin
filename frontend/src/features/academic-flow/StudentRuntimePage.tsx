@@ -91,6 +91,31 @@ export function StudentRuntimePage({
     }
   };
 
+  const uploadFile = async (runtime: RuntimeNodeInstance, file: File) => {
+    setBusyNodeId(runtime.id);
+    setNotice("正在上传文件");
+    try {
+      const uploaded = await workflowApi.uploadFile(runtime.id, file);
+      setDrafts((current) => ({
+        ...current,
+        [runtime.id]: {
+          ...(current[runtime.id] ?? {}),
+          file: {
+            fileId: uploaded.fileId,
+            name: uploaded.originalName,
+            size: uploaded.sizeBytes,
+            type: uploaded.contentType,
+          },
+        },
+      }));
+      setNotice("文件上传成功，可以提交节点");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "文件上传失败");
+    } finally {
+      setBusyNodeId(null);
+    }
+  };
+
   const submit = async (runtime: RuntimeNodeInstance) => {
     setBusyNodeId(runtime.id);
     setNotice("");
@@ -180,6 +205,7 @@ export function StudentRuntimePage({
           onClose={() => setActiveNodeKey(null)}
           onSave={() => void save(activeRuntime)}
           onSubmit={() => void submit(activeRuntime)}
+          onUploadFile={(file) => void uploadFile(activeRuntime, file)}
           onUpdate={(field, value) => updateDraft(activeRuntime.id, field, value)}
           runtime={activeRuntime}
         />
@@ -195,6 +221,7 @@ function RuntimeNodeDialog({
   onClose,
   onSave,
   onSubmit,
+  onUploadFile,
   onUpdate,
   runtime,
 }: {
@@ -204,6 +231,7 @@ function RuntimeNodeDialog({
   onClose: () => void;
   onSave: () => void;
   onSubmit: () => void;
+  onUploadFile: (file: File) => void;
   onUpdate: (field: string, value: unknown) => void;
   runtime: RuntimeNodeInstance;
 }) {
@@ -246,15 +274,16 @@ function RuntimeNodeDialog({
             <label className="runtime-file-input">
               <span>选择文件</span>
               <input
+                disabled={busy}
                 type="file"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) {
-                    onUpdate("file", { name: file.name, size: file.size, type: file.type });
+                    onUploadFile(file);
                   }
                 }}
               />
-              <small>{(draft.file as { name?: string } | undefined)?.name ?? "尚未选择"}</small>
+              <small>{getDraftFileName(draft.file)}</small>
             </label>
           ) : null}
           {node.kind === "confirmation" || node.kind === "announcement" ? (
@@ -288,4 +317,12 @@ function getStateHint(status: RuntimeNodeStatus) {
   if (status === "reviewing" || status === "submitted") return "材料已提交，正在等待审核。";
   if (status === "approved") return "该节点已完成，提交内容已锁定。";
   return "请根据退回意见修改后重新提交。";
+}
+
+function getDraftFileName(file: unknown): string {
+  if (!file || typeof file !== "object") return "尚未选择";
+  const value = file as { name?: unknown; originalName?: unknown };
+  if (typeof value.originalName === "string" && value.originalName) return value.originalName;
+  if (typeof value.name === "string" && value.name) return value.name;
+  return "尚未选择";
 }
