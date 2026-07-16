@@ -2324,6 +2324,76 @@ button {
   margin: 0;
 }
 
+.file-type-restriction {
+  display: grid;
+  gap: 12px;
+}
+
+.file-type-restriction-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #334155;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.restriction-switch {
+  width: 44px;
+  height: 26px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background 160ms ease;
+}
+
+.restriction-switch span {
+  width: 20px;
+  height: 20px;
+  display: block;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.24);
+  transition: transform 160ms ease;
+}
+
+.restriction-switch.is-enabled {
+  background: #2b74ff;
+}
+
+.restriction-switch.is-enabled span {
+  transform: translateX(18px);
+}
+
+.file-size-limit-field {
+  gap: 8px !important;
+}
+
+.file-size-input {
+  position: relative;
+  display: block;
+}
+
+.file-size-input input {
+  padding-right: 54px !important;
+}
+
+.file-size-input strong {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  color: #667085;
+  font-size: 16px;
+  font-weight: 500;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
 .field-row {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) 42px 24px;

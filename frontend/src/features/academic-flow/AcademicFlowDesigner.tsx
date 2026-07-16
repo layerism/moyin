@@ -10,10 +10,11 @@ import type {
   AcademicProcess,
 } from "../../types";
 import {
-  allowedFileExtensions,
   createNode,
-  fileSizeLimitOptions,
+  fileTypeRestrictionPresets,
+  getFileExtensionsForPreset,
   getNodeSettingCapabilities,
+  getFileTypeRestrictionPreset,
   nodeTemplates,
   resolveStandardAuditScript,
   standardAuditScripts,
@@ -1319,6 +1320,8 @@ function NodeInspector({
   }
 
   const settingCapabilities = getNodeSettingCapabilities(node.kind);
+  const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
+  const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
 
   const addInfoField = () => {
     onUpdateNode(node.id, { infoFields: [...node.infoFields, "新增字段"] });
@@ -1452,41 +1455,64 @@ function NodeInspector({
         {settingCapabilities.configuresMaterialReview ? (
           <>
             <section className="inspector-section">
-              <h3>材料审核</h3>
-              <label>
-                <span>允许的文件类型（可多选）</span>
-                <select
-                  multiple
-                  size={4}
-                  value={node.fileExtensions.split(",").map((value) => value.trim()).filter(Boolean)}
-                  onChange={(event) =>
-                    onUpdateNode(node.id, {
-                      fileExtensions: Array.from(
-                        event.target.selectedOptions,
-                        (option) => option.value,
-                      ).join(", "),
-                    })
-                  }
-                >
-                  {allowedFileExtensions.map((extension) => (
-                    <option key={extension} value={extension}>
-                      .{extension}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
+              <h3>设定限制</h3>
+              <div className="file-type-restriction">
+                <div className="file-type-restriction-heading">
+                  <span>文件类型限制</span>
+                  <button
+                    aria-checked={hasFileTypeRestriction}
+                    aria-label="启用文件类型限制"
+                    className={`restriction-switch ${hasFileTypeRestriction ? "is-enabled" : ""}`}
+                    onClick={() =>
+                      onUpdateNode(node.id, {
+                        fileExtensions: hasFileTypeRestriction
+                          ? ""
+                          : getFileExtensionsForPreset("document"),
+                      })
+                    }
+                    role="switch"
+                    type="button"
+                  >
+                    <span />
+                  </button>
+                </div>
+                {hasFileTypeRestriction ? (
+                  <select
+                    aria-label="文件类型预设"
+                    value={fileTypeRestrictionPreset}
+                    onChange={(event) =>
+                      onUpdateNode(node.id, {
+                        fileExtensions: getFileExtensionsForPreset(event.target.value),
+                      })
+                    }
+                  >
+                    {fileTypeRestrictionPreset === "custom" ? (
+                      <option value="custom">保留当前类型配置</option>
+                    ) : null}
+                    {fileTypeRestrictionPresets.map((preset) => (
+                      <option key={preset.value} value={preset.value}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+              </div>
+              <label className="file-size-limit-field">
                 <span>单个文件大小上限（M）</span>
-                <select
+                <span className="file-size-input">
+                  <input
+                    aria-label="单个文件大小上限（MB）"
+                    inputMode="decimal"
+                    max="300"
+                    min="0.1"
+                    placeholder="请输入 0.1–300 的数值"
+                    step="0.1"
+                    type="number"
                   value={node.fileLimitMb}
                   onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
-                >
-                  {fileSizeLimitOptions.map((limit) => (
-                    <option key={limit} value={limit}>
-                      {limit} M
-                    </option>
-                  ))}
-                </select>
+                  />
+                  <strong>MB</strong>
+                </span>
               </label>
             </section>
 
