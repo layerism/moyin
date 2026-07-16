@@ -10,6 +10,11 @@ from app.domain.workflow_runtime import (
     node_by_key,
     validate_submission,
 )
+from app.repositories.flow_files import (
+    FileContextError,
+    attach_uploaded_file,
+    get_uploaded_file_for_node,
+)
 from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.workflows import canonical_json
 from app.services.security import utc_now_iso
@@ -316,12 +321,34 @@ def submit_node(
                 raise RuntimeConflictError("当前节点不可提交")
             config = _version_config(connection, row["flow_version_id"])
             node = node_by_key(config, row["node_key"])
+            submission_payload = payload
+            uploaded_file = None
+            if node.get("kind") == "file":
+                file_value = payload.get("file")
+                if not isinstance(file_value, dict) or not file_value.get("fileId"):
+                    raise RuntimeConflictError("请先上传文件")
+                uploaded_file = get_uploaded_file_for_node(
+                    connection,
+                    str(file_value["fileId"]),
+                    node_instance_id,
+                    student_id,
+                )
+                if uploaded_file is None:
+                    raise RuntimeConflictError("文件不存在、已提交或不属于当前节点")
+                submission_payload = dict(payload)
+                submission_payload["file"] = {
+                    "fileId": uploaded_file["id"],
+                    "name": uploaded_file["original_name"],
+                    "size": uploaded_file["size_bytes"],
+                    "type": uploaded_file["content_type"],
+                }
             try:
-                validate_submission(node, payload)
+                validate_submission(node, submission_payload)
             except ValueError as exc:
                 raise RuntimeConflictError(str(exc)) from exc
             attempt_no = int(row["attempt_no"]) + 1
             submission_status = "approved" if node.get("autoApprove", True) else "reviewing"
+            submission_id = str(uuid.uuid4())
             connection.execute(
                 """
                 INSERT INTO submissions
@@ -330,15 +357,20 @@ def submit_node(
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    str(uuid.uuid4()),
+                    submission_id,
                     node_instance_id,
                     attempt_no,
                     idempotency_key,
-                    canonical_json(payload),
+                    canonical_json(submission_payload),
                     submission_status,
                     now,
                 ),
             )
+            if uploaded_file is not None:
+                try:
+                    attach_uploaded_file(connection, str(uploaded_file["id"]), submission_id)
+                except FileContextError as exc:
+                    raise RuntimeConflictError(str(exc)) from exc
             connection.execute(
                 "DELETE FROM node_drafts WHERE node_instance_id = ?",
                 (node_instance_id,),

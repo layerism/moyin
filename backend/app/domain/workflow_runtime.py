@@ -58,6 +58,12 @@ def validate_submission(node: dict[str, Any], payload: dict[str, Any]) -> None:
         raise ValueError("请选择文件后再提交")
 
     file_name = str(file_value["name"])
+    validate_file_metadata(node, file_name, file_value.get("size", 0))
+
+
+def validate_file_metadata(node: dict[str, Any], file_name: str, file_size: object) -> None:
+    if not str(file_name).strip():
+        raise ValueError("请选择文件后再提交")
     extensions = [
         value.strip().lower().removeprefix(".")
         for value in str(node.get("fileExtensions") or "").split(",")
@@ -71,10 +77,10 @@ def validate_submission(node: dict[str, Any], payload: dict[str, Any]) -> None:
     if raw_limit:
         try:
             limit_mb = float(raw_limit)
-            file_size = float(file_value.get("size", 0))
+            file_size_value = float(file_size)
         except (TypeError, ValueError) as exc:
             raise ValueError("文件大小信息无效") from exc
-        if limit_mb > 0 and file_size > limit_mb * 1024 * 1024:
+        if limit_mb > 0 and file_size_value > limit_mb * 1024 * 1024:
             raise ValueError(f"文件大小不能超过 {raw_limit} MB")
 
 
