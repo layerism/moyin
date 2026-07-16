@@ -17,21 +17,14 @@ export const nodeTemplates: Array<{
   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
 ];
 
-export const allowedFileExtensions = [
-  "pdf",
-  "doc",
-  "docx",
-  "xls",
-  "xlsx",
-  "ppt",
-  "pptx",
-  "zip",
-  "jpg",
-  "jpeg",
-  "png",
+export const fileTypeRestrictionPresets = [
+  { extensions: "pdf, doc, docx", label: "文字文档", value: "document" },
+  { extensions: "pdf, doc, docx, zip", label: "常用材料", value: "common-document" },
+  { extensions: "xls, xlsx", label: "表格文档", value: "spreadsheet" },
+  { extensions: "ppt, pptx", label: "演示文稿", value: "presentation" },
+  { extensions: "jpg, jpeg, png", label: "图片文件", value: "image" },
+  { extensions: "zip", label: "压缩文件", value: "archive" },
 ];
-
-export const fileSizeLimitOptions = ["5", "10", "20", "50", "100"];
 
 export const standardAuditScripts: Array<{
   label: string;
@@ -100,6 +93,23 @@ export function getAuditScriptLabel(value: AuditScriptType) {
 
 export function hasFileUploadSettings(kind: AcademicFlowNodeKind) {
   return getNodeSettingCapabilities(kind).configuresMaterialReview;
+}
+
+export function getFileExtensionsForPreset(value: string) {
+  return fileTypeRestrictionPresets.find((preset) => preset.value === value)?.extensions ?? "";
+}
+
+export function getFileTypeRestrictionPreset(extensions: string) {
+  const normalizedExtensions = extensions
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean)
+    .join(", ");
+  if (!normalizedExtensions) return "none";
+  return (
+    fileTypeRestrictionPresets.find((preset) => preset.extensions === normalizedExtensions)?.value ??
+    "custom"
+  );
 }
 
 export function getNodeSettingCapabilities(kind: AcademicFlowNodeKind) {
