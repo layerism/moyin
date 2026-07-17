@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 import pytest
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from app.core.config import settings
 from app.core.database import get_connection, initialize_database
@@ -106,7 +107,9 @@ def test_initialize_database_migrates_legacy_audit_script_metadata(
     initialize_database()
 
     with sqlite3.connect(database_path) as connection:
-        columns = {row[1] for row in connection.execute("PRAGMA table_info(audit_scripts)")}
+        columns = {
+            row[1]: row for row in connection.execute("PRAGMA table_info(audit_scripts)")
+        }
         legacy_script = connection.execute(
             "SELECT description, created_at, updated_at FROM audit_scripts WHERE id = 'legacy-script'"
         ).fetchone()
@@ -115,6 +118,7 @@ def test_initialize_database_migrates_legacy_audit_script_metadata(
         ).fetchone()
 
     assert {"description", "updated_at"}.issubset(columns)
+    assert columns["updated_at"][3] == 1
     assert legacy_script == ("", "2026-07-17T00:00:00+00:00", "2026-07-17T00:00:00+00:00")
     assert migration == (1,)
 
@@ -251,3 +255,45 @@ def test_script_upload_rejects_empty_and_unsupported_sources(client: TestClient)
 
     assert empty.status_code == 422
     assert unsupported.status_code == 422
+
+
+def test_upload_routes_read_at_most_one_byte_past_script_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    register_teacher(client)
+    promote_current_teacher()
+    with get_connection() as connection:
+        admin_id = int(
+            connection.execute("SELECT id FROM teacher_accounts WHERE employee_no = 'TS001'").fetchone()[0]
+        )
+    existing = create_audit_script(
+        "可更新脚本",
+        "用于上传边界测试",
+        "audit.py",
+        b"def run(payload): return {}",
+        admin_id,
+    )
+    read_limits: list[int] = []
+    original_read = StarletteUploadFile.read
+
+    async def record_read_limit(file: StarletteUploadFile, size: int = -1) -> bytes:
+        read_limits.append(size)
+        return await original_read(file, size)
+
+    monkeypatch.setattr(StarletteUploadFile, "read", record_read_limit)
+    oversized = b"x" * (settings.audit_script_max_bytes + 1)
+
+    created = client.post(
+        "/api/workflow-admin/audit-scripts",
+        data={"name": "超限脚本", "description": "直接 API 上传边界校验"},
+        files={"file": ("oversized.py", oversized, "text/x-python")},
+    )
+    updated = client.put(
+        f"/api/workflow-admin/audit-scripts/{existing['id']}",
+        data={"description": "直接 API 更新边界校验"},
+        files={"file": ("audit.py", oversized, "text/x-python")},
+    )
+
+    assert created.status_code == 422
+    assert updated.status_code == 422
+    assert read_limits == [settings.audit_script_max_bytes + 1] * 2

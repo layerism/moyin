@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { workflowApi } from "./api";
 import {
   getAuditScriptFormState,
+  getAuditScriptListState,
   validateAuditScriptFileContent,
   validateAuditScriptForm,
   type AuditScriptFormMode,
@@ -27,15 +28,20 @@ export function AuditScriptManager({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState<FormState | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState("");
+  const [listError, setListError] = useState("");
+  const [listLoading, setListLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState<"javascript" | "python" | null>(null);
 
   const loadScripts = async () => {
-    setError("");
+    setListError("");
+    setListLoading(true);
     try {
       setScripts(await workflowApi.listAuditScripts());
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "审核脚本列表读取失败，请稍后重试");
+      setListError(reason instanceof Error ? reason.message : "审核脚本列表读取失败，请稍后重试");
+    } finally {
+      setListLoading(false);
     }
   };
 
@@ -114,6 +120,8 @@ export function AuditScriptManager({ onClose }: { onClose: () => void }) {
   const fileAccept = form?.kind === "update"
     ? form.script.language === "py" ? ".py" : ".js"
     : ".py,.js";
+  const listState = getAuditScriptListState({ error: listError, loading: listLoading, scripts });
+  const loadedScripts = scripts ?? [];
 
   return (
     <div className="audit-script-backdrop" onMouseDown={close}>
@@ -132,7 +140,7 @@ export function AuditScriptManager({ onClose }: { onClose: () => void }) {
           <button aria-label="关闭审核脚本管理" disabled={busy} onClick={close} type="button">×</button>
         </header>
 
-        {error ? <p className="audit-script-message error" role="alert">{error}</p> : null}
+        {error || listError ? <p className="audit-script-message error" role="alert">{error || listError}</p> : null}
 
         {form ? (
           <form className="audit-script-form" onSubmit={(event) => void submitForm(event)}>
@@ -180,12 +188,14 @@ export function AuditScriptManager({ onClose }: { onClose: () => void }) {
               <button disabled={downloading !== null} onClick={() => void downloadTemplate("javascript")} type="button">{downloading === "javascript" ? "下载中…" : "下载 JavaScript 模板"}</button>
               <button className="primary-action" disabled={scripts === null} onClick={() => startForm({ kind: "create" })} type="button">上传新脚本</button>
             </div>
-            {scripts === null ? <p className="audit-script-empty">正在读取审核脚本…</p> : (
+            {listState === "loading" ? <p className="audit-script-empty">正在读取审核脚本…</p> : listState === "error" ? (
+              <button className="audit-script-retry" onClick={() => void loadScripts()} type="button">重新读取</button>
+            ) : (
               <div className="audit-script-table-wrap">
                 <table className="audit-script-table">
                   <thead><tr><th>功能名称</th><th>功能描述</th><th>语言</th><th>当前版本</th><th>更新时间</th><th>操作</th></tr></thead>
                   <tbody>
-                    {scripts.map((script) => (
+                    {loadedScripts.map((script) => (
                       <tr key={script.id}>
                         <td>{script.name}</td>
                         <td>{script.description}</td>
@@ -197,10 +207,9 @@ export function AuditScriptManager({ onClose }: { onClose: () => void }) {
                     ))}
                   </tbody>
                 </table>
-                {scripts.length === 0 ? <p className="audit-script-empty">暂无审核脚本，请先上传脚本。</p> : null}
+                {loadedScripts.length === 0 ? <p className="audit-script-empty">暂无审核脚本，请先上传脚本。</p> : null}
               </div>
             )}
-            {scripts === null && error ? <button className="audit-script-retry" onClick={() => void loadScripts()} type="button">重新读取</button> : null}
           </div>
         )}
       </section>
