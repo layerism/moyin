@@ -3279,63 +3279,6 @@ button {
   margin-left: auto;
 }
 
-.runtime-progress-grid {
-  display: grid;
-  width: min(1480px, calc(100% - 32px));
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 14px auto 0;
-}
-
-.runtime-progress-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid #d8dee8;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
-}
-
-.runtime-progress-card > span {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  place-items: center;
-  border-radius: 50%;
-  background: #eaf2ff;
-  color: #175cd3;
-  font-weight: 800;
-}
-
-.runtime-progress-card div {
-  display: grid;
-  gap: 2px;
-}
-
-.runtime-progress-card small {
-  color: #667085;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.runtime-progress-card strong {
-  color: #101828;
-  font-size: 18px;
-}
-
-.runtime-progress-card.approved > span {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.runtime-progress-card.reviewing > span {
-  background: #f0ebff;
-  color: #6941c6;
-}
-
 .runtime-overall-status {
   flex: 0 0 auto;
   padding: 6px 10px;
@@ -4132,10 +4075,6 @@ button {
   .student-topology-section {
     min-height: 640px;
     flex: none;
-  }
-
-  .runtime-progress-grid {
-    grid-template-columns: 1fr;
   }
 
   .runtime-student-identity {
