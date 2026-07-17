@@ -1,16 +1,13 @@
 import hashlib
 import io
-import sqlite3
+import json
 import textwrap
 import zipfile
-from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
 from app.core.config import settings
-from app.core.database import get_connection, initialize_database
-from app.repositories.audit_scripts import create_audit_script, create_audit_script_version
 from app.services.audit_script_runtime import (
     AuditScriptResolutionError,
     AuditScriptRuntimeDescriptor,
@@ -22,7 +19,6 @@ from app.services.audit_script_executor import (
     execute_audit_script,
     stage_audit_materials,
 )
-import app.services.audit_script_runtime as audit_script_runtime
 
 
 class MemoryStorage:
@@ -271,116 +267,139 @@ def test_execute_audit_script_rejects_runtime_failures_and_cleans_temp_directory
 
 
 @pytest.fixture
-def audit_script_admin(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> int:
-    monkeypatch.setattr(settings, "database_path", str(tmp_path / "test.db"))
-    monkeypatch.setattr(settings, "audit_scripts_root", str(tmp_path / "scripts"))
-    initialize_database()
-    with get_connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO teacher_accounts
-                (name, employee_no, password_hash, role, created_at, updated_at)
-            VALUES
-                ('测试管理员', 'ADMIN001', 'hash', 'super_admin',
-                 '2026-07-17T00:00:00+00:00', '2026-07-17T00:00:00+00:00')
-            """
-        )
-        return int(connection.execute("SELECT id FROM teacher_accounts").fetchone()[0])
-
-
-def create_versioned_script(admin_id: int) -> tuple[dict[str, object], dict[str, object]]:
-    created = create_audit_script(
-        "材料校验",
-        "初始版本",
-        "check.py",
-        b"def run(payload): return {'passed': True}",
-        admin_id,
+def versioned_script(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, Path]:
+    root = tmp_path / "scripts"
+    script = root / "material-check"
+    version_1 = script / "versions" / "1" / "handler.py"
+    version_2 = script / "versions" / "2" / "handler.py"
+    version_1.parent.mkdir(parents=True)
+    version_2.parent.mkdir(parents=True)
+    version_1.write_text("print('version 1')", encoding="utf-8")
+    version_2.write_text("print('version 2')", encoding="utf-8")
+    (script / "manifest.json").write_text(
+        json.dumps(
+            {
+                "id": "material-check",
+                "name": "材料校验",
+                "description": "校验材料结构",
+                "language": "py",
+                "version": 2,
+                "entry": "handler.py",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
     )
-    versioned = create_audit_script_version(
-        str(created["id"]),
-        "固定版本",
-        "check.py",
-        b"def run(payload): return {'passed': False}",
-        admin_id,
-    )
-    return created, versioned
+    monkeypatch.setattr(settings, "audit_scripts_root", str(root))
+    return version_1, version_2
 
 
-def test_resolves_the_requested_immutable_version(audit_script_admin: int) -> None:
-    created, versioned = create_versioned_script(audit_script_admin)
+def file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
-    descriptor = resolve_audit_script_version(
-        str(created["id"]), int(created["version"]), str(created["sha256"])
-    )
 
-    assert descriptor.script_id == created["id"]
+def test_resolves_the_requested_immutable_version(versioned_script: tuple[Path, Path]) -> None:
+    version_1, version_2 = versioned_script
+
+    descriptor = resolve_audit_script_version("material-check", 1, file_hash(version_1))
+
+    assert descriptor.script_id == "material-check"
     assert descriptor.version == 1
     assert descriptor.language == "py"
-    assert descriptor.entry_path.name == "handler.py"
-    assert descriptor.sha256 == created["sha256"]
-    assert versioned["version"] == 2
+    assert descriptor.entry_path == version_1.resolve()
+    assert descriptor.sha256 == file_hash(version_1)
+    assert version_2.is_file()
 
 
-def test_rejects_mismatched_expected_hash(audit_script_admin: int) -> None:
-    created, _ = create_versioned_script(audit_script_admin)
+@pytest.mark.parametrize("latest_state", ["missing", "oversized"])
+def test_resolves_old_version_when_latest_entry_is_unusable(
+    versioned_script: tuple[Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    latest_state: str,
+) -> None:
+    version_1, version_2 = versioned_script
+    expected_hash = file_hash(version_1)
+    if latest_state == "missing":
+        version_2.unlink()
+    else:
+        version_2.write_bytes(b"x" * 100)
+        monkeypatch.setattr(settings, "audit_script_max_bytes", 64)
+
+    descriptor = resolve_audit_script_version("material-check", 1, expected_hash)
+
+    assert descriptor.entry_path == version_1.resolve()
+    assert descriptor.sha256 == expected_hash
+
+
+def test_runtime_rejects_duplicate_manifest_ids(versioned_script: tuple[Path, Path]) -> None:
+    version_1, _ = versioned_script
+    duplicate = Path(settings.audit_scripts_root) / "duplicate-directory"
+    duplicate_entry = duplicate / "versions" / "1" / "handler.py"
+    duplicate_entry.parent.mkdir(parents=True)
+    duplicate_entry.write_text("print('duplicate')", encoding="utf-8")
+    (duplicate / "manifest.json").write_text(
+        (version_1.parents[2] / "manifest.json").read_text("utf-8"),
+        encoding="utf-8",
+    )
 
     with pytest.raises(AuditScriptResolutionError):
-        resolve_audit_script_version(str(created["id"]), 1, "different-hash")
+        resolve_audit_script_version("material-check", 1, file_hash(version_1))
 
 
-def test_rejects_missing_database_version(audit_script_admin: int) -> None:
-    created, _ = create_versioned_script(audit_script_admin)
-
+def test_rejects_mismatched_expected_hash(versioned_script: tuple[Path, Path]) -> None:
     with pytest.raises(AuditScriptResolutionError):
-        resolve_audit_script_version(str(created["id"]), 99, str(created["sha256"]))
+        resolve_audit_script_version("material-check", 1, "different-hash")
 
 
-def test_rejects_entry_path_outside_script_root(audit_script_admin: int, tmp_path: Path) -> None:
-    created, _ = create_versioned_script(audit_script_admin)
-    with get_connection() as connection:
-        connection.execute(
-            "UPDATE audit_script_versions SET entry_filename = ? WHERE script_id = ? AND version_no = 1",
-            ("../../../../escaped.py", str(created["id"])),
-        )
+def test_rejects_missing_directory_version(versioned_script: tuple[Path, Path]) -> None:
+    version_1, _ = versioned_script
+    with pytest.raises(AuditScriptResolutionError):
+        resolve_audit_script_version("material-check", 99, file_hash(version_1))
+
+
+def test_rejects_entry_path_outside_script_root(
+    versioned_script: tuple[Path, Path], tmp_path: Path
+) -> None:
+    version_1, _ = versioned_script
+    manifest_path = version_1.parents[2] / "manifest.json"
+    manifest = json.loads(manifest_path.read_text("utf-8"))
+    manifest["entry"] = "../../../../escaped.py"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     with pytest.raises(AuditScriptResolutionError) as exc_info:
-        resolve_audit_script_version(str(created["id"]), 1, str(created["sha256"]))
+        resolve_audit_script_version("material-check", 1, file_hash(version_1))
 
     assert str(tmp_path) not in str(exc_info.value)
 
 
-def test_rejects_missing_entry_file(audit_script_admin: int) -> None:
-    created, _ = create_versioned_script(audit_script_admin)
-    entry_path = (
-        Path(settings.audit_scripts_root) / "global" / str(created["id"]) / "1" / "handler.py"
-    )
-    entry_path.unlink()
+def test_rejects_missing_entry_file(versioned_script: tuple[Path, Path]) -> None:
+    version_1, _ = versioned_script
+    expected_hash = file_hash(version_1)
+    version_1.unlink()
 
     with pytest.raises(AuditScriptResolutionError):
-        resolve_audit_script_version(str(created["id"]), 1, str(created["sha256"]))
+        resolve_audit_script_version("material-check", 1, expected_hash)
 
 
-def test_rejects_entry_file_with_changed_hash(audit_script_admin: int) -> None:
-    created, _ = create_versioned_script(audit_script_admin)
-    entry_path = (
-        Path(settings.audit_scripts_root) / "global" / str(created["id"]) / "1" / "handler.py"
-    )
-    entry_path.write_bytes(b"tampered")
+def test_rejects_entry_file_with_changed_hash(versioned_script: tuple[Path, Path]) -> None:
+    version_1, _ = versioned_script
+    expected_hash = file_hash(version_1)
+    version_1.write_bytes(b"tampered")
 
     with pytest.raises(AuditScriptResolutionError) as exc_info:
-        resolve_audit_script_version(str(created["id"]), 1, str(created["sha256"]))
+        resolve_audit_script_version("material-check", 1, expected_hash)
 
-    assert hashlib.sha256(entry_path.read_bytes()).hexdigest() != created["sha256"]
-    assert str(entry_path) not in str(exc_info.value)
+    assert file_hash(version_1) != expected_hash
+    assert str(version_1) not in str(exc_info.value)
 
 
 def test_does_not_leak_path_when_entry_read_fails(
-    audit_script_admin: int, monkeypatch: pytest.MonkeyPatch
+    versioned_script: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    created, _ = create_versioned_script(audit_script_admin)
-    entry_path = (
-        Path(settings.audit_scripts_root) / "global" / str(created["id"]) / "1" / "handler.py"
-    )
+    version_1, _ = versioned_script
+    expected_hash = file_hash(version_1)
 
     def fail_to_open(path: Path, *args: object, **kwargs: object) -> object:
         raise OSError(f"cannot read {path}")
@@ -388,24 +407,27 @@ def test_does_not_leak_path_when_entry_read_fails(
     monkeypatch.setattr(Path, "open", fail_to_open)
 
     with pytest.raises(AuditScriptResolutionError) as exc_info:
-        resolve_audit_script_version(str(created["id"]), 1, str(created["sha256"]))
+        resolve_audit_script_version("material-check", 1, expected_hash)
 
-    assert str(entry_path) not in str(exc_info.value)
+    assert str(version_1) not in str(exc_info.value)
 
 
-def test_does_not_leak_path_when_database_query_fails(
-    audit_script_admin: int, monkeypatch: pytest.MonkeyPatch
+def test_does_not_leak_path_when_manifest_read_fails(
+    versioned_script: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    created, _ = create_versioned_script(audit_script_admin)
+    version_1, _ = versioned_script
+    expected_hash = file_hash(version_1)
+    manifest_path = version_1.parents[2] / "manifest.json"
+    original_read_text = Path.read_text
 
-    @contextmanager
-    def unavailable_connection():
-        raise sqlite3.OperationalError(f"cannot open {settings.database_path}")
-        yield
+    def fail_manifest_read(path: Path, *args: object, **kwargs: object) -> str:
+        if path == manifest_path:
+            raise OSError(f"cannot read {path}")
+        return original_read_text(path, *args, **kwargs)
 
-    monkeypatch.setattr(audit_script_runtime, "get_connection", unavailable_connection)
+    monkeypatch.setattr(Path, "read_text", fail_manifest_read)
 
     with pytest.raises(AuditScriptResolutionError) as exc_info:
-        resolve_audit_script_version(str(created["id"]), 1, str(created["sha256"]))
+        resolve_audit_script_version("material-check", 1, expected_hash)
 
-    assert settings.database_path not in str(exc_info.value)
+    assert str(manifest_path) not in str(exc_info.value)

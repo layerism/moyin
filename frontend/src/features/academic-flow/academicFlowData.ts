@@ -30,16 +30,6 @@ export const fileTypeRestrictionPresets = [
   { extensions: "zip", label: "压缩文件（.zip）", value: "archive" },
 ];
 
-export const standardAuditScripts: Array<{
-  label: string;
-  name: string;
-  type: AuditScriptType;
-}> = [
-  { label: "不启用材料审核", name: "", type: "none" },
-  { label: "材料基础校验（Python）", name: "check_material.py", type: "py" },
-  { label: "材料命名校验（JavaScript）", name: "check_filename.mjs", type: "mjs" },
-];
-
 export function createAcademicProcess(name: string, id = `academic-${Date.now()}`): AcademicProcess {
   const encryptedSlug = createEncryptedSlug();
   return {
@@ -68,8 +58,8 @@ export function createNode(
   position = { x: 208, y: 80 },
 ): AcademicFlowNode {
   return {
-    auditScriptName: kind === "file" ? "check_material.py" : "",
-    auditScriptType: kind === "file" ? "py" : "none",
+    auditScriptName: "",
+    auditScriptType: "none",
     deadlineAt: null,
     fileExtensions: kind === "file" ? "pdf, doc, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",
@@ -122,14 +112,6 @@ export function getNodeSettingCapabilities(kind: AcademicFlowNodeKind) {
   return {
     collectsInformation: kind === "form",
     configuresMaterialReview: kind === "file",
-  };
-}
-
-export function resolveStandardAuditScript(name: string) {
-  const script = standardAuditScripts.find((item) => item.name === name);
-  return {
-    name: script?.name ?? "",
-    type: script?.type ?? "none",
   };
 }
 

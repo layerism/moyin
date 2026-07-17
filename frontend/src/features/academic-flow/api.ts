@@ -72,15 +72,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function requestBlob(path: string): Promise<Blob> {
-  const response = await fetch(path, { credentials: "include" });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
-    throw new ApiError(response.status, body?.detail ?? "请求失败");
-  }
-  return response.blob();
-}
-
 export const workflowApi = {
   listFlows() {
     return request<ServerFlow[]>("/api/workflows");
@@ -200,28 +191,6 @@ export const workflowApi = {
   },
   listAuditScripts() {
     return request<AuditScriptSummary[]>("/api/workflow-admin/audit-scripts");
-  },
-  uploadAuditScript(name: string, description: string, file: File) {
-    const body = new FormData();
-    body.append("description", description);
-    body.append("name", name);
-    body.append("file", file);
-    return request<AuditScriptSummary>("/api/workflow-admin/audit-scripts", {
-      method: "POST",
-      body,
-    });
-  },
-  updateAuditScript(scriptId: string, description: string, file: File) {
-    const body = new FormData();
-    body.append("description", description);
-    body.append("file", file);
-    return request<AuditScriptSummary>(
-      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}`,
-      { method: "PUT", body },
-    );
-  },
-  downloadAuditScriptTemplate(language: "javascript" | "python") {
-    return requestBlob(`/api/workflow-admin/audit-scripts/templates/${language}`);
   },
   getProgress(versionId: string) {
     return request<WorkflowProgress>(

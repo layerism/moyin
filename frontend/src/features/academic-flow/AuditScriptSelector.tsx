@@ -39,7 +39,7 @@ export function AuditScriptSelector({
 
   return (
     <section className="inspector-section audit-script-section">
-      <h3>标准审核脚本</h3>
+      <h3>预置审核脚本</h3>
       <label>
         <span>材料审核脚本</span>
         <select

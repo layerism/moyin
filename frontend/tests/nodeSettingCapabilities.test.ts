@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createNode,
   getNodeSettingCapabilities,
-  resolveStandardAuditScript,
 } from "../src/features/academic-flow/academicFlowData.ts";
 
 test("节点设置不提供运行时提交或审核状态配置", () => {
@@ -23,13 +23,11 @@ test("信息填写只配置采集信息，材料上传只由文件节点配置",
   assert.equal(getNodeSettingCapabilities("file").configuresMaterialReview, true);
 });
 
-test("标准材料审核脚本以可选的标识同步返回脚本类型", () => {
-  assert.deepEqual(resolveStandardAuditScript("check_material.py"), {
-    name: "check_material.py",
-    type: "py",
-  });
-  assert.deepEqual(resolveStandardAuditScript("check_filename.mjs"), {
-    name: "check_filename.mjs",
-    type: "mjs",
-  });
+test("新建文件节点默认不绑定已移除的内置审核脚本", () => {
+  const node = createNode("file", "文件上传");
+
+  assert.equal(node.auditScriptName, "");
+  assert.equal(node.auditScriptType, "none");
+  assert.equal(node.auditScriptId, undefined);
+  assert.equal(node.auditScriptVersion, undefined);
 });
