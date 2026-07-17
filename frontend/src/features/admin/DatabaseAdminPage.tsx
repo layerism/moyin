@@ -90,7 +90,7 @@ export function DatabaseAdminPage({
       <section className="database-admin-layout">
         <aside className="database-table-nav">
           <h2>数据表</h2>
-          <p>{tables.length} 个业务表</p>
+          <p>{tables.length} 个数据表</p>
           <nav aria-label="数据库表列表">
             {tables.map((table) => (
               <button
@@ -130,6 +130,7 @@ export function DatabaseAdminPage({
           {error ? <p className="database-admin-message error" role="alert">{error}</p> : null}
           {notice ? <p className="database-admin-message">{notice}</p> : null}
           <DatabaseRowsTable
+            deletable={schema?.deletable ?? false}
             loading={loading}
             onDelete={setDeletingRow}
             onEdit={setEditingRow}
@@ -190,12 +191,14 @@ export function DatabaseAdminPage({
 }
 
 function DatabaseRowsTable({
+  deletable,
   loading,
   onDelete,
   onEdit,
   rows,
   schema,
 }: {
+  deletable: boolean;
   loading: boolean;
   onDelete: (row: Record<string, unknown>) => void;
   onEdit: (row: Record<string, unknown>) => void;
@@ -224,7 +227,9 @@ function DatabaseRowsTable({
               <td>
                 <div className="database-row-actions">
                   <button onClick={() => onEdit(row)}>查看</button>
-                  <button className="danger" onClick={() => onDelete(row)}>删除</button>
+                  {deletable ? (
+                    <button className="danger" onClick={() => onDelete(row)}>删除</button>
+                  ) : null}
                 </div>
               </td>
             </tr>

@@ -1,4 +1,5 @@
 export type AdminTable = {
+  deletable: boolean;
   editableColumns: string[];
   name: string;
   rowCount: number;
@@ -15,6 +16,7 @@ export type AdminColumn = {
 
 export type AdminTableSchema = {
   columns: AdminColumn[];
+  deletable: boolean;
   name: string;
 };
 
