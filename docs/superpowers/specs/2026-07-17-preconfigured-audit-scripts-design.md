@@ -19,7 +19,11 @@
 backend/scripts/
 └── document-structure-check/
     ├── manifest.json
-    └── handler.py
+    └── versions/
+        ├── 1/
+        │   └── handler.py
+        └── 2/
+            └── handler.py
 ```
 
 `manifest.json` 示例：
@@ -30,7 +34,7 @@ backend/scripts/
   "name": "材料结构检查",
   "description": "检查上传材料的格式与必要内容",
   "language": "py",
-  "version": 1,
+  "version": 2,
   "entry": "handler.py"
 }
 ```
@@ -42,7 +46,9 @@ backend/scripts/
 - `description`：脚本用途说明。
 - `language`：仅允许 `py` 或 `js`。
 - `version`：正整数；脚本逻辑变化时由开发人员递增。
-- `entry`：当前目录内的 `.py` 或 `.js` 入口文件名，必须与 `language` 一致。
+- `entry`：版本目录内的 `.py` 或 `.js` 入口文件名，必须与 `language` 一致。
+
+脚本升级时必须新增 `versions/<新版本>/` 并保留旧版本目录，同时更新根清单中的 `version`。禁止覆盖已存在的版本文件，否则引用旧版本的已发布流程会因哈希不匹配而拒绝执行。
 
 ## 4. 后端设计
 
@@ -51,7 +57,7 @@ backend/scripts/
 新增只读脚本目录服务。每次读取脚本列表时扫描 `backend/scripts/*/manifest.json`，避免维护数据库与文件目录的双重状态。扫描时：
 
 1. 解析并校验清单字段；
-2. 使用真实路径检查入口文件仍位于对应脚本目录和 `backend/scripts` 根目录内；
+2. 使用真实路径检查最新版入口 `versions/<version>/<entry>` 仍位于对应脚本目录和 `backend/scripts` 根目录内；
 3. 校验入口扩展名与语言一致；
 4. 计算入口文件 SHA-256；
 5. 对非法目录记录错误日志并跳过，不阻断其他有效脚本；
@@ -74,7 +80,7 @@ backend/scripts/
 
 ### 4.3 运行时解析
 
-运行时根据流程节点保存的脚本 ID、版本和 SHA-256 解析对应目录。解析时重新校验清单版本、真实路径和文件哈希。目录脚本被修改但版本未递增时，旧流程的哈希校验失败并返回明确的脚本解析错误，防止静默执行不同逻辑。
+运行时根据流程节点保存的脚本 ID、版本和 SHA-256 解析 `versions/<version>/<entry>`。解析时重新校验真实路径和文件哈希；当前清单版本可以高于节点固定版本。版本文件被覆盖时，旧流程的哈希校验失败并返回明确的脚本解析错误，防止静默执行不同逻辑。
 
 ## 5. 前端设计
 
@@ -104,4 +110,3 @@ backend/scripts/
 5. 新节点选择脚本后保存当前版本和 SHA-256。
 6. 已发布流程不会因同 ID 脚本升级而自动切换版本。
 7. 运行时能够按固定 ID、版本和哈希解析受版本控制的脚本入口。
-
