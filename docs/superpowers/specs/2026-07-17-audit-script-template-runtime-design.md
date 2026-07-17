@@ -67,7 +67,7 @@ javascript-template/
 `handler.js` 导入并示范使用：
 
 - `mammoth`：读取 `.docx`；
-- `xlsx`：读取 `.xlsx`；
+- `read-excel-file`：读取 `.xlsx`；
 - `pdf-parse`：读取 `.pdf`；
 - `jszip` 与 `fast-xml-parser`：解析 `.pptx` 的 OOXML；
 - `sharp`：读取 `.jpeg`、`.jpg`、`.png` 元数据。
@@ -94,7 +94,7 @@ Pillow
 
 ```text
 mammoth
-xlsx
+read-excel-file
 pdf-parse
 jszip
 fast-xml-parser

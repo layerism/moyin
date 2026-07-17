@@ -1,7 +1,9 @@
 import json
 import sqlite3
 from collections.abc import Iterator
+from io import BytesIO
 from pathlib import Path
+from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 import pytest
@@ -15,7 +17,7 @@ from app.repositories.audit_scripts import (
     create_audit_script_version,
     list_audit_scripts,
 )
-from app.services.audit_script_templates import get_template_source
+from app.services.audit_script_templates import get_template_archive
 
 
 @pytest.fixture
@@ -39,13 +41,72 @@ def promote_current_teacher() -> None:
         connection.execute("UPDATE teacher_accounts SET role = 'super_admin'")
 
 
-def test_python_template_uses_json_stdin_stdout_contract() -> None:
-    source, filename = get_template_source("python")
+@pytest.mark.parametrize(
+    ("language", "filename", "entry"),
+    [
+        ("python", "audit-script-python-template.zip", "handler.py"),
+        ("javascript", "audit-script-javascript-template.zip", "handler.js"),
+    ],
+)
+def test_template_archive_contains_contract_files(language: str, filename: str, entry: str) -> None:
+    content, actual_filename = get_template_archive(language)
 
-    assert filename == "audit_script_template.py"
-    assert "def run(payload: dict) -> dict:" in source
-    assert "json.loads(sys.stdin.read())" in source
-    assert "json.dumps(result" in source
+    assert actual_filename == filename
+    with ZipFile(BytesIO(content)) as archive:
+        assert set(archive.namelist()) == {
+            entry,
+            "input.example.json",
+            "output.example.json",
+            "README.md",
+        }
+        source = archive.read(entry).decode("utf-8")
+        assert '"schemaVersion"' in archive.read("input.example.json").decode("utf-8")
+        assert '"checkedFileCount"' in archive.read("output.example.json").decode("utf-8")
+        assert ".docx" in source and ".png" in source
+        expected_imports = (
+            (
+                "import fitz",
+                "import openpyxl",
+                "from docx import Document",
+                "from PIL import Image",
+                "from pptx import Presentation",
+            )
+            if language == "python"
+            else (
+                'require("read-excel-file/node")',
+                'require("mammoth")',
+                'require("pdf-parse")',
+                'require("jszip")',
+                'require("fast-xml-parser")',
+                'require("sharp")',
+            )
+        )
+        assert all(dependency in source for dependency in expected_imports)
+        assert 'message": "文件解析失败"' in source or 'message: "文件解析失败"' in source
+        if language == "javascript":
+            assert 'require("node:fs/promises")' in source
+
+
+@pytest.mark.parametrize(
+    ("language", "filename"),
+    [
+        ("python", "audit-script-python-template.zip"),
+        ("javascript", "audit-script-javascript-template.zip"),
+    ],
+)
+def test_super_admin_downloads_template_archive(
+    client: TestClient, language: str, filename: str
+) -> None:
+    register_teacher(client)
+    promote_current_teacher()
+
+    response = client.get(f"/api/workflow-admin/audit-scripts/templates/{language}")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+    assert filename in response.headers["content-disposition"]
+    with ZipFile(BytesIO(response.content)) as archive:
+        assert "README.md" in archive.namelist()
 
 
 def test_repository_persists_script_description_and_updated_at(client: TestClient) -> None:
@@ -53,7 +114,9 @@ def test_repository_persists_script_description_and_updated_at(client: TestClien
     promote_current_teacher()
     with get_connection() as connection:
         admin_id = int(
-            connection.execute("SELECT id FROM teacher_accounts WHERE employee_no = 'TS001'").fetchone()[0]
+            connection.execute(
+                "SELECT id FROM teacher_accounts WHERE employee_no = 'TS001'"
+            ).fetchone()[0]
         )
 
     created = create_audit_script(
@@ -107,9 +170,7 @@ def test_initialize_database_migrates_legacy_audit_script_metadata(
     initialize_database()
 
     with sqlite3.connect(database_path) as connection:
-        columns = {
-            row[1]: row for row in connection.execute("PRAGMA table_info(audit_scripts)")
-        }
+        columns = {row[1]: row for row in connection.execute("PRAGMA table_info(audit_scripts)")}
         legacy_script = connection.execute(
             "SELECT description, created_at, updated_at FROM audit_scripts WHERE id = 'legacy-script'"
         ).fetchone()
@@ -137,7 +198,9 @@ def test_teacher_can_list_but_cannot_download_or_upload_script(client: TestClien
 
     with get_connection() as connection:
         admin_id = int(
-            connection.execute("SELECT id FROM teacher_accounts WHERE employee_no = 'TS001'").fetchone()[0]
+            connection.execute(
+                "SELECT id FROM teacher_accounts WHERE employee_no = 'TS001'"
+            ).fetchone()[0]
         )
     created = create_audit_script(
         "教师不可更新",
@@ -212,19 +275,35 @@ def test_super_admin_creates_immutable_new_version_and_archives_script(client: T
     created = client.post(
         "/api/workflow-admin/audit-scripts",
         data={"name": "材料命名校验", "description": "校验材料命名"},
-        files={"file": ("name.js", b"async function run(payload) { return { passed: true }; }", "text/javascript")},
+        files={
+            "file": (
+                "name.js",
+                b"async function run(payload) { return { passed: true }; }",
+                "text/javascript",
+            )
+        },
     ).json()
 
     versioned = client.put(
         f"/api/workflow-admin/audit-scripts/{created['id']}",
         data={"description": "校验材料命名和格式"},
-        files={"file": ("name.js", b"async function run(payload) { return { passed: false }; }", "text/javascript")},
+        files={
+            "file": (
+                "name.js",
+                b"async function run(payload) { return { passed: false }; }",
+                "text/javascript",
+            )
+        },
     )
     assert versioned.status_code == 200
     assert versioned.json()["version"] == 2
     assert versioned.json()["description"] == "校验材料命名和格式"
-    assert (Path(settings.audit_scripts_root) / "global" / created["id"] / "1" / "handler.js").exists()
-    assert (Path(settings.audit_scripts_root) / "global" / created["id"] / "2" / "handler.js").exists()
+    assert (
+        Path(settings.audit_scripts_root) / "global" / created["id"] / "1" / "handler.js"
+    ).exists()
+    assert (
+        Path(settings.audit_scripts_root) / "global" / created["id"] / "2" / "handler.js"
+    ).exists()
 
     wrong_language = client.put(
         f"/api/workflow-admin/audit-scripts/{created['id']}",
@@ -264,7 +343,9 @@ def test_upload_routes_read_at_most_one_byte_past_script_limit(
     promote_current_teacher()
     with get_connection() as connection:
         admin_id = int(
-            connection.execute("SELECT id FROM teacher_accounts WHERE employee_no = 'TS001'").fetchone()[0]
+            connection.execute(
+                "SELECT id FROM teacher_accounts WHERE employee_no = 'TS001'"
+            ).fetchone()[0]
         )
     existing = create_audit_script(
         "可更新脚本",

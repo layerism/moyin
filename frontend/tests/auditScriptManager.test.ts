@@ -98,12 +98,14 @@ test("支持系统文件选择器时先选择保存位置再下载并写入模�
 
   const result = await downloadAuditScriptTemplate({
     fallbackDownload: () => events.push("fallback"),
-    filename: "audit_script_template.py",
+    filename: "audit-script-python-template.zip",
     getBlob: async () => {
       events.push("download");
       return blob;
     },
     showSaveFilePicker: async (options) => {
+      assert.equal(options.suggestedName, "audit-script-python-template.zip");
+      assert.deepEqual(options.types[0]?.accept, { "application/zip": [".zip"] });
       events.push(`picker:${options.suggestedName}`);
       return {
         createWritable: async () => ({
@@ -118,7 +120,7 @@ test("支持系统文件选择器时先选择保存位置再下载并写入模�
   });
 
   assert.equal(result, "saved");
-  assert.deepEqual(events, ["picker:audit_script_template.py", "download", "write", "close"]);
+  assert.deepEqual(events, ["picker:audit-script-python-template.zip", "download", "write", "close"]);
 });
 
 test("用户取消系统保存对话框时不下载也不触发普通下载", async () => {
@@ -127,7 +129,7 @@ test("用户取消系统保存对话框时不下载也不触发普通下载", as
 
   const result = await downloadAuditScriptTemplate({
     fallbackDownload: () => { fallback = true; },
-    filename: "audit_script_template.js",
+    filename: "audit-script-javascript-template.zip",
     getBlob: async () => {
       downloaded = true;
       return new Blob();
@@ -151,10 +153,10 @@ test("不支持系统文件选择器时回退为浏览器普通下载", async ()
       assert.equal(content, blob);
       fallbackFilename = filename;
     },
-    filename: "audit_script_template.js",
+    filename: "audit-script-javascript-template.zip",
     getBlob: async () => blob,
   });
 
   assert.equal(result, "fallback");
-  assert.equal(fallbackFilename, "audit_script_template.js");
+  assert.equal(fallbackFilename, "audit-script-javascript-template.zip");
 });

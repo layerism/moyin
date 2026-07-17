@@ -6,7 +6,7 @@
 
 **Architecture:** 模板服务使用 Python 标准库 `zipfile` 在内存中生成两个 ZIP 包；后端镜像统一安装 Python 文档库与 Node.js Runtime 依赖，上传脚本不得安装依赖。执行服务复用现有不可变脚本解析器，把 OSS 材料下载到独立临时目录，通过 stdin/stdout JSON 协议调用 Python 或 JavaScript，并在返回前校验结果和清理目录。
 
-**Tech Stack:** FastAPI、Python 3.12、Python stdlib `zipfile/subprocess/tempfile`、Node.js 24 LTS、React 18、TypeScript、`python-docx/openpyxl/PyMuPDF/python-pptx/Pillow`、`mammoth/xlsx/pdf-parse/jszip/fast-xml-parser/sharp`。
+**Tech Stack:** FastAPI、Python 3.12、Python stdlib `zipfile/subprocess/tempfile`、Node.js 24 LTS、React 18、TypeScript、`python-docx/openpyxl/PyMuPDF/python-pptx/Pillow`、`read-excel-file/mammoth/pdf-parse/jszip/fast-xml-parser/sharp`。
 
 ## Global Constraints
 
@@ -108,7 +108,7 @@ def get_template_archive(language: str) -> tuple[bytes, str]:
     return output.getvalue(), filename
 ```
 
-Python 模板在模块顶层导入 `fitz`、`openpyxl`、`docx`、`PIL.Image`、`pptx.Presentation`；JavaScript 模板导入 `mammoth`、`xlsx`、`PDFParse`、`JSZip`、`XMLParser`、`sharp`。两种入口都必须：
+Python 模板在模块顶层导入 `fitz`、`openpyxl`、`docx`、`PIL.Image`、`pptx.Presentation`；JavaScript 模板导入 `read-excel-file`、`mammoth`、`PDFParse`、`JSZip`、`XMLParser`、`sharp`。两种入口都必须：
 
 ```text
 validate payload -> iterate files -> parse by extension -> collect per-file issues
@@ -248,8 +248,8 @@ Expected: FAIL，Settings 尚无 Node Runtime 字段。
     "jszip": "^3.10.1",
     "mammoth": "^1.12.0",
     "pdf-parse": "^2.4.5",
-    "sharp": "^0.35.3",
-    "xlsx": "^0.18.5"
+    "read-excel-file": "^9.3.1",
+    "sharp": "^0.35.3"
   }
 }
 ```

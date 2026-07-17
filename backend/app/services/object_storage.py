@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO
 from urllib.parse import quote
 
@@ -71,6 +71,13 @@ class ObjectStorage:
         except Exception as exc:
             raise ObjectStorageError("OSS 删除失败") from exc
         _ensure_success(response, "删除")
+
+    def download_to_file(self, key: str, destination: Path) -> None:
+        try:
+            response = self._bucket.get_object_to_file(key, str(destination))
+        except Exception as exc:
+            raise ObjectStorageError("OSS 下载失败") from exc
+        _ensure_success(response, "下载")
 
     def signed_download_url(self, key: str, filename: str) -> str:
         safe_name = quote(filename, safe="")

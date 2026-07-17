@@ -20,7 +20,7 @@ from app.repositories.audit_scripts import (
     create_audit_script_version,
     list_audit_scripts,
 )
-from app.services.audit_script_templates import get_template_source
+from app.services.audit_script_templates import get_template_archive
 
 router = APIRouter(dependencies=[Depends(get_current_teacher)])
 
@@ -40,10 +40,10 @@ def download_audit_script_template(
     language: Literal["python", "javascript"],
     _: dict[str, object] = Depends(get_current_super_admin),
 ) -> Response:
-    source, filename = get_template_source(language)
+    content, filename = get_template_archive(language)
     return Response(
-        content=source,
-        media_type="text/plain; charset=utf-8",
+        content=content,
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
