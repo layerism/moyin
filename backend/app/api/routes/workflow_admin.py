@@ -50,25 +50,29 @@ def download_audit_script_template(
 @router.post("/audit-scripts", status_code=status.HTTP_201_CREATED)
 async def post_audit_script(
     name: Annotated[str, Form(min_length=1, max_length=120)],
+    description: Annotated[str, Form(min_length=1, max_length=500)],
     file: Annotated[UploadFile, File()],
     admin: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
     content = await file.read()
     return _create_script_response(
-        lambda: create_audit_script(name, file.filename or "", content, int(admin["id"]))
+        lambda: create_audit_script(
+            name, description, file.filename or "", content, int(admin["id"])
+        )
     )
 
 
 @router.put("/audit-scripts/{script_id}")
 async def put_audit_script(
     script_id: str,
+    description: Annotated[str, Form(min_length=1, max_length=500)],
     file: Annotated[UploadFile, File()],
     admin: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
     content = await file.read()
     return _create_script_response(
         lambda: create_audit_script_version(
-            script_id, file.filename or "", content, int(admin["id"])
+            script_id, description, file.filename or "", content, int(admin["id"])
         )
     )
 

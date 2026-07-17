@@ -25,16 +25,24 @@ class AuditScriptValidationError(ValueError):
 
 
 def create_audit_script(
-    name: str, filename: str, content: bytes, admin_id: int
+    name: str, description: str, filename: str, content: bytes, admin_id: int
 ) -> dict[str, object]:
     normalized_name = _normalize_name(name)
+    normalized_description = _normalize_description(description)
     language = _language_for_filename(filename)
     _validate_content(content)
     script_id = str(uuid.uuid4())
     version = 1
     now = utc_now_iso()
     directory, entry_filename, sha256 = _write_version_directory(
-        script_id, version, normalized_name, language, content, admin_id, now
+        script_id,
+        version,
+        normalized_name,
+        normalized_description,
+        language,
+        content,
+        admin_id,
+        now,
     )
     try:
         with get_connection() as connection:
@@ -42,10 +50,19 @@ def create_audit_script(
             connection.execute(
                 """
                 INSERT INTO audit_scripts
-                    (id, name, language, current_version, created_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (id, name, description, language, current_version, created_by, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (script_id, normalized_name, language, version, admin_id, now),
+                (
+                    script_id,
+                    normalized_name,
+                    normalized_description,
+                    language,
+                    version,
+                    admin_id,
+                    now,
+                    now,
+                ),
             )
             connection.execute(
                 """
@@ -71,12 +88,15 @@ def create_audit_script(
     except Exception:
         _remove_directory(directory)
         raise
-    return _summary(script_id, normalized_name, language, version, sha256)
+    return _summary(
+        script_id, normalized_name, normalized_description, language, version, sha256, now
+    )
 
 
 def create_audit_script_version(
-    script_id: str, filename: str, content: bytes, admin_id: int
+    script_id: str, description: str, filename: str, content: bytes, admin_id: int
 ) -> dict[str, object]:
+    normalized_description = _normalize_description(description)
     language = _language_for_filename(filename)
     _validate_content(content)
     now = utc_now_iso()
@@ -98,7 +118,14 @@ def create_audit_script_version(
                 raise AuditScriptValidationError("新版本必须保持原脚本语言")
             version = int(script["current_version"]) + 1
             directory, entry_filename, sha256 = _write_version_directory(
-                script_id, version, script["name"], language, content, admin_id, now
+                script_id,
+                version,
+                script["name"],
+                normalized_description,
+                language,
+                content,
+                admin_id,
+                now,
             )
             connection.execute(
                 """
@@ -119,21 +146,33 @@ def create_audit_script_version(
                 ),
             )
             connection.execute(
-                "UPDATE audit_scripts SET current_version = ? WHERE id = ?",
-                (version, script_id),
+                """
+                UPDATE audit_scripts
+                SET current_version = ?, description = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (version, normalized_description, now, script_id),
             )
     except Exception:
         if directory is not None:
             _remove_directory(directory)
         raise
-    return _summary(script_id, str(script["name"]), language, version, sha256)
+    return _summary(
+        script_id,
+        str(script["name"]),
+        normalized_description,
+        language,
+        version,
+        sha256,
+        now,
+    )
 
 
 def list_audit_scripts() -> list[dict[str, object]]:
     with get_connection() as connection:
         rows = connection.execute(
             """
-            SELECT s.id, s.name, s.language, v.version_no, v.sha256
+            SELECT s.id, s.name, s.description, s.language, s.updated_at, v.version_no, v.sha256
             FROM audit_scripts s
             JOIN audit_script_versions v
               ON v.script_id = s.id AND v.version_no = s.current_version
@@ -145,9 +184,11 @@ def list_audit_scripts() -> list[dict[str, object]]:
         _summary(
             str(row["id"]),
             str(row["name"]),
+            str(row["description"]),
             str(row["language"]),
             int(row["version_no"]),
             str(row["sha256"]),
+            str(row["updated_at"]),
         )
         for row in rows
     ]
@@ -177,6 +218,15 @@ def _normalize_name(value: str) -> str:
     return name
 
 
+def _normalize_description(value: str) -> str:
+    description = value.strip()
+    if not description:
+        raise AuditScriptValidationError("脚本描述不能为空")
+    if len(description) > 500:
+        raise AuditScriptValidationError("脚本描述不能超过 500 个字符")
+    return description
+
+
 def _language_for_filename(filename: str) -> str:
     suffix = Path(filename).suffix.lower()
     if suffix == ".py":
@@ -201,6 +251,7 @@ def _write_version_directory(
     script_id: str,
     version: int,
     name: str,
+    description: str,
     language: str,
     content: bytes,
     admin_id: int,
@@ -218,6 +269,7 @@ def _write_version_directory(
         "scriptId": script_id,
         "version": version,
         "name": name,
+        "description": description,
         "language": language,
         "entryFilename": entry_filename,
         "sha256": sha256,
@@ -242,12 +294,20 @@ def _remove_directory(directory: Path) -> None:
 
 
 def _summary(
-    script_id: str, name: str, language: str, version: int, sha256: str
+    script_id: str,
+    name: str,
+    description: str,
+    language: str,
+    version: int,
+    sha256: str,
+    updated_at: str,
 ) -> dict[str, object]:
     return {
         "id": script_id,
         "name": name,
+        "description": description,
         "language": language,
         "version": version,
         "sha256": sha256,
+        "updatedAt": updated_at,
     }

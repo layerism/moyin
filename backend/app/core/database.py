@@ -181,10 +181,12 @@ CREATE INDEX IF NOT EXISTS idx_uploaded_files_submission
 CREATE TABLE IF NOT EXISTS audit_scripts (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
+    description TEXT NOT NULL DEFAULT '',
     language TEXT NOT NULL CHECK (language IN ('py', 'js')),
     current_version INTEGER NOT NULL,
     created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
     created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
     archived_at TEXT
 );
 
@@ -228,6 +230,7 @@ def initialize_database() -> None:
         _apply_super_admin_role_migration(connection)
         _apply_flow_owner_migration(connection)
         _apply_share_token_value_migration(connection)
+        _apply_audit_script_metadata_migration(connection)
 
 
 def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
@@ -309,3 +312,26 @@ def _apply_share_token_value_migration(connection: sqlite3.Connection) -> None:
         "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
         (migration_id, datetime.now(UTC).isoformat()),
     )
+
+
+def _apply_audit_script_metadata_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260717_add_audit_script_metadata"
+    columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(audit_scripts)").fetchall()
+    }
+    if "description" not in columns:
+        connection.execute(
+            "ALTER TABLE audit_scripts ADD COLUMN description TEXT NOT NULL DEFAULT ''"
+        )
+    if "updated_at" not in columns:
+        connection.execute("ALTER TABLE audit_scripts ADD COLUMN updated_at TEXT")
+    connection.execute("UPDATE audit_scripts SET updated_at = created_at WHERE updated_at IS NULL")
+
+    applied = connection.execute(
+        "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)
+    ).fetchone()
+    if applied is None:
+        connection.execute(
+            "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+            (migration_id, datetime.now(UTC).isoformat()),
+        )
