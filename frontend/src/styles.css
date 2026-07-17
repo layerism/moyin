@@ -3279,6 +3279,63 @@ button {
   margin-left: auto;
 }
 
+.runtime-progress-grid {
+  display: grid;
+  width: min(1480px, calc(100% - 32px));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px auto 0;
+}
+
+.runtime-progress-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid #d8dee8;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.runtime-progress-card > span {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf2ff;
+  color: #175cd3;
+  font-weight: 800;
+}
+
+.runtime-progress-card div {
+  display: grid;
+  gap: 2px;
+}
+
+.runtime-progress-card small {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.runtime-progress-card strong {
+  color: #101828;
+  font-size: 18px;
+}
+
+.runtime-progress-card.approved > span {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.runtime-progress-card.reviewing > span {
+  background: #f0ebff;
+  color: #6941c6;
+}
+
 .runtime-overall-status {
   flex: 0 0 auto;
   padding: 6px 10px;
@@ -3443,11 +3500,22 @@ button {
   color: #172033;
   box-shadow: 0 5px 14px rgba(15, 23, 42, 0.06);
   text-align: left;
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
 .student-topology-node:disabled {
   cursor: default;
   opacity: 1;
+}
+
+.student-topology-node:not(:disabled):is(:hover, :focus-visible) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.student-topology-node:focus-visible {
+  outline: 3px solid #84adff;
+  outline-offset: 3px;
 }
 
 .student-topology-node.available,
@@ -3475,11 +3543,15 @@ button {
   background: #faf8ff;
 }
 
+.student-topology-node.reviewing {
+  cursor: pointer;
+}
+
 .student-topology-node.approved {
   border-color: #86efac;
   background: #f0fdf4;
   color: #166534;
-  box-shadow: none;
+  cursor: pointer;
 }
 
 .student-topology-node.approved > small {
@@ -3641,6 +3713,93 @@ button {
 
 .runtime-node-dialog .runtime-node-form {
   padding: 22px 24px 24px;
+}
+
+.runtime-completion-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 24px 0;
+  padding: 13px 16px;
+  border: 1px solid #86efac;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.runtime-completion-banner strong {
+  font-size: 14px;
+}
+
+.runtime-completion-banner span {
+  font-size: 12px;
+}
+
+.runtime-readonly-submission,
+.runtime-file-summary {
+  display: grid;
+  gap: 12px;
+  margin: 18px 24px 24px;
+  padding: 16px;
+  border: 1px solid #d8dee8;
+  border-radius: 12px;
+  background: #fafbfc;
+}
+
+.runtime-readonly-field {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e4e7ec;
+}
+
+.runtime-readonly-field:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.runtime-readonly-field small,
+.runtime-file-summary dt {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.runtime-readonly-field strong {
+  color: #172033;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.runtime-readonly-confirmation {
+  color: #166534;
+}
+
+.runtime-file-summary > strong {
+  color: #172033;
+}
+
+.runtime-file-summary dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.runtime-file-summary dl > div {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.runtime-file-summary dt,
+.runtime-file-summary dd {
+  margin: 0;
+}
+
+.runtime-file-summary dd {
+  color: #172033;
+  overflow-wrap: anywhere;
 }
 
 .student-runtime-list {
@@ -3975,6 +4134,10 @@ button {
     flex: none;
   }
 
+  .runtime-progress-grid {
+    grid-template-columns: 1fr;
+  }
+
   .runtime-student-identity {
     flex-wrap: wrap;
   }
@@ -3991,6 +4154,19 @@ button {
 
   .runtime-node-form {
     padding: 18px;
+  }
+
+  .runtime-completion-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-right: 18px;
+    margin-left: 18px;
+  }
+
+  .runtime-readonly-submission,
+  .runtime-file-summary {
+    margin-right: 18px;
+    margin-left: 18px;
   }
 
   .deadline-editor-list label,

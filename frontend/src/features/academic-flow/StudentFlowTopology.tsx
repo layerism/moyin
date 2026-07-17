@@ -29,6 +29,7 @@ const statusLabels: Record<RuntimeNodeStatus, string> = {
 };
 
 const openableStatuses = new Set<RuntimeNodeStatus>([
+  "approved",
   "available",
   "audit_error",
   "draft",
@@ -189,7 +190,7 @@ export function StudentFlowTopology({
                 <small>{node.requirement}</small>
                 <span className="student-topology-node-meta">
                   <em>{getKindLabel(node)}</em>
-                  <i>{statusLabels[runtime.status]}</i>
+                  <i>{getTopologyStatusLabel(runtime.status)}</i>
                 </span>
               </button>
             );
@@ -207,6 +208,15 @@ function getKindLabel(node: AcademicFlowNode) {
   if (node.kind === "confirmation") return "确认承诺";
   if (node.kind === "announcement") return "通知公告";
   return "信息填写";
+}
+
+function getTopologyStatusLabel(status: RuntimeNodeStatus): string {
+  if (status === "approved") return "✓ 已完成 · 可查看";
+  if (status === "available" || status === "draft") return "→ 可填写";
+  if (status === "rejected" || status === "audit_error") return "! 需处理";
+  if (status === "reviewing" || status === "submitted") return "◌ 审核中";
+  if (status === "expired") return "× 已截止";
+  return "• 待开放";
 }
 
 function createArrowPolygon(x: number, y: number, port: AcademicFlowPort) {

@@ -72,6 +72,7 @@ export type RuntimeNodeInstance = {
   id: string;
   nodeKey: string;
   status: RuntimeNodeStatus;
+  submission: Record<string, unknown>;
   submittedAt: string | null;
 };
 

@@ -35,6 +35,16 @@ class RuntimeDeadlineError(ValueError):
     pass
 
 
+def _json_object(value: object) -> dict[str, object]:
+    if not isinstance(value, str):
+        return {}
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def get_or_create_instance(token: str, student_id: int) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
@@ -128,7 +138,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         config = json.loads(instance["config_snapshot"])
         node_rows = connection.execute(
             """
-            SELECT n.*, d.payload AS draft_payload,
+            SELECT n.*, d.payload AS draft_payload, s.payload_snapshot AS submission_payload,
                    j.status AS audit_job_status, j.attempt_count AS audit_attempt_count,
                    j.result_json AS audit_result_json
             FROM node_instances n
@@ -155,7 +165,8 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "nodeKey": row["node_key"],
                     "status": status,
                     "attemptNo": row["attempt_no"],
-                    "draft": json.loads(row["draft_payload"]) if row["draft_payload"] else {},
+                    "draft": _json_object(row["draft_payload"]),
+                    "submission": _json_object(row["submission_payload"]),
                     "effectiveDeadline": deadline,
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
