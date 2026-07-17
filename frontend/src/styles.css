@@ -3370,7 +3370,7 @@ button {
 .student-topology-legend .available::before { background: #2878f0; }
 .student-topology-legend .reviewing::before { background: #7f56d9; }
 .student-topology-legend .audit_error::before { background: #d92d20; }
-.student-topology-legend .approved::before { background: #98a2b3; }
+.student-topology-legend .approved::before { background: #16a34a; }
 .student-topology-legend .expired::before { background: #d92d20; }
 
 .student-topology-viewport {
@@ -3421,11 +3421,11 @@ button {
 }
 
 .student-topology-edges g.approved path {
-  stroke: #98a2b3;
+  stroke: #16a34a;
 }
 
 .student-topology-edges g.approved polygon {
-  fill: #98a2b3;
+  fill: #16a34a;
 }
 
 .student-topology-node {
@@ -3476,10 +3476,14 @@ button {
 }
 
 .student-topology-node.approved {
-  border-color: #d0d5dd;
-  background: #eaecf0;
-  color: #667085;
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #166534;
   box-shadow: none;
+}
+
+.student-topology-node.approved > small {
+  color: #166534;
 }
 
 .student-topology-node.locked,
@@ -3506,7 +3510,10 @@ button {
   font-weight: 800;
 }
 
-.student-topology-node.approved .student-topology-node-index,
+.student-topology-node.approved .student-topology-node-index {
+  background: #16a34a;
+}
+
 .student-topology-node.locked .student-topology-node-index {
   background: #98a2b3;
 }
@@ -3554,8 +3561,15 @@ button {
   font-weight: 700;
 }
 
-.student-topology-node.approved .student-topology-node-meta em,
-.student-topology-node.approved .student-topology-node-meta i,
+.student-topology-node.approved .student-topology-node-meta em {
+  color: #166534;
+}
+
+.student-topology-node.approved .student-topology-node-meta i {
+  background: #dcfce7;
+  color: #166534;
+}
+
 .student-topology-node.locked .student-topology-node-meta em,
 .student-topology-node.locked .student-topology-node-meta i {
   background: #d0d5dd;
