@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
+from app.core.config import settings
 from app.repositories.flow_instances import (
     get_version_progress,
     set_global_deadline,
@@ -54,7 +55,7 @@ async def post_audit_script(
     file: Annotated[UploadFile, File()],
     admin: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
-    content = await file.read()
+    content = await _read_audit_script_content(file)
     return _create_script_response(
         lambda: create_audit_script(
             name, description, file.filename or "", content, int(admin["id"])
@@ -69,7 +70,7 @@ async def put_audit_script(
     file: Annotated[UploadFile, File()],
     admin: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
-    content = await file.read()
+    content = await _read_audit_script_content(file)
     return _create_script_response(
         lambda: create_audit_script_version(
             script_id, description, file.filename or "", content, int(admin["id"])
@@ -98,6 +99,10 @@ def _create_script_response(operation) -> dict[str, object]:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AuditScriptValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+async def _read_audit_script_content(file: UploadFile) -> bytes:
+    return await file.read(settings.audit_script_max_bytes + 1)
 
 
 @router.patch("/versions/{version_id}/nodes/{node_key}/deadline")

@@ -324,8 +324,12 @@ def _apply_audit_script_metadata_migration(connection: sqlite3.Connection) -> No
             "ALTER TABLE audit_scripts ADD COLUMN description TEXT NOT NULL DEFAULT ''"
         )
     if "updated_at" not in columns:
-        connection.execute("ALTER TABLE audit_scripts ADD COLUMN updated_at TEXT")
-    connection.execute("UPDATE audit_scripts SET updated_at = created_at WHERE updated_at IS NULL")
+        connection.execute(
+            "ALTER TABLE audit_scripts ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''"
+        )
+    connection.execute(
+        "UPDATE audit_scripts SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''"
+    )
 
     applied = connection.execute(
         "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   getAuditScriptFormState,
+  getAuditScriptListState,
   validateAuditScriptFileContent,
   validateAuditScriptForm,
   type AuditScriptFormMode,
@@ -56,6 +57,13 @@ test("更新表单锁定功能名称但允许修改描述", () => {
 
   assert.deepEqual(getAuditScriptFormState(mode), { name: "材料审核", nameLocked: true });
   assert.equal(validateAuditScriptForm({ mode, name: pythonScript.name, description: "新的功能描述", file: file("audit.py") }), null);
+});
+
+test("脚本列表读取失败时显示错误态而不是加载态", () => {
+  assert.equal(
+    getAuditScriptListState({ error: "审核脚本列表读取失败", loading: false, scripts: null }),
+    "error",
+  );
 });
 
 test("空审核脚本文件会在提交前被拒绝", async () => {

@@ -6,6 +6,16 @@ export type AuditScriptFormMode =
   | { kind: "create" }
   | { kind: "update"; script: AuditScriptSummary };
 
+export function getAuditScriptListState(input: {
+  error: string;
+  loading: boolean;
+  scripts: AuditScriptSummary[] | null;
+}): "error" | "loading" | "ready" {
+  if (input.loading) return "loading";
+  if (input.scripts === null && input.error) return "error";
+  return "ready";
+}
+
 export function getAuditScriptFormState(mode: AuditScriptFormMode) {
   return {
     name: mode.kind === "update" ? mode.script.name : "",
