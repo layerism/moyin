@@ -595,7 +595,6 @@ export function App() {
           onOpenStudent={openStudentFlow}
           onPublishProcess={publishAcademicProcess}
           onProcessChange={updateAcademicProcess}
-          isSuperAdmin={teacherIdentity?.role === "super_admin"}
         />
       );
     }
@@ -608,7 +607,6 @@ export function App() {
         onOpenStudent={openStudentFlow}
         onPublishProcess={publishAcademicProcess}
         onProcessChange={updateAcademicProcess}
-        isSuperAdmin={teacherIdentity?.role === "super_admin"}
       />
     );
   }

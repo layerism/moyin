@@ -201,14 +201,24 @@ export const workflowApi = {
   listAuditScripts() {
     return request<AuditScriptSummary[]>("/api/workflow-admin/audit-scripts");
   },
-  uploadAuditScript(name: string, file: File) {
+  uploadAuditScript(name: string, description: string, file: File) {
     const body = new FormData();
+    body.append("description", description);
     body.append("name", name);
     body.append("file", file);
     return request<AuditScriptSummary>("/api/workflow-admin/audit-scripts", {
       method: "POST",
       body,
     });
+  },
+  updateAuditScript(scriptId: string, description: string, file: File) {
+    const body = new FormData();
+    body.append("description", description);
+    body.append("file", file);
+    return request<AuditScriptSummary>(
+      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}`,
+      { method: "PUT", body },
+    );
   },
   downloadAuditScriptTemplate(language: "javascript" | "python") {
     return requestBlob(`/api/workflow-admin/audit-scripts/templates/${language}`);

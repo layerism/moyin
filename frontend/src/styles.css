@@ -2324,37 +2324,6 @@ button {
   margin: 0;
 }
 
-.audit-script-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.audit-script-actions button,
-.audit-script-upload {
-  min-height: 32px;
-  padding: 6px 10px;
-  border: 1px solid #b7cdf6;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #1d4ed8;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.audit-script-upload {
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.audit-script-upload input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
 .audit-script-error {
   margin: 0;
   color: #b42318;
