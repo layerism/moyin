@@ -11,6 +11,11 @@ from pathlib import Path
 from typing import Literal, cast
 
 from app.core.config import settings
+from app.services.audit_script_parameters import (
+    AuditScriptParameterError,
+    AuditScriptVersionConfig,
+    load_audit_script_version_config,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -43,6 +48,10 @@ class AuditScriptRecord:
     version: int
     entry_path: Path
     sha256: str
+    config_sha256: str
+    accepted_extensions: tuple[str, ...]
+    parameters: tuple[dict[str, object], ...]
+    version_config: AuditScriptVersionConfig
     updated_at: str
 
 
@@ -70,6 +79,9 @@ def list_audit_scripts() -> list[dict[str, object]]:
             "language": record.language,
             "version": record.version,
             "sha256": record.sha256,
+            "configSha256": record.config_sha256,
+            "acceptedExtensions": list(record.accepted_extensions),
+            "parameters": list(record.parameters),
             "updatedAt": record.updated_at,
         }
         for record in records
@@ -270,6 +282,11 @@ def _record_for_version(
         raise AuditScriptCatalogError("审核脚本入口超限")
 
     manifest_stat = manifest.manifest_path.stat()
+    config_path = entry_path.parent / "config.json"
+    try:
+        version_config = load_audit_script_version_config(entry_path.parent)
+    except (AuditScriptParameterError, json.JSONDecodeError, OSError, UnicodeError) as exc:
+        raise AuditScriptCatalogError("审核脚本版本配置无效") from exc
 
     return AuditScriptRecord(
         id=manifest.id,
@@ -279,8 +296,17 @@ def _record_for_version(
         version=version,
         entry_path=entry_path,
         sha256=_sha256(entry_path),
+        config_sha256=version_config.sha256,
+        accepted_extensions=version_config.accepted_extensions,
+        parameters=version_config.parameters,
+        version_config=version_config,
         updated_at=datetime.fromtimestamp(
-            max(entry_stat.st_mtime, manifest_stat.st_mtime), timezone.utc
+            max(
+                entry_stat.st_mtime,
+                manifest_stat.st_mtime,
+                config_path.stat().st_mtime if config_path.is_file() else 0,
+            ),
+            timezone.utc,
         ).isoformat(),
     )
 

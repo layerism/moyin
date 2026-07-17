@@ -297,6 +297,11 @@ def submit_node(
                 or isinstance(script_values[1], bool)
                 or script_values[1] <= 0
                 or not isinstance(script_values[2], str)
+                or (
+                    node.get("auditScriptConfigHash") is not None
+                    and not isinstance(node.get("auditScriptConfigHash"), str)
+                )
+                or not isinstance(node.get("auditScriptParams", {}), dict)
             ):
                 raise RuntimeConflictError("审核脚本配置无效，请联系教师")
             submission_payload = payload

@@ -2345,6 +2345,24 @@ button {
   font-size: 12px;
 }
 
+.audit-script-parameter {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.audit-script-parameter > small,
+.audit-script-format-hint {
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.audit-script-parameter > input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
 .file-type-restriction {
   display: grid;
   gap: 12px;

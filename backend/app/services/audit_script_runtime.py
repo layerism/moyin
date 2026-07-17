@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script_version
+from app.services.audit_script_parameters import AuditScriptVersionConfig
 
 
 class AuditScriptResolutionError(ValueError):
@@ -16,6 +17,7 @@ class AuditScriptRuntimeDescriptor:
     language: Literal["py", "js"]
     entry_path: Path
     sha256: str
+    version_config: AuditScriptVersionConfig
 
 
 def resolve_audit_script_version(
@@ -31,6 +33,7 @@ def resolve_audit_script_version(
             language=record.language,
             entry_path=record.entry_path,
             sha256=record.sha256,
+            version_config=record.version_config,
         )
     except AuditScriptResolutionError:
         raise
