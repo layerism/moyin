@@ -78,7 +78,9 @@ export function AuditScriptManager({ onClose }: { onClose: () => void }) {
     try {
       await downloadAuditScriptTemplate({
         fallbackDownload: fallbackTemplateDownload,
-        filename: language === "python" ? "audit_script_template.py" : "audit_script_template.js",
+        filename: language === "python"
+          ? "audit-script-python-template.zip"
+          : "audit-script-javascript-template.zip",
         getBlob: () => workflowApi.downloadAuditScriptTemplate(language),
         showSaveFilePicker: getSaveFilePicker(),
       });

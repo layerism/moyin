@@ -82,15 +82,12 @@ export async function downloadAuditScriptTemplate(input: {
 
   let handle: AuditScriptFileHandle;
   try {
-    const isPython = input.filename.toLowerCase().endsWith(".py");
     handle = await input.showSaveFilePicker({
       excludeAcceptAllOption: true,
       suggestedName: input.filename,
       types: [{
-        accept: isPython
-          ? { "text/x-python": [".py"] }
-          : { "text/javascript": [".js"] },
-        description: isPython ? "Python 脚本" : "JavaScript 脚本",
+        accept: { "application/zip": [".zip"] },
+        description: "审核脚本模板包",
       }],
     });
   } catch (reason) {

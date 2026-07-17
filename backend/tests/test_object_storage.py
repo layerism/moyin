@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 
 import pytest
 
@@ -25,6 +26,10 @@ class FakeBucket:
     def sign_url(self, method, key, expires, params=None):
         return f"https://signed/{key}"
 
+    def get_object_to_file(self, key, destination):
+        Path(destination).write_bytes(b"downloaded")
+        return FakeResponse()
+
 
 def test_missing_oss_configuration_is_explicit(monkeypatch):
     monkeypatch.setattr(settings, "oss_endpoint", "")
@@ -41,6 +46,13 @@ def test_put_and_sign_delegate_to_bucket():
     assert result.etag == "etag-1"
     assert bucket.put_calls[0][0] == "coze/files/a.txt"
     assert bucket.put_calls[0][2] == {"Content-Type": "text/plain"}
-    assert storage.signed_download_url("coze/files/a.txt", "a.txt").startswith(
-        "https://signed/"
-    )
+    assert storage.signed_download_url("coze/files/a.txt", "a.txt").startswith("https://signed/")
+
+
+def test_download_to_file_delegates_to_bucket(tmp_path: Path):
+    storage = ObjectStorage.from_bucket(FakeBucket(), prefix="coze/files", expires=600)
+    destination = tmp_path / "downloaded.bin"
+
+    storage.download_to_file("coze/files/a.bin", destination)
+
+    assert destination.read_bytes() == b"downloaded"
