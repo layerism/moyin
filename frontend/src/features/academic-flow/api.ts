@@ -192,6 +192,15 @@ export const workflowApi = {
   listAuditScripts() {
     return request<AuditScriptSummary[]>("/api/workflow-admin/audit-scripts");
   },
+  updateAuditScriptMetadata(
+    scriptId: string,
+    payload: { description: string; name: string },
+  ) {
+    return request<AuditScriptSummary>(
+      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}/metadata`,
+      { method: "PATCH", body: JSON.stringify(payload) },
+    );
+  },
   getProgress(versionId: string) {
     return request<WorkflowProgress>(
       `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/progress`,
