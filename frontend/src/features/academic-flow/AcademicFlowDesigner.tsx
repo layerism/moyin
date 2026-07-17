@@ -1321,6 +1321,7 @@ function NodeInspector({
   const settingCapabilities = getNodeSettingCapabilities(node.kind);
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
+  const scriptLocksFileTypes = Boolean(node.auditScriptAcceptedExtensions?.length);
 
   const addInfoField = () => {
     onUpdateNode(node.id, { infoFields: [...node.infoFields, "新增字段"] });
@@ -1435,6 +1436,7 @@ function NodeInspector({
                     aria-checked={hasFileTypeRestriction}
                     aria-label="启用文件类型限制"
                     className={`restriction-switch ${hasFileTypeRestriction ? "is-enabled" : ""}`}
+                    disabled={scriptLocksFileTypes}
                     onClick={() =>
                       onUpdateNode(node.id, {
                         fileExtensions: hasFileTypeRestriction
@@ -1451,6 +1453,7 @@ function NodeInspector({
                 {hasFileTypeRestriction ? (
                   <select
                     aria-label="文件类型预设"
+                    disabled={scriptLocksFileTypes}
                     value={fileTypeRestrictionPreset}
                     onChange={(event) =>
                       onUpdateNode(node.id, {
@@ -1467,6 +1470,9 @@ function NodeInspector({
                       </option>
                     ))}
                   </select>
+                ) : null}
+                {scriptLocksFileTypes ? (
+                  <small className="audit-script-format-hint">文件格式由审核脚本固定。</small>
                 ) : null}
               </div>
               <label className="file-size-limit-field">

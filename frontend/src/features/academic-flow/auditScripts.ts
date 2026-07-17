@@ -3,14 +3,33 @@ import type { AcademicFlowNode } from "../../types";
 const noAuditScript = { label: "不启用材料审核", value: "" };
 
 export type AuditScriptSummary = {
+  acceptedExtensions: string[];
+  configSha256: string;
   description: string;
   id: string;
   language: "js" | "py";
   name: string;
+  parameters: AuditScriptParameter[];
   sha256: string;
   updatedAt: string;
   version: number;
 };
+
+type AuditScriptParameterBase = {
+  default: string | number | boolean;
+  description?: string;
+  key: string;
+  label: string;
+  required: boolean;
+};
+
+export type AuditScriptParameter = AuditScriptParameterBase &
+  (
+    | { maximum?: number; minimum?: number; type: "integer" | "number" }
+    | { maximumLength: number; minimumLength: number; type: "string" }
+    | { type: "boolean" }
+    | { options: Array<{ label: string; value: string }>; type: "select" }
+  );
 
 export type AuditScriptOption = {
   label: string;
@@ -61,6 +80,9 @@ export function toNodeAuditScriptSelection(
   if (!script) {
     return {
       auditScriptHash: undefined,
+      auditScriptConfigHash: undefined,
+      auditScriptAcceptedExtensions: undefined,
+      auditScriptParams: undefined,
       auditScriptId: undefined,
       auditScriptName: "",
       auditScriptType: "none",
@@ -68,12 +90,49 @@ export function toNodeAuditScriptSelection(
     };
   }
   return {
+    auditScriptAcceptedExtensions: script.acceptedExtensions,
+    auditScriptConfigHash: script.configSha256,
     auditScriptHash: script.sha256,
     auditScriptId: script.id,
     auditScriptName: script.name,
     auditScriptType: script.language,
     auditScriptVersion: script.version,
+    auditScriptParams: Object.fromEntries(
+      script.parameters.map((parameter) => [parameter.key, parameter.default]),
+    ),
+    ...(script.acceptedExtensions.length
+      ? { fileExtensions: script.acceptedExtensions.map((value) => value.slice(1)).join(", ") }
+      : {}),
   };
+}
+
+export function getAuditScriptParameterError(
+  definition: AuditScriptParameter,
+  value: unknown,
+): string {
+  if (definition.type === "integer" || definition.type === "number") {
+    if (typeof value !== "number" || !Number.isFinite(value)) return "请输入有效数值";
+    if (definition.type === "integer" && !Number.isInteger(value)) return "请输入整数";
+    if (definition.minimum !== undefined && value < definition.minimum) {
+      return `不能小于 ${definition.minimum}`;
+    }
+    if (definition.maximum !== undefined && value > definition.maximum) {
+      return `不能大于 ${definition.maximum}`;
+    }
+  }
+  if (definition.type === "string") {
+    if (typeof value !== "string") return "请输入文本";
+    if (value.length < definition.minimumLength) return `至少 ${definition.minimumLength} 个字符`;
+    if (value.length > definition.maximumLength) return `最多 ${definition.maximumLength} 个字符`;
+  }
+  if (definition.type === "boolean" && typeof value !== "boolean") return "请选择是否启用";
+  if (
+    definition.type === "select" &&
+    (typeof value !== "string" || !definition.options.some((option) => option.value === value))
+  ) {
+    return "请选择有效选项";
+  }
+  return "";
 }
 
 export function getUploadedScriptValue(script: AuditScriptSummary): string {

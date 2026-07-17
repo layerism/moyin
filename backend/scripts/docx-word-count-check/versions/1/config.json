@@ -1,0 +1,17 @@
+{
+  "acceptedExtensions": [
+    ".docx"
+  ],
+  "parameters": [
+    {
+      "key": "minimumWordCount",
+      "label": "最低字数",
+      "type": "integer",
+      "default": 1000,
+      "required": true,
+      "description": "正文段落和表格内容需要达到的最低字数",
+      "minimum": 1,
+      "maximum": 1000000
+    }
+  ]
+}

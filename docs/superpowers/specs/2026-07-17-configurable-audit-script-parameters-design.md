@@ -60,6 +60,7 @@ backend/scripts/<script-id>/
   "auditScriptVersion": 1,
   "auditScriptHash": "入口文件哈希",
   "auditScriptConfigHash": "版本配置哈希",
+  "auditScriptAcceptedExtensions": [".docx"],
   "auditScriptParams": {
     "minimumWordCount": 1000
   }
@@ -217,7 +218,7 @@ backend/scripts/docx-word-count-check/
 
 管理员选择脚本时：
 
-1. 将脚本 ID、版本、入口哈希和配置哈希写入节点；
+1. 将脚本 ID、版本、入口哈希、配置哈希和扩展名约束写入节点；
 2. 根据参数定义生成默认 `auditScriptParams`；
 3. 使用通用组件按类型渲染数字输入、文本输入、复选框或下拉框；
 4. 每次修改即时执行客户端约束校验；
@@ -238,9 +239,9 @@ backend/scripts/docx-word-count-check/
 5. 校验节点是文件节点；
 6. 当 `acceptedExtensions` 非空时，要求节点格式与版本配置严格一致。
 
-`auditScriptConfigHash` 与 `auditScriptParams` 加入冻结节点字段和流程修订比较。修改参数视为节点定义变化，发布新版本时沿用现有修订影响规则：对应学生节点及可达下游失效并重新计算。
+`auditScriptConfigHash`、`auditScriptAcceptedExtensions` 与 `auditScriptParams` 加入冻结节点字段和流程修订比较。修改参数视为节点定义变化，发布新版本时沿用现有修订影响规则：对应学生节点及可达下游失效并重新计算。
 
-未启用脚本的节点不得残留 `auditScriptConfigHash` 或 `auditScriptParams`。
+未启用脚本的节点不得残留 `auditScriptConfigHash`、`auditScriptAcceptedExtensions` 或 `auditScriptParams`。
 
 ## 审核运行时接入
 

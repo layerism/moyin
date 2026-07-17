@@ -13,6 +13,11 @@ from app.domain.workflow_revision import (
     assert_node_ids_present,
 )
 from app.domain.workflow_runtime import deadline_has_passed, incoming_nodes
+from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script_version
+from app.services.audit_script_parameters import (
+    AuditScriptParameterError,
+    validate_script_params,
+)
 from app.services.security import utc_now_iso
 
 
@@ -30,6 +35,58 @@ class DraftRevisionConflictError(ValueError):
 
 def canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
+    for node in config["nodes"]:
+        script_id = node.get("auditScriptId")
+        version = node.get("auditScriptVersion")
+        script_hash = node.get("auditScriptHash")
+        config_hash = node.get("auditScriptConfigHash")
+        params = node.get("auditScriptParams")
+        accepted = node.get("auditScriptAcceptedExtensions")
+        if not script_id:
+            if any(
+                value is not None
+                for value in (version, script_hash, config_hash, params, accepted)
+            ):
+                raise FlowValidationError("未启用审核脚本的节点不能保留脚本参数")
+            continue
+        if (
+            node.get("kind") != "file"
+            or not isinstance(script_id, str)
+            or not isinstance(version, int)
+            or isinstance(version, bool)
+            or version < 1
+            or not isinstance(script_hash, str)
+        ):
+            raise FlowValidationError("审核脚本配置无效")
+        try:
+            record = find_audit_script_version(script_id, version)
+            if record.sha256 != script_hash:
+                raise FlowValidationError("审核脚本固定版本已变更，请重新选择")
+            if config_hash is None:
+                if record.parameters or record.accepted_extensions or params not in (None, {}):
+                    raise FlowValidationError("审核脚本配置不完整，请重新选择")
+                params = {}
+            else:
+                if (
+                    not isinstance(config_hash, str)
+                    or config_hash != record.config_sha256
+                    or accepted != list(record.accepted_extensions)
+                ):
+                    raise FlowValidationError("审核脚本固定配置已变更，请重新选择")
+            validate_script_params(record.version_config, params)
+        except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
+            raise FlowValidationError(str(exc)) from exc
+        if record.accepted_extensions:
+            node_extensions = [
+                f".{value.strip().lower().removeprefix('.')}"
+                for value in str(node.get("fileExtensions") or "").split(",")
+                if value.strip()
+            ]
+            if node_extensions != list(record.accepted_extensions):
+                raise FlowValidationError("文件格式必须符合审核脚本要求")
 
 
 def _latest_published_version(connection: Any, flow_id: str, teacher_id: int) -> Any:
@@ -796,6 +853,7 @@ def publish_flow(
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         _assert_no_published_structure_deletions(connection, flow_id, config)
         validate_flow_config(config)
+        _validate_audit_script_nodes(config)
         plan = _build_migration_plan(
             connection,
             source_versions,
@@ -960,6 +1018,7 @@ def get_revision_impact(
         )
         _assert_no_published_structure_deletions(connection, flow_id, config)
         validate_flow_config(config)
+        _validate_audit_script_nodes(config)
         published = _latest_published_version(connection, flow_id, teacher_id)
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
         baseline = (

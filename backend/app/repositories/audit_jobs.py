@@ -29,6 +29,11 @@ class ClaimedAuditJob:
     script_id: str
     script_version: int
     script_sha256: str
+    snapshot_script_id: object
+    snapshot_script_version: object
+    snapshot_script_sha256: object
+    script_config_sha256: str | None
+    script_params: object
     materials: list[AuditMaterial]
     context: dict[str, object]
 
@@ -96,7 +101,7 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
         job = connection.execute(
             """
             SELECT j.*, s.attempt_no, n.node_key, n.flow_instance_id,
-                   i.flow_version_id, v.flow_id
+                   i.flow_version_id, v.flow_id, v.config_snapshot
             FROM audit_jobs j
             JOIN submissions s ON s.id = j.submission_id
             JOIN node_instances n ON n.id = j.node_instance_id
@@ -126,11 +131,26 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             )
             for file in file_rows
         ]
+        config = json.loads(job["config_snapshot"])
+        raw_config_node = next(
+            (
+                node
+                for node in config["nodes"]
+                if isinstance(node, dict) and node.get("id") == job["node_key"]
+            ),
+            None,
+        )
+        config_node = raw_config_node if isinstance(raw_config_node, dict) else {}
         return ClaimedAuditJob(
             id=job["id"],
             script_id=job["script_id"],
             script_version=int(job["script_version"]),
             script_sha256=job["script_sha256"],
+            snapshot_script_id=config_node.get("auditScriptId"),
+            snapshot_script_version=config_node.get("auditScriptVersion"),
+            snapshot_script_sha256=config_node.get("auditScriptHash"),
+            script_config_sha256=config_node.get("auditScriptConfigHash"),
+            script_params=config_node.get("auditScriptParams", {}),
             materials=materials,
             context={
                 "flowId": job["flow_id"],

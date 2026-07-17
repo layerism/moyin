@@ -4,6 +4,7 @@ import type { AcademicFlowNode } from "../../types";
 import { workflowApi } from "./api";
 import {
   getAuditScriptOptions,
+  getAuditScriptParameterError,
   getSelectedAuditScriptValue,
   resolveAuditScriptSelection,
   type AuditScriptSummary,
@@ -36,6 +37,14 @@ export function AuditScriptSelector({
 
   const options = getAuditScriptOptions(scripts, node);
   const selectedValue = getSelectedAuditScriptValue(node);
+  const selectedScript = scripts.find(
+    (script) => `uploaded:${script.id}:${script.version}` === selectedValue,
+  );
+  const updateParameter = (key: string, value: string | number | boolean) => {
+    onChange({
+      auditScriptParams: { ...(node.auditScriptParams ?? {}), [key]: value },
+    });
+  };
 
   return (
     <section className="inspector-section audit-script-section">
@@ -54,6 +63,50 @@ export function AuditScriptSelector({
           ))}
         </select>
       </label>
+      {selectedScript?.parameters.map((parameter) => {
+        const value = node.auditScriptParams?.[parameter.key] ?? parameter.default;
+        const parameterError = getAuditScriptParameterError(parameter, value);
+        return (
+          <label className="audit-script-parameter" key={parameter.key}>
+            <span>{parameter.label}</span>
+            {parameter.type === "boolean" ? (
+              <input
+                checked={value === true}
+                type="checkbox"
+                onChange={(event) => updateParameter(parameter.key, event.target.checked)}
+              />
+            ) : parameter.type === "select" ? (
+              <select
+                value={String(value)}
+                onChange={(event) => updateParameter(parameter.key, event.target.value)}
+              >
+                {parameter.options.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                max={parameter.type === "integer" || parameter.type === "number" ? parameter.maximum : undefined}
+                maxLength={parameter.type === "string" ? parameter.maximumLength : undefined}
+                min={parameter.type === "integer" || parameter.type === "number" ? parameter.minimum : undefined}
+                minLength={parameter.type === "string" ? parameter.minimumLength : undefined}
+                step={parameter.type === "integer" ? 1 : parameter.type === "number" ? "any" : undefined}
+                type={parameter.type === "string" ? "text" : "number"}
+                value={String(value)}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  updateParameter(
+                    parameter.key,
+                    parameter.type === "string" || next === "" ? next : Number(next),
+                  );
+                }}
+              />
+            )}
+            {parameter.description ? <small>{parameter.description}</small> : null}
+            {parameterError ? <small className="audit-script-error">{parameterError}</small> : null}
+          </label>
+        );
+      })}
       {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
     </section>
   );
