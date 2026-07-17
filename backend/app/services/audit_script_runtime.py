@@ -1,4 +1,5 @@
 import hashlib
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -23,34 +24,39 @@ class AuditScriptRuntimeDescriptor:
 def resolve_audit_script_version(
     script_id: str, version: int, expected_sha256: str
 ) -> AuditScriptRuntimeDescriptor:
-    with get_connection() as connection:
-        row = connection.execute(
-            """
-            SELECT s.language, v.entry_filename, v.directory_path, v.sha256
-            FROM audit_script_versions v
-            JOIN audit_scripts s ON s.id = v.script_id
-            WHERE v.script_id = ? AND v.version_no = ?
-            """,
-            (script_id, version),
-        ).fetchone()
-    if row is None or str(row["sha256"]) != expected_sha256:
-        raise AuditScriptResolutionError("无法解析审核脚本版本")
+    try:
+        with get_connection() as connection:
+            row = connection.execute(
+                """
+                SELECT s.language, v.entry_filename, v.directory_path, v.sha256
+                FROM audit_script_versions v
+                JOIN audit_scripts s ON s.id = v.script_id
+                WHERE v.script_id = ? AND v.version_no = ?
+                """,
+                (script_id, version),
+            ).fetchone()
+        if row is None or str(row["sha256"]) != expected_sha256:
+            raise AuditScriptResolutionError("无法解析审核脚本版本")
 
-    root = Path(settings.audit_scripts_root).resolve()
-    directory = Path(str(row["directory_path"])).resolve()
-    entry_path = (directory / str(row["entry_filename"])).resolve()
-    if not _within_root(directory, root) or not _within_root(entry_path, root):
-        raise AuditScriptResolutionError("无法解析审核脚本版本")
-    if not entry_path.is_file() or _sha256(entry_path) != str(row["sha256"]):
-        raise AuditScriptResolutionError("无法解析审核脚本版本")
+        root = Path(settings.audit_scripts_root).resolve()
+        directory = Path(str(row["directory_path"])).resolve()
+        entry_path = (directory / str(row["entry_filename"])).resolve()
+        if not _within_root(directory, root) or not _within_root(entry_path, root):
+            raise AuditScriptResolutionError("无法解析审核脚本版本")
+        if not entry_path.is_file() or _sha256(entry_path) != str(row["sha256"]):
+            raise AuditScriptResolutionError("无法解析审核脚本版本")
 
-    return AuditScriptRuntimeDescriptor(
-        script_id=script_id,
-        version=version,
-        language=str(row["language"]),
-        entry_path=entry_path,
-        sha256=str(row["sha256"]),
-    )
+        return AuditScriptRuntimeDescriptor(
+            script_id=script_id,
+            version=version,
+            language=str(row["language"]),
+            entry_path=entry_path,
+            sha256=str(row["sha256"]),
+        )
+    except AuditScriptResolutionError:
+        raise
+    except (sqlite3.Error, OSError, ValueError):
+        raise AuditScriptResolutionError("无法解析审核脚本版本") from None
 
 
 def _within_root(path: Path, root: Path) -> bool:

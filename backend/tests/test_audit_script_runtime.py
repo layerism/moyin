@@ -1,4 +1,6 @@
 import hashlib
+import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -10,6 +12,7 @@ from app.services.audit_script_runtime import (
     AuditScriptResolutionError,
     resolve_audit_script_version,
 )
+import app.services.audit_script_runtime as audit_script_runtime
 
 
 @pytest.fixture
@@ -112,3 +115,38 @@ def test_rejects_entry_file_with_changed_hash(audit_script_admin: int) -> None:
 
     assert hashlib.sha256(entry_path.read_bytes()).hexdigest() != created["sha256"]
     assert str(entry_path) not in str(exc_info.value)
+
+
+def test_does_not_leak_path_when_entry_read_fails(
+    audit_script_admin: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created, _ = create_versioned_script(audit_script_admin)
+    entry_path = Path(settings.audit_scripts_root) / "global" / str(created["id"]) / "1" / "handler.py"
+
+    def fail_to_open(path: Path, *args: object, **kwargs: object) -> object:
+        raise OSError(f"cannot read {path}")
+
+    monkeypatch.setattr(Path, "open", fail_to_open)
+
+    with pytest.raises(AuditScriptResolutionError) as exc_info:
+        resolve_audit_script_version(str(created["id"]), 1, str(created["sha256"]))
+
+    assert str(entry_path) not in str(exc_info.value)
+
+
+def test_does_not_leak_path_when_database_query_fails(
+    audit_script_admin: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created, _ = create_versioned_script(audit_script_admin)
+
+    @contextmanager
+    def unavailable_connection():
+        raise sqlite3.OperationalError(f"cannot open {settings.database_path}")
+        yield
+
+    monkeypatch.setattr(audit_script_runtime, "get_connection", unavailable_connection)
+
+    with pytest.raises(AuditScriptResolutionError) as exc_info:
+        resolve_audit_script_version(str(created["id"]), 1, str(created["sha256"]))
+
+    assert settings.database_path not in str(exc_info.value)
