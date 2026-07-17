@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  downloadAuditScriptTemplate,
   getAuditScriptFormState,
   getAuditScriptListState,
   validateAuditScriptFileContent,
@@ -89,4 +90,71 @@ test("合法 UTF-8 审核脚本文件可以通过字节校验", async () => {
     await validateAuditScriptFileContent(fileFromBytes("audit.py", new TextEncoder().encode("def run(): pass"))),
     null,
   );
+});
+
+test("支持系统文件选择器时先选择保存位置再下载并写入模板", async () => {
+  const events: string[] = [];
+  const blob = new Blob(["print('ok')"], { type: "text/plain" });
+
+  const result = await downloadAuditScriptTemplate({
+    fallbackDownload: () => events.push("fallback"),
+    filename: "audit_script_template.py",
+    getBlob: async () => {
+      events.push("download");
+      return blob;
+    },
+    showSaveFilePicker: async (options) => {
+      events.push(`picker:${options.suggestedName}`);
+      return {
+        createWritable: async () => ({
+          close: async () => { events.push("close"); },
+          write: async (content) => {
+            assert.equal(content, blob);
+            events.push("write");
+          },
+        }),
+      };
+    },
+  });
+
+  assert.equal(result, "saved");
+  assert.deepEqual(events, ["picker:audit_script_template.py", "download", "write", "close"]);
+});
+
+test("用户取消系统保存对话框时不下载也不触发普通下载", async () => {
+  let downloaded = false;
+  let fallback = false;
+
+  const result = await downloadAuditScriptTemplate({
+    fallbackDownload: () => { fallback = true; },
+    filename: "audit_script_template.js",
+    getBlob: async () => {
+      downloaded = true;
+      return new Blob();
+    },
+    showSaveFilePicker: async () => {
+      throw new DOMException("cancelled", "AbortError");
+    },
+  });
+
+  assert.equal(result, "cancelled");
+  assert.equal(downloaded, false);
+  assert.equal(fallback, false);
+});
+
+test("不支持系统文件选择器时回退为浏览器普通下载", async () => {
+  const blob = new Blob(["fallback"]);
+  let fallbackFilename = "";
+
+  const result = await downloadAuditScriptTemplate({
+    fallbackDownload: (content, filename) => {
+      assert.equal(content, blob);
+      fallbackFilename = filename;
+    },
+    filename: "audit_script_template.js",
+    getBlob: async () => blob,
+  });
+
+  assert.equal(result, "fallback");
+  assert.equal(fallbackFilename, "audit_script_template.js");
 });

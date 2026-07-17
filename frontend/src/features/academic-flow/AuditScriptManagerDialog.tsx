@@ -2,11 +2,13 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { workflowApi } from "./api";
 import {
+  downloadAuditScriptTemplate,
   getAuditScriptFormState,
   getAuditScriptListState,
   validateAuditScriptFileContent,
   validateAuditScriptForm,
   type AuditScriptFormMode,
+  type AuditScriptSaveFilePicker,
 } from "./auditScriptManager";
 import type { AuditScriptSummary } from "./auditScripts";
 
@@ -21,6 +23,20 @@ function formatUpdatedAt(value: string) {
 
 function languageLabel(language: AuditScriptSummary["language"]) {
   return language === "py" ? "Python" : "JavaScript";
+}
+
+function fallbackTemplateDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function getSaveFilePicker(): AuditScriptSaveFilePicker | undefined {
+  return (window as Window & { showSaveFilePicker?: AuditScriptSaveFilePicker })
+    .showSaveFilePicker?.bind(window);
 }
 
 export function AuditScriptManager({ onClose }: { onClose: () => void }) {
@@ -60,13 +76,12 @@ export function AuditScriptManager({ onClose }: { onClose: () => void }) {
     setDownloading(language);
     setError("");
     try {
-      const blob = await workflowApi.downloadAuditScriptTemplate(language);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = language === "python" ? "audit_script_template.py" : "audit_script_template.js";
-      link.click();
-      URL.revokeObjectURL(url);
+      await downloadAuditScriptTemplate({
+        fallbackDownload: fallbackTemplateDownload,
+        filename: language === "python" ? "audit_script_template.py" : "audit_script_template.js",
+        getBlob: () => workflowApi.downloadAuditScriptTemplate(language),
+        showSaveFilePicker: getSaveFilePicker(),
+      });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "模板下载失败，请稍后重试");
     } finally {
