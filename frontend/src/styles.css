@@ -3351,6 +3351,7 @@ button {
 
 .student-topology-legend .available::before { background: #2878f0; }
 .student-topology-legend .reviewing::before { background: #7f56d9; }
+.student-topology-legend .audit_error::before { background: #d92d20; }
 .student-topology-legend .approved::before { background: #98a2b3; }
 .student-topology-legend .expired::before { background: #d92d20; }
 
@@ -3441,6 +3442,12 @@ button {
 .student-topology-node.rejected {
   border-color: #d92d20;
   background: #fff7f6;
+  cursor: pointer;
+}
+
+.student-topology-node.audit_error {
+  border-color: #d92d20;
+  background: #fff1f0;
   cursor: pointer;
 }
 
@@ -3677,6 +3684,53 @@ button {
   background: #fafbfc;
   color: #667085;
   font-size: 13px;
+}
+
+.runtime-audit-result {
+  margin: 18px 24px 0;
+  padding: 14px 16px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #fafbfc;
+}
+
+.runtime-audit-result.rejected,
+.runtime-audit-result.audit_error {
+  border-color: #fda29b;
+  background: #fff7f6;
+}
+
+.runtime-audit-result strong,
+.runtime-audit-result p {
+  margin: 0;
+}
+
+.runtime-audit-result p {
+  margin-top: 8px;
+  color: #475467;
+}
+
+.runtime-audit-result pre {
+  max-height: 220px;
+  margin: 10px 0 0;
+  padding: 10px;
+  overflow: auto;
+  border-radius: 4px;
+  background: #f2f4f7;
+  white-space: pre-wrap;
+}
+
+.runtime-audit-retry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px 24px;
+}
+
+.runtime-audit-retry p {
+  margin: 0;
+  color: #667085;
 }
 
 .runtime-node-form {

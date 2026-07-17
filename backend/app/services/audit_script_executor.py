@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any
 from zipfile import BadZipFile, ZipFile
 
+from dotenv import dotenv_values
+
 from app.core.config import settings
 from app.services.audit_script_runtime import AuditScriptRuntimeDescriptor
 from app.services.object_storage import get_object_storage
@@ -129,13 +131,8 @@ def _run_process(
         stdin = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     except (TypeError, ValueError):
         raise AuditScriptExecutionError("审核脚本输入协议无效") from None
-    environment = {
-        "PATH": os.environ.get("PATH", os.defpath),
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-        "PYTHONUTF8": "1",
-        "PYTHONNOUSERSITE": "1",
-        "NODE_PATH": settings.audit_node_modules_path,
-    }
+    environment = _script_environment()
+
     try:
         process = subprocess.Popen(
             command,
@@ -201,6 +198,30 @@ def _run_process(
             process.stdout.close()
         if process.stderr:
             process.stderr.close()
+
+
+def _script_environment() -> dict[str, str]:
+    environment = {
+        "PATH": os.environ.get("PATH", os.defpath),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "PYTHONUTF8": "1",
+        "PYTHONNOUSERSITE": "1",
+        "NODE_PATH": settings.audit_node_modules_path,
+    }
+    dotenv = dotenv_values(Path(__file__).resolve().parents[2] / ".env")
+    names: list[str] = []
+    for candidate in settings.audit_script_env_allowlist.split(","):
+        name = candidate.strip()
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) and name not in names:
+            names.append(name)
+    for name in names:
+        value = os.environ.get(name)
+        if value is None:
+            dotenv_value = dotenv.get(name)
+            value = dotenv_value if isinstance(dotenv_value, str) else None
+        if value is not None:
+            environment[name] = value
+    return environment
 
 
 def _command_for(descriptor: AuditScriptRuntimeDescriptor) -> list[str]:

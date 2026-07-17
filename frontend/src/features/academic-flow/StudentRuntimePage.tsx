@@ -11,6 +11,7 @@ import { StudentFlowTopology } from "./StudentFlowTopology";
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
   approved: "已通过",
+  audit_error: "审核异常",
   available: "可填写",
   draft: "已暂存",
   expired: "已截止",
@@ -64,12 +65,42 @@ export function StudentRuntimePage({
     });
   }, [instance]);
 
+  const isReviewing =
+    instance?.nodeInstances.some((node) => node.status === "reviewing") ?? false;
+
+  useEffect(() => {
+    if (!isReviewing) return;
+    let cancelled = false;
+    const poll = () => {
+      workflowApi
+        .getInstance(instanceId)
+        .then((value) => {
+          if (!cancelled) {
+            setInstance(value);
+            setNotice("");
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setNotice("审核状态暂时无法刷新，系统将自动重试");
+        });
+    };
+    const timer = window.setInterval(poll, 2_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [instanceId, isReviewing]);
+
   const runtimeByKey = useMemo(
     () => new Map(instance?.nodeInstances.map((node) => [node.nodeKey, node]) ?? []),
     [instance],
   );
   const activeNode = instance?.config.nodes.find((node) => node.id === activeNodeKey) ?? null;
   const activeRuntime = activeNodeKey ? runtimeByKey.get(activeNodeKey) ?? null : null;
+
+  useEffect(() => {
+    if (activeRuntime?.status === "approved") setActiveNodeKey(null);
+  }, [activeRuntime?.status]);
 
   const updateDraft = (runtimeId: string, field: string, value: unknown) => {
     setDrafts((current) => ({
@@ -140,6 +171,19 @@ export function StudentRuntimePage({
     }
   };
 
+  const retryAudit = async (runtime: RuntimeNodeInstance) => {
+    setBusyNodeId(runtime.id);
+    setNotice("");
+    try {
+      setInstance(await workflowApi.retryAudit(runtime.id));
+      setNotice("已重新发起自动审核");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "重新审核失败");
+    } finally {
+      setBusyNodeId(null);
+    }
+  };
+
   if (!instance) {
     return (
       <main className="student-runtime-page">
@@ -204,6 +248,7 @@ export function StudentRuntimePage({
           node={activeNode}
           onClose={() => setActiveNodeKey(null)}
           onSave={() => void save(activeRuntime)}
+          onRetryAudit={() => void retryAudit(activeRuntime)}
           onSubmit={() => void submit(activeRuntime)}
           onUploadFile={(file) => void uploadFile(activeRuntime, file)}
           onUpdate={(field, value) => updateDraft(activeRuntime.id, field, value)}
@@ -220,6 +265,7 @@ function RuntimeNodeDialog({
   node,
   onClose,
   onSave,
+  onRetryAudit,
   onSubmit,
   onUploadFile,
   onUpdate,
@@ -230,6 +276,7 @@ function RuntimeNodeDialog({
   node: AcademicFlowNode;
   onClose: () => void;
   onSave: () => void;
+  onRetryAudit: () => void;
   onSubmit: () => void;
   onUploadFile: (file: File) => void;
   onUpdate: (field: string, value: unknown) => void;
@@ -257,6 +304,7 @@ function RuntimeNodeDialog({
             截止时间：{new Date(runtime.effectiveDeadline).toLocaleString("zh-CN")}
           </p>
         ) : null}
+        {runtime.audit ? <AuditResult audit={runtime.audit} /> : null}
         {writable ? (
           <div className="runtime-node-form">
           {node.kind === "form"
@@ -303,9 +351,14 @@ function RuntimeNodeDialog({
             </button>
           </div>
           </div>
-        ) : (
-          <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>
-        )}
+        ) : runtime.status === "audit_error" && runtime.audit?.canRetry ? (
+          <div className="runtime-audit-retry">
+            <p>{getStateHint(runtime.status)}</p>
+            <button className="primary-action" disabled={busy} onClick={onRetryAudit}>
+              {busy ? "正在发起" : "重新审核"}
+            </button>
+          </div>
+        ) : <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>}
       </section>
     </div>
   );
@@ -315,8 +368,22 @@ function getStateHint(status: RuntimeNodeStatus) {
   if (status === "locked") return "需等待所有上游节点审核通过。";
   if (status === "expired") return "节点已截止，请联系教师申请延期。";
   if (status === "reviewing" || status === "submitted") return "材料已提交，正在等待审核。";
+  if (status === "audit_error") return "自动审核暂时失败，可直接重新审核，无需重新上传文件。";
   if (status === "approved") return "该节点已完成，提交内容已锁定。";
   return "请根据退回意见修改后重新提交。";
+}
+
+function AuditResult({ audit }: { audit: NonNullable<RuntimeNodeInstance["audit"]> }) {
+  if (!audit.reason && !audit.details && audit.status !== "reviewing") return null;
+  return (
+    <section className={`runtime-audit-result ${audit.status}`}>
+      <strong>
+        {audit.status === "reviewing" ? `自动审核中（第 ${audit.attemptCount || 1} 次执行）` : "审核结果"}
+      </strong>
+      {audit.reason ? <p>{audit.reason}</p> : null}
+      {audit.details ? <pre>{JSON.stringify(audit.details, null, 2)}</pre> : null}
+    </section>
+  );
 }
 
 function getDraftFileName(file: unknown): string {

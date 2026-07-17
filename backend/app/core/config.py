@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     audit_script_stdout_max_bytes: int = 1_048_576
     audit_script_stderr_max_bytes: int = 262_144
     audit_temp_root: str = ""
+    audit_script_env_allowlist: str = "OPENAI_API_KEY"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

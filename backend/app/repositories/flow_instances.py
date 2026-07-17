@@ -10,12 +10,19 @@ from app.domain.workflow_runtime import (
     node_by_key,
     validate_submission,
 )
+from app.repositories.audit_jobs import create_audit_job
 from app.repositories.flow_files import (
     FileContextError,
     attach_uploaded_file,
     get_uploaded_file_for_node,
 )
 from app.repositories.flow_roster import assert_student_roster_access
+from app.repositories.flow_runtime_state import (
+    advance_downstream,
+    complete_flow_if_ready,
+    effective_deadline,
+    version_config,
+)
 from app.repositories.workflows import canonical_json
 from app.services.security import utc_now_iso
 
@@ -26,35 +33,6 @@ class RuntimeConflictError(ValueError):
 
 class RuntimeDeadlineError(ValueError):
     pass
-
-
-def _version_config(connection, version_id: str) -> dict[str, Any]:
-    row = connection.execute(
-        "SELECT config_snapshot FROM flow_versions WHERE id = ?", (version_id,)
-    ).fetchone()
-    if row is None:
-        raise KeyError(version_id)
-    return json.loads(row["config_snapshot"])
-
-
-def _effective_deadline(connection, instance_id: str, version_id: str, node_key: str) -> str | None:
-    override = connection.execute(
-        """
-        SELECT deadline_at FROM student_deadline_overrides
-        WHERE flow_instance_id = ? AND node_key = ?
-        """,
-        (instance_id, node_key),
-    ).fetchone()
-    if override is not None:
-        return override["deadline_at"]
-    runtime = connection.execute(
-        """
-        SELECT deadline_at FROM flow_node_runtime_configs
-        WHERE flow_version_id = ? AND node_key = ?
-        """,
-        (version_id, node_key),
-    ).fetchone()
-    return runtime["deadline_at"] if runtime else None
 
 
 def get_or_create_instance(token: str, student_id: int) -> dict[str, object]:
@@ -98,7 +76,7 @@ def get_or_create_instance(token: str, student_id: int) -> dict[str, object]:
             for node in config["nodes"]:
                 node_key = node["id"]
                 status = "available" if not incoming[node_key] else "locked"
-                deadline = _effective_deadline(connection, instance_id, version_id, node_key)
+                deadline = effective_deadline(connection, instance_id, version_id, node_key)
                 if status == "available" and deadline_has_passed(deadline):
                     status = "expired"
                 connection.execute(
@@ -150,9 +128,14 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         config = json.loads(instance["config_snapshot"])
         node_rows = connection.execute(
             """
-            SELECT n.*, d.payload AS draft_payload
+            SELECT n.*, d.payload AS draft_payload,
+                   j.status AS audit_job_status, j.attempt_count AS audit_attempt_count,
+                   j.result_json AS audit_result_json
             FROM node_instances n
             LEFT JOIN node_drafts d ON d.node_instance_id = n.id
+            LEFT JOIN submissions s
+              ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
+            LEFT JOIN audit_jobs j ON j.submission_id = s.id
             WHERE n.flow_instance_id = ?
             """,
             (instance_id,),
@@ -160,7 +143,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         node_order = {node["id"]: index for index, node in enumerate(config["nodes"])}
         nodes = []
         for row in node_rows:
-            deadline = _effective_deadline(
+            deadline = effective_deadline(
                 connection, instance_id, instance["flow_version_id"], row["node_key"]
             )
             status = row["status"]
@@ -176,6 +159,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "effectiveDeadline": deadline,
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
+                    "audit": _audit_summary(row, status),
                 }
             )
         nodes.sort(key=lambda item: node_order[item["nodeKey"]])
@@ -258,30 +242,6 @@ def save_node_draft(
     return get_instance(row["flow_instance_id"], student_id)
 
 
-def _advance_downstream(
-    connection, instance_id: str, version_id: str, config: dict[str, Any]
-) -> None:
-    statuses = {
-        row["node_key"]: row["status"]
-        for row in connection.execute(
-            "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
-            (instance_id,),
-        ).fetchall()
-    }
-    incoming = incoming_nodes(config)
-    now = utc_now_iso()
-    for node_key, predecessors in incoming.items():
-        if statuses[node_key] != "locked" or not predecessors:
-            continue
-        if all(statuses[source] == "approved" for source in predecessors):
-            deadline = _effective_deadline(connection, instance_id, version_id, node_key)
-            next_status = "expired" if deadline_has_passed(deadline) else "available"
-            connection.execute(
-                "UPDATE node_instances SET status = ?, opened_at = ? WHERE flow_instance_id = ? AND node_key = ?",
-                (next_status, now, instance_id, node_key),
-            )
-
-
 def submit_node(
     node_instance_id: str,
     student_id: int,
@@ -309,7 +269,7 @@ def submit_node(
             (node_instance_id, idempotency_key),
         ).fetchone()
         if duplicate is None:
-            deadline = _effective_deadline(
+            deadline = effective_deadline(
                 connection,
                 row["flow_instance_id"],
                 row["flow_version_id"],
@@ -319,8 +279,26 @@ def submit_node(
                 raise RuntimeDeadlineError("节点已超过截止时间")
             if row["status"] not in {"available", "draft", "rejected", "expired"}:
                 raise RuntimeConflictError("当前节点不可提交")
-            config = _version_config(connection, row["flow_version_id"])
+            config = version_config(connection, row["flow_version_id"])
             node = node_by_key(config, row["node_key"])
+            script_values = (
+                node.get("auditScriptId"),
+                node.get("auditScriptVersion"),
+                node.get("auditScriptHash"),
+            )
+            configured_count = sum(value not in (None, "") for value in script_values)
+            has_audit_script = configured_count == 3
+            if configured_count not in {0, 3}:
+                raise RuntimeConflictError("审核脚本配置无效，请联系教师")
+            if has_audit_script and (
+                node.get("kind") != "file"
+                or not isinstance(script_values[0], str)
+                or not isinstance(script_values[1], int)
+                or isinstance(script_values[1], bool)
+                or script_values[1] <= 0
+                or not isinstance(script_values[2], str)
+            ):
+                raise RuntimeConflictError("审核脚本配置无效，请联系教师")
             submission_payload = payload
             uploaded_file = None
             if node.get("kind") == "file":
@@ -347,7 +325,11 @@ def submit_node(
             except ValueError as exc:
                 raise RuntimeConflictError(str(exc)) from exc
             attempt_no = int(row["attempt_no"]) + 1
-            submission_status = "approved" if node.get("autoApprove", True) else "reviewing"
+            submission_status = (
+                "reviewing"
+                if has_audit_script
+                else "approved" if node.get("autoApprove", True) else "reviewing"
+            )
             submission_id = str(uuid.uuid4())
             connection.execute(
                 """
@@ -371,6 +353,16 @@ def submit_node(
                     attach_uploaded_file(connection, str(uploaded_file["id"]), submission_id)
                 except FileContextError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
+            if has_audit_script:
+                create_audit_job(
+                    connection,
+                    submission_id=submission_id,
+                    node_instance_id=node_instance_id,
+                    script_id=str(script_values[0]),
+                    script_version=int(script_values[1]),
+                    script_sha256=str(script_values[2]),
+                    now=now,
+                )
             connection.execute(
                 "DELETE FROM node_drafts WHERE node_instance_id = ?",
                 (node_instance_id,),
@@ -390,28 +382,39 @@ def submit_node(
                 ),
             )
             if submission_status == "approved":
-                _advance_downstream(
+                advance_downstream(
                     connection,
                     row["flow_instance_id"],
                     row["flow_version_id"],
                     config,
                 )
-            remaining = connection.execute(
-                """
-                SELECT COUNT(*) AS count FROM node_instances
-                WHERE flow_instance_id = ? AND status != 'approved'
-                """,
-                (row["flow_instance_id"],),
-            ).fetchone()["count"]
-            if remaining == 0:
-                connection.execute(
-                    """
-                    UPDATE flow_instances
-                    SET status = 'completed', completed_at = ? WHERE id = ?
-                    """,
-                    (now, row["flow_instance_id"]),
-                )
+            complete_flow_if_ready(connection, row["flow_instance_id"], now)
     return get_instance(row["flow_instance_id"], student_id)
+
+
+def _audit_summary(row, status: str) -> dict[str, object] | None:
+    if row["audit_job_status"] is None:
+        return None
+    result: dict[str, object] = {}
+    if row["audit_result_json"]:
+        try:
+            parsed = json.loads(row["audit_result_json"])
+            if isinstance(parsed, dict):
+                result = parsed
+        except json.JSONDecodeError:
+            result = {}
+    reason = result.get("reason") if isinstance(result.get("reason"), str) else None
+    details = result.get("details") if isinstance(result.get("details"), dict) else None
+    if status == "audit_error":
+        reason = "自动审核暂时失败，请重新审核"
+        details = None
+    return {
+        "status": status,
+        "reason": reason,
+        "details": details,
+        "attemptCount": int(row["audit_attempt_count"] or 0),
+        "canRetry": status == "audit_error" and row["audit_job_status"] == "failed",
+    }
 
 
 def set_student_deadline(
