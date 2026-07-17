@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { workflowApi } from "./api";
 import {
   getAuditScriptFormState,
+  validateAuditScriptFileContent,
   validateAuditScriptForm,
   type AuditScriptFormMode,
 } from "./auditScriptManager";
@@ -84,6 +85,11 @@ export function AuditScriptManager({ onClose }: { onClose: () => void }) {
     setBusy(true);
     setError("");
     try {
+      const contentValidationError = await validateAuditScriptFileContent(file!);
+      if (contentValidationError) {
+        setError(contentValidationError);
+        return;
+      }
       const saved = form.kind === "create"
         ? await workflowApi.uploadAuditScript(form.name.trim(), form.description.trim(), file!)
         : await workflowApi.updateAuditScript(form.script.id, form.description.trim(), file!);

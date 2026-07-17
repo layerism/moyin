@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   getAuditScriptFormState,
+  validateAuditScriptFileContent,
   validateAuditScriptForm,
   type AuditScriptFormMode,
 } from "../src/features/academic-flow/auditScriptManager.ts";
@@ -18,6 +19,8 @@ const pythonScript = {
 };
 
 const file = (name: string) => ({ name }) as File;
+
+const fileFromBytes = (name: string, bytes: Uint8Array) => new File([bytes], name);
 
 test("功能名称去除首尾空格后必须填写且最多 120 个字符", () => {
   const mode: AuditScriptFormMode = { kind: "create" };
@@ -53,4 +56,29 @@ test("更新表单锁定功能名称但允许修改描述", () => {
 
   assert.deepEqual(getAuditScriptFormState(mode), { name: "材料审核", nameLocked: true });
   assert.equal(validateAuditScriptForm({ mode, name: pythonScript.name, description: "新的功能描述", file: file("audit.py") }), null);
+});
+
+test("空审核脚本文件会在提交前被拒绝", async () => {
+  assert.equal(await validateAuditScriptFileContent(fileFromBytes("audit.py", new Uint8Array())), "脚本文件不能为空");
+});
+
+test("超过 1 MiB 的审核脚本文件会在提交前被拒绝", async () => {
+  assert.equal(
+    await validateAuditScriptFileContent(fileFromBytes("audit.py", new Uint8Array(1024 * 1024 + 1))),
+    "脚本文件不能超过 1 MiB",
+  );
+});
+
+test("非 UTF-8 的审核脚本文件会在提交前被拒绝", async () => {
+  assert.equal(
+    await validateAuditScriptFileContent(fileFromBytes("audit.py", new Uint8Array([0xc3, 0x28]))),
+    "脚本文件必须使用 UTF-8 编码",
+  );
+});
+
+test("合法 UTF-8 审核脚本文件可以通过字节校验", async () => {
+  assert.equal(
+    await validateAuditScriptFileContent(fileFromBytes("audit.py", new TextEncoder().encode("def run(): pass"))),
+    null,
+  );
 });

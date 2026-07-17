@@ -1,5 +1,7 @@
 import type { AuditScriptSummary } from "./auditScripts";
 
+const MAX_AUDIT_SCRIPT_FILE_SIZE = 1024 * 1024;
+
 export type AuditScriptFormMode =
   | { kind: "create" }
   | { kind: "update"; script: AuditScriptSummary };
@@ -37,4 +39,25 @@ export function getAuditScriptLanguage(filename: string): "js" | "py" | null {
   const parts = filename.trim().toLowerCase().split(".");
   const extension = parts[parts.length - 1];
   return extension === "py" || extension === "js" ? extension : null;
+}
+
+export async function validateAuditScriptFileContent(file: File): Promise<string | null> {
+  if (file.size === 0) return "脚本文件不能为空";
+  if (file.size > MAX_AUDIT_SCRIPT_FILE_SIZE) return "脚本文件不能超过 1 MiB";
+
+  let bytes: Uint8Array;
+  try {
+    bytes = new Uint8Array(await file.arrayBuffer());
+  } catch {
+    return "脚本文件读取失败，请重新选择";
+  }
+  if (bytes.byteLength === 0) return "脚本文件不能为空";
+  if (bytes.byteLength > MAX_AUDIT_SCRIPT_FILE_SIZE) return "脚本文件不能超过 1 MiB";
+
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return "脚本文件必须使用 UTF-8 编码";
+  }
+  return null;
 }
