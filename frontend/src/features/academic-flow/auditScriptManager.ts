@@ -2,6 +2,24 @@ import type { AuditScriptSummary } from "./auditScripts";
 
 const MAX_AUDIT_SCRIPT_FILE_SIZE = 1024 * 1024;
 
+type AuditScriptWritableFile = {
+  close: () => Promise<void>;
+  write: (content: Blob) => Promise<void>;
+};
+
+type AuditScriptFileHandle = {
+  createWritable: () => Promise<AuditScriptWritableFile>;
+};
+
+export type AuditScriptSaveFilePicker = (options: {
+  excludeAcceptAllOption: boolean;
+  suggestedName: string;
+  types: Array<{
+    accept: Record<string, string[]>;
+    description: string;
+  }>;
+}) => Promise<AuditScriptFileHandle>;
+
 export type AuditScriptFormMode =
   | { kind: "create" }
   | { kind: "update"; script: AuditScriptSummary };
@@ -49,6 +67,42 @@ export function getAuditScriptLanguage(filename: string): "js" | "py" | null {
   const parts = filename.trim().toLowerCase().split(".");
   const extension = parts[parts.length - 1];
   return extension === "py" || extension === "js" ? extension : null;
+}
+
+export async function downloadAuditScriptTemplate(input: {
+  fallbackDownload: (blob: Blob, filename: string) => void;
+  filename: string;
+  getBlob: () => Promise<Blob>;
+  showSaveFilePicker?: AuditScriptSaveFilePicker;
+}): Promise<"cancelled" | "fallback" | "saved"> {
+  if (!input.showSaveFilePicker) {
+    input.fallbackDownload(await input.getBlob(), input.filename);
+    return "fallback";
+  }
+
+  let handle: AuditScriptFileHandle;
+  try {
+    const isPython = input.filename.toLowerCase().endsWith(".py");
+    handle = await input.showSaveFilePicker({
+      excludeAcceptAllOption: true,
+      suggestedName: input.filename,
+      types: [{
+        accept: isPython
+          ? { "text/x-python": [".py"] }
+          : { "text/javascript": [".js"] },
+        description: isPython ? "Python 脚本" : "JavaScript 脚本",
+      }],
+    });
+  } catch (reason) {
+    if (reason instanceof DOMException && reason.name === "AbortError") return "cancelled";
+    throw reason;
+  }
+
+  const blob = await input.getBlob();
+  const writable = await handle.createWritable();
+  await writable.write(blob);
+  await writable.close();
+  return "saved";
 }
 
 export async function validateAuditScriptFileContent(file: File): Promise<string | null> {
