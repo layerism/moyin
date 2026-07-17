@@ -93,7 +93,6 @@ export function AcademicFlowDesigner({
   onPublishProcess,
   onProcessChange,
   process,
-  isSuperAdmin,
 }: {
   onBack: () => void;
   onHome: () => void;
@@ -105,7 +104,6 @@ export function AcademicFlowDesigner({
   ) => Promise<AcademicProcess>;
   onProcessChange: (process: AcademicProcess) => void;
   process: AcademicProcess;
-  isSuperAdmin: boolean;
 }) {
   const [workingProcess, setWorkingProcess] = useState(() => structuredClone(process));
   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
@@ -472,7 +470,6 @@ export function AcademicFlowDesigner({
           <NodeInspector
             deadlineReadOnly={workingProcess.published}
             editingLocked={editorLocked}
-            isSuperAdmin={isSuperAdmin}
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}
             onOpenProgress={() => {
@@ -1303,7 +1300,6 @@ function FlowNodeCanvas({
 function NodeInspector({
   deadlineReadOnly,
   editingLocked,
-  isSuperAdmin,
   node,
   onClose,
   onOpenProgress,
@@ -1312,7 +1308,6 @@ function NodeInspector({
 }: {
   deadlineReadOnly: boolean;
   editingLocked: boolean;
-  isSuperAdmin: boolean;
   node: AcademicFlowNode | null;
   onClose: () => void;
   onOpenProgress: () => void;
@@ -1494,7 +1489,6 @@ function NodeInspector({
             </section>
 
             <AuditScriptSelector
-              isSuperAdmin={isSuperAdmin}
               node={node}
               onChange={(patch) => onUpdateNode(node.id, patch)}
             />

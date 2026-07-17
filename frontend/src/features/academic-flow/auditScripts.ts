@@ -7,10 +7,12 @@ const legacyAuditScripts: Array<{ label: string; name: string; type: AuditScript
 ];
 
 export type AuditScriptSummary = {
+  description: string;
   id: string;
   language: "js" | "py";
   name: string;
   sha256: string;
+  updatedAt: string;
   version: number;
 };
 
@@ -19,8 +21,11 @@ export type AuditScriptOption = {
   value: string;
 };
 
-export function getAuditScriptOptions(scripts: AuditScriptSummary[]): AuditScriptOption[] {
-  return [
+export function getAuditScriptOptions(
+  scripts: AuditScriptSummary[],
+  node?: AcademicFlowNode,
+): AuditScriptOption[] {
+  const options = [
     ...legacyAuditScripts.map((script) => ({
       label: script.label,
       value: script.name,
@@ -30,10 +35,19 @@ export function getAuditScriptOptions(scripts: AuditScriptSummary[]): AuditScrip
       value: getUploadedScriptValue(script),
     })),
   ];
+  const selectedValue = node ? getSelectedAuditScriptValue(node) : "";
+  const isFixedVersion = selectedValue.startsWith("uploaded:");
+  if (isFixedVersion && !options.some((option) => option.value === selectedValue)) {
+    options.push({
+      label: `${node?.auditScriptName ?? "审核脚本"}（固定 v${node?.auditScriptVersion}）`,
+      value: selectedValue,
+    });
+  }
+  return options;
 }
 
 export function getSelectedAuditScriptValue(node: AcademicFlowNode): string {
-  if (node.auditScriptId && node.auditScriptVersion) {
+  if (node.auditScriptId && node.auditScriptVersion !== undefined) {
     return `uploaded:${node.auditScriptId}:${node.auditScriptVersion}`;
   }
   return node.auditScriptName;
