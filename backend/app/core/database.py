@@ -178,6 +178,30 @@ CREATE INDEX IF NOT EXISTS idx_uploaded_files_node
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_submission
     ON uploaded_files(submission_id);
 
+CREATE TABLE IF NOT EXISTS audit_jobs (
+    id TEXT PRIMARY KEY,
+    submission_id TEXT NOT NULL UNIQUE REFERENCES submissions(id) ON DELETE CASCADE,
+    node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
+    script_id TEXT NOT NULL,
+    script_version INTEGER NOT NULL CHECK (script_version > 0),
+    script_sha256 TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'succeeded', 'failed')),
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TEXT NOT NULL,
+    result_json TEXT,
+    error_message TEXT,
+    claimed_at TEXT,
+    finished_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_jobs_claim
+    ON audit_jobs(status, next_attempt_at, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_audit_jobs_node
+    ON audit_jobs(node_instance_id);
+
 CREATE TABLE IF NOT EXISTS audit_scripts (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,

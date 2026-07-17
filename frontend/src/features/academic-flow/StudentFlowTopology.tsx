@@ -18,6 +18,7 @@ import {
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
   approved: "已通过",
+  audit_error: "审核异常",
   available: "可填写",
   draft: "已暂存",
   expired: "已截止",
@@ -27,7 +28,13 @@ const statusLabels: Record<RuntimeNodeStatus, string> = {
   submitted: "已提交",
 };
 
-const writableStatuses = new Set<RuntimeNodeStatus>(["available", "draft", "rejected"]);
+const openableStatuses = new Set<RuntimeNodeStatus>([
+  "available",
+  "audit_error",
+  "draft",
+  "rejected",
+  "reviewing",
+]);
 
 export function StudentFlowTopology({
   edges,
@@ -108,6 +115,7 @@ export function StudentFlowTopology({
       <div className="student-topology-legend" aria-label="节点状态图例">
         <span className="available">可填写</span>
         <span className="reviewing">自动审核中</span>
+        <span className="audit_error">审核异常</span>
         <span className="approved">已通过</span>
         <span className="locked">待开放</span>
         <span className="expired">已截止</span>
@@ -160,12 +168,12 @@ export function StudentFlowTopology({
           {nodes.map((node, index) => {
             const runtime = runtimeByKey.get(node.id);
             if (!runtime) return null;
-            const writable = writableStatuses.has(runtime.status);
+            const openable = openableStatuses.has(runtime.status);
             return (
               <button
                 aria-label={`${node.title}，${statusLabels[runtime.status]}`}
                 className={`student-topology-node ${runtime.status}`}
-                disabled={!writable}
+                disabled={!openable}
                 key={node.id}
                 onClick={() => onOpenNode(node.id)}
                 style={{

@@ -14,6 +14,7 @@ from app.repositories.flow_files import (
     get_uploaded_file_for_download,
     replace_uploaded_file,
 )
+from app.repositories.audit_jobs import AuditJobConflictError, retry_audit_job
 from app.repositories.flow_instances import (
     RuntimeConflictError,
     RuntimeDeadlineError,
@@ -198,4 +199,17 @@ def post_submit(
             payload.idempotencyKey,
         )
     except (KeyError, RosterAccessError, RuntimeConflictError, RuntimeDeadlineError) as exc:
+        raise runtime_error(exc) from exc
+
+
+@router.post("/node-instances/{node_instance_id}/audit/retry")
+def post_audit_retry(
+    node_instance_id: str,
+    student: dict[str, object] = Depends(get_current_student),
+) -> dict[str, object]:
+    student_id = int(student["id"])
+    try:
+        instance_id = retry_audit_job(node_instance_id, student_id)
+        return get_instance(instance_id, student_id)
+    except (KeyError, RosterAccessError, AuditJobConflictError) as exc:
         raise runtime_error(exc) from exc

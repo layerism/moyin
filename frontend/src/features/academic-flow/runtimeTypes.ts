@@ -46,6 +46,7 @@ export type SharedFlow = {
 
 export type RuntimeNodeStatus =
   | "approved"
+  | "audit_error"
   | "available"
   | "draft"
   | "expired"
@@ -54,8 +55,17 @@ export type RuntimeNodeStatus =
   | "reviewing"
   | "submitted";
 
+export type RuntimeNodeAudit = {
+  attemptCount: number;
+  canRetry: boolean;
+  details: Record<string, unknown> | null;
+  reason: string | null;
+  status: RuntimeNodeStatus;
+};
+
 export type RuntimeNodeInstance = {
   approvedAt: string | null;
+  audit: RuntimeNodeAudit | null;
   attemptNo: number;
   draft: Record<string, unknown>;
   effectiveDeadline: string | null;

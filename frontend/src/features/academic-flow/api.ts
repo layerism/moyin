@@ -183,6 +183,12 @@ export const workflowApi = {
       { method: "POST", body: JSON.stringify({ payload, idempotencyKey }) },
     );
   },
+  retryAudit(nodeInstanceId: string) {
+    return request<RuntimeFlowInstance>(
+      `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/audit/retry`,
+      { method: "POST" },
+    );
+  },
   uploadFile(nodeInstanceId: string, file: File) {
     return request<UploadedFile>(
       `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/file`,
