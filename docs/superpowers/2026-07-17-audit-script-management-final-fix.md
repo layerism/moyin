@@ -14,6 +14,6 @@
 ## 验收
 
 - 直接调用 POST/PUT 上传超过 1 MiB 时返回 422，且读取上限不会超过 1 MiB + 1 字节。
-- 迁移后的新旧表 `updated_at` 在 `PRAGMA table_info` 中为 `NOT NULL`。
+- 新建表和尚未执行旧迁移的数据库，其 `updated_at` 在 `PRAGMA table_info` 中为 `NOT NULL`；已执行旧迁移的数据库继续回填空值，但不重建父表约束。
 - 列表请求失败时，状态判定为错误而非加载，并可重试。
 - 运行相关 pytest、前端 Node 测试与 `npm run build`。
