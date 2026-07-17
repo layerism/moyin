@@ -1,7 +1,9 @@
 import hashlib
 import json
 import logging
+import os
 import re
+import tempfile
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -17,6 +19,18 @@ ENTRY_SUFFIXES: dict[str, str] = {"js": ".js", "py": ".py"}
 
 
 class AuditScriptCatalogError(ValueError):
+    pass
+
+
+class AuditScriptNotFoundError(AuditScriptCatalogError):
+    pass
+
+
+class AuditScriptNameConflictError(AuditScriptCatalogError):
+    pass
+
+
+class AuditScriptWriteError(AuditScriptCatalogError):
     pass
 
 
@@ -40,6 +54,8 @@ class _AuditScriptManifest:
     language: Literal["py", "js"]
     version: int
     entry: str
+    data: dict[str, object]
+    manifest_path: Path
     script_dir: Path
 
 
@@ -76,6 +92,65 @@ def find_audit_script_version(script_id: str, version: int) -> AuditScriptRecord
         return _record_for_version(manifest, version)
     except OSError as exc:
         raise AuditScriptCatalogError("审核脚本版本无效") from exc
+
+
+def update_audit_script_metadata(
+    script_id: str, name: str, description: str
+) -> dict[str, object]:
+    name = _bounded_text(name, "name", 120)
+    description = _bounded_text(description, "description", 500)
+    manifests = _valid_manifests()
+    matches = [manifest for manifest in manifests if manifest.id == script_id]
+    if not matches:
+        raise AuditScriptNotFoundError("审核脚本不存在")
+    if len(matches) != 1:
+        raise AuditScriptCatalogError("审核脚本 ID 重复，无法修改")
+    manifest = matches[0]
+    try:
+        _record_for_version(manifest, manifest.version)
+    except (AuditScriptCatalogError, OSError) as exc:
+        raise AuditScriptCatalogError("审核脚本当前版本无效，无法修改") from exc
+    if any(
+        manifest.id != script_id and manifest.name.casefold() == name.casefold()
+        for manifest in manifests
+    ):
+        raise AuditScriptNameConflictError("已存在同名审核脚本")
+
+    if manifest.name == name and manifest.description == description:
+        return next(item for item in list_audit_scripts() if item["id"] == script_id)
+
+    payload = {**manifest.data, "name": name, "description": description}
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            dir=manifest.script_dir,
+            encoding="utf-8",
+            prefix=".manifest-",
+            suffix=".tmp",
+            delete=False,
+        ) as target:
+            temporary_path = Path(target.name)
+            os.fchmod(target.fileno(), manifest.manifest_path.stat().st_mode & 0o777)
+            json.dump(payload, target, ensure_ascii=False, indent=2)
+            target.write("\n")
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary_path, manifest.manifest_path)
+        temporary_path = None
+    except OSError as exc:
+        raise AuditScriptWriteError("审核脚本元信息保存失败") from exc
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("清理审核脚本元信息临时文件失败")
+
+    for item in list_audit_scripts():
+        if item["id"] == script_id:
+            return item
+    raise AuditScriptWriteError("审核脚本元信息保存失败")
 
 
 def _current_records() -> list[AuditScriptRecord]:
@@ -124,10 +199,15 @@ def _valid_manifests() -> list[_AuditScriptManifest]:
 def _read_manifest(manifest_path: Path) -> _AuditScriptManifest:
     root = Path(settings.audit_scripts_root).resolve()
     script_dir = manifest_path.parent.resolve()
-    if not script_dir.is_relative_to(root):
+    resolved_manifest_path = manifest_path.resolve()
+    if (
+        manifest_path.is_symlink()
+        or not script_dir.is_relative_to(root)
+        or not resolved_manifest_path.is_relative_to(script_dir)
+    ):
         raise AuditScriptCatalogError("审核脚本目录越界")
 
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = json.loads(resolved_manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict):
         raise AuditScriptCatalogError("审核脚本清单必须是对象")
 
@@ -166,6 +246,8 @@ def _read_manifest(manifest_path: Path) -> _AuditScriptManifest:
         language=language,
         version=current_version,
         entry=entry,
+        data=dict(manifest),
+        manifest_path=resolved_manifest_path,
         script_dir=script_dir,
     )
 
@@ -183,9 +265,11 @@ def _record_for_version(
     if not entry_path.is_file():
         raise AuditScriptCatalogError("审核脚本入口不存在")
 
-    stat = entry_path.stat()
-    if stat.st_size > settings.audit_script_max_bytes:
+    entry_stat = entry_path.stat()
+    if entry_stat.st_size > settings.audit_script_max_bytes:
         raise AuditScriptCatalogError("审核脚本入口超限")
+
+    manifest_stat = manifest.manifest_path.stat()
 
     return AuditScriptRecord(
         id=manifest.id,
@@ -195,7 +279,9 @@ def _record_for_version(
         version=version,
         entry_path=entry_path,
         sha256=_sha256(entry_path),
-        updated_at=datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+        updated_at=datetime.fromtimestamp(
+            max(entry_stat.st_mtime, manifest_stat.st_mtime), timezone.utc
+        ).isoformat(),
     )
 
 
