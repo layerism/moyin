@@ -18,6 +18,7 @@ import {
   MoveFileDialog,
   NameDialog,
 } from "./HomeDialogs";
+import { AuditScriptManager } from "../academic-flow/AuditScriptManagerDialog";
 
 export function HomeView({
   activeFolder,
@@ -481,6 +482,7 @@ export function AcademicFlowView({
   const [deleteProcess, setDeleteProcess] = useState<AcademicProcess | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [scriptManagerOpen, setScriptManagerOpen] = useState(false);
 
   const startCreateProcess = () => {
     setProcessNameValue("");
@@ -571,6 +573,11 @@ export function AcademicFlowView({
             <button className="ai-create" onClick={startCreateProcess}>
               创建流程
             </button>
+            {teacherIdentity.role === "super_admin" ? (
+              <button onClick={() => setScriptManagerOpen(true)} type="button">
+                审核脚本
+              </button>
+            ) : null}
           </div>
           <div className="academic-flow-list" role="list" aria-label="采集流程列表">
             {processes.map((process) => (
@@ -632,6 +639,7 @@ export function AcademicFlowView({
           submitting={deleting}
         />
       ) : null}
+      {scriptManagerOpen ? <AuditScriptManager onClose={() => setScriptManagerOpen(false)} /> : null}
     </main>
   );
 }
