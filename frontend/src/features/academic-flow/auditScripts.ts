@@ -1,10 +1,6 @@
-import type { AcademicFlowNode, AuditScriptType } from "../../types";
+import type { AcademicFlowNode } from "../../types";
 
-const legacyAuditScripts: Array<{ label: string; name: string; type: AuditScriptType }> = [
-  { label: "不启用材料审核", name: "", type: "none" },
-  { label: "材料基础校验（Python）", name: "check_material.py", type: "py" },
-  { label: "材料命名校验（JavaScript）", name: "check_filename.mjs", type: "mjs" },
-];
+const noAuditScript = { label: "不启用材料审核", value: "" };
 
 export type AuditScriptSummary = {
   description: string;
@@ -26,10 +22,7 @@ export function getAuditScriptOptions(
   node?: AcademicFlowNode,
 ): AuditScriptOption[] {
   const options = [
-    ...legacyAuditScripts.map((script) => ({
-      label: script.label,
-      value: script.name,
-    })),
+    noAuditScript,
     ...scripts.map((script) => ({
       label: `${script.name}（${getLanguageLabel(script.language)}，v${script.version}）`,
       value: getUploadedScriptValue(script),
@@ -59,15 +52,7 @@ export function resolveAuditScriptSelection(
 ): Partial<AcademicFlowNode> {
   const uploaded = scripts.find((script) => getUploadedScriptValue(script) === value);
   if (uploaded) return toNodeAuditScriptSelection(uploaded);
-
-  const builtIn = legacyAuditScripts.find((script) => script.name === value);
-  return {
-    auditScriptHash: undefined,
-    auditScriptId: undefined,
-    auditScriptName: builtIn?.name ?? "",
-    auditScriptType: builtIn?.type ?? "none",
-    auditScriptVersion: undefined,
-  };
+  return toNodeAuditScriptSelection(null);
 }
 
 export function toNodeAuditScriptSelection(
@@ -95,6 +80,6 @@ export function getUploadedScriptValue(script: AuditScriptSummary): string {
   return `uploaded:${script.id}:${script.version}`;
 }
 
-function getLanguageLabel(language: Exclude<AuditScriptType, "mjs" | "none">): string {
+function getLanguageLabel(language: "js" | "py"): string {
   return language === "py" ? "Python" : "JavaScript";
 }

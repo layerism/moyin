@@ -24,9 +24,5 @@ dist/
 storage/uploads/
 storage/generated/
 
-# Runtime audit-script sources
-backend/scripts/*
-!backend/scripts/.gitkeep
-
 # System
 .DS_Store

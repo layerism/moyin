@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   getAuditScriptOptions,
   getSelectedAuditScriptValue,
+  resolveAuditScriptSelection,
   toNodeAuditScriptSelection,
   type AuditScriptSummary,
 } from "../src/features/academic-flow/auditScripts.ts";
@@ -18,11 +19,16 @@ const globalScript: AuditScriptSummary = {
   version: 3,
 };
 
-test("全局脚本显示在内置脚本之后并标注语言和版本", () => {
+test("预置脚本选项以不启用开头并标注语言和版本", () => {
   const options = getAuditScriptOptions([globalScript]);
 
-  assert.equal(options.at(-1)?.label, "材料审核（JavaScript，v3）");
-  assert.equal(options.at(-1)?.value, "uploaded:script-1:3");
+  assert.deepEqual(options[0], { label: "不启用材料审核", value: "" });
+  assert.deepEqual(options[1], {
+    label: "材料审核（JavaScript，v3）",
+    value: "uploaded:script-1:3",
+  });
+  assert.equal(options.some((option) => option.value === "check_material.py"), false);
+  assert.equal(options.some((option) => option.value === "check_filename.mjs"), false);
 });
 
 test("选择全局脚本会写入不可变的脚本标识", () => {
@@ -36,13 +42,16 @@ test("选择全局脚本会写入不可变的脚本标识", () => {
 });
 
 test("不启用脚本会清理上传脚本的标识", () => {
-  assert.deepEqual(toNodeAuditScriptSelection(null), {
+  const cleared = {
     auditScriptHash: undefined,
     auditScriptId: undefined,
     auditScriptName: "",
     auditScriptType: "none",
     auditScriptVersion: undefined,
-  });
+  };
+
+  assert.deepEqual(toNodeAuditScriptSelection(null), cleared);
+  assert.deepEqual(resolveAuditScriptSelection("", [globalScript]), cleared);
 });
 
 test("旧版本节点继续回显固定版本，而非自动切换到最新版本", () => {
