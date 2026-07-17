@@ -191,14 +191,6 @@ export function StudentRuntimePage({
     );
   }
 
-  const progress = {
-    approved: instance.nodeInstances.filter((node) => node.status === "approved").length,
-    available: instance.nodeInstances.filter((node) =>
-      ["available", "draft", "rejected"].includes(node.status),
-    ).length,
-    reviewing: instance.nodeInstances.filter((node) => node.status === "reviewing").length,
-  };
-
   return (
     <main className="student-runtime-page">
       <header className="student-runtime-header">
@@ -239,20 +231,6 @@ export function StudentRuntimePage({
           {notice}
         </section>
       ) : null}
-      <section aria-label="流程进度" className="runtime-progress-grid">
-        <article className="runtime-progress-card approved">
-          <span>✓</span>
-          <div><small>已完成</small><strong>{progress.approved}/{instance.nodeInstances.length}</strong></div>
-        </article>
-        <article className="runtime-progress-card available">
-          <span>→</span>
-          <div><small>当前可填写</small><strong>{progress.available}</strong></div>
-        </article>
-        <article className="runtime-progress-card reviewing">
-          <span>◌</span>
-          <div><small>自动审核中</small><strong>{progress.reviewing}</strong></div>
-        </article>
-      </section>
       <StudentFlowTopology
         edges={instance.config.edges}
         nodes={instance.config.nodes}
