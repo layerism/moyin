@@ -140,7 +140,12 @@ export function AuthPortal({
               学生
             </button>
           </div>
-          <form id={`${fieldPrefix}-auth-form`} name={`${fieldPrefix}-auth-form`} onSubmit={submit}>
+          <form
+            autoComplete={mode === "login" ? "off" : "on"}
+            id={`${fieldPrefix}-auth-form`}
+            name={`${fieldPrefix}-auth-form`}
+            onSubmit={submit}
+          >
             <header>
               <h2>{role === "teacher" ? "教师" : "学生"}{mode === "register" ? "注册" : "登录"}</h2>
               <p>{role === "teacher" ? "进入流程设计与管理工作台" : "查看并继续个人填写流程"}</p>
@@ -190,9 +195,9 @@ export function AuthPortal({
             <label htmlFor={`${fieldPrefix}-password`}>
               <span>密码</span>
               <input
-                autoComplete={mode === "register" ? "new-password" : "current-password"}
+                autoComplete={mode === "register" ? "new-password" : "off"}
                 id={`${fieldPrefix}-password`}
-                name={mode === "register" ? "new-password" : "password"}
+                name={mode === "register" ? "new-password" : "account-secret"}
                 required
                 type="password"
                 value={form.password}

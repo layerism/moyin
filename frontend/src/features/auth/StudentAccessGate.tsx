@@ -91,13 +91,17 @@ export function StudentAccessGate({
             注册
           </button>
         </div>
-        <form className="oa-auth-form" onSubmit={submit}>
+        <form
+          autoComplete={mode === "login" ? "off" : "on"}
+          className="oa-auth-form"
+          onSubmit={submit}
+        >
           <h2>{mode === "register" ? "创建学生账号" : "学生登录"}</h2>
           <p>登录后系统将为你创建并持续保存独立填写进度。</p>
           <label>
             <span>姓名</span>
             <input
-              autoComplete="name"
+              autoComplete={mode === "register" ? "name" : "off"}
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
             />
@@ -105,7 +109,7 @@ export function StudentAccessGate({
           <label>
             <span>学号</span>
             <input
-              autoComplete="username"
+              autoComplete={mode === "register" ? "username" : "off"}
               value={form.studentNo}
               onChange={(event) => setForm({ ...form, studentNo: event.target.value })}
             />
@@ -113,7 +117,8 @@ export function StudentAccessGate({
           <label>
             <span>密码</span>
             <input
-              autoComplete={mode === "register" ? "new-password" : "current-password"}
+              autoComplete={mode === "register" ? "new-password" : "off"}
+              name={mode === "register" ? "new-password" : "account-secret"}
               type="password"
               value={form.password}
               onChange={(event) => setForm({ ...form, password: event.target.value })}
