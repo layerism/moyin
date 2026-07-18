@@ -3994,20 +3994,46 @@ button {
 
 .runtime-node-actions {
   display: flex;
+  align-items: flex-start;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
 }
 
 .runtime-node-actions button {
-  padding: 9px 16px;
+  min-height: 40px;
+  padding: 0 16px;
   border: 1px solid #cfd7e5;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fff;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.runtime-node-actions .primary-action {
+  border-color: #1d6feb;
+  background: #1d6feb;
+  box-shadow: 0 2px 4px rgb(29 111 235 / 20%);
+  color: #fff;
+}
+
+.runtime-node-actions .primary-action:not(:disabled):hover {
+  border-color: #175cd3;
+  background: #175cd3;
 }
 
 .runtime-node-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.58;
+}
+
+.runtime-node-actions .primary-action:disabled {
+  border-color: #c7d7fe;
+  background: #eef4ff;
+  box-shadow: none;
+  color: #98a2b3;
+  opacity: 1;
 }
 
 .runtime-submit-control {
@@ -4017,8 +4043,10 @@ button {
 }
 
 .runtime-submit-control small {
+  min-height: 16px;
   color: #667085;
   font-size: 11px;
+  line-height: 16px;
 }
 
 .runtime-loading {
