@@ -18,8 +18,10 @@ from app.repositories.audit_jobs import AuditJobConflictError, retry_audit_job
 from app.repositories.flow_instances import (
     RuntimeConflictError,
     RuntimeDeadlineError,
+    enter_flow,
     get_instance,
     get_or_create_instance,
+    list_student_flows,
     list_student_instances,
     save_node_draft,
     submit_node,
@@ -154,6 +156,26 @@ def enter_shared_flow(
         raise runtime_error(exc) from exc
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="分享链接无效或已停用") from exc
+
+
+@router.get("/flows")
+def student_flows(
+    student: dict[str, object] = Depends(get_current_student),
+) -> list[dict[str, object]]:
+    return list_student_flows(int(student["id"]))
+
+
+@router.post("/flows/{flow_id}/enter")
+def enter_student_flow(
+    flow_id: str,
+    student: dict[str, object] = Depends(get_current_student),
+) -> dict[str, object]:
+    try:
+        return enter_flow(flow_id, int(student["id"]))
+    except RosterAccessError as exc:
+        raise runtime_error(exc) from exc
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程不存在或尚未发布") from exc
 
 
 @router.get("/flow-instances")

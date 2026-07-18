@@ -45,6 +45,62 @@ def _json_object(value: object) -> dict[str, object]:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def _get_or_create_version_instance(
+    connection: Any,
+    version_id: str,
+    flow_id: str,
+    config: dict[str, Any],
+    student_id: int,
+    now: str,
+) -> str:
+    assert_student_roster_access(connection, flow_id, student_id)
+    row = connection.execute(
+        """
+        SELECT id FROM flow_instances
+        WHERE flow_version_id = ? AND student_account_id = ?
+        """,
+        (version_id, student_id),
+    ).fetchone()
+    if row is not None:
+        instance_id = str(row["id"])
+        connection.execute(
+            "UPDATE flow_instances SET last_active_at = ? WHERE id = ?", (now, instance_id)
+        )
+        return instance_id
+
+    instance_id = str(uuid.uuid4())
+    connection.execute(
+        """
+        INSERT INTO flow_instances
+            (id, flow_version_id, student_account_id, started_at, last_active_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (instance_id, version_id, student_id, now, now),
+    )
+    incoming = incoming_nodes(config)
+    for node in config["nodes"]:
+        node_key = node["id"]
+        status = "available" if not incoming[node_key] else "locked"
+        deadline = effective_deadline(connection, instance_id, version_id, node_key)
+        if status == "available" and deadline_has_passed(deadline):
+            status = "expired"
+        connection.execute(
+            """
+            INSERT INTO node_instances
+                (id, flow_instance_id, node_key, status, opened_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                str(uuid.uuid4()),
+                instance_id,
+                node_key,
+                status,
+                now if status == "available" else None,
+            ),
+        )
+    return instance_id
+
+
 def get_or_create_instance(token: str, student_id: int) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
@@ -62,52 +118,43 @@ def get_or_create_instance(token: str, student_id: int) -> dict[str, object]:
         ).fetchone()
         if shared is None:
             raise KeyError(token)
-        version_id = shared["version_id"]
-        config = json.loads(shared["config_snapshot"])
-        assert_student_roster_access(connection, shared["flow_id"], student_id)
-        row = connection.execute(
+        instance_id = _get_or_create_version_instance(
+            connection,
+            str(shared["version_id"]),
+            str(shared["flow_id"]),
+            json.loads(shared["config_snapshot"]),
+            student_id,
+            now,
+        )
+    return get_instance(instance_id, student_id)
+
+
+def enter_flow(flow_id: str, student_id: int) -> dict[str, object]:
+    now = utc_now_iso()
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        version = connection.execute(
             """
-            SELECT id FROM flow_instances
-            WHERE flow_version_id = ? AND student_account_id = ?
+            SELECT v.id AS version_id, v.config_snapshot
+            FROM flows f
+            JOIN flow_versions v ON v.flow_id = f.id
+            WHERE f.id = ? AND f.status = 'published'
+              AND v.status = 'published'
+            ORDER BY v.version_no DESC
+            LIMIT 1
             """,
-            (version_id, student_id),
+            (flow_id,),
         ).fetchone()
-        if row is None:
-            instance_id = str(uuid.uuid4())
-            connection.execute(
-                """
-                INSERT INTO flow_instances
-                    (id, flow_version_id, student_account_id, started_at, last_active_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (instance_id, version_id, student_id, now, now),
-            )
-            incoming = incoming_nodes(config)
-            for node in config["nodes"]:
-                node_key = node["id"]
-                status = "available" if not incoming[node_key] else "locked"
-                deadline = effective_deadline(connection, instance_id, version_id, node_key)
-                if status == "available" and deadline_has_passed(deadline):
-                    status = "expired"
-                connection.execute(
-                    """
-                    INSERT INTO node_instances
-                        (id, flow_instance_id, node_key, status, opened_at)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (
-                        str(uuid.uuid4()),
-                        instance_id,
-                        node_key,
-                        status,
-                        now if status == "available" else None,
-                    ),
-                )
-        else:
-            instance_id = row["id"]
-            connection.execute(
-                "UPDATE flow_instances SET last_active_at = ? WHERE id = ?", (now, instance_id)
-            )
+        if version is None:
+            raise KeyError(flow_id)
+        instance_id = _get_or_create_version_instance(
+            connection,
+            str(version["version_id"]),
+            flow_id,
+            json.loads(version["config_snapshot"]),
+            student_id,
+            now,
+        )
     return get_instance(instance_id, student_id)
 
 
@@ -211,6 +258,47 @@ def list_student_instances(student_id: int) -> list[dict[str, object]]:
             "id": row["id"],
             "name": row["name"],
             "status": row["status"],
+            "lastActiveAt": row["last_active_at"],
+        }
+        for row in rows
+    ]
+
+
+def list_student_flows(student_id: int) -> list[dict[str, object]]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT f.id AS flow_id, f.name,
+                   i.id AS instance_id, i.status AS instance_status,
+                   i.last_active_at
+            FROM student_accounts a
+            JOIN flow_roster_entries r
+              ON r.student_no = a.student_no
+             AND r.name = a.name
+             AND r.status = 'active'
+            JOIN flows f ON f.id = r.flow_id AND f.status = 'published'
+            JOIN flow_versions v
+              ON v.flow_id = f.id AND v.status = 'published'
+             AND v.version_no = (
+                 SELECT MAX(latest.version_no)
+                 FROM flow_versions latest
+                 WHERE latest.flow_id = f.id AND latest.status = 'published'
+             )
+            LEFT JOIN flow_instances i
+              ON i.flow_version_id = v.id
+             AND i.student_account_id = a.id
+            WHERE a.id = ? AND a.status = 'active'
+            ORDER BY CASE WHEN i.last_active_at IS NULL THEN 1 ELSE 0 END,
+                     COALESCE(i.last_active_at, f.updated_at) DESC, f.id
+            """,
+            (student_id,),
+        ).fetchall()
+    return [
+        {
+            "flowId": row["flow_id"],
+            "instanceId": row["instance_id"],
+            "name": row["name"],
+            "status": row["instance_status"] or "not_started",
             "lastActiveAt": row["last_active_at"],
         }
         for row in rows

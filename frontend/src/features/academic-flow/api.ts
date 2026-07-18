@@ -162,6 +162,12 @@ export const workflowApi = {
       { method: "POST" },
     );
   },
+  enterFlow(flowId: string) {
+    return request<RuntimeFlowInstance>(
+      `/api/student/flows/${encodeURIComponent(flowId)}/enter`,
+      { method: "POST" },
+    );
+  },
   getInstance(instanceId: string) {
     return request<RuntimeFlowInstance>(
       `/api/student/flow-instances/${encodeURIComponent(instanceId)}`,
