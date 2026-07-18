@@ -18,6 +18,7 @@ const statusLabels: Record<RuntimeNodeStatus, string> = {
   locked: "待开放",
   rejected: "已退回",
   reviewing: "审核中",
+  scheduled: "定时开放",
   submitted: "已提交",
 };
 
@@ -90,6 +91,20 @@ export function StudentRuntimePage({
       window.clearInterval(timer);
     };
   }, [instanceId, isReviewing]);
+
+  useEffect(() => {
+    const nextStart = instance?.nodeInstances
+      .filter((node) => node.status === "scheduled" && node.effectiveStartAt)
+      .map((node) => new Date(node.effectiveStartAt as string).getTime())
+      .filter((value) => Number.isFinite(value) && value > Date.now())
+      .sort((left, right) => left - right)[0];
+    if (!nextStart) return;
+    const delay = Math.min(nextStart - Date.now() + 250, 2_147_000_000);
+    const timer = window.setTimeout(() => {
+      workflowApi.getInstance(instanceId).then(setInstance).catch((reason: Error) => setNotice(reason.message));
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [instance, instanceId]);
 
   const runtimeByKey = useMemo(
     () => new Map(instance?.nodeInstances.map((node) => [node.nodeKey, node]) ?? []),
@@ -180,6 +195,27 @@ export function StudentRuntimePage({
     }
   };
 
+  const downloadTemplate = async (runtime: RuntimeNodeInstance) => {
+    setBusyNodeId(runtime.id);
+    setNotice("");
+    try {
+      const result = await workflowApi.downloadNodeTemplate(runtime.id);
+      const anchor = document.createElement("a");
+      anchor.href = result.url;
+      anchor.download = result.originalName;
+      anchor.rel = "noreferrer";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setInstance(await workflowApi.getInstance(instanceId));
+      setNotice("模板已下载，请填写后上传");
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "模板下载失败");
+    } finally {
+      setBusyNodeId(null);
+    }
+  };
+
   if (!instance) {
     return (
       <main className="student-runtime-page">
@@ -243,6 +279,7 @@ export function StudentRuntimePage({
           draft={drafts[activeRuntime.id] ?? {}}
           node={activeNode}
           onClose={() => setActiveNodeKey(null)}
+          onDownloadTemplate={() => void downloadTemplate(activeRuntime)}
           onSave={() => void save(activeRuntime)}
           onRetryAudit={() => void retryAudit(activeRuntime)}
           onSubmit={() => void submit(activeRuntime)}
@@ -260,6 +297,7 @@ function RuntimeNodeDialog({
   draft,
   node,
   onClose,
+  onDownloadTemplate,
   onSave,
   onRetryAudit,
   onSubmit,
@@ -271,6 +309,7 @@ function RuntimeNodeDialog({
   draft: Record<string, unknown>;
   node: AcademicFlowNode;
   onClose: () => void;
+  onDownloadTemplate: () => void;
   onSave: () => void;
   onRetryAudit: () => void;
   onSubmit: () => void;
@@ -284,10 +323,21 @@ function RuntimeNodeDialog({
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadingFileName, setUploadingFileName] = useState("");
+  const [clock, setClock] = useState(Date.now());
   const draftFile = getDraftFile(draft.file);
   const fileReady = Boolean(draftFile?.fileId);
-  const fileBusy = busy || isUploadingFile;
-  const submitDisabled = busy || (node.kind === "file" && (!fileReady || isUploadingFile));
+  const templateRequired = Boolean(runtime.template);
+  const uploadUnlocked = !templateRequired || runtime.templateDownloaded;
+  const fileBusy = busy || isUploadingFile || !uploadUnlocked;
+  const submitDisabled = busy || (
+    node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile)
+  );
+
+  useEffect(() => {
+    if (runtime.status !== "scheduled") return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [runtime.status]);
 
   const uploadSelectedFile = async (file: File) => {
     setUploadingFileName(file.name);
@@ -327,6 +377,11 @@ function RuntimeNodeDialog({
             截止时间：{new Date(runtime.effectiveDeadline).toLocaleString("zh-CN")}
           </p>
         ) : null}
+        {runtime.status === "scheduled" && runtime.effectiveStartAt ? (
+          <p className="runtime-scheduled-time">
+            开放时间：{new Date(runtime.effectiveStartAt).toLocaleString("zh-CN")} · {formatCountdown(runtime.effectiveStartAt, clock)}
+          </p>
+        ) : null}
         {runtime.audit ? <AuditResult audit={runtime.audit} /> : null}
         {readonly ? (
           <>
@@ -350,6 +405,20 @@ function RuntimeNodeDialog({
               ))
             : null}
           {node.kind === "file" ? (
+            <div className={`runtime-template-steps${templateRequired ? " has-template" : ""}`}>
+            {runtime.template ? (
+              <section className="runtime-template-download">
+                <span>1</span>
+                <div>
+                  <strong>{runtime.templateDownloaded ? "模板已下载" : "下载填写模板"}</strong>
+                  <small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small>
+                </div>
+                <button disabled={busy} onClick={onDownloadTemplate} type="button">
+                  {runtime.templateDownloaded ? "重新下载" : "下载填写模板"}
+                </button>
+              </section>
+            ) : null}
+            {runtime.template ? <strong className="runtime-upload-step-title">2 上传已填写文件</strong> : null}
             <label
               className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
               onDragEnter={(event) => {
@@ -374,10 +443,12 @@ function RuntimeNodeDialog({
               </span>
               <span className="runtime-file-workspace-copy" aria-live="polite">
                 <strong>
-                  {isUploadingFile ? "正在上传文件" : fileReady ? "文件已上传，可提交" : "点击选择或拖拽文件到此处"}
+                  {!uploadUnlocked ? "请先下载填写模板" : isUploadingFile ? "正在上传文件" : fileReady ? "文件已上传，可提交" : "点击选择或拖拽文件到此处"}
                 </strong>
                 <small>
-                  {isUploadingFile
+                  {!uploadUnlocked
+                    ? "下载成功后自动解锁上传"
+                    : isUploadingFile
                     ? `${uploadingFileName}，请勿关闭窗口`
                     : fileReady
                       ? `${getDraftFileName(draft.file)} · ${formatFileSize(draftFile?.size)}`
@@ -386,6 +457,7 @@ function RuntimeNodeDialog({
               </span>
               {fileReady ? <span className="runtime-file-workspace-action">更换文件</span> : null}
             </label>
+            </div>
           ) : null}
           {node.kind === "confirmation" || node.kind === "announcement" ? (
             <label className="runtime-confirmation">
@@ -464,11 +536,21 @@ function ReadonlySubmission({
 
 function getStateHint(status: RuntimeNodeStatus) {
   if (status === "locked") return "需等待所有上游节点审核通过。";
+  if (status === "scheduled") return "前置节点已完成，请等待到达起始时间。";
   if (status === "expired") return "节点已截止，请联系教师申请延期。";
   if (status === "reviewing" || status === "submitted") return "材料已提交，正在等待审核。";
   if (status === "audit_error") return "自动审核暂时失败，可直接重新审核，无需重新上传文件。";
   if (status === "approved") return "该节点已完成，提交内容已锁定。";
   return "请根据退回意见修改后重新提交。";
+}
+
+function formatCountdown(value: string, now: number) {
+  const remaining = Math.max(0, new Date(value).getTime() - now);
+  const minutes = Math.ceil(remaining / 60_000);
+  if (minutes < 60) return `约 ${minutes} 分钟后开放`;
+  const hours = Math.ceil(minutes / 60);
+  if (hours < 48) return `约 ${hours} 小时后开放`;
+  return `约 ${Math.ceil(hours / 24)} 天后开放`;
 }
 
 function formatSubmittedValue(value: unknown): string {

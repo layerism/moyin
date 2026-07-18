@@ -3,7 +3,6 @@ from pydantic import BaseModel, Field
 
 from app.repositories.flow_instances import (
     get_version_progress,
-    set_global_deadline,
     set_student_deadline,
 )
 from app.services.audit_script_catalog import (
@@ -50,26 +49,6 @@ def patch_audit_script_metadata(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except AuditScriptCatalogError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@router.patch("/versions/{version_id}/nodes/{node_key}/deadline")
-def patch_global_deadline(
-    version_id: str,
-    node_key: str,
-    payload: DeadlineRequest,
-    teacher: dict[str, object] = Depends(get_current_teacher),
-) -> dict[str, bool]:
-    try:
-        set_global_deadline(
-            version_id,
-            node_key,
-            payload.deadlineAt,
-            payload.reason,
-            int(teacher["id"]),
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="流程节点不存在") from exc
-    return {"updated": True}
 
 
 @router.put("/instances/{instance_id}/nodes/{node_key}/deadline")

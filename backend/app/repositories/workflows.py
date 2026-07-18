@@ -9,10 +9,11 @@ from app.core.database import get_connection
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     analyze_revision,
-    assert_edge_keys_present,
+    assert_valid_revision,
     assert_node_ids_present,
 )
-from app.domain.workflow_runtime import deadline_has_passed, incoming_nodes
+from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_node_status
+from app.repositories.flow_templates import TemplateMutationError, validate_version_templates
 from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script_version
 from app.services.audit_script_parameters import (
     AuditScriptParameterError,
@@ -198,7 +199,8 @@ def _build_migration_plan(
         canonical_students_by_version[instance["flow_version_id"]].add(student_id)
 
     version_configs = {
-        version["id"]: json.loads(version["config_snapshot"]) for version in versions
+        version["id"]: _version_config_with_runtime_deadlines(connection, version)
+        for version in versions
     }
     impacts_by_version = {
         version["id"]: analyze_revision(version_configs[version["id"]], current_config)
@@ -268,42 +270,43 @@ def _historical_node_ids(connection: Any, flow_id: str) -> list[str]:
     return ordered
 
 
-def _historical_edges(connection: Any, flow_id: str) -> list[dict[str, str]]:
-    rows = connection.execute(
-        """
-        SELECT config_snapshot FROM flow_versions
-        WHERE flow_id = ? ORDER BY version_no
-        """,
-        (flow_id,),
-    ).fetchall()
-    seen: set[tuple[str, str]] = set()
-    ordered = []
-    for row in rows:
-        for edge in json.loads(row["config_snapshot"]).get("edges", []):
-            edge_key = (edge["source"], edge["target"])
-            if edge_key not in seen:
-                seen.add(edge_key)
-                ordered.append({"source": edge["source"], "target": edge["target"]})
-    return ordered
-
-
 def _current_published_config(connection: Any, flow_id: str) -> dict[str, Any] | None:
     row = connection.execute(
         """
-        SELECT config_snapshot FROM flow_versions
+        SELECT id, config_snapshot FROM flow_versions
         WHERE flow_id = ? AND status = 'published'
         ORDER BY version_no DESC LIMIT 1
         """,
         (flow_id,),
     ).fetchone()
-    return json.loads(row["config_snapshot"]) if row else None
+    return _version_config_with_runtime_deadlines(connection, row) if row else None
+
+
+def _version_config_with_runtime_deadlines(connection: Any, version: Any) -> dict[str, Any]:
+    config = json.loads(version["config_snapshot"])
+    rows = connection.execute(
+        "SELECT node_key, deadline_at FROM flow_node_runtime_configs WHERE flow_version_id = ?",
+        (version["id"],),
+    ).fetchall()
+    deadlines = {row["node_key"]: row["deadline_at"] for row in rows}
+    for node in config.get("nodes", []):
+        if node["id"] in deadlines:
+            node["deadlineAt"] = deadlines[node["id"]]
+    return config
 
 
 def _assert_no_published_structure_deletions(
     connection: Any, flow_id: str, config: dict[str, Any]
 ) -> None:
     assert_node_ids_present(_historical_node_ids(connection, flow_id), config)
-    assert_edge_keys_present(_historical_edges(connection, flow_id), config)
+
+
+def _assert_valid_published_revision(
+    connection: Any, flow_id: str, config: dict[str, Any]
+) -> None:
+    previous = _current_published_config(connection, flow_id)
+    assert_valid_revision(previous, config)
+    _assert_no_published_structure_deletions(connection, flow_id, config)
 
 
 def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:
@@ -353,9 +356,11 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             if published
             else None
         )
-    draft_config = json.loads(row["draft_config"])
-    published_config = json.loads(published["config_snapshot"]) if published else None
-    visible_config = published_config if published_config is not None else draft_config
+        draft_config = json.loads(row["draft_config"])
+        published_config = (
+            _version_config_with_runtime_deadlines(connection, published) if published else None
+        )
+        visible_config = published_config if published_config is not None else draft_config
     return {
         "id": row["id"],
         "name": row["name"],
@@ -396,7 +401,10 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
-        _assert_no_published_structure_deletions(connection, flow_id, config)
+        _assert_valid_published_revision(connection, flow_id, config)
+        validate_flow_config(config)
+        _validate_audit_script_nodes(config)
+        validate_version_templates(connection, flow_id, config)
         cursor = connection.execute(
             """
             UPDATE flows SET draft_config = ?, updated_at = ?
@@ -694,11 +702,11 @@ def _migrate_instance(
         if node_key not in recomputed:
             continue
         unlocked = all(statuses[source] == "approved" for source in incoming[node_key])
-        next_status = "available" if unlocked else "locked"
-        if unlocked and deadline_has_passed(
-            _new_version_deadline(connection, new_version_id, node_key)
-        ):
-            next_status = "expired"
+        next_status = pending_node_status(
+            unlocked,
+            node_by_key(config, node_key).get("startAt"),
+            _new_version_deadline(connection, new_version_id, node_key),
+        )
         connection.execute(
             """
             UPDATE node_instances SET status = ?, opened_at = ?
@@ -782,37 +790,6 @@ def _migrate_instances(
     return len(plan["canonicalInstances"])
 
 
-def _runtime_deadlines_for_publish(
-    connection: Any,
-    flow_id: str,
-    config: dict[str, Any],
-) -> dict[str, str | None]:
-    historical_node_ids = set(_historical_node_ids(connection, flow_id))
-    rows = connection.execute(
-        """
-        SELECT r.node_key, r.deadline_at
-        FROM flow_node_runtime_configs r
-        JOIN flow_versions v ON v.id = r.flow_version_id
-        WHERE v.flow_id = ?
-        ORDER BY v.version_no DESC
-        """,
-        (flow_id,),
-    ).fetchall()
-    latest_runtime_by_node: dict[str, str | None] = {}
-    for row in rows:
-        # The newest row is authoritative; NULL explicitly means no deadline.
-        latest_runtime_by_node.setdefault(row["node_key"], row["deadline_at"])
-
-    deadlines = {}
-    for node in config["nodes"]:
-        node_key = node["id"]
-        deadline = node.get("deadlineAt")
-        if node_key in historical_node_ids and node_key in latest_runtime_by_node:
-            deadline = latest_runtime_by_node[node_key]
-        deadlines[node_key] = deadline
-    return deadlines
-
-
 def publish_flow(
     flow_id: str,
     teacher_id: int,
@@ -851,16 +828,16 @@ def publish_flow(
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         if baseline is not None and expected_draft_config_hash is None:
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
-        _assert_no_published_structure_deletions(connection, flow_id, config)
+        _assert_valid_published_revision(connection, flow_id, config)
         validate_flow_config(config)
         _validate_audit_script_nodes(config)
+        version_templates = validate_version_templates(connection, flow_id, config)
         plan = _build_migration_plan(
             connection,
             source_versions,
             config,
             baseline["id"] if baseline else None,
         )
-        runtime_deadlines = _runtime_deadlines_for_publish(connection, flow_id, config)
         active_roster_count = connection.execute(
             """
             SELECT COUNT(*) AS count FROM flow_roster_entries
@@ -893,10 +870,19 @@ def publish_flow(
                 (
                     version_id,
                     node["id"],
-                    runtime_deadlines[node["id"]],
+                    node.get("deadlineAt"),
                     str(teacher_id),
                     now,
                 ),
+            )
+        for node_key, asset_id in version_templates.items():
+            connection.execute(
+                """
+                INSERT INTO flow_version_templates
+                    (flow_version_id, node_key, template_asset_id)
+                VALUES (?, ?, ?)
+                """,
+                (version_id, node_key, asset_id),
             )
         if baseline is None:
             token, _ = _create_share_token(connection, version_id, teacher_id, now)
@@ -1016,9 +1002,10 @@ def get_revision_impact(
             if supplied_config is not None
             else json.loads(flow["draft_config"])
         )
-        _assert_no_published_structure_deletions(connection, flow_id, config)
+        _assert_valid_published_revision(connection, flow_id, config)
         validate_flow_config(config)
         _validate_audit_script_nodes(config)
+        validate_version_templates(connection, flow_id, config)
         published = _latest_published_version(connection, flow_id, teacher_id)
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
         baseline = (

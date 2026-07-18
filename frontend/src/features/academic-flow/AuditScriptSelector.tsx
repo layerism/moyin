@@ -11,9 +11,11 @@ import {
 } from "./auditScripts";
 
 export function AuditScriptSelector({
+  disabled = false,
   node,
   onChange,
 }: {
+  disabled?: boolean;
   node: AcademicFlowNode;
   onChange: (patch: Partial<AcademicFlowNode>) => void;
 }) {
@@ -53,6 +55,7 @@ export function AuditScriptSelector({
         <span>材料审核脚本</span>
         <select
           aria-label="材料审核脚本"
+          disabled={disabled}
           value={selectedValue}
           onChange={(event) => onChange(resolveAuditScriptSelection(event.target.value, scripts))}
         >
@@ -72,11 +75,13 @@ export function AuditScriptSelector({
             {parameter.type === "boolean" ? (
               <input
                 checked={value === true}
+                disabled={disabled}
                 type="checkbox"
                 onChange={(event) => updateParameter(parameter.key, event.target.checked)}
               />
             ) : parameter.type === "select" ? (
               <select
+                disabled={disabled}
                 value={String(value)}
                 onChange={(event) => updateParameter(parameter.key, event.target.value)}
               >
@@ -86,6 +91,7 @@ export function AuditScriptSelector({
               </select>
             ) : (
               <input
+                disabled={disabled}
                 max={parameter.type === "integer" || parameter.type === "number" ? parameter.maximum : undefined}
                 maxLength={parameter.type === "string" ? parameter.maximumLength : undefined}
                 min={parameter.type === "integer" || parameter.type === "number" ? parameter.minimum : undefined}

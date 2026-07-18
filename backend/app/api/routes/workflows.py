@@ -1,12 +1,17 @@
+import hashlib
+import uuid
+from pathlib import PurePosixPath
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     PublishedEdgeDeletionError,
+    PublishedEdgeMutationError,
     PublishedNodeDeletionError,
+    PublishedNodeMutationError,
 )
 from app.repositories.workflows import (
     ArchivedFlowError,
@@ -20,6 +25,20 @@ from app.repositories.workflows import (
     publish_flow,
     resolve_share_token,
     save_draft,
+)
+from app.core.config import settings
+from app.domain.workflow_runtime import validate_file_metadata
+from app.repositories.flow_templates import (
+    TemplateMutationError,
+    delete_unreferenced_asset,
+    get_editable_template_node,
+    remove_template_asset,
+    save_template_asset,
+)
+from app.services.object_storage import (
+    ObjectStorageNotConfigured,
+    get_object_storage,
+    object_key,
 )
 from app.services.security import get_current_teacher
 
@@ -44,6 +63,90 @@ class PublishFlowRequest(BaseModel):
 
 def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="流程不存在")
+
+
+@router.post("/{flow_id}/nodes/{node_key}/template")
+def upload_node_template(
+    flow_id: str,
+    node_key: str,
+    file: UploadFile = File(...),
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    teacher_id = int(teacher["id"])
+    try:
+        node = get_editable_template_node(flow_id, node_key, teacher_id)
+    except KeyError as exc:
+        raise not_found() from exc
+    except TemplateMutationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    filename = PurePosixPath(str(file.filename or "").replace("\\", "/")).name
+    if not filename:
+        raise HTTPException(status_code=422, detail="请选择模板文件")
+    digest = hashlib.sha256()
+    size_bytes = 0
+    file.file.seek(0)
+    while chunk := file.file.read(1024 * 1024):
+        size_bytes += len(chunk)
+        digest.update(chunk)
+    file.file.seek(0)
+    try:
+        validate_file_metadata(node, filename, size_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    content_type = file.content_type or "application/octet-stream"
+    storage_key = object_key(settings.oss_prefix, "templates", flow_id, node_key, str(uuid.uuid4()), filename)
+    try:
+        storage = get_object_storage()
+        uploaded = storage.put_object(storage_key, file.file, content_type)
+        metadata, old_id, draft_hash = save_template_asset(
+            flow_id=flow_id, node_key=node_key, teacher_id=teacher_id,
+            storage_key=storage_key, original_name=filename, content_type=content_type,
+            size_bytes=size_bytes, sha256=digest.hexdigest(), etag=uploaded.etag,
+        )
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="模板存储服务未配置，请联系管理员") from exc
+    except TemplateMutationError as exc:
+        try:
+            get_object_storage().delete_object(storage_key)
+        except Exception:
+            pass
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        try:
+            get_object_storage().delete_object(storage_key)
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail="模板上传失败，请稍后重试") from exc
+    if old_id:
+        old = delete_unreferenced_asset(old_id)
+        if old:
+            try:
+                storage.delete_object(str(old["storage_key"]))
+            except Exception:
+                pass
+    return {"templateAsset": metadata, "draftConfigHash": draft_hash}
+
+
+@router.delete("/{flow_id}/nodes/{node_key}/template")
+def delete_node_template(
+    flow_id: str,
+    node_key: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        asset = remove_template_asset(flow_id, node_key, int(teacher["id"]))
+    except KeyError as exc:
+        raise not_found() from exc
+    except TemplateMutationError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if asset:
+        removed = delete_unreferenced_asset(str(asset["id"]))
+        if removed:
+            try:
+                get_object_storage().delete_object(str(removed["storage_key"]))
+            except Exception:
+                pass
+    return {"templateAsset": None}
 
 
 @router.get("")
@@ -96,9 +199,12 @@ def put_draft(
         raise not_found() from exc
     except ArchivedFlowError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except PublishedNodeDeletionError as exc:
+    except FlowValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except (PublishedNodeDeletionError, PublishedEdgeDeletionError,
+            PublishedNodeMutationError, PublishedEdgeMutationError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except PublishedEdgeDeletionError as exc:
+    except TemplateMutationError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
@@ -118,9 +224,10 @@ def revision_impact(
         raise not_found() from exc
     except FlowValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except PublishedNodeDeletionError as exc:
+    except (PublishedNodeDeletionError, PublishedEdgeDeletionError,
+            PublishedNodeMutationError, PublishedEdgeMutationError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except PublishedEdgeDeletionError as exc:
+    except TemplateMutationError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
@@ -144,11 +251,12 @@ def publish(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ArchivedFlowError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except PublishedNodeDeletionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except PublishedEdgeDeletionError as exc:
+    except (PublishedNodeDeletionError, PublishedEdgeDeletionError,
+            PublishedNodeMutationError, PublishedEdgeMutationError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except DraftRevisionConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except TemplateMutationError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 

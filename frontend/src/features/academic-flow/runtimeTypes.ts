@@ -53,7 +53,15 @@ export type RuntimeNodeStatus =
   | "locked"
   | "rejected"
   | "reviewing"
+  | "scheduled"
   | "submitted";
+
+export type RuntimeNodeTemplate = {
+  assetId: string;
+  contentType: string;
+  originalName: string;
+  sizeBytes: number;
+};
 
 export type RuntimeNodeAudit = {
   attemptCount: number;
@@ -69,11 +77,14 @@ export type RuntimeNodeInstance = {
   attemptNo: number;
   draft: Record<string, unknown>;
   effectiveDeadline: string | null;
+  effectiveStartAt: string | null;
   id: string;
   nodeKey: string;
   status: RuntimeNodeStatus;
   submission: Record<string, unknown>;
   submittedAt: string | null;
+  template: RuntimeNodeTemplate | null;
+  templateDownloaded: boolean;
 };
 
 export type RuntimeFlowInstance = {

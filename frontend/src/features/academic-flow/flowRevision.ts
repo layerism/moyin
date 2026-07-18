@@ -33,8 +33,11 @@ export function canDeleteRevisionNode(
   return !(publishedNodeIds ?? existingNodeIds).includes(nodeId);
 }
 
-export function canMoveRevisionNode() {
-  return true;
+export function canMoveRevisionNode(
+  nodeId: string,
+  publishedNodeIds: readonly string[] | undefined,
+) {
+  return !(publishedNodeIds ?? []).includes(nodeId);
 }
 
 export function canDeleteRevisionEdge(
@@ -66,12 +69,20 @@ export function preservePublishedEdges(
   ];
 }
 
-export function canEditRevisionNodeDeadline(
+export function canEditRevisionNodeCore(
   nodeId: string,
   publishedNodeIds: readonly string[] | undefined,
-  existingNodeIds: readonly string[] = [],
 ) {
-  return canDeleteRevisionNode(nodeId, publishedNodeIds, existingNodeIds);
+  return !(publishedNodeIds ?? []).includes(nodeId);
+}
+
+export function canAddRevisionEdge(
+  source: string,
+  target: string,
+  publishedNodeIds: readonly string[] | undefined,
+) {
+  const published = new Set(publishedNodeIds ?? []);
+  return !published.has(source) || !published.has(target);
 }
 
 export function filterPublishedRuntimeNodes<T extends IdentifiedNode>(

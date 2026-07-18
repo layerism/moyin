@@ -27,6 +27,11 @@ from app.repositories.flow_instances import (
     submit_node,
 )
 from app.repositories.flow_roster import RosterAccessError
+from app.repositories.flow_templates import (
+    TemplateDownloadError,
+    get_student_template,
+    record_template_download,
+)
 from app.services.object_storage import ObjectStorageNotConfigured, get_object_storage, object_key
 from app.services.security import get_current_student
 
@@ -50,6 +55,32 @@ def runtime_error(exc: Exception) -> HTTPException:
     if isinstance(exc, RuntimeDeadlineError):
         return HTTPException(status_code=422, detail=str(exc))
     return HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post("/node-instances/{node_instance_id}/template/download")
+def download_node_template(
+    node_instance_id: str,
+    student: dict[str, object] = Depends(get_current_student),
+) -> dict[str, object]:
+    try:
+        record = get_student_template(node_instance_id, int(student["id"]))
+        url = get_object_storage().signed_download_url(
+            str(record["storage_key"]), str(record["original_name"])
+        )
+        record_template_download(node_instance_id, str(record["asset_id"]), int(student["id"]))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="当前节点未配置模板") from exc
+    except (RosterAccessError, TemplateDownloadError) as exc:
+        raise runtime_error(exc) from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="模板存储服务未配置，请联系管理员") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="模板下载链接生成失败") from exc
+    return {
+        "url": url,
+        "originalName": record["original_name"],
+        "sizeBytes": record["size_bytes"],
+    }
 
 
 @router.post("/node-instances/{node_instance_id}/file")
