@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from app.domain.workflow_runtime import deadline_has_passed, incoming_nodes
+from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_node_status
 from app.services.security import utc_now_iso
 
 
@@ -39,18 +39,24 @@ def advance_downstream(
     }
     now = utc_now_iso()
     for node_key, predecessors in incoming_nodes(config).items():
-        if statuses.get(node_key) != "locked" or not predecessors:
+        if statuses.get(node_key) not in {"locked", "scheduled", "expired"} or not predecessors:
             continue
-        if all(statuses.get(source) == "approved" for source in predecessors):
-            deadline = effective_deadline(connection, instance_id, version_id, node_key)
-            next_status = "expired" if deadline_has_passed(deadline) else "available"
+        predecessors_approved = all(statuses.get(source) == "approved" for source in predecessors)
+        deadline = effective_deadline(connection, instance_id, version_id, node_key)
+        next_status = pending_node_status(
+            predecessors_approved,
+            node_by_key(config, node_key).get("startAt"),
+            deadline,
+        )
+        if next_status != statuses.get(node_key):
             connection.execute(
                 """
                 UPDATE node_instances SET status = ?, opened_at = ?
                 WHERE flow_instance_id = ? AND node_key = ?
                 """,
-                (next_status, now, instance_id, node_key),
+                (next_status, now if next_status == "available" else None, instance_id, node_key),
             )
+            statuses[node_key] = next_status
 
 
 def complete_flow_if_ready(connection, instance_id: str, now: str) -> None:

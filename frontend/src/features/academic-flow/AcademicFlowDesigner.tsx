@@ -27,8 +27,10 @@ import {
   type CanvasPanStart,
 } from "./canvasPan";
 import {
+  canAddRevisionEdge,
   canDeleteRevisionEdge,
   canDeleteRevisionNode,
+  canEditRevisionNodeCore,
   canMoveRevisionNode,
   filterPublishedRuntimeNodes,
   layoutRevisionNodes,
@@ -297,9 +299,12 @@ export function AcademicFlowDesigner({
 
   const updateNode = (nodeId: string, value: Partial<AcademicFlowNode>) => {
     if (editorLocked) return;
-    const nextValue = { ...value };
-    if (workingProcess.published) {
-      delete nextValue.deadlineAt;
+    let nextValue = { ...value };
+    if (workingProcess.published && protectedNodeIds.includes(nodeId)) {
+      const allowed = new Set<keyof AcademicFlowNode>(["requirement", "startAt", "deadlineAt"]);
+      nextValue = Object.fromEntries(
+        Object.entries(nextValue).filter(([key]) => allowed.has(key as keyof AcademicFlowNode)),
+      ) as Partial<AcademicFlowNode>;
     }
     if (Object.keys(nextValue).length === 0) {
       return;
@@ -319,6 +324,10 @@ export function AcademicFlowDesigner({
     targetPort: AcademicFlowPort,
   ) => {
     if (editorLocked) return;
+    if (workingProcess.published && !canAddRevisionEdge(source, target, protectedNodeIds)) {
+      setActionNotice("新增连线必须至少连接一个本次新增节点");
+      return;
+    }
     const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
     if (source === target || exists) {
       return;
@@ -335,6 +344,49 @@ export function AcademicFlowDesigner({
       return;
     }
     commitDesignChange({ ...workingProcess, edges: nextEdges });
+  };
+
+  const uploadNodeTemplate = async (nodeId: string, file: File) => {
+    setSaving(true);
+    setActionNotice("");
+    try {
+      await workflowApi.saveDraft(serverFlowId, workingProcess);
+      const result = await workflowApi.uploadNodeTemplate(serverFlowId, nodeId, file);
+      setWorkingProcess((current) => ({
+        ...current,
+        hasUnpublishedChanges: true,
+        nodes: current.nodes.map((node) =>
+          node.id === nodeId ? { ...node, templateAsset: result.templateAsset } : node
+        ),
+      }));
+      setRevisionDirty(true);
+      setActionNotice("模板已上传，重新发布后供学生下载");
+    } catch (reason) {
+      setActionNotice(reason instanceof Error ? reason.message : "模板上传失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteNodeTemplate = async (nodeId: string) => {
+    setSaving(true);
+    setActionNotice("");
+    try {
+      await workflowApi.deleteNodeTemplate(serverFlowId, nodeId);
+      setWorkingProcess((current) => ({
+        ...current,
+        hasUnpublishedChanges: true,
+        nodes: current.nodes.map((node) =>
+          node.id === nodeId ? { ...node, templateAsset: null } : node
+        ),
+      }));
+      setRevisionDirty(true);
+      setActionNotice("模板已删除");
+    } catch (reason) {
+      setActionNotice(reason instanceof Error ? reason.message : "模板删除失败");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const deleteEdge = (edgeId: string) => {
@@ -451,7 +503,7 @@ export function AcademicFlowDesigner({
             canDeleteNode={(nodeId) =>
               canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
             }
-            canMoveNode={() => canMoveRevisionNode()}
+            canMoveNode={(nodeId) => canMoveRevisionNode(nodeId, protectedNodeIds)}
             edges={processEdges}
             locked={editorLocked}
             nodeMovementLocked={workingProcess.published}
@@ -468,14 +520,12 @@ export function AcademicFlowDesigner({
         </section>
         {inspectorNode && (
           <NodeInspector
-            deadlineReadOnly={workingProcess.published}
             editingLocked={editorLocked}
+            nodeCoreLocked={!canEditRevisionNodeCore(inspectorNode.id, protectedNodeIds)}
             node={inspectorNode}
             onClose={() => setInspectorNodeId(null)}
-            onOpenProgress={() => {
-              setInspectorNodeId(null);
-              setShowProgress(true);
-            }}
+            onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
+            onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, file)}
             onUpdateNode={updateNode}
             publishedRevision={workingProcess.published && revisionEditing}
           />
@@ -484,7 +534,6 @@ export function AcademicFlowDesigner({
           <TeacherProgressPanel
             nodes={publishedRuntimeNodes}
             onClose={() => setShowProgress(false)}
-            onDeadlineChange={() => undefined}
             versionId={workingProcess.publishedVersionId}
           />
         ) : null}
@@ -1298,19 +1347,21 @@ function FlowNodeCanvas({
 }
 
 function NodeInspector({
-  deadlineReadOnly,
   editingLocked,
+  nodeCoreLocked,
   node,
   onClose,
-  onOpenProgress,
+  onDeleteTemplate,
+  onUploadTemplate,
   onUpdateNode,
   publishedRevision,
 }: {
-  deadlineReadOnly: boolean;
   editingLocked: boolean;
+  nodeCoreLocked: boolean;
   node: AcademicFlowNode | null;
   onClose: () => void;
-  onOpenProgress: () => void;
+  onDeleteTemplate: () => void;
+  onUploadTemplate: (file: File) => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   publishedRevision: boolean;
 }) {
@@ -1362,12 +1413,13 @@ function NodeInspector({
         <fieldset className="node-inspector-fields" disabled={editingLocked}>
         {publishedRevision ? (
           <p className="node-inspector-revision-note">
-            当前为发布后修订。节点配置可以修改，重新发布后生效；运行时截止时间请在填写进度中调整。
+            当前为发布后修订。旧节点仅可修改说明、起始时间和截止时间；修改后该节点及下游需重新完成。
           </p>
         ) : null}
         <label>
           <span>节点标题</span>
           <input
+            disabled={nodeCoreLocked}
             maxLength={50}
             value={node.title}
             onChange={(event) => onUpdateNode(node.id, { title: event.target.value })}
@@ -1380,43 +1432,57 @@ function NodeInspector({
             onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
           />
         </label>
-        <label>
-          <span>截止时间</span>
-          <input
-            disabled={deadlineReadOnly}
-            readOnly={deadlineReadOnly}
-            type="datetime-local"
-            value={node.deadlineAt ? toLocalDateTime(node.deadlineAt) : ""}
-            onChange={(event) =>
-              onUpdateNode(node.id, {
-                deadlineAt: event.target.value ? new Date(event.target.value).toISOString() : null,
-              })
-            }
-          />
-          {deadlineReadOnly ? (
-            <small className="deadline-runtime-hint">
-              截止时间由运行时管理，请在
-              <button onClick={onOpenProgress} type="button">
-                填写进度
-              </button>
-              中设置统一截止时间或个别延期。
-            </small>
-          ) : null}
-        </label>
+        <section className="node-time-window-card">
+          <header>
+            <span aria-hidden="true">◷</span>
+            <strong>节点开放时间窗口</strong>
+            <em>{getTimeWindowStatus(node)}</em>
+          </header>
+          <div className="node-time-window-fields">
+            <label>
+              <span>起始时间</span>
+              <input
+                type="datetime-local"
+                value={node.startAt ? toLocalDateTime(node.startAt) : ""}
+                onChange={(event) => onUpdateNode(node.id, {
+                  startAt: event.target.value ? new Date(event.target.value).toISOString() : null,
+                })}
+              />
+              {node.startAt ? (
+                <button onClick={() => onUpdateNode(node.id, { startAt: null })} type="button">清除</button>
+              ) : null}
+            </label>
+            <i aria-hidden="true" />
+            <label>
+              <span>截止时间</span>
+              <input
+                type="datetime-local"
+                value={node.deadlineAt ? toLocalDateTime(node.deadlineAt) : ""}
+                onChange={(event) => onUpdateNode(node.id, {
+                  deadlineAt: event.target.value ? new Date(event.target.value).toISOString() : null,
+                })}
+              />
+              {node.deadlineAt ? (
+                <button onClick={() => onUpdateNode(node.id, { deadlineAt: null })} type="button">清除</button>
+              ) : null}
+            </label>
+          </div>
+          <small>{getTimeWindowSummary(node)}</small>
+        </section>
         {settingCapabilities.collectsInformation ? (
-          <section className="inspector-section">
+          <section className="inspector-section" aria-disabled={nodeCoreLocked}>
             <div className="section-heading">
               <h3>采集用户信息</h3>
-              <button onClick={addInfoField} type="button">
+              <button disabled={nodeCoreLocked} onClick={addInfoField} type="button">
                 + 添加字段
               </button>
             </div>
             {node.infoFields.map((field, index) => (
               <div className="field-row" key={`${field}-${index}`}>
                 <span>☰</span>
-                <input value={field} onChange={(event) => updateInfoField(index, event.target.value)} />
+                <input disabled={nodeCoreLocked} value={field} onChange={(event) => updateInfoField(index, event.target.value)} />
                 <em>必填</em>
-                <button onClick={() => deleteInfoField(index)} type="button">
+                <button disabled={nodeCoreLocked} onClick={() => deleteInfoField(index)} type="button">
                   ×
                 </button>
               </div>
@@ -1436,7 +1502,7 @@ function NodeInspector({
                     aria-checked={hasFileTypeRestriction}
                     aria-label="启用文件类型限制"
                     className={`restriction-switch ${hasFileTypeRestriction ? "is-enabled" : ""}`}
-                    disabled={scriptLocksFileTypes}
+                    disabled={nodeCoreLocked || scriptLocksFileTypes}
                     onClick={() =>
                       onUpdateNode(node.id, {
                         fileExtensions: hasFileTypeRestriction
@@ -1453,7 +1519,7 @@ function NodeInspector({
                 {hasFileTypeRestriction ? (
                   <select
                     aria-label="文件类型预设"
-                    disabled={scriptLocksFileTypes}
+                    disabled={nodeCoreLocked || scriptLocksFileTypes}
                     value={fileTypeRestrictionPreset}
                     onChange={(event) =>
                       onUpdateNode(node.id, {
@@ -1486,6 +1552,7 @@ function NodeInspector({
                     placeholder="请输入 0.1–300 的数值"
                     step="0.1"
                     type="number"
+                  disabled={nodeCoreLocked}
                   value={node.fileLimitMb}
                   onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
                   />
@@ -1494,7 +1561,48 @@ function NodeInspector({
               </label>
             </section>
 
+            <section className="inspector-section node-template-card">
+              <h3>学生填写模板</h3>
+              {node.templateAsset ? (
+                <div className="node-template-file">
+                  <div><strong>{node.templateAsset.originalName}</strong><small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small></div>
+                  {nodeCoreLocked ? <span>已随发布版本固化</span> : <div className="node-template-actions">
+                    <label>
+                      替换模板
+                      <input
+                        accept={node.fileExtensions.split(",").map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
+                        type="file"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.currentTarget.value = "";
+                          if (file) onUploadTemplate(file);
+                        }}
+                      />
+                    </label>
+                    <button onClick={onDeleteTemplate} type="button">删除模板</button>
+                  </div>}
+                </div>
+              ) : nodeCoreLocked ? (
+                <p className="muted-line">该节点发布时未配置模板，修订中不可新增。</p>
+              ) : (
+                <label className="node-template-upload">
+                  <input
+                    accept={node.fileExtensions.split(",").map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
+                    type="file"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file) onUploadTemplate(file);
+                    }}
+                  />
+                  <strong>选择模板文件</strong>
+                  <small>可选；格式和大小须符合本节点上传限制</small>
+                </label>
+              )}
+            </section>
+
             <AuditScriptSelector
+              disabled={nodeCoreLocked}
               node={node}
               onChange={(patch) => onUpdateNode(node.id, patch)}
             />
@@ -1601,6 +1709,33 @@ function toLocalDateTime(value: string) {
   const date = new Date(value);
   const offset = date.getTimezoneOffset() * 60_000;
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function getTimeWindowStatus(node: AcademicFlowNode) {
+  const now = Date.now();
+  const start = node.startAt ? new Date(node.startAt).getTime() : null;
+  const deadline = node.deadlineAt ? new Date(node.deadlineAt).getTime() : null;
+  if (deadline !== null && deadline <= now) return "已截止";
+  if (start !== null && start > now) return "定时开放";
+  if (start === null && deadline === null) return "未设置";
+  return "开放中";
+}
+
+function getTimeWindowSummary(node: AcademicFlowNode) {
+  if (node.startAt && node.deadlineAt) {
+    const duration = new Date(node.deadlineAt).getTime() - new Date(node.startAt).getTime();
+    if (duration <= 0) return "起始时间必须早于截止时间";
+    const hours = Math.round(duration / 3_600_000 * 10) / 10;
+    return `开放时长：${hours} 小时；还需满足所有前置节点已通过。`;
+  }
+  if (node.startAt) return "到达起始时间且所有前置节点通过后开放。";
+  if (node.deadlineAt) return "前置节点通过后立即开放，并在截止时间关闭。";
+  return "前置节点通过后立即开放，不自动截止。";
+}
+
+function formatTemplateSize(value: number) {
+  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function getPortLabel(port: AcademicFlowPort) {

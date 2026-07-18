@@ -4,8 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core.database import get_connection
-from app.domain.workflow_runtime import deadline_has_passed
+from app.domain.workflow_runtime import incoming_nodes, pending_node_status
 from app.repositories.flow_roster import assert_student_roster_access
+from app.repositories.flow_runtime_state import effective_deadline
+from app.repositories.flow_templates import template_downloaded
 from app.services.security import utc_now_iso
 
 
@@ -30,10 +32,12 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
             """
             SELECT n.id, n.status, n.flow_instance_id, n.node_key,
                    i.flow_version_id, i.student_account_id,
-                   v.flow_id, v.config_snapshot
+                   v.flow_id, v.config_snapshot, t.template_asset_id
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
+            LEFT JOIN flow_version_templates t
+              ON t.flow_version_id = v.id AND t.node_key = n.node_key
             WHERE n.id = ? AND i.student_account_id = ? AND v.status = 'published'
             """,
             (node_instance_id, student_id),
@@ -45,11 +49,26 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         config_node = next(node for node in config["nodes"] if node["id"] == row["node_key"])
         if config_node.get("kind") != "file":
             raise FileContextError("当前节点不是文件上传节点")
-        if row["status"] not in {"available", "draft", "rejected"}:
-            raise FileContextError("当前节点不可上传文件")
-        deadline = _effective_deadline(connection, row["flow_instance_id"], row["node_key"])
-        if deadline_has_passed(deadline):
-            raise FileContextError("节点已超过截止时间")
+        statuses = {
+            item["node_key"]: item["status"]
+            for item in connection.execute(
+                "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
+                (row["flow_instance_id"],),
+            ).fetchall()
+        }
+        state = pending_node_status(
+            all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
+            config_node.get("startAt"),
+            effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
+        )
+        if state != "available" or row["status"] not in {
+            "available", "draft", "rejected", "scheduled", "locked", "expired"
+        }:
+            raise FileContextError("当前节点尚未开放或已截止")
+        if row["template_asset_id"] and not template_downloaded(
+            connection, row["id"], row["template_asset_id"], student_id
+        ):
+            raise FileContextError("请先下载当前节点模板")
     return FileUploadContext(
         node_instance_id=row["id"],
         flow_instance_id=row["flow_instance_id"],
@@ -169,24 +188,3 @@ def get_uploaded_file_for_download(file_id: str, student_id: int) -> dict[str, o
             raise KeyError(file_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
     return dict(row)
-
-
-def _effective_deadline(connection, instance_id: str, node_key: str) -> str | None:
-    override = connection.execute(
-        """
-        SELECT deadline_at FROM student_deadline_overrides
-        WHERE flow_instance_id = ? AND node_key = ?
-        """,
-        (instance_id, node_key),
-    ).fetchone()
-    if override is not None:
-        return override["deadline_at"]
-    runtime = connection.execute(
-        """
-        SELECT r.deadline_at FROM flow_node_runtime_configs r
-        JOIN flow_instances i ON i.flow_version_id = r.flow_version_id
-        WHERE i.id = ? AND r.node_key = ?
-        """,
-        (instance_id, node_key),
-    ).fetchone()
-    return runtime["deadline_at"] if runtime else None

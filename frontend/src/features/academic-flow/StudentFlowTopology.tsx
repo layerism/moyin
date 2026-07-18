@@ -25,6 +25,7 @@ const statusLabels: Record<RuntimeNodeStatus, string> = {
   locked: "待开放",
   rejected: "已退回",
   reviewing: "自动审核中",
+  scheduled: "定时开放",
   submitted: "已提交",
 };
 
@@ -35,6 +36,7 @@ const openableStatuses = new Set<RuntimeNodeStatus>([
   "draft",
   "rejected",
   "reviewing",
+  "scheduled",
 ]);
 
 export function StudentFlowTopology({
@@ -216,6 +218,7 @@ function getTopologyStatusLabel(status: RuntimeNodeStatus): string {
   if (status === "rejected" || status === "audit_error") return "! 需处理";
   if (status === "reviewing" || status === "submitted") return "◌ 审核中";
   if (status === "expired") return "× 已截止";
+  if (status === "scheduled") return "◷ 定时开放";
   return "• 待开放";
 }
 

@@ -7,12 +7,10 @@ import type { WorkflowProgress } from "./runtimeTypes";
 export function TeacherProgressPanel({
   nodes,
   onClose,
-  onDeadlineChange,
   versionId,
 }: {
   nodes: AcademicFlowNode[];
   onClose: () => void;
-  onDeadlineChange: (nodeId: string, deadlineAt: string) => void;
   versionId: string;
 }) {
   const [progress, setProgress] = useState<WorkflowProgress | null>(null);
@@ -29,18 +27,6 @@ export function TeacherProgressPanel({
   };
 
   useEffect(refresh, [versionId]);
-
-  const saveGlobalDeadline = async (node: AcademicFlowNode, value: string) => {
-    if (!value) return;
-    const deadlineAt = new Date(value).toISOString();
-    try {
-      await workflowApi.setGlobalDeadline(versionId, node.id, deadlineAt, "教师调整统一截止时间");
-      onDeadlineChange(node.id, deadlineAt);
-      setNotice(`${node.title} 截止时间已更新`);
-    } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "更新失败");
-    }
-  };
 
   const saveExtension = async () => {
     if (!extension.instanceId || !extension.nodeKey || !extension.deadline) {
@@ -72,19 +58,6 @@ export function TeacherProgressPanel({
           <button aria-label="关闭进度面板" onClick={onClose}>×</button>
         </header>
         <p className="progress-notice">{notice}</p>
-        <section className="deadline-editor-list">
-          <h3>节点统一截止时间</h3>
-          {nodes.map((node) => (
-            <label key={node.id}>
-              <span>{node.title}</span>
-              <input
-                defaultValue={node.deadlineAt ? toLocalDateTime(node.deadlineAt) : ""}
-                onBlur={(event) => void saveGlobalDeadline(node, event.target.value)}
-                type="datetime-local"
-              />
-            </label>
-          ))}
-        </section>
         <section className="student-extension-editor">
           <h3>个别学生延期</h3>
           <select value={extension.instanceId} onChange={(event) => setExtension({ ...extension, instanceId: event.target.value })}>
@@ -122,10 +95,4 @@ export function TeacherProgressPanel({
       </aside>
     </div>
   );
-}
-
-function toLocalDateTime(value: string) {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }

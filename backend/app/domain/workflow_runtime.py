@@ -17,6 +17,26 @@ def deadline_has_passed(value: str | None, now: datetime | None = None) -> bool:
     return bool(deadline and deadline <= (now or datetime.now(UTC)))
 
 
+def start_is_in_future(value: str | None, now: datetime | None = None) -> bool:
+    start = parse_datetime(value)
+    return bool(start and start > (now or datetime.now(UTC)))
+
+
+def pending_node_status(
+    predecessors_approved: bool,
+    start_at: str | None,
+    deadline_at: str | None,
+    now: datetime | None = None,
+) -> str:
+    if not predecessors_approved:
+        return "locked"
+    if deadline_has_passed(deadline_at, now):
+        return "expired"
+    if start_is_in_future(start_at, now):
+        return "scheduled"
+    return "available"
+
+
 def incoming_nodes(config: dict[str, Any]) -> dict[str, set[str]]:
     incoming: dict[str, set[str]] = defaultdict(set)
     for node in config["nodes"]:

@@ -201,6 +201,26 @@ export const workflowApi = {
       { method: "POST", body: createFileUploadBody(file) },
     );
   },
+  uploadNodeTemplate(flowId: string, nodeKey: string, file: File) {
+    const body = new FormData();
+    body.append("file", file);
+    return request<{ draftConfigHash: string; templateAsset: NonNullable<AcademicProcess["nodes"][number]["templateAsset"]> }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/template`,
+      { method: "POST", body },
+    );
+  },
+  deleteNodeTemplate(flowId: string, nodeKey: string) {
+    return request<{ templateAsset: null }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/template`,
+      { method: "DELETE" },
+    );
+  },
+  downloadNodeTemplate(nodeInstanceId: string) {
+    return request<{ originalName: string; sizeBytes: number; url: string }>(
+      `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/template/download`,
+      { method: "POST" },
+    );
+  },
   listAuditScripts() {
     return request<AuditScriptSummary[]>("/api/workflow-admin/audit-scripts");
   },
@@ -216,12 +236,6 @@ export const workflowApi = {
   getProgress(versionId: string) {
     return request<WorkflowProgress>(
       `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/progress`,
-    );
-  },
-  setGlobalDeadline(versionId: string, nodeKey: string, deadlineAt: string, reason: string) {
-    return request<{ updated: boolean }>(
-      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/nodes/${encodeURIComponent(nodeKey)}/deadline`,
-      { method: "PATCH", body: JSON.stringify({ deadlineAt, reason }) },
     );
   },
   setStudentDeadline(instanceId: string, nodeKey: string, deadlineAt: string, reason: string) {

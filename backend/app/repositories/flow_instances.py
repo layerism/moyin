@@ -5,9 +5,9 @@ from typing import Any
 
 from app.core.database import get_connection
 from app.domain.workflow_runtime import (
-    deadline_has_passed,
     incoming_nodes,
     node_by_key,
+    pending_node_status,
     validate_submission,
 )
 from app.repositories.audit_jobs import create_audit_job
@@ -80,10 +80,8 @@ def _get_or_create_version_instance(
     incoming = incoming_nodes(config)
     for node in config["nodes"]:
         node_key = node["id"]
-        status = "available" if not incoming[node_key] else "locked"
         deadline = effective_deadline(connection, instance_id, version_id, node_key)
-        if status == "available" and deadline_has_passed(deadline):
-            status = "expired"
+        status = pending_node_status(not incoming[node_key], node.get("startAt"), deadline)
         connection.execute(
             """
             INSERT INTO node_instances
@@ -183,6 +181,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         if student_id is not None:
             assert_student_roster_access(connection, instance["flow_id"], student_id)
         config = json.loads(instance["config_snapshot"])
+        incoming = incoming_nodes(config)
         node_rows = connection.execute(
             """
             SELECT n.*, d.payload AS draft_payload, s.payload_snapshot AS submission_payload,
@@ -199,13 +198,41 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         ).fetchall()
         node_order = {node["id"]: index for index, node in enumerate(config["nodes"])}
         nodes = []
+        raw_statuses = {row["node_key"]: row["status"] for row in node_rows}
         for row in node_rows:
             deadline = effective_deadline(
                 connection, instance_id, instance["flow_version_id"], row["node_key"]
             )
             status = row["status"]
-            if status in {"available", "draft"} and deadline_has_passed(deadline):
-                status = "expired"
+            config_node = node_by_key(config, row["node_key"])
+            if status in {"available", "draft", "rejected", "locked", "scheduled", "expired"}:
+                base_status = pending_node_status(
+                    all(raw_statuses.get(source) == "approved" for source in incoming[row["node_key"]]),
+                    config_node.get("startAt"),
+                    deadline,
+                )
+                status = (
+                    status if base_status == "available" and status in {"draft", "rejected"}
+                    else base_status
+                )
+                if status != row["status"]:
+                    connection.execute(
+                        "UPDATE node_instances SET status = ?, opened_at = ? WHERE id = ?",
+                        (status, utc_now_iso() if status == "available" else row["opened_at"], row["id"]),
+                    )
+            template = connection.execute(
+                """
+                SELECT a.id, a.original_name, a.content_type, a.size_bytes,
+                       e.downloaded_at
+                FROM flow_version_templates t
+                JOIN flow_template_assets a ON a.id = t.template_asset_id
+                LEFT JOIN template_download_events e
+                  ON e.node_instance_id = ? AND e.template_asset_id = a.id
+                 AND e.student_account_id = ?
+                WHERE t.flow_version_id = ? AND t.node_key = ?
+                """,
+                (row["id"], instance["student_account_id"], instance["flow_version_id"], row["node_key"]),
+            ).fetchone()
             nodes.append(
                 {
                     "id": row["id"],
@@ -215,6 +242,14 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),
                     "effectiveDeadline": deadline,
+                    "effectiveStartAt": config_node.get("startAt"),
+                    "template": {
+                        "assetId": template["id"],
+                        "contentType": template["content_type"],
+                        "originalName": template["original_name"],
+                        "sizeBytes": template["size_bytes"],
+                    } if template else None,
+                    "templateDownloaded": bool(template and template["downloaded_at"]),
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
                     "audit": _audit_summary(row, status),
@@ -313,7 +348,8 @@ def save_node_draft(
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
             """
-            SELECT n.id, n.status, n.flow_instance_id, v.flow_id
+            SELECT n.id, n.status, n.flow_instance_id, n.node_key,
+                   i.flow_version_id, v.flow_id, v.config_snapshot
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
@@ -324,7 +360,22 @@ def save_node_draft(
         if row is None:
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
-        if row["status"] not in {"available", "draft", "rejected"}:
+        config = json.loads(row["config_snapshot"])
+        statuses = {
+            item["node_key"]: item["status"]
+            for item in connection.execute(
+                "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
+                (row["flow_instance_id"],),
+            ).fetchall()
+        }
+        base_status = pending_node_status(
+            all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
+            node_by_key(config, row["node_key"]).get("startAt"),
+            effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
+        )
+        if base_status != "available":
+            raise RuntimeConflictError("当前节点尚未开放或已截止")
+        if row["status"] not in {"available", "draft", "rejected", "scheduled", "locked", "expired"}:
             raise RuntimeConflictError("当前节点不可暂存")
         connection.execute(
             """
@@ -374,11 +425,25 @@ def submit_node(
                 row["flow_version_id"],
                 row["node_key"],
             )
-            if deadline_has_passed(deadline):
-                raise RuntimeDeadlineError("节点已超过截止时间")
-            if row["status"] not in {"available", "draft", "rejected", "expired"}:
-                raise RuntimeConflictError("当前节点不可提交")
             config = version_config(connection, row["flow_version_id"])
+            statuses = {
+                item["node_key"]: item["status"]
+                for item in connection.execute(
+                    "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
+                    (row["flow_instance_id"],),
+                ).fetchall()
+            }
+            base_status = pending_node_status(
+                all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
+                node_by_key(config, row["node_key"]).get("startAt"),
+                deadline,
+            )
+            if base_status == "expired":
+                raise RuntimeDeadlineError("节点已超过截止时间")
+            if base_status != "available" or row["status"] not in {
+                "available", "draft", "rejected", "scheduled", "locked", "expired"
+            }:
+                raise RuntimeConflictError("当前节点不可提交")
             node = node_by_key(config, row["node_key"])
             script_values = (
                 node.get("auditScriptId"),
@@ -533,7 +598,7 @@ def set_student_deadline(
         connection.execute("BEGIN IMMEDIATE")
         exists = connection.execute(
             """
-            SELECT i.id FROM flow_instances i
+            SELECT i.id, i.flow_version_id, v.config_snapshot FROM flow_instances i
             JOIN flow_versions v ON v.id = i.flow_version_id
             JOIN flows f ON f.id = v.flow_id
             JOIN node_instances n
@@ -564,6 +629,33 @@ def set_student_deadline(
             """,
             (instance_id, node_key),
         )
+        node_row = connection.execute(
+            "SELECT id, status FROM node_instances WHERE flow_instance_id = ? AND node_key = ?",
+            (instance_id, node_key),
+        ).fetchone()
+        config = json.loads(exists["config_snapshot"])
+        statuses = {
+            row["node_key"]: row["status"]
+            for row in connection.execute(
+                "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
+                (instance_id,),
+            ).fetchall()
+        }
+        next_status = pending_node_status(
+            all(statuses.get(source) == "approved" for source in incoming_nodes(config)[node_key]),
+            node_by_key(config, node_key).get("startAt"),
+            deadline_at,
+        )
+        if next_status == "available":
+            draft = connection.execute(
+                "SELECT 1 FROM node_drafts WHERE node_instance_id = ?", (node_row["id"],)
+            ).fetchone()
+            next_status = "draft" if draft else "available"
+        if node_row["status"] in {"expired", "scheduled", "locked", "available", "draft"}:
+            connection.execute(
+                "UPDATE node_instances SET status = ?, opened_at = ? WHERE id = ?",
+                (next_status, now if next_status == "available" else None, node_row["id"]),
+            )
         connection.execute(
             """
             INSERT INTO audit_logs
@@ -579,53 +671,6 @@ def set_student_deadline(
             ),
         )
     return get_instance(instance_id)
-
-
-def set_global_deadline(
-    version_id: str,
-    node_key: str,
-    deadline_at: str,
-    reason: str,
-    teacher_id: int,
-) -> None:
-    now = utc_now_iso()
-    with get_connection() as connection:
-        connection.execute("BEGIN IMMEDIATE")
-        row = connection.execute(
-            """
-            SELECT r.deadline_at FROM flow_node_runtime_configs r
-            JOIN flow_versions v ON v.id = r.flow_version_id
-            JOIN flows f ON f.id = v.flow_id
-            WHERE r.flow_version_id = ? AND r.node_key = ? AND f.owner_id = ?
-              AND v.status = 'published'
-            """,
-            (version_id, node_key, str(teacher_id)),
-        ).fetchone()
-        if row is None:
-            raise KeyError(node_key)
-        connection.execute(
-            """
-            UPDATE flow_node_runtime_configs
-            SET deadline_at = ?, updated_by = ?, updated_at = ?
-            WHERE flow_version_id = ? AND node_key = ?
-            """,
-            (deadline_at, str(teacher_id), now, version_id, node_key),
-        )
-        connection.execute(
-            """
-            INSERT INTO audit_logs
-                (actor_id, action, entity_type, entity_id, before_data, after_data, reason, created_at)
-            VALUES (?, 'deadline_update', 'flow_node_runtime', ?, ?, ?, ?, ?)
-            """,
-            (
-                str(teacher_id),
-                f"{version_id}:{node_key}",
-                canonical_json({"deadlineAt": row["deadline_at"]}),
-                canonical_json({"deadlineAt": deadline_at}),
-                reason,
-                now,
-            ),
-        )
 
 
 def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:

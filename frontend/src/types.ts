@@ -72,6 +72,14 @@ export type AcademicFlowNodeStatus = "approved" | "disabled" | "pending" | "read
 export type AcademicFlowNodeKind = "announcement" | "confirmation" | "file" | "form";
 export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
 
+export type NodeTemplateAsset = {
+  assetId: string;
+  contentType: string;
+  originalName: string;
+  sha256: string;
+  sizeBytes: number;
+};
+
 export type AcademicFlowNode = {
   auditScriptAcceptedExtensions?: string[];
   auditScriptConfigHash?: string;
@@ -88,7 +96,9 @@ export type AcademicFlowNode = {
   infoFields: string[];
   kind: AcademicFlowNodeKind;
   requirement: string;
+  startAt?: string | null;
   status: AcademicFlowNodeStatus;
+  templateAsset?: NodeTemplateAsset | null;
   title: string;
   x: number;
   y: number;
