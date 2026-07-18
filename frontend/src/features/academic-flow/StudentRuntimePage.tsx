@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type DragEvent as ReactDragEvent } from "react";
 
 import type { AcademicFlowNode } from "../../types";
 import { workflowApi } from "./api";
@@ -246,7 +246,7 @@ export function StudentRuntimePage({
           onSave={() => void save(activeRuntime)}
           onRetryAudit={() => void retryAudit(activeRuntime)}
           onSubmit={() => void submit(activeRuntime)}
-          onUploadFile={(file) => void uploadFile(activeRuntime, file)}
+          onUploadFile={(file) => uploadFile(activeRuntime, file)}
           onUpdate={(field, value) => updateDraft(activeRuntime.id, field, value)}
           runtime={activeRuntime}
         />
@@ -274,13 +274,38 @@ function RuntimeNodeDialog({
   onSave: () => void;
   onRetryAudit: () => void;
   onSubmit: () => void;
-  onUploadFile: (file: File) => void;
+  onUploadFile: (file: File) => Promise<void>;
   onUpdate: (field: string, value: unknown) => void;
   runtime: RuntimeNodeInstance;
 }) {
   const writable = writableStatuses.has(runtime.status);
   const readonly = runtime.status === "approved";
   const displayedPayload = readonly ? runtime.submission : draft;
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadingFileName, setUploadingFileName] = useState("");
+  const draftFile = getDraftFile(draft.file);
+  const fileReady = Boolean(draftFile?.fileId);
+  const fileBusy = busy || isUploadingFile;
+  const submitDisabled = busy || (node.kind === "file" && (!fileReady || isUploadingFile));
+
+  const uploadSelectedFile = async (file: File) => {
+    setUploadingFileName(file.name);
+    setIsUploadingFile(true);
+    try {
+      await onUploadFile(file);
+    } finally {
+      setIsUploadingFile(false);
+      setUploadingFileName("");
+    }
+  };
+
+  const handleFileDrop = (event: ReactDragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDraggingFile(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file && !fileBusy) void uploadSelectedFile(file);
+  };
   return (
     <div className="runtime-node-dialog-backdrop" onMouseDown={onClose}>
       <section
@@ -325,19 +350,41 @@ function RuntimeNodeDialog({
               ))
             : null}
           {node.kind === "file" ? (
-            <label className="runtime-file-input">
-              <span>选择文件</span>
+            <label
+              className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                if (!fileBusy) setIsDraggingFile(true);
+              }}
+              onDragLeave={() => setIsDraggingFile(false)}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={handleFileDrop}
+            >
               <input
-                disabled={busy}
+                disabled={fileBusy}
                 type="file"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
-                  if (file) {
-                    onUploadFile(file);
-                  }
+                  event.currentTarget.value = "";
+                  if (file) void uploadSelectedFile(file);
                 }}
               />
-              <small>{getDraftFileName(draft.file)}</small>
+              <span aria-hidden="true" className="runtime-file-workspace-icon">
+                {fileReady ? "✓" : "↑"}
+              </span>
+              <span className="runtime-file-workspace-copy" aria-live="polite">
+                <strong>
+                  {isUploadingFile ? "正在上传文件" : fileReady ? "文件已上传，可提交" : "点击选择或拖拽文件到此处"}
+                </strong>
+                <small>
+                  {isUploadingFile
+                    ? `${uploadingFileName}，请勿关闭窗口`
+                    : fileReady
+                      ? `${getDraftFileName(draft.file)} · ${formatFileSize(draftFile?.size)}`
+                      : "选择后将自动上传"}
+                </small>
+              </span>
+              {fileReady ? <span className="runtime-file-workspace-action">更换文件</span> : null}
             </label>
           ) : null}
           {node.kind === "confirmation" || node.kind === "announcement" ? (
@@ -351,10 +398,13 @@ function RuntimeNodeDialog({
             </label>
           ) : null}
           <div className="runtime-node-actions">
-            <button disabled={busy} onClick={onSave}>暂存</button>
-            <button className="primary-action" disabled={busy} onClick={onSubmit}>
-              {busy ? "处理中" : "提交节点"}
-            </button>
+            <button disabled={fileBusy} onClick={onSave}>暂存</button>
+            <div className="runtime-submit-control">
+              <button className="primary-action" disabled={submitDisabled} onClick={onSubmit}>
+                {isUploadingFile ? "正在上传" : busy ? "处理中" : "提交节点"}
+              </button>
+              {node.kind === "file" && !fileReady ? <small>请先上传文件</small> : null}
+            </div>
           </div>
           </div>
         ) : runtime.status === "audit_error" && runtime.audit?.canRetry ? (
@@ -454,9 +504,24 @@ function AuditResult({ audit }: { audit: NonNullable<RuntimeNodeInstance["audit"
   );
 }
 
+function getDraftFile(file: unknown): {
+  fileId?: unknown;
+  name?: unknown;
+  originalName?: unknown;
+  size?: unknown;
+} | null {
+  if (!file || typeof file !== "object") return null;
+  return file as {
+    fileId?: unknown;
+    name?: unknown;
+    originalName?: unknown;
+    size?: unknown;
+  };
+}
+
 function getDraftFileName(file: unknown): string {
-  if (!file || typeof file !== "object") return "尚未选择";
-  const value = file as { name?: unknown; originalName?: unknown };
+  const value = getDraftFile(file);
+  if (!value) return "尚未选择";
   if (typeof value.originalName === "string" && value.originalName) return value.originalName;
   if (typeof value.name === "string" && value.name) return value.name;
   return "尚未选择";
