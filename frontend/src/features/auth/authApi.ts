@@ -15,10 +15,11 @@ export type RoleCredentials = {
 };
 
 export type StudentFlowSummary = {
-  id: string;
-  lastActiveAt: string;
+  flowId: string;
+  instanceId: string | null;
+  lastActiveAt: string | null;
   name: string;
-  status: "completed" | "in_progress";
+  status: "completed" | "in_progress" | "not_started";
 };
 
 export class AuthApiError extends Error {
@@ -78,6 +79,6 @@ export const authApi = {
     return request<void>(`/api/auth/${role}/logout`, { method: "POST" });
   },
   studentFlows() {
-    return request<StudentFlowSummary[]>("/api/student/flow-instances");
+    return request<StudentFlowSummary[]>("/api/student/flows");
   },
 };

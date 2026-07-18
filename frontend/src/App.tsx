@@ -524,9 +524,11 @@ export function App() {
       <StudentAccountPage
         identity={studentIdentity}
         onLogout={() => void logoutRole("student")}
-        onOpenFlow={(instanceId) => {
-          setActiveRuntimeInstanceId(instanceId);
-          pushAppPath(`/student/flows/${encodeURIComponent(instanceId)}`);
+        onOpenFlow={async (flowId) => {
+          const instance = await workflowApi.enterFlow(flowId);
+          setRuntimeInstance(instance);
+          setActiveRuntimeInstanceId(instance.id);
+          pushAppPath(`/student/flows/${encodeURIComponent(instance.id)}`);
           setScreen("academicFlowStudentRuntime");
         }}
       />
