@@ -3889,6 +3889,99 @@ button {
   border-radius: 6px;
 }
 
+.runtime-file-workspace {
+  position: relative;
+  min-height: 108px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px dashed #98b8eb;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #172033;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.runtime-file-workspace:hover,
+.runtime-file-workspace.is-dragging {
+  border-color: #2773f6;
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgb(39 115 246 / 12%);
+}
+
+.runtime-file-workspace.is-ready {
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.runtime-file-workspace.is-busy {
+  cursor: wait;
+}
+
+.runtime-file-workspace input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.runtime-file-workspace > span {
+  margin: 0 !important;
+}
+
+.runtime-file-workspace-icon {
+  display: grid !important;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf2ff;
+  color: #175cd3;
+  font-size: 24px !important;
+  font-weight: 800;
+}
+
+.runtime-file-workspace.is-ready .runtime-file-workspace-icon {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.runtime-file-workspace-copy {
+  display: grid !important;
+  min-width: 0;
+  gap: 4px;
+}
+
+.runtime-file-workspace-copy strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-file-workspace-copy small {
+  overflow: hidden;
+  color: #667085;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-file-workspace-action {
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #fff;
+  color: #175cd3;
+  font-size: 12px !important;
+  font-weight: 700;
+}
+
 .runtime-confirmation {
   display: flex;
   align-items: center;
@@ -3910,6 +4003,22 @@ button {
   border: 1px solid #cfd7e5;
   border-radius: 6px;
   background: #fff;
+}
+
+.runtime-node-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.runtime-submit-control {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.runtime-submit-control small {
+  color: #667085;
+  font-size: 11px;
 }
 
 .runtime-loading {
@@ -4093,6 +4202,15 @@ button {
 
   .runtime-node-form {
     padding: 18px;
+  }
+
+  .runtime-file-workspace {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .runtime-file-workspace-action {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .runtime-completion-banner {
