@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` with exactly one implementation subagent. Do not dispatch additional implementers or reviewers.
 
-**Goal:** 将教师模板和学生提交文件的新上传 OSS 对象键切换为按流程归档、带毫秒时间戳与短 UUID 的可读结构。
+**Goal:** 将教师模板和学生提交文件的新上传 OSS 对象键切换为按流程归档、带纳秒时间戳与内容哈希片段的可读结构。
 
 **Architecture:** 在 `object_storage.py` 中集中生成安全的时间戳文件对象名，两个上传路由只负责传入各自已有的业务层级。数据库继续保存完整 `storage_key`，下载、替换和删除逻辑不根据新路径反向推导，因此历史对象键无需迁移。
 
@@ -10,9 +10,9 @@
 
 ## Global Constraints
 
-- 新学生文件键：`OSS_PREFIX/submissions/{flow_id}/{flow_instance_id}/{timestamp_ms}_{uuid8}_{safe_original_name}`。
-- 新教师模板键：`OSS_PREFIX/templates/{flow_id}/{timestamp_ms}_{uuid8}_{safe_template_name}`。
-- `timestamp_ms` 使用 UTC Unix 毫秒时间戳；`uuid8` 使用随机 UUID 十六进制表示的前 8 位。
+- 新学生文件键：`OSS_PREFIX/submissions/{flow_id}/{flow_instance_id}/{timestamp_ns}_{hash8}_{safe_original_name}`。
+- 新教师模板键：`OSS_PREFIX/templates/{flow_id}/{timestamp_ns}_{hash8}_{safe_template_name}`。
+- `timestamp_ns` 使用 UTC Unix 纳秒时间戳；`hash8` 使用服务端计算的文件 SHA-256 前 8 位；对象名不使用随机 UUID。
 - 路径层级和 ASCII 控制字符不得由上传文件名注入。
 - 不修改数据库结构、API 契约、前端、流程状态或权限逻辑。
 - 不迁移或重命名历史 OSS 对象；读取和删除继续使用数据库中的完整 `storage_key`。
@@ -31,26 +31,24 @@
 
 **Interfaces:**
 - Consumes: `object_key(prefix: str, *parts: str) -> str`、`FileUploadContext.flow_id`、`FileUploadContext.flow_instance_id`。
-- Produces: `timestamped_object_name(filename: str) -> str`。
+- Produces: `timestamped_object_name(filename: str, sha256_hex: str) -> str`。
 - Preserves: `uploaded_files.storage_key`、`flow_template_assets.storage_key` 继续保存完整对象键。
 
 - [ ] **Step 1: 在对象存储服务中增加统一对象名生成函数**
 
-在 `backend/app/services/object_storage.py` 中引入标准库 `re`、`time`、`uuid`，集中生成文件对象名：
+在 `backend/app/services/object_storage.py` 中引入标准库 `re`、`time`，集中生成文件对象名：
 
 ```python
 import re
 import time
-import uuid
 
 
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
 
-def timestamped_object_name(filename: str) -> str:
-    timestamp_ms = time.time_ns() // 1_000_000
-    random_token = uuid.uuid4().hex[:8]
-    return f"{timestamp_ms}_{random_token}_{_safe_part(filename)}"
+def timestamped_object_name(filename: str, sha256_hex: str) -> str:
+    timestamp_ns = time.time_ns()
+    return f"{timestamp_ns}_{sha256_hex[:8]}_{_safe_part(filename)}"
 ```
 
 同时让现有 `_safe_part()` 在提取末尾文件名后替换 ASCII 控制字符：
@@ -63,15 +61,16 @@ def _safe_part(value: str) -> str:
 
 - [ ] **Step 2: 修改学生文件上传对象键**
 
-从 `backend/app/api/routes/student_flows.py` 移除不再使用的 `uuid` 导入，引入 `timestamped_object_name`，将对象键构造改为：
+在 `backend/app/api/routes/student_flows.py` 复用已经计算的 SHA-256，避免重复调用 `digest.hexdigest()`，将对象键构造改为：
 
 ```python
+sha256 = digest.hexdigest()
 storage_key = object_key(
     settings.oss_prefix,
     "submissions",
     context.flow_id,
     context.flow_instance_id,
-    timestamped_object_name(filename),
+    timestamped_object_name(filename, sha256),
 )
 ```
 
@@ -79,14 +78,15 @@ storage_key = object_key(
 
 - [ ] **Step 3: 修改教师模板上传对象键**
 
-从 `backend/app/api/routes/workflows.py` 移除不再使用的 `uuid` 导入，引入 `timestamped_object_name`，将对象键构造改为：
+在 `backend/app/api/routes/workflows.py` 复用已经计算的 SHA-256，避免重复调用 `digest.hexdigest()`，将对象键构造改为：
 
 ```python
+sha256 = digest.hexdigest()
 storage_key = object_key(
     settings.oss_prefix,
     "templates",
     flow_id,
-    timestamped_object_name(filename),
+    timestamped_object_name(filename, sha256),
 )
 ```
 
@@ -111,7 +111,7 @@ git diff -- \
   backend/app/api/routes/workflows.py
 ```
 
-审计必须确认：两个上传入口使用新结构；下载、替换、补偿删除和审核脚本仍读取数据库 `storage_key`；无未使用的 `uuid` 路由导入；差异不包含用户现有文件。
+审计必须确认：两个上传入口传入本次文件 SHA-256；对象名不再使用 UUID；下载、替换、补偿删除和审核脚本仍读取数据库 `storage_key`；差异不包含用户现有文件。
 
 - [ ] **Step 5: 清理缓存并提交唯一实现检查点**
 
@@ -122,7 +122,7 @@ git add \
   backend/app/services/object_storage.py \
   backend/app/api/routes/student_flows.py \
   backend/app/api/routes/workflows.py
-git commit -m "refactor: simplify OSS object key layout"
+git commit -m "refactor: derive OSS keys from file hashes"
 ```
 
 - [ ] **Step 6: 本地重启服务并检查可达性**

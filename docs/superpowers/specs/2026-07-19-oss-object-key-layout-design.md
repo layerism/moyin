@@ -9,26 +9,26 @@
 新上传对象使用以下键结构：
 
 ```text
-coze/files/submissions/{flow_id}/{flow_instance_id}/{timestamp_ms}_{uuid8}_{safe_original_name}
-coze/files/templates/{flow_id}/{timestamp_ms}_{uuid8}_{safe_template_name}
+coze/files/submissions/{flow_id}/{flow_instance_id}/{timestamp_ns}_{hash8}_{safe_original_name}
+coze/files/templates/{flow_id}/{timestamp_ns}_{hash8}_{safe_template_name}
 ```
 
 - `flow_id` 是教师创建的 OA 流程 ID。
 - `flow_instance_id` 是某名学生执行某个已发布流程版本的个人实例 ID。
-- `timestamp_ms` 是对象键生成时的 UTC Unix 毫秒时间戳。
-- `uuid8` 是随机 UUID 的前 8 个十六进制字符，用于避免同一毫秒内同名文件冲突。
+- `timestamp_ns` 是对象键生成时的 UTC Unix 纳秒时间戳，用于区分连续上传动作。
+- `hash8` 是文件 SHA-256 摘要的前 8 个十六进制字符，用于表达文件内容特征，不再使用随机 UUID。
 - `safe_original_name` 和 `safe_template_name` 保留原始扩展名及可读名称，但必须移除路径层级和控制字符。
 - 配置项 `OSS_PREFIX` 继续作为根前缀；其当前默认值为 `coze/files`，不得在代码中重复硬编码。
 
 ## 3. 方案选择
 
-### 3.1 采用：业务归档层级 + 时间戳 + 短 UUID + 安全文件名
+### 3.1 采用：业务归档层级 + 纳秒时间戳 + 内容哈希 + 安全文件名
 
-该方案支持在 OSS 中按流程和学生实例定位文件，同时通过随机片段消除仅使用时间戳产生的并发碰撞风险。
+该方案支持在 OSS 中按流程和学生实例定位文件。纳秒时间戳区分上传动作，哈希片段提供内容识别能力；随机 UUID 不再进入对象键。
 
-### 3.2 不采用：只使用 UUID
+### 3.2 不采用：毫秒时间戳 + 内容哈希
 
-对象键最短且不暴露原文件名，但无法在 OSS 控制台中按业务归属直接定位，不符合本次归档可读性要求。
+相同文件在同一毫秒重复上传时，时间戳、哈希和文件名可能完全相同，进而覆盖对象或触发现有旧文件清理逻辑误删新对象。
 
 ### 3.3 不采用：仅使用时间戳和原文件名
 
@@ -75,9 +75,9 @@ coze/files/templates/{flow_id}/{timestamp_ms}_{uuid8}_{safe_template_name}
 
 ## 8. 静态验收标准
 
-- 学生新上传对象键符合 `OSS_PREFIX/submissions/flow_id/flow_instance_id/timestamp_uuid8_filename`。
-- 教师新上传模板对象键符合 `OSS_PREFIX/templates/flow_id/timestamp_uuid8_filename`。
-- 同一毫秒、同一流程、同一原文件名的两次上传仍产生不同对象键。
+- 学生新上传对象键符合 `OSS_PREFIX/submissions/flow_id/flow_instance_id/timestamp_ns_hash8_filename`。
+- 教师新上传模板对象键符合 `OSS_PREFIX/templates/flow_id/timestamp_ns_hash8_filename`。
+- 对象名中的 `hash8` 与本次上传文件的服务端 SHA-256 前 8 位一致，且不再包含随机 UUID。
 - 路径型文件名不能突破既定对象键层级。
 - 所有下载和删除路径继续读取数据库中的 `storage_key`。
 - 按项目约定仅进行业务逻辑静态审计，不运行自动化测试、构建或浏览器测试。
