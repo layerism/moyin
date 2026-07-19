@@ -2310,6 +2310,11 @@ button {
 }
 
 .node-time-window-card {
+  min-width: 0;
+  min-height: 176px;
+  display: grid;
+  grid-template-rows: max-content max-content max-content;
+  align-self: start;
   overflow: hidden;
   border: 2px solid #334155;
   border-radius: 10px;
@@ -2338,6 +2343,7 @@ button {
 }
 
 .node-time-window-fields {
+  min-width: 0;
   display: grid;
   grid-template-columns: 1fr 34px 1fr;
   align-items: center;
@@ -2349,7 +2355,11 @@ button {
   border-radius: 999px;
   background: #64748b;
 }
-.node-time-window-fields label { grid-template-columns: 1fr auto; }
+.node-time-window-fields label {
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.node-time-window-fields label > input { min-width: 0; }
 .node-time-window-fields label > span { grid-column: 1 / -1; }
 .node-time-window-fields label > button {
   padding: 0 9px;
@@ -4328,6 +4338,10 @@ button {
   .node-time-window-fields {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .node-time-window-card {
+    min-height: 260px;
   }
 
   .node-time-window-fields > i {
