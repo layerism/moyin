@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent as ReactDragEvent } from "react";
+import Markdown from "react-markdown";
 
 import type { AcademicFlowNode } from "../../types";
 import { workflowApi } from "./api";
@@ -573,15 +574,42 @@ function formatFileSize(value: unknown): string {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function AuditMarkdown({ value }: { value: string }) {
+  return (
+    <div className="runtime-audit-markdown">
+      <Markdown
+        skipHtml
+        components={{
+          a({ node: _node, ...props }) {
+            return <a {...props} rel="noopener noreferrer" target="_blank" />;
+          },
+          img() {
+            return null;
+          },
+        }}
+      >
+        {value}
+      </Markdown>
+    </div>
+  );
+}
+
 function AuditResult({ audit }: { audit: NonNullable<RuntimeNodeInstance["audit"]> }) {
-  if (!audit.reason && !audit.details && audit.status !== "reviewing") return null;
+  const reason = audit.reason?.trim() ?? "";
+  const visibleReason = audit.status === "reviewing"
+    ? ""
+    : reason || (
+      audit.status === "rejected"
+        ? "审核未提供具体说明，请根据节点要求修改后重新提交。"
+        : ""
+    );
+  if (!visibleReason && audit.status !== "reviewing") return null;
   return (
     <section className={`runtime-audit-result ${audit.status}`}>
       <strong>
         {audit.status === "reviewing" ? `自动审核中（第 ${audit.attemptCount || 1} 次执行）` : "审核结果"}
       </strong>
-      {audit.reason ? <p>{audit.reason}</p> : null}
-      {audit.details ? <pre>{JSON.stringify(audit.details, null, 2)}</pre> : null}
+      {visibleReason ? <AuditMarkdown value={visibleReason} /> : null}
     </section>
   );
 }

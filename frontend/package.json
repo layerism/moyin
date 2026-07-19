@@ -12,6 +12,7 @@
   "dependencies": {
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "react-markdown": "^10.1.0",
     "read-excel-file": "^9.2.0"
   },
   "devDependencies": {
