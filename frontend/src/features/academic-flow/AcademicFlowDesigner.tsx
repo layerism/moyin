@@ -1365,6 +1365,14 @@ function NodeInspector({
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   publishedRevision: boolean;
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   if (!node) {
     return null;
   }
@@ -1393,11 +1401,10 @@ function NodeInspector({
   };
 
   return (
-    <div className="node-inspector-backdrop" onMouseDown={onClose}>
+    <div className="node-inspector-backdrop">
       <aside
         aria-modal="true"
         className="flow-panel inspector-panel node-inspector-modal"
-        onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
         <header className="panel-heading inspector-modal-heading">
