@@ -2377,11 +2377,17 @@ button {
 }
 
 .node-template-card { border-width: 2px; }
-.node-template-file,
-.node-template-actions {
-  display: flex;
+.node-template-file {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 16px;
+}
+.node-template-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 92px);
+  align-items: stretch;
   gap: 10px;
 }
 .node-template-file > div:first-child { display: grid; gap: 3px; min-width: 0; }
@@ -2389,7 +2395,30 @@ button {
 .node-template-file small,
 .node-template-file > span { color: #64748b; font-size: 12px; }
 .node-template-actions label,
-.node-template-actions button,
+.node-template-actions button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+.node-template-actions label {
+  border: 1px solid #84adff;
+  background: #eff6ff;
+  color: #175cd3;
+}
+.node-template-actions button {
+  border: 1px solid #f1aeb5;
+  background: #fff1f2;
+  color: #b42318;
+}
 .node-template-upload {
   padding: 9px 12px;
   border: 1px solid #94a3b8;
@@ -2560,6 +2589,16 @@ button {
 }
 
 @media (max-width: 760px) {
+  .node-template-file {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .node-template-actions {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .node-inspector-backdrop {
     padding: 12px;
   }
