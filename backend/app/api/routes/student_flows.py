@@ -1,5 +1,4 @@
 import hashlib
-import uuid
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -32,7 +31,12 @@ from app.repositories.flow_templates import (
     get_student_template,
     record_template_download,
 )
-from app.services.object_storage import ObjectStorageNotConfigured, get_object_storage, object_key
+from app.services.object_storage import (
+    ObjectStorageNotConfigured,
+    get_object_storage,
+    object_key,
+    timestamped_object_name,
+)
 from app.services.security import get_current_student
 
 router = APIRouter()
@@ -113,11 +117,10 @@ def upload_node_file(
     content_type = file.content_type or "application/octet-stream"
     storage_key = object_key(
         settings.oss_prefix,
-        context.flow_version_id,
+        "submissions",
+        context.flow_id,
         context.flow_instance_id,
-        context.node_key,
-        str(uuid.uuid4()),
-        filename,
+        timestamped_object_name(filename),
     )
     try:
         uploaded = get_object_storage().put_object(storage_key, file.file, content_type)

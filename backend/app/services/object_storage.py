@@ -1,9 +1,15 @@
+import re
+import time
+import uuid
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO
 from urllib.parse import quote
 
 from app.core.config import Settings, settings
+
+
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class ObjectStorageError(RuntimeError):
@@ -103,12 +109,19 @@ def object_key(prefix: str, *parts: str) -> str:
     return str(PurePosixPath(_normalize_prefix(prefix), *normalized))
 
 
+def timestamped_object_name(filename: str) -> str:
+    timestamp_ms = time.time_ns() // 1_000_000
+    random_token = uuid.uuid4().hex[:8]
+    return f"{timestamp_ms}_{random_token}_{_safe_part(filename)}"
+
+
 def _normalize_prefix(value: str) -> str:
     return "/".join(part for part in str(value).split("/") if part)
 
 
 def _safe_part(value: str) -> str:
-    return PurePosixPath(str(value).replace("\\", "/")).name or "unnamed"
+    filename = PurePosixPath(str(value).replace("\\", "/")).name
+    return _CONTROL_CHARACTERS.sub("_", filename) or "unnamed"
 
 
 def _ensure_success(response: Any, operation: str) -> None:
