@@ -1,5 +1,4 @@
 import hashlib
-import uuid
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -39,6 +38,7 @@ from app.services.object_storage import (
     ObjectStorageNotConfigured,
     get_object_storage,
     object_key,
+    timestamped_object_name,
 )
 from app.services.security import get_current_teacher
 
@@ -94,7 +94,12 @@ def upload_node_template(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     content_type = file.content_type or "application/octet-stream"
-    storage_key = object_key(settings.oss_prefix, "templates", flow_id, node_key, str(uuid.uuid4()), filename)
+    storage_key = object_key(
+        settings.oss_prefix,
+        "templates",
+        flow_id,
+        timestamped_object_name(filename),
+    )
     try:
         storage = get_object_storage()
         uploaded = storage.put_object(storage_key, file.file, content_type)
