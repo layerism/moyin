@@ -94,11 +94,12 @@ def upload_node_template(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     content_type = file.content_type or "application/octet-stream"
+    sha256 = digest.hexdigest()
     storage_key = object_key(
         settings.oss_prefix,
         "templates",
         flow_id,
-        timestamped_object_name(filename),
+        timestamped_object_name(filename, sha256),
     )
     try:
         storage = get_object_storage()
@@ -106,7 +107,7 @@ def upload_node_template(
         metadata, old_id, draft_hash = save_template_asset(
             flow_id=flow_id, node_key=node_key, teacher_id=teacher_id,
             storage_key=storage_key, original_name=filename, content_type=content_type,
-            size_bytes=size_bytes, sha256=digest.hexdigest(), etag=uploaded.etag,
+            size_bytes=size_bytes, sha256=sha256, etag=uploaded.etag,
         )
     except ObjectStorageNotConfigured as exc:
         raise HTTPException(status_code=503, detail="模板存储服务未配置，请联系管理员") from exc

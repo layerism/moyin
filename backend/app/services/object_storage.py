@@ -1,6 +1,5 @@
 import re
 import time
-import uuid
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO
@@ -109,10 +108,9 @@ def object_key(prefix: str, *parts: str) -> str:
     return str(PurePosixPath(_normalize_prefix(prefix), *normalized))
 
 
-def timestamped_object_name(filename: str) -> str:
-    timestamp_ms = time.time_ns() // 1_000_000
-    random_token = uuid.uuid4().hex[:8]
-    return f"{timestamp_ms}_{random_token}_{_safe_part(filename)}"
+def timestamped_object_name(filename: str, sha256_hex: str) -> str:
+    timestamp_ns = time.time_ns()
+    return f"{timestamp_ns}_{sha256_hex[:8]}_{_safe_part(filename)}"
 
 
 def _normalize_prefix(value: str) -> str:
