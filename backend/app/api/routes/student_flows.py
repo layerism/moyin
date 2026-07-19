@@ -115,12 +115,13 @@ def upload_node_file(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     content_type = file.content_type or "application/octet-stream"
+    sha256 = digest.hexdigest()
     storage_key = object_key(
         settings.oss_prefix,
         "submissions",
         context.flow_id,
         context.flow_instance_id,
-        timestamped_object_name(filename),
+        timestamped_object_name(filename, sha256),
     )
     try:
         uploaded = get_object_storage().put_object(storage_key, file.file, content_type)
@@ -137,7 +138,7 @@ def upload_node_file(
             original_name=filename,
             content_type=content_type,
             size_bytes=size_bytes,
-            sha256=digest.hexdigest(),
+            sha256=sha256,
             etag=uploaded.etag,
         )
     except Exception as exc:
