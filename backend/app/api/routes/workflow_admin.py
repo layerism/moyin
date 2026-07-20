@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.repositories.flow_instances import (
+    StudentDeadlineValidationError,
     get_version_progress,
     set_student_deadline,
 )
@@ -68,6 +69,8 @@ def put_student_deadline(
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="学生流程实例不存在") from exc
+    except StudentDeadlineValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/versions/{version_id}/progress")
