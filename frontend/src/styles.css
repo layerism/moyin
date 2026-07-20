@@ -3625,7 +3625,21 @@ button {
 }
 
 .student-topology-node.expired {
-  border-color: #fda29b;
+  border-color: #f04438;
+  background: #fff5f5;
+}
+
+.student-topology-node.expired .student-topology-node-index {
+  background: #d92d20;
+}
+
+.student-topology-node.expired > strong {
+  color: #b42318;
+}
+
+.student-topology-node.expired .student-topology-node-meta i {
+  background: #fee4e2;
+  color: #b42318;
 }
 
 .student-topology-node-index {
