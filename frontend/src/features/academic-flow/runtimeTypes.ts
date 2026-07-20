@@ -105,9 +105,19 @@ export type WorkflowProgressStudent = {
   instanceId: string;
   lastActiveAt: string;
   name: string;
+  nodes: WorkflowProgressNode[];
   status: string;
   studentNo: string;
   totalCount: number;
+};
+
+export type WorkflowProgressNode = {
+  effectiveDeadline: string | null;
+  globalDeadline: string | null;
+  nodeKey: string;
+  overrideDeadline: string | null;
+  status: RuntimeNodeStatus;
+  title: string;
 };
 
 export type WorkflowProgress = {

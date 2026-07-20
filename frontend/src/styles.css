@@ -4317,27 +4317,11 @@ button {
   color: #b42318;
 }
 
-.student-extension-editor,
 .progress-table-wrap {
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid #e4e7ec;
-}
-
-.student-extension-editor {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.student-extension-editor h3 {
-  grid-column: 1 / -1;
-}
-
-.student-extension-editor button {
-  min-height: 40px;
-  border: 0;
-  border-radius: 6px;
+  overflow-x: auto;
 }
 
 .progress-table {
@@ -4357,6 +4341,107 @@ button {
   display: block;
   margin-top: 3px;
   color: #667085;
+}
+
+.progress-extension-trigger {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #84adff;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #175cd3;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.progress-extension-trigger:focus-visible,
+.student-extension-actions button:focus-visible {
+  outline: 2px solid #84adff;
+  outline-offset: 2px;
+}
+
+.student-extension-row > td {
+  padding: 0 8px 14px;
+  background: #f8fafc;
+}
+
+.student-extension-card {
+  padding: 16px;
+  border: 1px solid #b2ccff;
+  border-radius: 8px;
+  background: #f5f8ff;
+}
+
+.student-extension-card h3,
+.student-extension-card p {
+  margin: 0;
+}
+
+.student-extension-card > p {
+  margin-top: 4px;
+  color: #475467;
+}
+
+.student-extension-empty {
+  margin-top: 14px !important;
+}
+
+.student-extension-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.student-extension-field {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.student-extension-field > span {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.student-extension-field > input,
+.student-extension-field > select {
+  min-width: 0;
+}
+
+.student-extension-deadline {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.student-extension-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.student-extension-actions button {
+  min-height: 38px;
+}
+
+.student-extension-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.student-extension-cancel {
+  padding: 0 14px;
+  border: 1px solid #98a2b3;
+  border-radius: 6px;
+  background: #fff;
+  color: #344054;
 }
 
 @media (max-width: 760px) {
@@ -4482,8 +4567,13 @@ button {
     margin-left: 18px;
   }
 
-  .student-extension-editor {
+  .student-extension-fields {
     grid-template-columns: 1fr;
+  }
+
+  .student-extension-actions {
+    align-items: stretch;
+    flex-direction: column-reverse;
   }
 }
 

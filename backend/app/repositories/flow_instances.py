@@ -1,12 +1,14 @@
 import hashlib
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from app.core.database import get_connection
 from app.domain.workflow_runtime import (
     incoming_nodes,
     node_by_key,
+    parse_datetime,
     pending_node_status,
     validate_submission,
 )
@@ -33,6 +35,20 @@ class RuntimeConflictError(ValueError):
 
 class RuntimeDeadlineError(ValueError):
     pass
+
+
+class StudentDeadlineValidationError(ValueError):
+    pass
+
+
+def _parse_student_deadline(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except (AttributeError, ValueError) as exc:
+        raise StudentDeadlineValidationError("延期截止时间格式无效") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise StudentDeadlineValidationError("延期截止时间必须包含时区")
+    return parsed.astimezone(UTC)
 
 
 def _json_object(value: object) -> dict[str, object]:
@@ -598,17 +614,45 @@ def set_student_deadline(
         connection.execute("BEGIN IMMEDIATE")
         exists = connection.execute(
             """
-            SELECT i.id, i.flow_version_id, v.config_snapshot FROM flow_instances i
+            SELECT i.id,
+                   i.flow_version_id,
+                   v.config_snapshot,
+                   n.status AS node_status,
+                   r.deadline_at AS global_deadline,
+                   o.deadline_at AS override_deadline
+            FROM flow_instances i
             JOIN flow_versions v ON v.id = i.flow_version_id
             JOIN flows f ON f.id = v.flow_id
             JOIN node_instances n
               ON n.flow_instance_id = i.id AND n.node_key = ?
+            LEFT JOIN flow_node_runtime_configs r
+              ON r.flow_version_id = i.flow_version_id AND r.node_key = n.node_key
+            LEFT JOIN student_deadline_overrides o
+              ON o.flow_instance_id = i.id AND o.node_key = n.node_key
             WHERE i.id = ? AND f.owner_id = ? AND v.status = 'published'
             """,
             (node_key, instance_id, str(teacher_id)),
         ).fetchone()
         if exists is None:
             raise KeyError(instance_id)
+        clean_reason = reason.strip()
+        if not clean_reason:
+            raise StudentDeadlineValidationError("请填写延期原因")
+        if exists["node_status"] == "approved":
+            raise StudentDeadlineValidationError("已通过节点不能延期")
+
+        current_deadline_value = exists["override_deadline"] or exists["global_deadline"]
+        if current_deadline_value is None:
+            raise StudentDeadlineValidationError("无截止时间的节点不能设置延期")
+
+        new_deadline = _parse_student_deadline(deadline_at)
+        current_deadline = parse_datetime(current_deadline_value)
+        now_datetime = datetime.now(UTC)
+        if new_deadline <= now_datetime:
+            raise StudentDeadlineValidationError("延期截止时间必须晚于当前时间")
+        if current_deadline is None or new_deadline <= current_deadline:
+            raise StudentDeadlineValidationError("延期截止时间必须晚于当前生效截止时间")
+        normalized_deadline = new_deadline.isoformat()
         connection.execute(
             """
             INSERT INTO student_deadline_overrides
@@ -618,7 +662,7 @@ def set_student_deadline(
             SET deadline_at = excluded.deadline_at, reason = excluded.reason,
                 created_by = excluded.created_by, created_at = excluded.created_at
             """,
-            (instance_id, node_key, deadline_at, reason, str(teacher_id), now),
+            (instance_id, node_key, normalized_deadline, clean_reason, str(teacher_id), now),
         )
         connection.execute(
             """
@@ -644,7 +688,7 @@ def set_student_deadline(
         next_status = pending_node_status(
             all(statuses.get(source) == "approved" for source in incoming_nodes(config)[node_key]),
             node_by_key(config, node_key).get("startAt"),
-            deadline_at,
+            normalized_deadline,
         )
         if next_status == "available":
             draft = connection.execute(
@@ -665,8 +709,8 @@ def set_student_deadline(
             (
                 str(teacher_id),
                 f"{instance_id}:{node_key}",
-                canonical_json({"deadlineAt": deadline_at}),
-                reason,
+                canonical_json({"deadlineAt": normalized_deadline}),
+                clean_reason,
                 now,
             ),
         )
@@ -677,7 +721,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
     with get_connection() as connection:
         version = connection.execute(
             """
-            SELECT v.id, v.flow_id, f.name FROM flow_versions v
+            SELECT v.id, v.flow_id, v.config_snapshot, f.name FROM flow_versions v
             JOIN flows f ON f.id = v.flow_id
             WHERE v.id = ? AND f.owner_id = ?
             """,
@@ -700,6 +744,41 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             """,
             (version_id,),
         ).fetchall()
+        config = json.loads(version["config_snapshot"])
+        node_titles = {
+            str(node["id"]): str(node.get("title") or node["id"])
+            for node in config["nodes"]
+        }
+        node_rows = connection.execute(
+            """
+            SELECT n.flow_instance_id,
+                   n.node_key,
+                   n.status,
+                   r.deadline_at AS global_deadline,
+                   o.deadline_at AS override_deadline
+            FROM node_instances n
+            JOIN flow_instances i ON i.id = n.flow_instance_id
+            LEFT JOIN flow_node_runtime_configs r
+              ON r.flow_version_id = i.flow_version_id AND r.node_key = n.node_key
+            LEFT JOIN student_deadline_overrides o
+              ON o.flow_instance_id = i.id AND o.node_key = n.node_key
+            WHERE i.flow_version_id = ?
+            ORDER BY n.flow_instance_id, n.rowid
+            """,
+            (version_id,),
+        ).fetchall()
+    nodes_by_instance: dict[str, list[dict[str, object]]] = {}
+    for row in node_rows:
+        nodes_by_instance.setdefault(str(row["flow_instance_id"]), []).append(
+            {
+                "nodeKey": row["node_key"],
+                "title": node_titles.get(row["node_key"], row["node_key"]),
+                "status": row["status"],
+                "globalDeadline": row["global_deadline"],
+                "overrideDeadline": row["override_deadline"],
+                "effectiveDeadline": row["override_deadline"] or row["global_deadline"],
+            }
+        )
     return {
         "flowVersionId": version_id,
         "name": version["name"],
@@ -713,6 +792,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
                 "totalCount": row["total_count"],
                 "expiredCount": row["expired_count"],
                 "lastActiveAt": row["last_active_at"],
+                "nodes": nodes_by_instance.get(str(row["id"]), []),
             }
             for row in rows
         ],
