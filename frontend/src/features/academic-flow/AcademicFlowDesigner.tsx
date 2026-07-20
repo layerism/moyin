@@ -301,7 +301,7 @@ export function AcademicFlowDesigner({
     if (editorLocked) return;
     let nextValue = { ...value };
     if (workingProcess.published && protectedNodeIds.includes(nodeId)) {
-      const allowed = new Set<keyof AcademicFlowNode>(["requirement", "startAt", "deadlineAt"]);
+      const allowed = new Set<keyof AcademicFlowNode>(["title", "requirement", "startAt", "deadlineAt"]);
       nextValue = Object.fromEntries(
         Object.entries(nextValue).filter(([key]) => allowed.has(key as keyof AcademicFlowNode)),
       ) as Partial<AcademicFlowNode>;
@@ -1420,13 +1420,12 @@ function NodeInspector({
         <fieldset className="node-inspector-fields" disabled={editingLocked}>
         {publishedRevision ? (
           <p className="node-inspector-revision-note">
-            当前为发布后修订。旧节点仅可修改说明、起始时间和截止时间；修改后该节点及下游需重新完成。
+            当前为发布后修订。旧节点仅可修改标题、说明、起始时间和截止时间；修改标题或说明后，该节点及下游需重新完成。
           </p>
         ) : null}
         <label>
           <span>节点标题</span>
           <input
-            disabled={nodeCoreLocked}
             maxLength={50}
             value={node.title}
             onChange={(event) => onUpdateNode(node.id, { title: event.target.value })}
