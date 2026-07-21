@@ -1484,7 +1484,7 @@ function NodeInspector({
               </button>
             </div>
             {node.infoFields.map((field, index) => (
-              <div className="field-row" key={`${field}-${index}`}>
+              <div className="field-row" key={`${node.id}-${index}`}>
                 <span>☰</span>
                 <input disabled={nodeCoreLocked} value={field} onChange={(event) => updateInfoField(index, event.target.value)} />
                 <em>必填</em>
