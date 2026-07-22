@@ -27,7 +27,7 @@
 - Modify: `backend/app/domain/workflow_runtime.py` — 提供文件名清理、规范化和模板名称校验函数。
 - Modify: `backend/app/repositories/flow_files.py` — 从发布版本模板绑定中返回权威模板元数据。
 - Modify: `backend/app/api/routes/student_flows.py` — 在读取上传内容和写入 OSS 前执行校验，并使用权威文件名。
-- Verify only: `frontend/src/features/academic-flow/StudentRuntimePage.tsx` — 现有错误提示和草稿更新链路已经满足需求，不修改。
+- Modify: `frontend/src/features/academic-flow/StudentRuntimePage.tsx` — 上传失败时显示浏览器原生警告弹窗，避免错误横幅被节点弹窗遮挡。
 
 ### Task 1: 创建实施前检查点
 
@@ -158,7 +158,7 @@ template_original_name=row["template_original_name"],
 
 **Files:**
 - Modify: `backend/app/api/routes/student_flows.py:1-4,99-152`
-- Verify only: `frontend/src/features/academic-flow/StudentRuntimePage.tsx:155-177`
+- Modify: `frontend/src/features/academic-flow/StudentRuntimePage.tsx:155-177`
 
 **Interfaces:**
 - Consumes: `validate_template_filename(uploaded_filename, template_filename) -> str`。
@@ -200,22 +200,26 @@ original_name=authoritative_filename
 
 `content_type`、`size_bytes`、`sha256` 和实际文件字节不得替换为模板信息。
 
-- [ ] **Step 4: 静态确认前端无需修改**
+- [ ] **Step 4: 在文件上传错误分支显示警告弹窗**
 
-检查 `StudentRuntimePage.uploadFile`：现有 `catch` 会显示后端 `detail`，且只有接口成功后才更新 `draft.file`。因此 422 时上传区域恢复、已有草稿文件保持不变。
+将 `StudentRuntimePage.uploadFile` 的错误分支改为：
 
-Run:
-
-```bash
-sed -n '155,177p' frontend/src/features/academic-flow/StudentRuntimePage.tsx
+```tsx
+} catch (reason) {
+  const message = reason instanceof Error ? reason.message : "文件上传失败";
+  setNotice("");
+  window.alert(message);
+} finally {
+  setBusyNodeId(null);
+}
 ```
 
-Expected: `setDrafts` 仅位于成功分支，错误分支只更新 `notice`。
+`setDrafts` 仍仅位于成功分支。错误分支不改变当前草稿，并清除弹窗背后的全局错误横幅。
 
 ### Task 5: 静态审计、提交与本地重启
 
 **Files:**
-- Verify: all three modified backend files.
+- Verify: three modified backend files and `frontend/src/features/academic-flow/StudentRuntimePage.tsx`.
 
 - [ ] **Step 1: 检查差异和调用链**
 
@@ -223,7 +227,7 @@ Run:
 
 ```bash
 git diff --check
-git diff -- backend/app/domain/workflow_runtime.py backend/app/repositories/flow_files.py backend/app/api/routes/student_flows.py
+git diff -- backend/app/domain/workflow_runtime.py backend/app/repositories/flow_files.py backend/app/api/routes/student_flows.py frontend/src/features/academic-flow/StudentRuntimePage.tsx
 rg -n "validate_template_filename|template_original_name|authoritative_filename" backend/app
 ```
 
@@ -242,13 +246,13 @@ find backend frontend -path '*/.venv' -prune -o -path '*/node_modules' -prune -o
 - [ ] **Step 3: 只暂存计划内源码并创建完成提交**
 
 ```bash
-git add backend/app/domain/workflow_runtime.py backend/app/repositories/flow_files.py backend/app/api/routes/student_flows.py
+git add backend/app/domain/workflow_runtime.py backend/app/repositories/flow_files.py backend/app/api/routes/student_flows.py frontend/src/features/academic-flow/StudentRuntimePage.tsx docs/superpowers/specs/2026-07-22-template-filename-upload-validation-design.md docs/superpowers/plans/2026-07-22-template-filename-upload-validation.md
 git diff --cached --check
 git diff --cached --name-only
 git commit -m "fix: validate student template filenames on upload"
 ```
 
-Expected: 完成提交只包含三个后端文件。
+Expected: 完成提交只包含三个后端文件、一个前端文件和两份本功能文档。
 
 - [ ] **Step 4: 本地重启服务**
 

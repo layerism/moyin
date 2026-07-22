@@ -24,6 +24,8 @@ class FileUploadContext:
     node_key: str
     status: str
     config_node: dict[str, Any]
+    template_asset_id: str | None
+    template_original_name: str | None
 
 
 def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadContext:
@@ -32,12 +34,15 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
             """
             SELECT n.id, n.status, n.flow_instance_id, n.node_key,
                    i.flow_version_id, i.student_account_id,
-                   v.flow_id, v.config_snapshot, t.template_asset_id
+                   v.flow_id, v.config_snapshot, t.template_asset_id,
+                   a.original_name AS template_original_name
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
             LEFT JOIN flow_version_templates t
               ON t.flow_version_id = v.id AND t.node_key = n.node_key
+            LEFT JOIN flow_template_assets a
+              ON a.id = t.template_asset_id
             WHERE n.id = ? AND i.student_account_id = ? AND v.status = 'published'
             """,
             (node_instance_id, student_id),
@@ -65,6 +70,8 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
             "available", "draft", "rejected", "scheduled", "locked", "expired"
         }:
             raise FileContextError("当前节点尚未开放或已截止")
+        if row["template_asset_id"] and not row["template_original_name"]:
+            raise FileContextError("当前节点模板配置异常，请联系教师")
         if row["template_asset_id"] and not template_downloaded(
             connection, row["id"], row["template_asset_id"], student_id
         ):
@@ -77,6 +84,8 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         node_key=row["node_key"],
         status=row["status"],
         config_node=config_node,
+        template_asset_id=row["template_asset_id"],
+        template_original_name=row["template_original_name"],
     )
 
 

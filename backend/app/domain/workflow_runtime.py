@@ -1,5 +1,7 @@
+import unicodedata
 from collections import defaultdict
 from datetime import UTC, datetime
+from pathlib import PurePosixPath
 from typing import Any
 
 from app.domain.form_fields import normalize_form_answers
@@ -98,3 +100,18 @@ def validate_file_metadata(node: dict[str, Any], file_name: str, file_size: obje
             raise ValueError("文件大小信息无效") from exc
         if limit_mb > 0 and file_size_value > limit_mb * 1024 * 1024:
             raise ValueError(f"文件大小不能超过 {raw_limit} MB")
+
+
+def validate_template_filename(uploaded_filename: str, template_filename: str) -> str:
+    if _filename_identity(uploaded_filename) != _filename_identity(template_filename):
+        raise ValueError(
+            f"文件名与模板不一致，请将文件重命名为“{template_filename}”后重新上传。"
+        )
+    return template_filename
+
+
+def _filename_identity(value: str) -> tuple[str, str]:
+    filename = PurePosixPath(str(value).replace("\\", "/")).name.strip()
+    normalized = unicodedata.normalize("NFC", filename)
+    path = PurePosixPath(normalized)
+    return path.stem, path.suffix.lower()
