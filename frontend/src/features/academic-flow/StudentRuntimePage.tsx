@@ -171,7 +171,9 @@ export function StudentRuntimePage({
       }));
       setNotice("文件上传成功，可以提交节点");
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "文件上传失败");
+      const message = reason instanceof Error ? reason.message : "文件上传失败";
+      setNotice("");
+      window.alert(message);
     } finally {
       setBusyNodeId(null);
     }

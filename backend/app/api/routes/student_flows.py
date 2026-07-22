@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.domain.form_fields import FormAnswerValidationError
-from app.domain.workflow_runtime import validate_file_metadata
+from app.domain.workflow_runtime import validate_file_metadata, validate_template_filename
 from app.repositories.flow_files import (
     FileContextError,
     get_upload_context,
@@ -111,6 +111,14 @@ def upload_node_file(
     filename = PurePosixPath(str(file.filename or "").replace("\\", "/")).name
     if not filename:
         raise HTTPException(status_code=422, detail="请选择文件后再上传")
+    authoritative_filename = filename
+    if context.template_original_name:
+        try:
+            authoritative_filename = validate_template_filename(
+                filename, context.template_original_name
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     digest = hashlib.sha256()
     size_bytes = 0
     file.file.seek(0)
@@ -119,7 +127,7 @@ def upload_node_file(
         digest.update(chunk)
     file.file.seek(0)
     try:
-        validate_file_metadata(context.config_node, filename, size_bytes)
+        validate_file_metadata(context.config_node, authoritative_filename, size_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -130,7 +138,7 @@ def upload_node_file(
         "submissions",
         context.flow_id,
         context.flow_instance_id,
-        timestamped_object_name(filename, sha256),
+        timestamped_object_name(authoritative_filename, sha256),
     )
     try:
         uploaded = get_object_storage().put_object(storage_key, file.file, content_type)
@@ -144,7 +152,7 @@ def upload_node_file(
             node_instance_id=node_instance_id,
             student_id=student_id,
             storage_key=storage_key,
-            original_name=filename,
+            original_name=authoritative_filename,
             content_type=content_type,
             size_bytes=size_bytes,
             sha256=sha256,
