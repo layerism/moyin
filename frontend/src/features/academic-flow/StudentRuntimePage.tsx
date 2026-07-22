@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, type DragEvent as ReactDragEvent } from "
 import Markdown from "react-markdown";
 
 import type { AcademicFlowNode } from "../../types";
-import { workflowApi } from "./api";
+import { ApiError, workflowApi } from "./api";
+import { validateFormAnswers } from "./formFields";
+import { ReadonlyFormFields, RuntimeFormFields } from "./RuntimeFormFields";
 import type {
   RuntimeFlowInstance,
   RuntimeNodeInstance,
@@ -39,6 +41,9 @@ export function StudentRuntimePage({
   const [notice, setNotice] = useState("");
   const [busyNodeId, setBusyNodeId] = useState<string | null>(null);
   const [activeNodeKey, setActiveNodeKey] = useState<string | null>(null);
+  const [fieldErrorsByNode, setFieldErrorsByNode] = useState<
+    Record<string, Record<string, string>>
+  >({});
 
   useEffect(() => {
     if (initialInstance?.id === instanceId) return;
@@ -114,11 +119,24 @@ export function StudentRuntimePage({
   const activeNode = instance?.config.nodes.find((node) => node.id === activeNodeKey) ?? null;
   const activeRuntime = activeNodeKey ? runtimeByKey.get(activeNodeKey) ?? null : null;
 
-  const updateDraft = (runtimeId: string, field: string, value: unknown) => {
+  const updateDraft = (
+    runtimeId: string,
+    field: string,
+    value: unknown,
+    fieldId?: string,
+  ) => {
     setDrafts((current) => ({
       ...current,
       [runtimeId]: { ...(current[runtimeId] ?? {}), [field]: value },
     }));
+    if (fieldId) {
+      setFieldErrorsByNode((current) => {
+        if (!current[runtimeId]?.[fieldId]) return current;
+        const nextNodeErrors = { ...current[runtimeId] };
+        delete nextNodeErrors[fieldId];
+        return { ...current, [runtimeId]: nextNodeErrors };
+      });
+    }
   };
 
   const save = async (runtime: RuntimeNodeInstance) => {
@@ -169,6 +187,7 @@ export function StudentRuntimePage({
         `${runtime.id}-${Date.now()}`,
       );
       setInstance(next);
+      setFieldErrorsByNode((current) => ({ ...current, [runtime.id]: {} }));
       const submittedNode = next.nodeInstances.find((node) => node.id === runtime.id);
       if (submittedNode?.status === "approved") {
         setActiveNodeKey(null);
@@ -177,6 +196,12 @@ export function StudentRuntimePage({
         setNotice("节点已提交，正在自动审核");
       }
     } catch (reason) {
+      if (reason instanceof ApiError && Object.keys(reason.fieldErrors).length > 0) {
+        setFieldErrorsByNode((current) => ({
+          ...current,
+          [runtime.id]: reason.fieldErrors,
+        }));
+      }
       setNotice(reason instanceof Error ? reason.message : "提交失败");
     } finally {
       setBusyNodeId(null);
@@ -278,6 +303,8 @@ export function StudentRuntimePage({
         <RuntimeNodeDialog
           busy={busyNodeId === activeRuntime.id}
           draft={drafts[activeRuntime.id] ?? {}}
+          fieldErrors={fieldErrorsByNode[activeRuntime.id] ?? {}}
+          key={activeRuntime.id}
           node={activeNode}
           onClose={() => setActiveNodeKey(null)}
           onDownloadTemplate={() => void downloadTemplate(activeRuntime)}
@@ -285,7 +312,12 @@ export function StudentRuntimePage({
           onRetryAudit={() => void retryAudit(activeRuntime)}
           onSubmit={() => void submit(activeRuntime)}
           onUploadFile={(file) => uploadFile(activeRuntime, file)}
-          onUpdate={(field, value) => updateDraft(activeRuntime.id, field, value)}
+          onUpdate={(field, value, fieldId) => updateDraft(
+            activeRuntime.id,
+            field,
+            value,
+            fieldId,
+          )}
           runtime={activeRuntime}
         />
       ) : null}
@@ -296,6 +328,7 @@ export function StudentRuntimePage({
 function RuntimeNodeDialog({
   busy,
   draft,
+  fieldErrors,
   node,
   onClose,
   onDownloadTemplate,
@@ -308,6 +341,7 @@ function RuntimeNodeDialog({
 }: {
   busy: boolean;
   draft: Record<string, unknown>;
+  fieldErrors: Record<string, string>;
   node: AcademicFlowNode;
   onClose: () => void;
   onDownloadTemplate: () => void;
@@ -315,7 +349,7 @@ function RuntimeNodeDialog({
   onRetryAudit: () => void;
   onSubmit: () => void;
   onUploadFile: (file: File) => Promise<void>;
-  onUpdate: (field: string, value: unknown) => void;
+  onUpdate: (field: string, value: unknown, fieldId?: string) => void;
   runtime: RuntimeNodeInstance;
 }) {
   const writable = writableStatuses.has(runtime.status);
@@ -325,6 +359,8 @@ function RuntimeNodeDialog({
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadingFileName, setUploadingFileName] = useState("");
   const [clock, setClock] = useState(Date.now());
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [touchedFieldIds, setTouchedFieldIds] = useState<Set<string>>(() => new Set());
   const draftFile = getDraftFile(draft.file);
   const fileReady = Boolean(draftFile?.fileId);
   const templateRequired = Boolean(runtime.template);
@@ -332,6 +368,14 @@ function RuntimeNodeDialog({
   const fileBusy = busy || isUploadingFile || !uploadUnlocked;
   const submitDisabled = busy || (
     node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile)
+  );
+  const clientFieldErrors = node.kind === "form"
+    ? validateFormAnswers(node.infoFields, draft)
+    : {};
+  const visibleFieldErrors = Object.fromEntries(
+    Object.entries({ ...clientFieldErrors, ...fieldErrors }).filter(([fieldId]) =>
+      submitAttempted || touchedFieldIds.has(fieldId) || Boolean(fieldErrors[fieldId]),
+    ),
   );
 
   useEffect(() => {
@@ -356,6 +400,20 @@ function RuntimeNodeDialog({
     setIsDraggingFile(false);
     const file = event.dataTransfer.files?.[0];
     if (file && !fileBusy) void uploadSelectedFile(file);
+  };
+
+  const handleSubmit = () => {
+    if (node.kind === "form" && Object.keys(clientFieldErrors).length > 0) {
+      setSubmitAttempted(true);
+      const firstFieldId = Object.keys(clientFieldErrors)[0];
+      window.requestAnimationFrame(() => {
+        document.querySelector<HTMLElement>(
+          `[data-form-field-id="${firstFieldId}"]`,
+        )?.focus();
+      });
+      return;
+    }
+    onSubmit();
   };
   return (
     <div className="runtime-node-dialog-backdrop" onMouseDown={onClose}>
@@ -394,17 +452,15 @@ function RuntimeNodeDialog({
           </>
         ) : writable ? (
           <div className="runtime-node-form">
-          {node.kind === "form"
-            ? node.infoFields.map((field) => (
-                <label key={field}>
-                  <span>{field}</span>
-                  <input
-                    value={String(draft[field] ?? "")}
-                    onChange={(event) => onUpdate(field, event.target.value)}
-                  />
-                </label>
-              ))
-            : null}
+          {node.kind === "form" ? (
+            <RuntimeFormFields
+              errors={visibleFieldErrors}
+              fields={node.infoFields}
+              onBlur={(fieldId) => setTouchedFieldIds((current) => new Set(current).add(fieldId))}
+              onUpdate={(answerKey, value, fieldId) => onUpdate(answerKey, value, fieldId)}
+              payload={draft}
+            />
+          ) : null}
           {node.kind === "file" ? (
             <div className={`runtime-template-steps${templateRequired ? " has-template" : ""}`}>
             {runtime.template ? (
@@ -473,7 +529,7 @@ function RuntimeNodeDialog({
           <div className="runtime-node-actions">
             <button disabled={fileBusy} onClick={onSave}>暂存</button>
             <div className="runtime-submit-control">
-              <button className="primary-action" disabled={submitDisabled} onClick={onSubmit}>
+              <button className="primary-action" disabled={submitDisabled} onClick={handleSubmit}>
                 {isUploadingFile ? "正在上传" : busy ? "处理中" : "提交节点"}
               </button>
               {node.kind === "file" && !fileReady ? <small>请先上传文件</small> : null}
@@ -503,16 +559,7 @@ function ReadonlySubmission({
   submittedAt: string | null;
 }) {
   if (node.kind === "form") {
-    return (
-      <section className="runtime-readonly-submission">
-        {node.infoFields.map((field) => (
-          <div className="runtime-readonly-field" key={field}>
-            <small>{field}</small>
-            <strong>{formatSubmittedValue(payload[field])}</strong>
-          </div>
-        ))}
-      </section>
-    );
+    return <ReadonlyFormFields fields={node.infoFields} payload={payload} />;
   }
   if (node.kind === "file") {
     const file = payload.file;

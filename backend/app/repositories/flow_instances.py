@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.core.database import get_connection
+from app.domain.form_fields import normalize_form_answers
 from app.domain.workflow_runtime import (
     incoming_nodes,
     node_by_key,
@@ -377,6 +378,7 @@ def save_node_draft(
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
         config = json.loads(row["config_snapshot"])
+        node = node_by_key(config, row["node_key"])
         statuses = {
             item["node_key"]: item["status"]
             for item in connection.execute(
@@ -386,13 +388,18 @@ def save_node_draft(
         }
         base_status = pending_node_status(
             all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
-            node_by_key(config, row["node_key"]).get("startAt"),
+            node.get("startAt"),
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )
         if base_status != "available":
             raise RuntimeConflictError("当前节点尚未开放或已截止")
         if row["status"] not in {"available", "draft", "rejected", "scheduled", "locked", "expired"}:
             raise RuntimeConflictError("当前节点不可暂存")
+        draft_payload = (
+            normalize_form_answers(node, payload, strict=False)
+            if node.get("kind") == "form"
+            else payload
+        )
         connection.execute(
             """
             INSERT INTO node_drafts (node_instance_id, payload, updated_at)
@@ -400,7 +407,7 @@ def save_node_draft(
             ON CONFLICT(node_instance_id) DO UPDATE
             SET payload = excluded.payload, updated_at = excluded.updated_at
             """,
-            (node_instance_id, canonical_json(payload), now),
+            (node_instance_id, canonical_json(draft_payload), now),
         )
         connection.execute(
             "UPDATE node_instances SET status = 'draft' WHERE id = ?", (node_instance_id,)
@@ -505,10 +512,13 @@ def submit_node(
                     "size": uploaded_file["size_bytes"],
                     "type": uploaded_file["content_type"],
                 }
-            try:
-                validate_submission(node, submission_payload)
-            except ValueError as exc:
-                raise RuntimeConflictError(str(exc)) from exc
+            if node.get("kind") == "form":
+                submission_payload = normalize_form_answers(node, payload, strict=True)
+            else:
+                try:
+                    validate_submission(node, submission_payload)
+                except ValueError as exc:
+                    raise RuntimeConflictError(str(exc)) from exc
             attempt_no = int(row["attempt_no"]) + 1
             submission_status = (
                 "reviewing"

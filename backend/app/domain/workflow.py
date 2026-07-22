@@ -2,6 +2,8 @@ from collections import defaultdict, deque
 from datetime import UTC, datetime
 from typing import Any
 
+from app.domain.form_fields import FormFieldConfigError, validate_form_config
+
 
 class FlowValidationError(ValueError):
     pass
@@ -24,6 +26,10 @@ def validate_flow_config(config: dict[str, Any]) -> None:
     for node in nodes:
         _validate_node_time_window(node)
         _validate_node_template(node)
+        try:
+            validate_form_config(node)
+        except FormFieldConfigError as exc:
+            raise FlowValidationError(str(exc)) from exc
 
     indegree = {node_id: 0 for node_id in node_ids}
     adjacency: dict[str, list[str]] = defaultdict(list)

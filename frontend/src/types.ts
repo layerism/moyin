@@ -71,6 +71,27 @@ export type AuditScriptType = "js" | "mjs" | "none" | "py";
 export type AcademicFlowNodeStatus = "approved" | "disabled" | "pending" | "ready";
 export type AcademicFlowNodeKind = "announcement" | "confirmation" | "file" | "form";
 export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
+export type FormFieldType = "text" | "textarea" | "radio" | "checkbox";
+
+export type FormFieldOption = {
+  id: string;
+  label: string;
+};
+
+export type FormField = {
+  allowOther?: boolean;
+  id: string;
+  label: string;
+  maxLength?: number;
+  maxSelections?: number;
+  minLength?: number;
+  minSelections?: number;
+  options?: FormFieldOption[];
+  required: boolean;
+  type: FormFieldType;
+};
+
+export type FormFieldConfig = string | FormField;
 
 export type NodeTemplateAsset = {
   assetId: string;
@@ -93,7 +114,7 @@ export type AcademicFlowNode = {
   fileExtensions: string;
   fileLimitMb: string;
   id: string;
-  infoFields: string[];
+  infoFields: FormFieldConfig[];
   kind: AcademicFlowNodeKind;
   requirement: string;
   startAt?: string | null;

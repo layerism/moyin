@@ -42,6 +42,8 @@ import {
   getRevisionEditing,
 } from "./publishButtonState";
 import { FlowRosterDialog } from "./FlowRosterDialog";
+import { FormFieldEditor } from "./FormFieldEditor";
+import { validateFormFieldConfig } from "./formFields";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
 import { getAbsoluteShareUrl } from "./shareUrl";
@@ -254,6 +256,16 @@ export function AcademicFlowDesigner({
 
   const preparePublish = async () => {
     const candidate = structuredClone(workingProcess);
+    const invalidFormNode = candidate.nodes.find(
+      (node) => node.kind === "form"
+        && Object.keys(validateFormFieldConfig(node.infoFields)).length > 0,
+    );
+    if (invalidFormNode) {
+      setActiveNodeId(invalidFormNode.id);
+      setInspectorNodeId(invalidFormNode.id);
+      setActionNotice("请先修正表单字段配置");
+      return;
+    }
     if (!workingProcess.published) {
       await publishProcess(candidate);
       return;
@@ -1382,24 +1394,6 @@ function NodeInspector({
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
   const scriptLocksFileTypes = Boolean(node.auditScriptAcceptedExtensions?.length);
 
-  const addInfoField = () => {
-    onUpdateNode(node.id, { infoFields: [...node.infoFields, "新增字段"] });
-  };
-
-  const updateInfoField = (index: number, value: string) => {
-    onUpdateNode(node.id, {
-      infoFields: node.infoFields.map((field, fieldIndex) =>
-        fieldIndex === index ? value : field,
-      ),
-    });
-  };
-
-  const deleteInfoField = (index: number) => {
-    onUpdateNode(node.id, {
-      infoFields: node.infoFields.filter((_, fieldIndex) => fieldIndex !== index),
-    });
-  };
-
   return (
     <div className="node-inspector-backdrop">
       <aside
@@ -1477,23 +1471,11 @@ function NodeInspector({
         </section>
         {settingCapabilities.collectsInformation ? (
           <section className="inspector-section" aria-disabled={nodeCoreLocked}>
-            <div className="section-heading">
-              <h3>采集用户信息</h3>
-              <button disabled={nodeCoreLocked} onClick={addInfoField} type="button">
-                + 添加字段
-              </button>
-            </div>
-            {node.infoFields.map((field, index) => (
-              <div className="field-row" key={`${node.id}-${index}`}>
-                <span>☰</span>
-                <input disabled={nodeCoreLocked} value={field} onChange={(event) => updateInfoField(index, event.target.value)} />
-                <em>必填</em>
-                <button disabled={nodeCoreLocked} onClick={() => deleteInfoField(index)} type="button">
-                  ×
-                </button>
-              </div>
-            ))}
-            {node.infoFields.length === 0 && <p className="muted-line">该节点暂无用户信息字段。</p>}
+            <FormFieldEditor
+              disabled={nodeCoreLocked}
+              fields={node.infoFields}
+              onChange={(infoFields) => onUpdateNode(node.id, { infoFields })}
+            />
           </section>
         ) : null}
 

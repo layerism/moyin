@@ -42,13 +42,24 @@ export type FlowRoster = {
 };
 
 export class ApiError extends Error {
+  public fieldErrors: Record<string, string>;
   public status: number;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    fieldErrors: Record<string, string> = {},
+  ) {
     super(message);
+    this.fieldErrors = fieldErrors;
     this.status = status;
   }
 }
+
+type ErrorDetail = string | {
+  fieldErrors?: Record<string, string>;
+  message?: string;
+};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isMultipart =
@@ -63,8 +74,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       : init?.headers,
   });
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as { detail?: string } | null;
-    throw new ApiError(response.status, body?.detail ?? "请求失败");
+    const body = (await response.json().catch(() => null)) as { detail?: ErrorDetail } | null;
+    const detail = body?.detail;
+    if (detail && typeof detail === "object") {
+      throw new ApiError(
+        response.status,
+        detail.message ?? "请求失败",
+        detail.fieldErrors ?? {},
+      );
+    }
+    throw new ApiError(response.status, detail ?? "请求失败");
   }
   if (response.status === 204) {
     return undefined as T;

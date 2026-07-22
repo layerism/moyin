@@ -2,6 +2,8 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
+from app.domain.form_fields import normalize_form_answers
+
 
 def parse_datetime(value: str | None) -> datetime | None:
     if not value:
@@ -56,13 +58,7 @@ def node_by_key(config: dict[str, Any], node_key: str) -> dict[str, Any]:
 def validate_submission(node: dict[str, Any], payload: dict[str, Any]) -> None:
     kind = node.get("kind")
     if kind == "form":
-        missing = [
-            str(field)
-            for field in node.get("infoFields", [])
-            if not _has_value(payload.get(str(field)))
-        ]
-        if missing:
-            raise ValueError(f"请填写：{', '.join(missing)}")
+        normalize_form_answers(node, payload, strict=True)
         return
 
     if kind in {"announcement", "confirmation"}:
@@ -102,11 +98,3 @@ def validate_file_metadata(node: dict[str, Any], file_name: str, file_size: obje
             raise ValueError("文件大小信息无效") from exc
         if limit_mb > 0 and file_size_value > limit_mb * 1024 * 1024:
             raise ValueError(f"文件大小不能超过 {raw_limit} MB")
-
-
-def _has_value(value: object) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, str):
-        return bool(value.strip())
-    return True
