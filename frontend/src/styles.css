@@ -3865,6 +3865,99 @@ button {
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
 }
 
+.runtime-upload-warning-backdrop {
+  position: fixed;
+  z-index: 160;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.runtime-upload-warning-dialog {
+  width: min(440px, 100%);
+  padding: 24px;
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.26);
+}
+
+.runtime-upload-warning-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fee4e2;
+  color: #d92d20;
+}
+
+.runtime-upload-warning-icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.runtime-upload-warning-copy {
+  margin-top: 18px;
+}
+
+.runtime-upload-warning-copy > span {
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.runtime-upload-warning-copy h3 {
+  margin: 5px 0 12px;
+  color: #1d2939;
+  font-size: 20px;
+  line-height: 1.35;
+}
+
+.runtime-upload-warning-copy p {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid #fecdca;
+  border-radius: 8px;
+  background: #fff5f5;
+  color: #b42318;
+  font-size: 14px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.runtime-upload-warning-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.runtime-upload-warning-dialog footer button {
+  min-width: 112px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid #1d6feb;
+  border-radius: 8px;
+  background: #1d6feb;
+  box-shadow: 0 2px 4px rgb(29 111 235 / 20%);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.runtime-upload-warning-dialog footer button:hover {
+  border-color: #175cd3;
+  background: #175cd3;
+}
+
+.runtime-upload-warning-dialog footer button:focus-visible {
+  outline: 3px solid rgb(29 111 235 / 22%);
+  outline-offset: 2px;
+}
+
 .runtime-node-dialog > header {
   display: flex;
   align-items: flex-start;

@@ -173,7 +173,7 @@ export function StudentRuntimePage({
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "文件上传失败";
       setNotice("");
-      window.alert(message);
+      throw reason instanceof Error ? reason : new Error(message);
     } finally {
       setBusyNodeId(null);
     }
@@ -359,6 +359,7 @@ function RuntimeNodeDialog({
   const displayedPayload = readonly ? runtime.submission : draft;
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [uploadWarning, setUploadWarning] = useState("");
   const [uploadingFileName, setUploadingFileName] = useState("");
   const [clock, setClock] = useState(Date.now());
   const [submitAttempted, setSubmitAttempted] = useState(false);
@@ -387,10 +388,13 @@ function RuntimeNodeDialog({
   }, [runtime.status]);
 
   const uploadSelectedFile = async (file: File) => {
+    setUploadWarning("");
     setUploadingFileName(file.name);
     setIsUploadingFile(true);
     try {
       await onUploadFile(file);
+    } catch (reason) {
+      setUploadWarning(reason instanceof Error ? reason.message : "文件上传失败");
     } finally {
       setIsUploadingFile(false);
       setUploadingFileName("");
@@ -547,6 +551,38 @@ function RuntimeNodeDialog({
           </div>
         ) : <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>}
       </section>
+      {uploadWarning ? (
+        <div
+          className="runtime-upload-warning-backdrop"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <section
+            aria-describedby="runtime-upload-warning-message"
+            aria-labelledby="runtime-upload-warning-title"
+            aria-modal="true"
+            className="runtime-upload-warning-dialog"
+            role="alertdialog"
+          >
+            <span aria-hidden="true" className="runtime-upload-warning-icon">
+              <svg fill="none" viewBox="0 0 24 24">
+                <path d="M12 8v5" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+                <path d="M12 16.5h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="2.5" />
+                <path d="M10.3 4.4 3.2 17a2 2 0 0 0 1.75 3h14.1a2 2 0 0 0 1.75-3L13.7 4.4a1.95 1.95 0 0 0-3.4 0Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
+              </svg>
+            </span>
+            <div className="runtime-upload-warning-copy">
+              <span>文件校验</span>
+              <h3 id="runtime-upload-warning-title">文件上传未通过</h3>
+              <p id="runtime-upload-warning-message">{uploadWarning}</p>
+            </div>
+            <footer>
+              <button autoFocus onClick={() => setUploadWarning("")} type="button">
+                我知道了
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
