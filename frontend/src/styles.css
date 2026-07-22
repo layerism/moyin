@@ -4262,6 +4262,22 @@ button {
   font-size: 12px;
 }
 
+.runtime-form-field-select {
+  display: grid;
+  gap: 8px;
+}
+
+.runtime-form-field-select select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 36px 9px 11px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1f2937;
+  font: inherit;
+}
+
 .runtime-form-field-options {
   display: grid;
   gap: 8px;

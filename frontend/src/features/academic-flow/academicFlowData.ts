@@ -4,7 +4,6 @@ import type {
   AcademicProcess,
   AuditScriptType,
 } from "../../types";
-import { createFormField } from "./formFields";
 
 export const nodeTemplates: Array<{
   description: string;
@@ -65,12 +64,7 @@ export function createNode(
     fileExtensions: kind === "file" ? "pdf, doc, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",
     id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    infoFields: kind === "form"
-      ? ["学号", "姓名", "联系电话"].map((label) => ({
-          ...createFormField("text"),
-          label,
-        }))
-      : [],
+    infoFields: [],
     kind,
     requirement: getDefaultRequirement(kind, title),
     startAt: null,

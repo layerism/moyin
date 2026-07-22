@@ -72,37 +72,31 @@ export function RuntimeFormFields({
             ) : null}
 
             {field.type === "radio" ? (
-              <div className="runtime-form-field-options" onBlur={() => onBlur(field.id)}>
-                {(field.options ?? []).map((option) => (
-                  <label key={option.id}>
-                    <input
-                      checked={selectedRadio === option.id}
-                      name={`field-${field.id}`}
-                      type="radio"
-                      onChange={() => onUpdate(field.answerKey, {
-                        otherText: null,
-                        selectedOptionId: option.id,
-                      }, field.id)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-                {field.allowOther ? (
-                  <ChoiceOther
-                    checked={selectedRadio === OTHER_OPTION_ID}
-                    fieldId={field.id}
-                    multiple={false}
-                    onCheck={() => onUpdate(field.answerKey, {
-                      otherText: selectedRadio === OTHER_OPTION_ID ? answer?.otherText ?? "" : "",
+              <div className="runtime-form-field-select" onBlur={() => onBlur(field.id)}>
+                <select
+                  aria-describedby={error ? errorId : undefined}
+                  value={selectedRadio ?? ""}
+                  onChange={(event) => onUpdate(field.answerKey, {
+                    otherText: event.target.value === OTHER_OPTION_ID ? "" : null,
+                    selectedOptionId: event.target.value || null,
+                  }, field.id)}
+                >
+                  <option value="">请选择</option>
+                  {(field.options ?? []).map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                  {field.allowOther ? <option value={OTHER_OPTION_ID}>其他</option> : null}
+                </select>
+                {selectedRadio === OTHER_OPTION_ID ? (
+                  <input
+                    aria-label="其他内容"
+                    placeholder="请填写其他内容"
+                    type="text"
+                    value={typeof answer?.otherText === "string" ? answer.otherText : ""}
+                    onChange={(event) => onUpdate(field.answerKey, {
+                      otherText: event.target.value,
                       selectedOptionId: OTHER_OPTION_ID,
                     }, field.id)}
-                    onText={(otherText) => onUpdate(field.answerKey, {
-                      otherText,
-                      selectedOptionId: OTHER_OPTION_ID,
-                    }, field.id)}
-                    text={selectedRadio === OTHER_OPTION_ID && typeof answer?.otherText === "string"
-                      ? answer.otherText
-                      : ""}
                   />
                 ) : null}
               </div>
@@ -129,8 +123,6 @@ export function RuntimeFormFields({
                 {field.allowOther ? (
                   <ChoiceOther
                     checked={selectedCheckboxes.has(OTHER_OPTION_ID)}
-                    fieldId={field.id}
-                    multiple
                     onCheck={(checked) => onUpdate(field.answerKey, checkboxAnswer(
                       field.options?.map((item) => item.id) ?? [],
                       selectedCheckboxes,
@@ -182,15 +174,11 @@ export function ReadonlyFormFields({
 
 function ChoiceOther({
   checked,
-  fieldId,
-  multiple,
   onCheck,
   onText,
   text,
 }: {
   checked: boolean;
-  fieldId: string;
-  multiple: boolean;
   onCheck: (checked: boolean) => void;
   onText: (value: string) => void;
   text: string;
@@ -200,8 +188,7 @@ function ChoiceOther({
       <label>
         <input
           checked={checked}
-          name={multiple ? undefined : `field-${fieldId}`}
-          type={multiple ? "checkbox" : "radio"}
+          type="checkbox"
           onChange={(event) => onCheck(event.target.checked)}
         />
         <span>其他</span>
