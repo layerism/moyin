@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.domain.form_fields import FormAnswerValidationError
 from app.domain.workflow_runtime import validate_file_metadata
 from app.repositories.flow_files import (
     FileContextError,
@@ -52,6 +53,14 @@ class SubmitRequest(BaseModel):
 
 
 def runtime_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, FormAnswerValidationError):
+        return HTTPException(
+            status_code=422,
+            detail={
+                "message": "表单内容未通过校验",
+                "fieldErrors": exc.field_errors,
+            },
+        )
     if isinstance(exc, RosterAccessError):
         return HTTPException(status_code=403, detail=str(exc))
     if isinstance(exc, KeyError):
@@ -255,7 +264,13 @@ def post_submit(
             payload.payload,
             payload.idempotencyKey,
         )
-    except (KeyError, RosterAccessError, RuntimeConflictError, RuntimeDeadlineError) as exc:
+    except (
+        KeyError,
+        RosterAccessError,
+        FormAnswerValidationError,
+        RuntimeConflictError,
+        RuntimeDeadlineError,
+    ) as exc:
         raise runtime_error(exc) from exc
 
 

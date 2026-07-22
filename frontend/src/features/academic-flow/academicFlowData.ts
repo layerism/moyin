@@ -4,14 +4,15 @@ import type {
   AcademicProcess,
   AuditScriptType,
 } from "../../types";
+import { createFormField } from "./formFields";
 
 export const nodeTemplates: Array<{
   description: string;
   kind: AcademicFlowNodeKind;
   title: string;
 }> = [
-  { kind: "form", title: "信息填写", description: "填写文本、数字、日期等信息" },
-  { kind: "form", title: "表单填写", description: "自定义表单，包含多种题型" },
+  { kind: "form", title: "信息填写", description: "填写基础文本信息" },
+  { kind: "form", title: "表单填写", description: "自定义文本与选择题" },
   { kind: "file", title: "文件上传", description: "上传文件，支持类型与大小限制" },
   { kind: "confirmation", title: "确认承诺", description: "签署承诺书或确认协议" },
   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
@@ -64,7 +65,12 @@ export function createNode(
     fileExtensions: kind === "file" ? "pdf, doc, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",
     id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    infoFields: kind === "form" ? ["学号", "姓名", "联系电话"] : [],
+    infoFields: kind === "form"
+      ? ["学号", "姓名", "联系电话"].map((label) => ({
+          ...createFormField("text"),
+          label,
+        }))
+      : [],
     kind,
     requirement: getDefaultRequirement(kind, title),
     startAt: null,
