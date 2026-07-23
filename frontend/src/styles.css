@@ -4721,42 +4721,92 @@ button {
 }
 
 .progress-extension-trigger:focus-visible,
+.student-extension-dialog > header button:focus-visible,
 .student-extension-actions button:focus-visible {
   outline: 2px solid #84adff;
   outline-offset: 2px;
 }
 
-.student-extension-row > td {
-  padding: 0 8px 14px;
-  background: #f8fafc;
+.student-extension-backdrop {
+  position: fixed;
+  z-index: 150;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(16 24 40 / 48%);
 }
 
-.student-extension-card {
-  padding: 16px;
-  border: 1px solid #b2ccff;
-  border-radius: 8px;
-  background: #f5f8ff;
+.student-extension-dialog {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 48px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 24px 64px rgb(16 24 40 / 28%);
+  outline: none;
 }
 
-.student-extension-card h3,
-.student-extension-card p {
-  margin: 0;
+.student-extension-dialog > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid #e4e7ec;
 }
 
-.student-extension-card > p {
-  margin-top: 4px;
-  color: #475467;
+.student-extension-dialog > header span {
+  color: #175cd3;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.student-extension-dialog > header h3 {
+  margin: 4px 0 0;
+  font-size: 20px;
+}
+
+.student-extension-dialog > header p {
+  margin: 5px 0 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.student-extension-dialog > header button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #fff;
+  color: #344054;
+  font-size: 22px;
+}
+
+.student-extension-dialog-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 22px;
 }
 
 .student-extension-empty {
-  margin-top: 14px !important;
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed #b2ccff;
+  border-radius: 8px;
+  background: #f5f8ff;
+  color: #475467;
 }
 
 .student-extension-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+  gap: 14px;
 }
 
 .student-extension-field {
@@ -4773,14 +4823,22 @@ button {
 
 .student-extension-field > input,
 .student-extension-field > select {
+  width: 100%;
   min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #fff;
+  color: #172033;
 }
 
 .student-extension-deadline {
   min-height: 40px;
   display: flex;
   align-items: center;
+  min-width: 0;
   padding: 0 12px;
+  overflow-wrap: anywhere;
   border: 1px solid #d0d5dd;
   border-radius: 6px;
   background: #fff;
@@ -4790,11 +4848,25 @@ button {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 14px;
+  margin: 0;
+  padding: 14px 22px;
+  border-top: 1px solid #e4e7ec;
+  background: #f8fafc;
 }
 
 .student-extension-actions button {
+  min-width: 92px;
   min-height: 38px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.student-extension-actions .primary-action {
+  border: 1px solid #2874f6;
+  background: #2874f6;
+  color: #fff;
 }
 
 .student-extension-actions button:disabled {
@@ -4803,9 +4875,7 @@ button {
 }
 
 .student-extension-cancel {
-  padding: 0 14px;
   border: 1px solid #98a2b3;
-  border-radius: 6px;
   background: #fff;
   color: #344054;
 }
@@ -4933,13 +5003,34 @@ button {
     margin-left: 18px;
   }
 
+  .student-extension-backdrop {
+    padding: 12px;
+  }
+
+  .student-extension-dialog {
+    max-height: calc(100vh - 24px);
+  }
+
+  .student-extension-dialog > header,
+  .student-extension-dialog-body {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
   .student-extension-fields {
     grid-template-columns: 1fr;
   }
 
   .student-extension-actions {
-    align-items: stretch;
-    flex-direction: column-reverse;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .student-extension-actions button {
+    width: 100%;
+    min-width: 0;
   }
 }
 
