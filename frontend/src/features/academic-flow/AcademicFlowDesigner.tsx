@@ -1385,6 +1385,17 @@ function NodeInspector({
     };
   }, []);
 
+  const [startAtDraft, setStartAtDraft] = useState("");
+  const [deadlineAtDraft, setDeadlineAtDraft] = useState("");
+
+  useEffect(() => {
+    setStartAtDraft(node?.startAt ? toLocalDateTime(node.startAt) : "");
+  }, [node?.id, node?.startAt]);
+
+  useEffect(() => {
+    setDeadlineAtDraft(node?.deadlineAt ? toLocalDateTime(node.deadlineAt) : "");
+  }, [node?.id, node?.deadlineAt]);
+
   if (!node) {
     return null;
   }
@@ -1393,6 +1404,8 @@ function NodeInspector({
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
   const scriptLocksFileTypes = Boolean(node.auditScriptAcceptedExtensions?.length);
+  const confirmedStartAt = node.startAt ? toLocalDateTime(node.startAt) : "";
+  const confirmedDeadlineAt = node.deadlineAt ? toLocalDateTime(node.deadlineAt) : "";
 
   return (
     <div className="node-inspector-backdrop">
@@ -1443,13 +1456,29 @@ function NodeInspector({
               <span>起始时间</span>
               <input
                 type="datetime-local"
-                value={node.startAt ? toLocalDateTime(node.startAt) : ""}
-                onChange={(event) => onUpdateNode(node.id, {
-                  startAt: event.target.value ? new Date(event.target.value).toISOString() : null,
-                })}
+                value={startAtDraft}
+                onChange={(event) => setStartAtDraft(event.target.value)}
               />
+              <button
+                className="node-time-window-confirm"
+                disabled={!startAtDraft || startAtDraft === confirmedStartAt}
+                onClick={() => onUpdateNode(node.id, {
+                  startAt: new Date(startAtDraft).toISOString(),
+                })}
+                type="button"
+              >
+                确认
+              </button>
               {node.startAt ? (
-                <button onClick={() => onUpdateNode(node.id, { startAt: null })} type="button">清除</button>
+                <button
+                  onClick={() => {
+                    setStartAtDraft("");
+                    onUpdateNode(node.id, { startAt: null });
+                  }}
+                  type="button"
+                >
+                  清除
+                </button>
               ) : null}
             </label>
             <i aria-hidden="true" />
@@ -1457,13 +1486,29 @@ function NodeInspector({
               <span>截止时间</span>
               <input
                 type="datetime-local"
-                value={node.deadlineAt ? toLocalDateTime(node.deadlineAt) : ""}
-                onChange={(event) => onUpdateNode(node.id, {
-                  deadlineAt: event.target.value ? new Date(event.target.value).toISOString() : null,
-                })}
+                value={deadlineAtDraft}
+                onChange={(event) => setDeadlineAtDraft(event.target.value)}
               />
+              <button
+                className="node-time-window-confirm"
+                disabled={!deadlineAtDraft || deadlineAtDraft === confirmedDeadlineAt}
+                onClick={() => onUpdateNode(node.id, {
+                  deadlineAt: new Date(deadlineAtDraft).toISOString(),
+                })}
+                type="button"
+              >
+                确认
+              </button>
               {node.deadlineAt ? (
-                <button onClick={() => onUpdateNode(node.id, { deadlineAt: null })} type="button">清除</button>
+                <button
+                  onClick={() => {
+                    setDeadlineAtDraft("");
+                    onUpdateNode(node.id, { deadlineAt: null });
+                  }}
+                  type="button"
+                >
+                  清除
+                </button>
               ) : null}
             </label>
           </div>
