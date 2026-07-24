@@ -2358,7 +2358,7 @@ button {
 }
 .node-time-window-fields label {
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 .node-time-window-fields label > input { min-width: 0; }
 .node-time-window-fields label > span { grid-column: 1 / -1; }
@@ -2369,6 +2369,17 @@ button {
   background: #fff;
   color: #475569;
   font-weight: 700;
+}
+.node-time-window-fields label > .node-time-window-confirm {
+  border-color: #2874f6;
+  background: #2874f6;
+  color: #fff;
+}
+.node-time-window-fields label > .node-time-window-confirm:disabled {
+  cursor: not-allowed;
+  border-color: #cbd5e1;
+  background: #e2e8f0;
+  color: #94a3b8;
 }
 
 .node-time-window-card > small {
@@ -4960,6 +4971,22 @@ button {
   .node-time-window-fields {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .node-time-window-fields label {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .node-time-window-fields label > input {
+    grid-column: 1 / -1;
+  }
+
+  .node-time-window-fields label > button {
+    width: 100%;
+  }
+
+  .node-time-window-fields label > button:only-of-type {
+    grid-column: 1 / -1;
   }
 
   .node-time-window-card {
