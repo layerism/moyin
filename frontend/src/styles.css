@@ -2577,14 +2577,28 @@ button {
   font-weight: 750;
 }
 
-.node-date-time-picker-footer > button {
+.node-date-time-picker-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.node-date-time-picker-actions > button {
   min-width: 84px;
   min-height: 36px;
-  border: 1px solid #2874f6;
   border-radius: 5px;
+  font-weight: 800;
+}
+
+.node-date-time-picker-actions > button:first-child {
+  border: 1px solid #94a3b8;
+  background: #fff;
+  color: #475569;
+}
+
+.node-date-time-picker-actions > button:last-child {
+  border: 1px solid #2874f6;
   background: #2874f6;
   color: #fff;
-  font-weight: 800;
 }
 
 .node-time-window-card > small {
@@ -5201,7 +5215,14 @@ button {
   }
 
   .node-date-time-picker-footer {
+    align-items: stretch;
+    flex-direction: column;
     justify-content: space-between;
+  }
+
+  .node-date-time-picker-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .node-time-window-card {
