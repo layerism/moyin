@@ -44,6 +44,7 @@ import {
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { FormFieldEditor } from "./FormFieldEditor";
 import { validateFormFieldConfig } from "./formFields";
+import { NodeDateTimePicker } from "./NodeDateTimePicker";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
 import { getAbsoluteShareUrl } from "./shareUrl";
@@ -1385,17 +1386,6 @@ function NodeInspector({
     };
   }, []);
 
-  const [startAtDraft, setStartAtDraft] = useState("");
-  const [deadlineAtDraft, setDeadlineAtDraft] = useState("");
-
-  useEffect(() => {
-    setStartAtDraft(node?.startAt ? toLocalDateTime(node.startAt) : "");
-  }, [node?.id, node?.startAt]);
-
-  useEffect(() => {
-    setDeadlineAtDraft(node?.deadlineAt ? toLocalDateTime(node.deadlineAt) : "");
-  }, [node?.id, node?.deadlineAt]);
-
   if (!node) {
     return null;
   }
@@ -1404,8 +1394,6 @@ function NodeInspector({
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
   const scriptLocksFileTypes = Boolean(node.auditScriptAcceptedExtensions?.length);
-  const confirmedStartAt = node.startAt ? toLocalDateTime(node.startAt) : "";
-  const confirmedDeadlineAt = node.deadlineAt ? toLocalDateTime(node.deadlineAt) : "";
 
   return (
     <div className="node-inspector-backdrop">
@@ -1452,65 +1440,39 @@ function NodeInspector({
             <em>{getTimeWindowStatus(node)}</em>
           </header>
           <div className="node-time-window-fields">
-            <label>
+            <div className="node-time-window-field">
               <span>起始时间</span>
-              <input
-                type="datetime-local"
-                value={startAtDraft}
-                onChange={(event) => setStartAtDraft(event.target.value)}
+              <NodeDateTimePicker
+                ariaLabel="起始时间"
+                onConfirm={(startAt) => onUpdateNode(node.id, { startAt })}
+                value={node.startAt}
               />
-              <button
-                className="node-time-window-confirm"
-                disabled={!startAtDraft || startAtDraft === confirmedStartAt}
-                onClick={() => onUpdateNode(node.id, {
-                  startAt: new Date(startAtDraft).toISOString(),
-                })}
-                type="button"
-              >
-                确认
-              </button>
               {node.startAt ? (
                 <button
-                  onClick={() => {
-                    setStartAtDraft("");
-                    onUpdateNode(node.id, { startAt: null });
-                  }}
+                  onClick={() => onUpdateNode(node.id, { startAt: null })}
                   type="button"
                 >
                   清除
                 </button>
               ) : null}
-            </label>
+            </div>
             <i aria-hidden="true" />
-            <label>
+            <div className="node-time-window-field">
               <span>截止时间</span>
-              <input
-                type="datetime-local"
-                value={deadlineAtDraft}
-                onChange={(event) => setDeadlineAtDraft(event.target.value)}
+              <NodeDateTimePicker
+                ariaLabel="截止时间"
+                onConfirm={(deadlineAt) => onUpdateNode(node.id, { deadlineAt })}
+                value={node.deadlineAt}
               />
-              <button
-                className="node-time-window-confirm"
-                disabled={!deadlineAtDraft || deadlineAtDraft === confirmedDeadlineAt}
-                onClick={() => onUpdateNode(node.id, {
-                  deadlineAt: new Date(deadlineAtDraft).toISOString(),
-                })}
-                type="button"
-              >
-                确认
-              </button>
               {node.deadlineAt ? (
                 <button
-                  onClick={() => {
-                    setDeadlineAtDraft("");
-                    onUpdateNode(node.id, { deadlineAt: null });
-                  }}
+                  onClick={() => onUpdateNode(node.id, { deadlineAt: null })}
                   type="button"
                 >
                   清除
                 </button>
               ) : null}
-            </label>
+            </div>
           </div>
           <small>{getTimeWindowSummary(node)}</small>
         </section>
@@ -1736,12 +1698,6 @@ function getTemplateIcon(kind: AcademicFlowNodeKind) {
     return "◫";
   }
   return "▤";
-}
-
-function toLocalDateTime(value: string) {
-  const date = new Date(value);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
 function getTimeWindowStatus(node: AcademicFlowNode) {

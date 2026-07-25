@@ -2356,13 +2356,21 @@ button {
   border-radius: 999px;
   background: #64748b;
 }
-.node-time-window-fields label {
+.node-time-window-field {
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 750;
 }
-.node-time-window-fields label > input { min-width: 0; }
-.node-time-window-fields label > span { grid-column: 1 / -1; }
-.node-time-window-fields label > button {
+
+.node-time-window-field > span {
+  grid-column: 1 / -1;
+}
+
+.node-time-window-field > button:not(.node-date-time-trigger) {
   padding: 0 9px;
   border: 1px solid #94a3b8;
   border-radius: 5px;
@@ -2370,16 +2378,209 @@ button {
   color: #475569;
   font-weight: 700;
 }
-.node-time-window-fields label > .node-time-window-confirm {
+
+.node-date-time-trigger {
+  min-width: 0;
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid #d7dfe9;
+  border-radius: 5px;
+  background: #fff;
+  color: #1f2937;
+  text-align: left;
+}
+
+.node-date-time-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-date-time-trigger > svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.node-date-time-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+.node-date-time-picker {
+  position: fixed;
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  outline: none;
+  background: #fff;
+  box-shadow: 0 22px 64px rgba(15, 23, 42, 0.28);
+}
+
+.node-date-time-picker-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 176px;
+  min-height: 330px;
+}
+
+.node-date-time-calendar {
+  padding: 18px;
+}
+
+.node-date-time-calendar > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.node-date-time-calendar > header > div {
+  display: flex;
+  gap: 6px;
+}
+
+.node-date-time-calendar > header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d7dfe9;
+  border-radius: 5px;
+  background: #fff;
+  color: #334155;
+  font-size: 22px;
+}
+
+.node-date-time-weekdays,
+.node-date-time-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.node-date-time-weekdays {
+  margin-bottom: 5px;
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
+}
+
+.node-date-time-days button {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #1f2937;
+}
+
+.node-date-time-days button:hover,
+.node-date-time-calendar > header button:hover {
+  border-color: #93b4ea;
+  background: #eff6ff;
+}
+
+.node-date-time-days button.is-adjacent {
+  color: #94a3b8;
+}
+
+.node-date-time-days button.is-today {
+  border-color: #93b4ea;
+}
+
+.node-date-time-days button.is-selected {
   border-color: #2874f6;
   background: #2874f6;
   color: #fff;
+  font-weight: 800;
 }
-.node-time-window-fields label > .node-time-window-confirm:disabled {
-  cursor: not-allowed;
-  border-color: #cbd5e1;
-  background: #e2e8f0;
-  color: #94a3b8;
+
+.node-date-time-time {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 18px 14px;
+  border-left: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.node-date-time-time > div {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+
+.node-date-time-options {
+  max-height: 282px;
+  display: grid;
+  gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.node-date-time-options button {
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #334155;
+}
+
+.node-date-time-options button:hover {
+  border-color: #93b4ea;
+  background: #eff6ff;
+}
+
+.node-date-time-options button.is-selected {
+  border-color: #2874f6;
+  background: #2874f6;
+  color: #fff;
+  font-weight: 800;
+}
+
+.node-date-time-picker-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 12px 18px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
+
+.node-date-time-picker-footer > span {
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+
+.node-date-time-picker-footer > button {
+  min-width: 84px;
+  min-height: 36px;
+  border: 1px solid #2874f6;
+  border-radius: 5px;
+  background: #2874f6;
+  color: #fff;
+  font-weight: 800;
 }
 
 .node-time-window-card > small {
@@ -4973,20 +5174,30 @@ button {
     gap: 10px;
   }
 
-  .node-time-window-fields label {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .node-time-window-field > button {
+    min-height: 38px;
   }
 
-  .node-time-window-fields label > input {
-    grid-column: 1 / -1;
+  .node-date-time-picker {
+    width: calc(100vw - 24px);
   }
 
-  .node-time-window-fields label > button {
-    width: 100%;
+  .node-date-time-picker-body {
+    grid-template-columns: 1fr;
   }
 
-  .node-time-window-fields label > button:only-of-type {
-    grid-column: 1 / -1;
+  .node-date-time-time {
+    min-height: 190px;
+    border-top: 1px solid #e2e8f0;
+    border-left: 0;
+  }
+
+  .node-date-time-options {
+    max-height: 140px;
+  }
+
+  .node-date-time-picker-footer {
+    justify-content: space-between;
   }
 
   .node-time-window-card {
