@@ -2532,7 +2532,11 @@ button {
   gap: 4px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+.node-date-time-options::-webkit-scrollbar {
+  display: none;
 }
 
 .node-date-time-options button {
