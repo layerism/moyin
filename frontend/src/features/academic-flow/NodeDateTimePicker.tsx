@@ -158,10 +158,14 @@ export function NodeDateTimePicker({
     setOpen(true);
   };
 
-  const confirmSelection = () => {
-    onConfirm(normalizeToLocalMinute(selected).toISOString());
+  const closePicker = () => {
     setOpen(false);
     window.requestAnimationFrame(() => triggerRef.current?.focus());
+  };
+
+  const confirmSelection = () => {
+    onConfirm(normalizeToLocalMinute(selected).toISOString());
+    closePicker();
   };
 
   useLayoutEffect(() => {
@@ -385,7 +389,10 @@ export function NodeDateTimePicker({
                 {" "}
                 {pad(selected.getHours())}:{pad(selected.getMinutes())}
               </span>
-              <button onClick={confirmSelection} type="button">确认</button>
+              <div className="node-date-time-picker-actions">
+                <button onClick={closePicker} type="button">取消</button>
+                <button onClick={confirmSelection} type="button">确认</button>
+              </div>
             </footer>
           </section>
         </div>,
