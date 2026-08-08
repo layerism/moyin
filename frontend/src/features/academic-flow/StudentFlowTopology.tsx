@@ -192,7 +192,7 @@ export function StudentFlowTopology({
                 <small>{node.requirement}</small>
                 <span className="student-topology-node-meta">
                   <em>{getKindLabel(node)}</em>
-                  <i>{getTopologyStatusLabel(runtime.status)}</i>
+                  <i>{getTopologyStatusLabel(runtime.status, node.kind)}</i>
                 </span>
               </button>
             );
@@ -212,8 +212,13 @@ function getKindLabel(node: AcademicFlowNode) {
   return "信息填写";
 }
 
-function getTopologyStatusLabel(status: RuntimeNodeStatus): string {
-  if (status === "approved") return "✓ 已完成 · 可查看";
+function getTopologyStatusLabel(
+  status: RuntimeNodeStatus,
+  kind: AcademicFlowNode["kind"],
+): string {
+  if (status === "approved") {
+    return kind === "form" ? "✓ 已完成 · 可修改" : "✓ 已完成 · 可查看";
+  }
   if (status === "available" || status === "draft") return "→ 可填写";
   if (status === "rejected" || status === "audit_error") return "! 需处理";
   if (status === "reviewing" || status === "submitted") return "◌ 审核中";

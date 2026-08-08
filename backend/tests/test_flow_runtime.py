@@ -1,3 +1,4 @@
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -5,6 +6,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.core.config import settings
+from app.core.database import get_connection
 from app.domain.workflow_runtime import validate_submission
 from app.main import app
 
@@ -106,6 +108,140 @@ def test_approved_root_opens_downstream_without_changing_other_students(
         "approved",
         "available",
     ]
+
+
+def test_approved_form_can_be_amended_without_relocking_downstream(
+    client: TestClient,
+) -> None:
+    published = publish_flow(client)
+    register(client, "20260011", "学生甲")
+    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    form = instance["nodeInstances"][0]
+
+    first = client.post(
+        f"/api/student/node-instances/{form['id']}/submit",
+        json={"payload": {"姓名": "旧姓名"}, "idempotencyKey": "form-attempt-1"},
+    )
+    assert first.status_code == 200
+
+    saved = client.put(
+        f"/api/student/node-instances/{form['id']}/draft",
+        json={"payload": {"姓名": "新姓名"}},
+    )
+    assert saved.status_code == 200
+    saved_form = saved.json()["nodeInstances"][0]
+    assert saved_form["status"] == "approved"
+    assert saved_form["submission"] == {"姓名": "旧姓名"}
+    assert saved_form["draft"] == {"姓名": "新姓名"}
+    assert saved.json()["nodeInstances"][1]["status"] == "available"
+
+    amended = client.post(
+        f"/api/student/node-instances/{form['id']}/submit",
+        json={"payload": {"姓名": "新姓名"}, "idempotencyKey": "form-attempt-2"},
+    )
+    assert amended.status_code == 200
+    amended_form = amended.json()["nodeInstances"][0]
+    assert amended_form["status"] == "approved"
+    assert amended_form["attemptNo"] == 2
+    assert amended_form["submission"] == {"姓名": "新姓名"}
+    assert amended_form["draft"] == {}
+    assert amended.json()["nodeInstances"][1]["status"] == "available"
+
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT attempt_no, payload_snapshot, status FROM submissions
+            WHERE node_instance_id = ? ORDER BY attempt_no
+            """,
+            (form["id"],),
+        ).fetchall()
+    assert [
+        (row["attempt_no"], json.loads(row["payload_snapshot"]), row["status"])
+        for row in rows
+    ] == [
+        (1, {"姓名": "旧姓名"}, "approved"),
+        (2, {"姓名": "新姓名"}, "approved"),
+    ]
+
+
+def test_approved_non_form_nodes_remain_locked(client: TestClient) -> None:
+    published = publish_flow(client)
+    register(client, "20260012", "学生乙")
+    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    form = instance["nodeInstances"][0]
+    form_result = client.post(
+        f"/api/student/node-instances/{form['id']}/submit",
+        json={"payload": {"姓名": "学生乙"}, "idempotencyKey": "lock-form"},
+    ).json()
+    confirmation = form_result["nodeInstances"][1]
+    approved = client.post(
+        f"/api/student/node-instances/{confirmation['id']}/submit",
+        json={"payload": {"confirmed": True}, "idempotencyKey": "lock-confirmation"},
+    )
+    assert approved.status_code == 200
+
+    draft = client.put(
+        f"/api/student/node-instances/{confirmation['id']}/draft",
+        json={"payload": {"confirmed": False}},
+    )
+    submit = client.post(
+        f"/api/student/node-instances/{confirmation['id']}/submit",
+        json={"payload": {"confirmed": True}, "idempotencyKey": "locked-again"},
+    )
+    extension = client.put(
+        f"/api/workflow-admin/instances/{instance['id']}/nodes/n2/deadline",
+        json={"deadlineAt": "2031-01-01T00:00:00+00:00", "reason": "不应允许"},
+    )
+
+    assert draft.status_code == 409
+    assert submit.status_code == 409
+    assert extension.status_code == 422
+
+
+def test_expired_approved_form_can_be_amended_after_teacher_extension(
+    client: TestClient,
+) -> None:
+    published = publish_flow(client, deadline_at="2030-01-01T00:00:00+00:00")
+    register(client, "20260031", "延期学生")
+    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    form = instance["nodeInstances"][0]
+    submitted = client.post(
+        f"/api/student/node-instances/{form['id']}/submit",
+        json={"payload": {"姓名": "延期学生"}, "idempotencyKey": "before-expiry"},
+    )
+    assert submitted.status_code == 200
+
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE flow_node_runtime_configs SET deadline_at = ?
+            WHERE flow_version_id = ? AND node_key = 'n1'
+            """,
+            ("2020-01-01T00:00:00+00:00", published["flowVersionId"]),
+        )
+
+    expired_draft = client.put(
+        f"/api/student/node-instances/{form['id']}/draft",
+        json={"payload": {"姓名": "新姓名"}},
+    )
+    expired_submit = client.post(
+        f"/api/student/node-instances/{form['id']}/submit",
+        json={"payload": {"姓名": "新姓名"}, "idempotencyKey": "after-expiry"},
+    )
+    assert expired_draft.status_code == 409
+    assert expired_submit.status_code == 422
+
+    extended = client.put(
+        f"/api/workflow-admin/instances/{instance['id']}/nodes/n1/deadline",
+        json={"deadlineAt": "2031-01-01T00:00:00+00:00", "reason": "允许补正"},
+    )
+    assert extended.status_code == 200
+    restored = client.put(
+        f"/api/student/node-instances/{form['id']}/draft",
+        json={"payload": {"姓名": "新姓名"}},
+    )
+    assert restored.status_code == 200
+    assert restored.json()["nodeInstances"][0]["status"] == "approved"
 
 
 def test_expired_node_rejects_submit_and_override_reopens(client: TestClient) -> None:

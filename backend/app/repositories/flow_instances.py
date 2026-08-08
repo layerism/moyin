@@ -62,6 +62,10 @@ def _json_object(value: object) -> dict[str, object]:
     return parsed if isinstance(parsed, dict) else {}
 
 
+def _is_approved_form_amendment(status: str, node: dict[str, Any]) -> bool:
+    return status == "approved" and node.get("kind") == "form"
+
+
 def _get_or_create_version_instance(
     connection: Any,
     version_id: str,
@@ -379,6 +383,7 @@ def save_node_draft(
         assert_student_roster_access(connection, row["flow_id"], student_id)
         config = json.loads(row["config_snapshot"])
         node = node_by_key(config, row["node_key"])
+        approved_form_amendment = _is_approved_form_amendment(row["status"], node)
         statuses = {
             item["node_key"]: item["status"]
             for item in connection.execute(
@@ -393,7 +398,12 @@ def save_node_draft(
         )
         if base_status != "available":
             raise RuntimeConflictError("当前节点尚未开放或已截止")
-        if row["status"] not in {"available", "draft", "rejected", "scheduled", "locked", "expired"}:
+        if (
+            row["status"] not in {
+                "available", "draft", "rejected", "scheduled", "locked", "expired"
+            }
+            and not approved_form_amendment
+        ):
             raise RuntimeConflictError("当前节点不可暂存")
         draft_payload = (
             normalize_form_answers(node, payload, strict=False)
@@ -409,9 +419,11 @@ def save_node_draft(
             """,
             (node_instance_id, canonical_json(draft_payload), now),
         )
-        connection.execute(
-            "UPDATE node_instances SET status = 'draft' WHERE id = ?", (node_instance_id,)
-        )
+        if not approved_form_amendment:
+            connection.execute(
+                "UPDATE node_instances SET status = 'draft' WHERE id = ?",
+                (node_instance_id,),
+            )
     return get_instance(row["flow_instance_id"], student_id)
 
 
@@ -449,6 +461,8 @@ def submit_node(
                 row["node_key"],
             )
             config = version_config(connection, row["flow_version_id"])
+            node = node_by_key(config, row["node_key"])
+            approved_form_amendment = _is_approved_form_amendment(row["status"], node)
             statuses = {
                 item["node_key"]: item["status"]
                 for item in connection.execute(
@@ -458,16 +472,21 @@ def submit_node(
             }
             base_status = pending_node_status(
                 all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
-                node_by_key(config, row["node_key"]).get("startAt"),
+                node.get("startAt"),
                 deadline,
             )
             if base_status == "expired":
                 raise RuntimeDeadlineError("节点已超过截止时间")
-            if base_status != "available" or row["status"] not in {
-                "available", "draft", "rejected", "scheduled", "locked", "expired"
-            }:
+            if (
+                base_status != "available"
+                or (
+                    row["status"] not in {
+                        "available", "draft", "rejected", "scheduled", "locked", "expired"
+                    }
+                    and not approved_form_amendment
+                )
+            ):
                 raise RuntimeConflictError("当前节点不可提交")
-            node = node_by_key(config, row["node_key"])
             script_values = (
                 node.get("auditScriptId"),
                 node.get("auditScriptVersion"),
@@ -521,9 +540,13 @@ def submit_node(
                     raise RuntimeConflictError(str(exc)) from exc
             attempt_no = int(row["attempt_no"]) + 1
             submission_status = (
-                "reviewing"
+                "approved"
+                if approved_form_amendment
+                else "reviewing"
                 if has_audit_script
-                else "approved" if node.get("autoApprove", True) else "reviewing"
+                else "approved"
+                if node.get("autoApprove", True)
+                else "reviewing"
             )
             submission_id = str(uuid.uuid4())
             connection.execute(
@@ -648,8 +671,10 @@ def set_student_deadline(
         clean_reason = reason.strip()
         if not clean_reason:
             raise StudentDeadlineValidationError("请填写延期原因")
-        if exists["node_status"] == "approved":
-            raise StudentDeadlineValidationError("已通过节点不能延期")
+        config = json.loads(exists["config_snapshot"])
+        node = node_by_key(config, node_key)
+        if exists["node_status"] == "approved" and node.get("kind") != "form":
+            raise StudentDeadlineValidationError("已通过的非表单节点不能延期")
 
         current_deadline_value = exists["override_deadline"] or exists["global_deadline"]
         if current_deadline_value is None:
@@ -687,7 +712,6 @@ def set_student_deadline(
             "SELECT id, status FROM node_instances WHERE flow_instance_id = ? AND node_key = ?",
             (instance_id, node_key),
         ).fetchone()
-        config = json.loads(exists["config_snapshot"])
         statuses = {
             row["node_key"]: row["status"]
             for row in connection.execute(
@@ -697,7 +721,7 @@ def set_student_deadline(
         }
         next_status = pending_node_status(
             all(statuses.get(source) == "approved" for source in incoming_nodes(config)[node_key]),
-            node_by_key(config, node_key).get("startAt"),
+            node.get("startAt"),
             normalized_deadline,
         )
         if next_status == "available":
