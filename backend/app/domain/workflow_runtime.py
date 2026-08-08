@@ -103,15 +103,22 @@ def validate_file_metadata(node: dict[str, Any], file_name: str, file_size: obje
 
 
 def validate_template_filename(uploaded_filename: str, template_filename: str) -> str:
-    if _filename_identity(uploaded_filename) != _filename_identity(template_filename):
+    uploaded_stem, uploaded_suffix = _filename_identity(uploaded_filename)
+    template_stem, template_suffix = _filename_identity(template_filename)
+    if not template_stem or template_suffix != ".docx":
+        raise ValueError("当前节点模板配置异常，请联系教师")
+    if uploaded_suffix != ".docx" or not uploaded_stem.startswith(template_stem):
         raise ValueError(
-            f"文件名与模板不一致，请将文件重命名为“{template_filename}”后重新上传。"
+            f"文件名必须以“{template_stem}”开头，并使用 .docx 格式。"
         )
-    return template_filename
+    return _normalized_filename(uploaded_filename)
+
+
+def _normalized_filename(value: str) -> str:
+    filename = PurePosixPath(str(value).replace("\\", "/")).name.strip()
+    return unicodedata.normalize("NFC", filename)
 
 
 def _filename_identity(value: str) -> tuple[str, str]:
-    filename = PurePosixPath(str(value).replace("\\", "/")).name.strip()
-    normalized = unicodedata.normalize("NFC", filename)
-    path = PurePosixPath(normalized)
+    path = PurePosixPath(_normalized_filename(value))
     return path.stem, path.suffix.lower()
