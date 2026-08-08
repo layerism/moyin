@@ -4305,6 +4305,95 @@ button {
   padding: 22px 24px 24px;
 }
 
+.runtime-reviewing-content {
+  padding: 18px 24px 24px;
+}
+
+.runtime-reviewing-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #b692f6;
+  border-radius: 12px;
+  background: #faf8ff;
+}
+
+.runtime-reviewing-spinner {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0e8ff;
+}
+
+.runtime-reviewing-spinner::before {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #d6bbfb;
+  border-top-color: #7f56d9;
+  border-radius: 50%;
+  animation: runtime-reviewing-spin 900ms linear infinite;
+  content: "";
+}
+
+.runtime-reviewing-copy {
+  min-width: 0;
+}
+
+.runtime-reviewing-copy > span {
+  color: #6941c6;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.runtime-reviewing-copy h3 {
+  margin: 4px 0 7px;
+  color: #2d1b69;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.runtime-reviewing-copy p,
+.runtime-reviewing-copy small {
+  display: block;
+  margin: 0;
+  color: #667085;
+  line-height: 1.6;
+}
+
+.runtime-reviewing-copy p {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.runtime-reviewing-copy small {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.runtime-reviewing-submission-title {
+  margin: 18px 0 0;
+  color: #344054;
+  font-size: 13px;
+}
+
+.runtime-reviewing-content .runtime-readonly-submission,
+.runtime-reviewing-content .runtime-file-summary {
+  margin: 10px 0 0;
+}
+
+@keyframes runtime-reviewing-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .runtime-reviewing-spinner::before {
+    animation: none;
+  }
+}
+
 .runtime-completion-banner {
   display: flex;
   align-items: center;
@@ -5331,6 +5420,20 @@ button {
   .runtime-file-workspace-action {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .runtime-reviewing-content {
+    padding: 14px 16px 18px;
+  }
+
+  .runtime-reviewing-card {
+    grid-template-columns: 36px minmax(0, 1fr);
+    padding: 15px;
+  }
+
+  .runtime-reviewing-spinner {
+    width: 36px;
+    height: 36px;
   }
 
   .runtime-completion-banner {

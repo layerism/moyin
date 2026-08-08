@@ -74,11 +74,13 @@ export function StudentRuntimePage({
     });
   }, [instance]);
 
-  const isReviewing =
-    instance?.nodeInstances.some((node) => node.status === "reviewing") ?? false;
+  const isAwaitingReview =
+    instance?.nodeInstances.some(
+      (node) => node.status === "reviewing" || node.status === "submitted",
+    ) ?? false;
 
   useEffect(() => {
-    if (!isReviewing) return;
+    if (!isAwaitingReview) return;
     let cancelled = false;
     const poll = () => {
       workflowApi
@@ -98,7 +100,7 @@ export function StudentRuntimePage({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [instanceId, isReviewing]);
+  }, [instanceId, isAwaitingReview]);
 
   useEffect(() => {
     const nextStart = instance?.nodeInstances
@@ -408,6 +410,7 @@ function RuntimeNodeDialog({
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [touchedFieldIds, setTouchedFieldIds] = useState<Set<string>>(() => new Set());
   const approvedForm = runtime.status === "approved" && node.kind === "form";
+  const awaitingReview = runtime.status === "reviewing" || runtime.status === "submitted";
   const deadlinePassed = Boolean(
     runtime.effectiveDeadline
       && new Date(runtime.effectiveDeadline).getTime() <= clock,
@@ -504,7 +507,7 @@ function RuntimeNodeDialog({
             开放时间：{new Date(runtime.effectiveStartAt).toLocaleString("zh-CN")} · {formatCountdown(runtime.effectiveStartAt, clock)}
           </p>
         ) : null}
-        {runtime.audit ? <AuditResult audit={runtime.audit} /> : null}
+        {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
         {readonly ? (
           <>
             <section className="runtime-completion-banner">
@@ -528,6 +531,8 @@ function RuntimeNodeDialog({
               <p className="runtime-state-hint">节点已截止，如需修改请联系教师延期。</p>
             ) : null}
           </>
+        ) : awaitingReview ? (
+          <ReviewingSubmission node={node} runtime={runtime} />
         ) : writable ? (
           <div className="runtime-node-form">
           {node.kind === "form" ? (
@@ -640,6 +645,39 @@ function RuntimeNodeDialog({
           title="文件上传未通过"
         />
       ) : null}
+    </div>
+  );
+}
+
+function ReviewingSubmission({
+  node,
+  runtime,
+}: {
+  node: AcademicFlowNode;
+  runtime: RuntimeNodeInstance;
+}) {
+  const attemptCount = Math.max(1, runtime.audit?.attemptCount || 1);
+  const submittedAt = formatDateTime(runtime.submittedAt);
+  const submittedAtLabel = submittedAt === "未记录"
+    ? "提交时间暂未记录"
+    : `提交于 ${submittedAt}`;
+  return (
+    <div className="runtime-reviewing-content">
+      <section aria-live="polite" className="runtime-reviewing-card">
+        <span aria-hidden="true" className="runtime-reviewing-spinner" />
+        <div className="runtime-reviewing-copy">
+          <span>审核处理中</span>
+          <h3>材料已提交，正在自动审核</h3>
+          <p>第 {attemptCount} 次审核 · {submittedAtLabel}</p>
+          <small>审核结果会自动刷新，你可以先关闭此窗口处理其他事项。</small>
+        </div>
+      </section>
+      <h3 className="runtime-reviewing-submission-title">本次提交内容</h3>
+      <ReadonlySubmission
+        node={node}
+        payload={runtime.submission}
+        submittedAt={runtime.submittedAt}
+      />
     </div>
   );
 }
