@@ -32,20 +32,20 @@ test("locked published flow uses the unlock edit action", () => {
   );
 });
 
-test("revision without changes keeps republish disabled", () => {
+test("revision without changes offers a local revision exit", () => {
   assert.deepEqual(
     getPublishButtonState({
       hasUnpublishedChanges: false,
       operationLocked: false,
       published: true,
       revisionEditing: true,
-      rosterActiveCount: 1,
+      rosterActiveCount: 0,
     }),
     {
-      action: "republish",
-      disabled: true,
+      action: "finish-revision",
+      disabled: false,
       label: "重新发布",
-      title: "当前没有待发布的修订",
+      title: undefined,
     },
   );
 });

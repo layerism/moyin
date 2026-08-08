@@ -292,6 +292,16 @@ export function AcademicFlowDesigner({
       setRevisionEditingRequested(true);
       return;
     }
+    if (publishButtonState.action === "finish-revision") {
+      setWorkingProcess(structuredClone(process));
+      setRevisionEditingRequested(false);
+      setRevisionDirty(false);
+      setRevisionImpact(null);
+      setPendingPublishProcess(null);
+      setPublishedShareUrl("");
+      setActionNotice("未检测到改动，已退出编辑");
+      return;
+    }
     void preparePublish();
   };
 

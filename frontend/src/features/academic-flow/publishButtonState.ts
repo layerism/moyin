@@ -1,4 +1,8 @@
-export type PublishButtonAction = "publish" | "begin-revision" | "republish";
+export type PublishButtonAction =
+  | "publish"
+  | "begin-revision"
+  | "finish-revision"
+  | "republish";
 
 export type PublishButtonState = {
   action: PublishButtonAction;
@@ -23,6 +27,15 @@ export function getPublishButtonState(input: {
       action: "begin-revision",
       disabled: input.operationLocked,
       label: "解锁编辑",
+      title: undefined,
+    };
+  }
+
+  if (input.published && input.revisionEditing && !input.hasUnpublishedChanges) {
+    return {
+      action: "finish-revision",
+      disabled: input.operationLocked,
+      label: "重新发布",
       title: undefined,
     };
   }
