@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 
 import type {
   DeleteDialog,
@@ -12,6 +12,8 @@ import type {
 import type { AuthIdentity } from "../auth/authApi";
 import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
 import { AuditScriptMetadataDialog } from "../academic-flow/AuditScriptMetadataDialog";
+import { createFlowCloneName, getFlowCloneNameError } from "../academic-flow/flowClone";
+import { FlowCloneDialog, type FlowCloneResult } from "./FlowCloneDialog";
 import {
   ContextMenu,
   DeleteConfirmDialog,
@@ -457,6 +459,7 @@ export function HomeView({
 export function AcademicFlowView({
   processes,
   onCreateProcess,
+  onCloneProcess,
   onDatabaseAdmin,
   onDeleteProcess,
   onHome,
@@ -467,6 +470,7 @@ export function AcademicFlowView({
 }: {
   processes: AcademicProcess[];
   onCreateProcess: (name: string) => Promise<void> | void;
+  onCloneProcess: (source: AcademicProcess, name: string) => Promise<AcademicProcess>;
   onDatabaseAdmin: () => void;
   onDeleteProcess: (process: AcademicProcess) => Promise<void>;
   onHome: () => void;
@@ -483,6 +487,19 @@ export function AcademicFlowView({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [scriptManagerOpen, setScriptManagerOpen] = useState(false);
+  const [cloneSource, setCloneSource] = useState<AcademicProcess | null>(null);
+  const [cloneName, setCloneName] = useState("");
+  const [cloneError, setCloneError] = useState("");
+  const [cloneSubmitting, setCloneSubmitting] = useState(false);
+  const [cloneResult, setCloneResult] = useState<FlowCloneResult>(null);
+  const [highlightedProcessId, setHighlightedProcessId] = useState<string | null>(null);
+  const cloneTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!highlightedProcessId) return;
+    const timer = window.setTimeout(() => setHighlightedProcessId(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [highlightedProcessId]);
 
   const startCreateProcess = () => {
     setProcessNameValue("");
@@ -523,6 +540,36 @@ export function AcademicFlowView({
       setDeleteError(error instanceof Error ? error.message : "删除失败，请稍后重试");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const closeCloneDialog = (restoreFocus = true) => {
+    setCloneSource(null);
+    setCloneResult(null);
+    setCloneError("");
+    if (restoreFocus) window.setTimeout(() => cloneTriggerRef.current?.focus(), 0);
+  };
+
+  const confirmCloneProcess = async () => {
+    if (!cloneSource) return;
+    const error = getFlowCloneNameError(
+      cloneName,
+      cloneSource.name,
+      processes.map((process) => process.name),
+    );
+    if (error) {
+      setCloneError(error);
+      return;
+    }
+    setCloneSubmitting(true);
+    setCloneError("");
+    try {
+      const cloned = await onCloneProcess(cloneSource, cloneName.trim());
+      setCloneResult({ id: cloned.id, name: cloned.name });
+    } catch (error) {
+      setCloneError(error instanceof Error ? error.message : "复制失败，请稍后重试");
+    } finally {
+      setCloneSubmitting(false);
     }
   };
 
@@ -580,7 +627,9 @@ export function AcademicFlowView({
           <div className="academic-flow-list" role="list" aria-label="采集流程列表">
             {processes.map((process) => (
               <div
-                className="academic-flow-item"
+                className={`academic-flow-item${
+                  highlightedProcessId === process.id ? " cloned-highlight" : ""
+                }`}
                 key={process.id}
                 role="listitem"
               >
@@ -592,17 +641,34 @@ export function AcademicFlowView({
                   </span>
                   <em>进入</em>
                 </button>
-                <button
-                  aria-label={`删除流程 ${process.name}`}
-                  className="academic-flow-delete"
-                  onClick={() => {
-                    setDeleteError("");
-                    setDeleteProcess(process);
-                  }}
-                  title="删除流程"
-                >
-                  ×
-                </button>
+                <div className="academic-flow-actions">
+                  <button
+                    aria-label={`复制流程 ${process.name}`}
+                    className="academic-flow-clone"
+                    onClick={(event) => {
+                      cloneTriggerRef.current = event.currentTarget;
+                      setCloneSource(process);
+                      setCloneName(createFlowCloneName(process.name));
+                      setCloneError("");
+                      setCloneResult(null);
+                    }}
+                    type="button"
+                  >
+                    <span aria-hidden="true" className="clone-stack-icon"><i /></span>
+                    <span>复制</span>
+                  </button>
+                  <button
+                    aria-label={`删除流程 ${process.name}`}
+                    className="academic-flow-delete"
+                    onClick={() => {
+                      setDeleteError("");
+                      setDeleteProcess(process);
+                    }}
+                    title="删除流程"
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
             ))}
             {processes.length === 0 && (
@@ -635,6 +701,31 @@ export function AcademicFlowView({
           onCancel={() => setDeleteProcess(null)}
           onConfirm={() => void confirmDeleteProcess()}
           submitting={deleting}
+        />
+      ) : null}
+      {cloneSource ? (
+        <FlowCloneDialog
+          error={cloneError}
+          name={cloneName}
+          onCancel={() => closeCloneDialog()}
+          onConfirm={() => void confirmCloneProcess()}
+          onEdit={() => {
+            if (!cloneResult) return;
+            const processId = cloneResult.id;
+            closeCloneDialog(false);
+            onOpenProcess(processId);
+          }}
+          onNameChange={(value) => {
+            setCloneName(value);
+            setCloneError("");
+          }}
+          onStay={() => {
+            if (cloneResult) setHighlightedProcessId(cloneResult.id);
+            closeCloneDialog();
+          }}
+          result={cloneResult}
+          source={cloneSource}
+          submitting={cloneSubmitting}
         />
       ) : null}
       {scriptManagerOpen ? (

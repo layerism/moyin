@@ -571,6 +571,16 @@ export function App() {
           const process = { ...draft, id: created.id, serverId: created.id };
           setAcademicProcesses((current) => [process, ...current]);
         }}
+        onCloneProcess={async (source, name) => {
+          const cloned = mapServerFlow(
+            await workflowApi.cloneFlow(source.serverId ?? source.id, name),
+          );
+          setAcademicProcesses((current) => [
+            cloned,
+            ...current.filter((process) => process.id !== cloned.id),
+          ]);
+          return cloned;
+        }}
         onDatabaseAdmin={openDatabaseAdmin}
         onHome={openHome}
         onOssCloud={() => {

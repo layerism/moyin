@@ -10,6 +10,24 @@ import pytest
 from app.core.config import settings
 from app.core.database import get_connection
 from app.main import app
+from app.repositories import workflows
+from app.services.object_storage import ObjectStorageError, UploadedObject
+
+
+class FakeCloneStorage:
+    def __init__(self, fail_on_copy: int | None = None):
+        self.copy_calls: list[tuple[str, str]] = []
+        self.delete_calls: list[str] = []
+        self.fail_on_copy = fail_on_copy
+
+    def copy_object(self, source_key: str, target_key: str) -> UploadedObject:
+        self.copy_calls.append((source_key, target_key))
+        if self.fail_on_copy == len(self.copy_calls):
+            raise ObjectStorageError("OSS 复制失败")
+        return UploadedObject(etag=f"copied-{len(self.copy_calls)}")
+
+    def delete_object(self, key: str) -> None:
+        self.delete_calls.append(key)
 
 
 @pytest.fixture
@@ -56,6 +74,137 @@ def add_roster(
         },
     )
     assert response.status_code == 200
+
+
+def add_template_assets(flow_id: str, count: int = 1) -> dict[str, object]:
+    nodes = []
+    now = "2026-08-08T00:00:00+00:00"
+    with get_connection() as connection:
+        teacher_id = connection.execute(
+            "SELECT id FROM teacher_accounts WHERE employee_no = 'TW001'"
+        ).fetchone()["id"]
+        for index in range(count):
+            asset_id = f"{flow_id}-asset-{index + 1}"
+            node_id = f"file-{index + 1}"
+            metadata = {
+                "assetId": asset_id,
+                "contentType": "application/pdf",
+                "originalName": f"模板-{index + 1}.pdf",
+                "sha256": f"hash-{index + 1}",
+                "sizeBytes": 10 + index,
+            }
+            nodes.append(
+                {
+                    "id": node_id,
+                    "kind": "file",
+                    "title": f"文件-{index + 1}",
+                    "requirement": "上传文件",
+                    "infoFields": [],
+                    "templateAsset": metadata,
+                }
+            )
+            connection.execute(
+                """
+                INSERT INTO flow_template_assets
+                    (id, flow_id, node_key, storage_key, original_name, content_type,
+                     size_bytes, sha256, etag, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    asset_id, flow_id, node_id, f"source/{asset_id}",
+                    metadata["originalName"], metadata["contentType"],
+                    metadata["sizeBytes"], metadata["sha256"], "source-etag",
+                    teacher_id, now,
+                ),
+            )
+        config = {"nodes": nodes, "edges": []}
+        connection.execute(
+            "UPDATE flows SET draft_config = ? WHERE id = ?",
+            (json.dumps(config, ensure_ascii=False), flow_id),
+        )
+    return config
+
+
+def test_clone_published_flow_creates_editable_draft_without_runtime_data(
+    client: TestClient,
+) -> None:
+    source = client.post(
+        "/api/workflows", json={"name": "原流程", "description": "复制说明"}
+    ).json()
+    client.put(f"/api/workflows/{source['id']}/draft", json={"config": sample_config()})
+    add_roster(client, source["id"])
+    assert client.post(f"/api/workflows/{source['id']}/publish").status_code == 201
+
+    response = client.post(f"/api/workflows/{source['id']}/clone", json={"name": "新流程"})
+
+    assert response.status_code == 201
+    cloned = response.json()
+    assert cloned["description"] == "复制说明"
+    assert cloned["config"] == sample_config()
+    assert cloned["status"] == "draft"
+    assert cloned["publishedVersionId"] is None
+    assert cloned["publishedNodeIds"] == []
+    assert client.get(f"/api/workflows/{cloned['id']}/roster").json()["activeCount"] == 0
+    with get_connection() as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) AS count FROM flow_versions WHERE flow_id = ?", (cloned["id"],)
+        ).fetchone()["count"] == 0
+        audit = connection.execute(
+            "SELECT before_data, after_data FROM audit_logs WHERE action = 'workflow_cloned'"
+        ).fetchone()
+    assert json.loads(audit["before_data"]) == {"sourceFlowId": source["id"]}
+    assert json.loads(audit["after_data"]) == {
+        "newFlowId": cloned["id"], "newName": "新流程", "templateCount": 0
+    }
+
+
+def test_clone_rejects_source_name_duplicate_name_and_foreign_source(client: TestClient) -> None:
+    source = client.post("/api/workflows", json={"name": "原流程"}).json()
+    client.post("/api/workflows", json={"name": "已有流程"})
+    assert client.post(
+        f"/api/workflows/{source['id']}/clone", json={"name": " 原流程 "}
+    ).status_code == 409
+    assert client.post(
+        f"/api/workflows/{source['id']}/clone", json={"name": "已有流程"}
+    ).status_code == 409
+    client.post("/api/auth/teacher/logout")
+    client.post(
+        "/api/auth/teacher/register",
+        json={"name": "另一位教师", "employeeNo": "TW002", "password": "Pass1234"},
+    )
+    assert client.post(
+        f"/api/workflows/{source['id']}/clone", json={"name": "越权副本"}
+    ).status_code == 404
+
+
+def test_clone_rewrites_template_assets_and_compensates_copy_failure(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = client.post("/api/workflows", json={"name": "模板流程"}).json()
+    source_config = add_template_assets(source["id"], count=2)
+    storage = FakeCloneStorage()
+    monkeypatch.setattr(workflows, "get_object_storage", lambda: storage)
+
+    success = client.post(f"/api/workflows/{source['id']}/clone", json={"name": "模板副本"})
+
+    assert success.status_code == 201
+    cloned = success.json()
+    assert len(storage.copy_calls) == 2
+    assert [node["id"] for node in cloned["config"]["nodes"]] == ["file-1", "file-2"]
+    for source_node, cloned_node in zip(source_config["nodes"], cloned["config"]["nodes"]):
+        assert cloned_node["templateAsset"]["assetId"] != source_node["templateAsset"]["assetId"]
+        assert {**cloned_node["templateAsset"], "assetId": source_node["templateAsset"]["assetId"]} == source_node["templateAsset"]
+
+    failing_source = client.post("/api/workflows", json={"name": "失败来源"}).json()
+    add_template_assets(failing_source["id"], count=2)
+    failing_storage = FakeCloneStorage(fail_on_copy=2)
+    monkeypatch.setattr(workflows, "get_object_storage", lambda: failing_storage)
+    failed = client.post(
+        f"/api/workflows/{failing_source['id']}/clone", json={"name": "不应存在"}
+    )
+    assert failed.status_code == 502
+    assert failing_storage.delete_calls == [failing_storage.copy_calls[0][1]]
+    assert all(flow["name"] != "不应存在" for flow in client.get("/api/workflows").json())
 
 
 def test_duplicate_flow_name_is_rejected(client: TestClient) -> None:
