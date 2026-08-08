@@ -101,6 +101,12 @@ export const workflowApi = {
       body: JSON.stringify({ name: process.name, description: process.description }),
     });
   },
+  cloneFlow(serverId: string, name: string) {
+    return request<ServerFlow>(`/api/workflows/${encodeURIComponent(serverId)}/clone`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+  },
   saveDraft(serverId: string, process: AcademicProcess) {
     return request<ServerFlow>(`/api/workflows/${encodeURIComponent(serverId)}/draft`, {
       method: "PUT",

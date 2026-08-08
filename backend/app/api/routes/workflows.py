@@ -16,6 +16,7 @@ from app.repositories.workflows import (
     ArchivedFlowError,
     DraftRevisionConflictError,
     DuplicateFlowNameError,
+    clone_flow,
     create_flow,
     delete_flow,
     get_flow,
@@ -35,6 +36,7 @@ from app.repositories.flow_templates import (
     save_template_asset,
 )
 from app.services.object_storage import (
+    ObjectStorageError,
     ObjectStorageNotConfigured,
     get_object_storage,
     object_key,
@@ -49,6 +51,10 @@ shared_router = APIRouter()
 class CreateFlowRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)
+
+
+class CloneFlowRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
 
 
 class FlowConfigRequest(BaseModel):
@@ -171,6 +177,24 @@ def post_flow(
         return create_flow(payload.name.strip(), payload.description.strip(), int(teacher["id"]))
     except DuplicateFlowNameError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{flow_id}/clone", status_code=status.HTTP_201_CREATED)
+def post_flow_clone(
+    flow_id: str,
+    payload: CloneFlowRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return clone_flow(flow_id, payload.name, int(teacher["id"]))
+    except KeyError as exc:
+        raise not_found() from exc
+    except DuplicateFlowNameError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FlowValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=502, detail="模板复制失败，请稍后重试") from exc
 
 
 @router.get("/{flow_id}")

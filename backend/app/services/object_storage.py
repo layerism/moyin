@@ -70,6 +70,18 @@ class ObjectStorage:
         _ensure_success(response, "上传")
         return UploadedObject(etag=str(getattr(response, "etag", "")).strip('"'))
 
+    def copy_object(self, source_key: str, target_key: str) -> UploadedObject:
+        try:
+            response = self._bucket.copy_object(
+                self._bucket.bucket_name,
+                source_key,
+                target_key,
+            )
+        except Exception as exc:
+            raise ObjectStorageError("OSS 复制失败") from exc
+        _ensure_success(response, "复制")
+        return UploadedObject(etag=str(getattr(response, "etag", "")).strip('"'))
+
     def delete_object(self, key: str) -> None:
         try:
             response = self._bucket.delete_object(key)

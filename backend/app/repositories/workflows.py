@@ -1,10 +1,12 @@
 import hashlib
 import json
+import logging
 import secrets
 import uuid
 from collections import deque
 from typing import Any
 
+from app.core.config import settings
 from app.core.database import get_connection
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
@@ -20,6 +22,10 @@ from app.services.audit_script_parameters import (
     validate_script_params,
 )
 from app.services.security import utc_now_iso
+from app.services.object_storage import get_object_storage, object_key, timestamped_object_name
+
+
+logger = logging.getLogger(__name__)
 
 
 class ArchivedFlowError(ValueError):
@@ -333,6 +339,170 @@ def create_flow(name: str, description: str, teacher_id: int) -> dict[str, objec
             (flow_id, name, description, owner_id, now, now),
         )
     return get_flow(flow_id, teacher_id)
+
+
+def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
+    new_name = name.strip()
+    if not new_name or len(new_name) > 120:
+        raise FlowValidationError("流程名称不能为空且不能超过 120 个字符")
+
+    owner_id = str(teacher_id)
+    with get_connection() as connection:
+        source = connection.execute(
+            "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+            (flow_id, owner_id),
+        ).fetchone()
+        if source is None:
+            raise KeyError(flow_id)
+        if new_name == source["name"]:
+            raise DuplicateFlowNameError("副本名称不能与原流程相同")
+        duplicate = connection.execute(
+            """
+            SELECT 1 FROM flows
+            WHERE owner_id = ? AND name = ? AND status != 'archived'
+            LIMIT 1
+            """,
+            (owner_id, new_name),
+        ).fetchone()
+        if duplicate is not None:
+            raise DuplicateFlowNameError("已存在同名流程")
+
+        config = json.loads(source["draft_config"])
+        source_assets: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        for node in config.get("nodes", []):
+            template = node.get("templateAsset")
+            if not template:
+                continue
+            asset = connection.execute(
+                "SELECT * FROM flow_template_assets WHERE id = ?",
+                (template.get("assetId"),),
+            ).fetchone()
+            if asset is None or asset["flow_id"] != flow_id or asset["node_key"] != node["id"]:
+                raise FlowValidationError("流程模板资产无效，无法复制")
+            expected = {
+                "assetId": asset["id"],
+                "contentType": asset["content_type"],
+                "originalName": asset["original_name"],
+                "sha256": asset["sha256"],
+                "sizeBytes": asset["size_bytes"],
+            }
+            if template != expected:
+                raise FlowValidationError("流程模板资产无效，无法复制")
+            source_assets.append((node, dict(asset)))
+
+        source_data = dict(source)
+
+    new_flow_id = str(uuid.uuid4())
+    copied_keys: list[str] = []
+    new_assets: list[dict[str, Any]] = []
+    storage = get_object_storage() if source_assets else None
+
+    def compensate() -> None:
+        if storage is None:
+            return
+        for copied_key in reversed(copied_keys):
+            try:
+                storage.delete_object(copied_key)
+            except Exception:
+                logger.exception("清理流程副本模板失败: %s", copied_key)
+
+    try:
+        for node, asset in source_assets:
+            new_asset_id = str(uuid.uuid4())
+            target_key = object_key(
+                settings.oss_prefix,
+                "templates",
+                new_flow_id,
+                timestamped_object_name(asset["original_name"], asset["sha256"]),
+            )
+            uploaded = storage.copy_object(asset["storage_key"], target_key)  # type: ignore[union-attr]
+            copied_keys.append(target_key)
+            node["templateAsset"] = {
+                "assetId": new_asset_id,
+                "contentType": asset["content_type"],
+                "originalName": asset["original_name"],
+                "sha256": asset["sha256"],
+                "sizeBytes": asset["size_bytes"],
+            }
+            new_assets.append(
+                {
+                    **asset,
+                    "id": new_asset_id,
+                    "flow_id": new_flow_id,
+                    "storage_key": target_key,
+                    "etag": uploaded.etag,
+                }
+            )
+
+        now = utc_now_iso()
+        with get_connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            duplicate = connection.execute(
+                """
+                SELECT 1 FROM flows
+                WHERE owner_id = ? AND name = ? AND status != 'archived'
+                LIMIT 1
+                """,
+                (owner_id, new_name),
+            ).fetchone()
+            if duplicate is not None:
+                raise DuplicateFlowNameError("已存在同名流程")
+            connection.execute(
+                """
+                INSERT INTO flows
+                    (id, name, description, owner_id, status, draft_config, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'draft', ?, ?, ?)
+                """,
+                (
+                    new_flow_id,
+                    new_name,
+                    source_data["description"],
+                    owner_id,
+                    canonical_json(config),
+                    now,
+                    now,
+                ),
+            )
+            for asset in new_assets:
+                connection.execute(
+                    """
+                    INSERT INTO flow_template_assets
+                        (id, flow_id, node_key, storage_key, original_name, content_type,
+                         size_bytes, sha256, etag, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        asset["id"], new_flow_id, asset["node_key"], asset["storage_key"],
+                        asset["original_name"], asset["content_type"], asset["size_bytes"],
+                        asset["sha256"], asset["etag"], teacher_id, now,
+                    ),
+                )
+            connection.execute(
+                """
+                INSERT INTO audit_logs
+                    (actor_id, action, entity_type, entity_id,
+                     before_data, after_data, created_at)
+                VALUES (?, 'workflow_cloned', 'workflow', ?, ?, ?, ?)
+                """,
+                (
+                    owner_id,
+                    new_flow_id,
+                    canonical_json({"sourceFlowId": flow_id}),
+                    canonical_json(
+                        {
+                            "newFlowId": new_flow_id,
+                            "newName": new_name,
+                            "templateCount": len(new_assets),
+                        }
+                    ),
+                    now,
+                ),
+            )
+    except Exception:
+        compensate()
+        raise
+
+    return get_flow(new_flow_id, teacher_id)
 
 
 def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:

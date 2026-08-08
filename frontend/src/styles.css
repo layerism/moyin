@@ -305,7 +305,7 @@ button {
 .academic-flow-item {
   min-height: 72px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 40px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 0 4px;
@@ -313,6 +313,10 @@ button {
   background: transparent;
   color: #202733;
   text-align: left;
+}
+
+.academic-flow-item.cloned-highlight {
+  animation: cloned-flow-highlight 2s ease-out;
 }
 
 .academic-flow-item:hover {
@@ -332,6 +336,73 @@ button {
   text-align: left;
 }
 
+.academic-flow-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.academic-flow-clone {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid #b8cff7;
+  border-radius: 7px;
+  background: #f1f6ff;
+  box-shadow: 0 2px 5px rgb(29 78 216 / 10%);
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 750;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.academic-flow-clone:hover {
+  border-color: #7da7ef;
+  box-shadow: 0 5px 11px rgb(29 78 216 / 16%);
+  transform: translateY(-1px);
+}
+
+.academic-flow-clone:active {
+  box-shadow: 0 1px 3px rgb(29 78 216 / 12%);
+  transform: translateY(0);
+}
+
+.academic-flow-clone:focus-visible {
+  outline: 3px solid rgb(43 116 255 / 20%);
+  outline-offset: 2px;
+}
+
+.clone-stack-icon {
+  width: 15px;
+  height: 15px;
+  position: relative;
+  display: inline-block;
+}
+
+.clone-stack-icon::before,
+.clone-stack-icon i {
+  width: 9px;
+  height: 9px;
+  position: absolute;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  content: "";
+}
+
+.clone-stack-icon::before {
+  left: 1px;
+  top: 1px;
+  opacity: 0.58;
+}
+
+.clone-stack-icon i {
+  right: 1px;
+  bottom: 1px;
+  background: #f1f6ff;
+}
+
 .academic-flow-delete {
   width: 34px;
   height: 34px;
@@ -340,6 +411,11 @@ button {
   background: transparent;
   color: #667085;
   font-size: 22px;
+}
+
+@keyframes cloned-flow-highlight {
+  0%, 30% { background: #eaf3ff; box-shadow: inset 3px 0 #2b74ff; }
+  100% { background: transparent; box-shadow: inset 3px 0 transparent; }
 }
 
 .academic-flow-delete:hover {
@@ -5750,6 +5826,209 @@ button {
   display: grid;
   place-items: center;
   background: rgba(15, 23, 42, 0.18);
+}
+
+.flow-clone-backdrop {
+  z-index: 220;
+  padding: 20px;
+  background: rgb(15 23 42 / 38%);
+}
+
+.flow-clone-dialog {
+  width: min(590px, 100%);
+  position: relative;
+  overflow: hidden;
+  padding: 28px;
+  border: 1px solid #d6dfed;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 28px 78px rgb(15 23 42 / 26%);
+}
+
+.flow-clone-close {
+  width: 36px;
+  height: 36px;
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d4dce8;
+  border-radius: 7px;
+  background: #fff;
+  color: #475569;
+  font-size: 22px;
+}
+
+.flow-clone-close:hover:not(:disabled) {
+  border-color: #aebbd0;
+  background: #f8fafc;
+}
+
+.flow-clone-heading {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding-right: 52px;
+}
+
+.flow-clone-heading-icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  position: relative;
+  border: 1px solid #c6d9fb;
+  border-radius: 9px;
+  background: #eef5ff;
+  color: #1d4ed8;
+}
+
+.flow-clone-heading-icon::before,
+.flow-clone-heading-icon i {
+  width: 18px;
+  height: 18px;
+  position: absolute;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  content: "";
+}
+
+.flow-clone-heading-icon::before { left: 9px; top: 8px; opacity: 0.5; }
+.flow-clone-heading-icon i { right: 8px; bottom: 8px; background: #eef5ff; }
+
+.flow-clone-heading h2,
+.flow-clone-success h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 22px;
+}
+
+.flow-clone-heading p,
+.flow-clone-success p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.flow-clone-source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 12px;
+  margin-top: 24px;
+  padding: 14px 16px;
+  border: 1px solid #dce4ef;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.flow-clone-source span {
+  grid-column: 1 / -1;
+  color: #718096;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.flow-clone-source strong { color: #263247; }
+.flow-clone-source em { color: #2563eb; font-size: 13px; font-style: normal; font-weight: 750; }
+
+.flow-clone-boundaries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.flow-clone-boundaries p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid #3b82f6;
+  background: #f6f9ff;
+  color: #596579;
+  font-size: 13px;
+}
+
+.flow-clone-boundaries p:last-child { border-left-color: #94a3b8; background: #f8fafc; }
+.flow-clone-boundaries strong { color: #263247; }
+
+.flow-clone-name {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.flow-clone-name input {
+  width: 100%;
+  height: 44px;
+  padding: 0 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  outline: none;
+  color: #172033;
+  font: inherit;
+}
+
+.flow-clone-name input:focus {
+  border-color: #2b74ff;
+  box-shadow: 0 0 0 3px rgb(43 116 255 / 13%);
+}
+
+.flow-clone-error { margin: 8px 0 0; color: #b42318; font-size: 13px; }
+
+.flow-clone-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.flow-clone-actions button {
+  min-height: 40px;
+  padding: 0 17px;
+  border: 1px solid #d2dbe8;
+  border-radius: 7px;
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.flow-clone-actions .primary-action { border-color: #2368e8; background: #2368e8; color: #fff; }
+
+.flow-clone-success {
+  display: grid;
+  justify-items: center;
+  padding: 18px 10px 4px;
+  text-align: center;
+}
+
+.flow-clone-success-icon {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 15px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 27px;
+  font-weight: 800;
+}
+
+.flow-clone-success > strong { margin-top: 18px; color: #166534; font-size: 18px; }
+
+@media (max-width: 640px) {
+  .academic-flow-item { grid-template-columns: 1fr; padding: 8px 4px 12px; }
+  .academic-flow-open { min-height: 58px; }
+  .academic-flow-actions { justify-content: flex-end; }
+  .flow-clone-dialog { padding: 22px 18px; }
+  .flow-clone-boundaries { grid-template-columns: 1fr; }
+  .flow-clone-actions { align-items: stretch; flex-direction: column-reverse; }
+  .flow-clone-actions button { width: 100%; }
 }
 
 .rename-dialog {
