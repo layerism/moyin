@@ -1241,6 +1241,10 @@ function FlowNodeCanvas({
                 canMoveNode(node.id) ? "movable" : "protected"
               } ${node.id === activeNodeId ? "selected" : ""}`}
               onClick={() => onSelectNode(node.id)}
+              onDoubleClick={(event) => {
+                if (locked || (event.target as HTMLElement).closest(".connection-port")) return;
+                onOpenInspector(node.id);
+              }}
               onPointerDown={(event) => startNodeDrag(event, node)}
               onPointerMove={dragNode}
               onPointerUp={endNodeDrag}
