@@ -10,7 +10,6 @@ export const nodeTemplates: Array<{
   kind: AcademicFlowNodeKind;
   title: string;
 }> = [
-  { kind: "form", title: "信息填写", description: "填写基础文本信息" },
   { kind: "form", title: "表单填写", description: "自定义文本与选择题" },
   { kind: "file", title: "文件上传", description: "上传文件，支持类型与大小限制" },
   { kind: "confirmation", title: "确认承诺", description: "签署承诺书或确认协议" },
