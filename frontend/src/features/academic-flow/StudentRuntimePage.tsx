@@ -41,6 +41,7 @@ export function StudentRuntimePage({
   const [notice, setNotice] = useState("");
   const [busyNodeId, setBusyNodeId] = useState<string | null>(null);
   const [activeNodeKey, setActiveNodeKey] = useState<string | null>(null);
+  const [amendingNodeId, setAmendingNodeId] = useState<string | null>(null);
   const [fieldErrorsByNode, setFieldErrorsByNode] = useState<
     Record<string, Record<string, string>>
   >({});
@@ -119,6 +120,17 @@ export function StudentRuntimePage({
   const activeNode = instance?.config.nodes.find((node) => node.id === activeNodeKey) ?? null;
   const activeRuntime = activeNodeKey ? runtimeByKey.get(activeNodeKey) ?? null : null;
 
+  const beginFormAmendment = (runtime: RuntimeNodeInstance) => {
+    const initialDraft = Object.keys(runtime.draft).length > 0
+      ? runtime.draft
+      : runtime.submission;
+    setDrafts((current) => ({
+      ...current,
+      [runtime.id]: structuredClone(initialDraft),
+    }));
+    setAmendingNodeId(runtime.id);
+  };
+
   const updateDraft = (
     runtimeId: string,
     field: string,
@@ -144,7 +156,11 @@ export function StudentRuntimePage({
     setNotice("");
     try {
       setInstance(await workflowApi.saveNodeDraft(runtime.id, drafts[runtime.id] ?? {}));
-      setNotice("当前节点已暂存");
+      setNotice(
+        runtime.status === "approved"
+          ? "修改内容已暂存，原通过内容仍然有效"
+          : "当前节点已暂存",
+      );
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "暂存失败");
     } finally {
@@ -180,6 +196,8 @@ export function StudentRuntimePage({
   };
 
   const submit = async (runtime: RuntimeNodeInstance) => {
+    const approvedFormAmendment = runtime.status === "approved"
+      && instance?.config.nodes.find((node) => node.id === runtime.nodeKey)?.kind === "form";
     setBusyNodeId(runtime.id);
     setNotice("");
     try {
@@ -193,7 +211,12 @@ export function StudentRuntimePage({
       const submittedNode = next.nodeInstances.find((node) => node.id === runtime.id);
       if (submittedNode?.status === "approved") {
         setActiveNodeKey(null);
-        setNotice("自动审核通过，后续节点已按流程规则开放");
+        setAmendingNodeId(null);
+        setNotice(
+          approvedFormAmendment
+            ? "表单修改已提交并通过"
+            : "自动审核通过，后续节点已按流程规则开放",
+        );
       } else {
         setNotice("节点已提交，正在自动审核");
       }
@@ -303,12 +326,17 @@ export function StudentRuntimePage({
       />
       {activeNode && activeRuntime ? (
         <RuntimeNodeDialog
+          amendingApprovedForm={amendingNodeId === activeRuntime.id}
           busy={busyNodeId === activeRuntime.id}
           draft={drafts[activeRuntime.id] ?? {}}
           fieldErrors={fieldErrorsByNode[activeRuntime.id] ?? {}}
           key={activeRuntime.id}
           node={activeNode}
-          onClose={() => setActiveNodeKey(null)}
+          onBeginFormAmendment={() => beginFormAmendment(activeRuntime)}
+          onClose={() => {
+            setActiveNodeKey(null);
+            setAmendingNodeId(null);
+          }}
           onDownloadTemplate={() => void downloadTemplate(activeRuntime)}
           onSave={() => void save(activeRuntime)}
           onRetryAudit={() => void retryAudit(activeRuntime)}
@@ -328,10 +356,12 @@ export function StudentRuntimePage({
 }
 
 function RuntimeNodeDialog({
+  amendingApprovedForm,
   busy,
   draft,
   fieldErrors,
   node,
+  onBeginFormAmendment,
   onClose,
   onDownloadTemplate,
   onSave,
@@ -341,10 +371,12 @@ function RuntimeNodeDialog({
   onUpdate,
   runtime,
 }: {
+  amendingApprovedForm: boolean;
   busy: boolean;
   draft: Record<string, unknown>;
   fieldErrors: Record<string, string>;
   node: AcademicFlowNode;
+  onBeginFormAmendment: () => void;
   onClose: () => void;
   onDownloadTemplate: () => void;
   onSave: () => void;
@@ -354,9 +386,6 @@ function RuntimeNodeDialog({
   onUpdate: (field: string, value: unknown, fieldId?: string) => void;
   runtime: RuntimeNodeInstance;
 }) {
-  const writable = writableStatuses.has(runtime.status);
-  const readonly = runtime.status === "approved";
-  const displayedPayload = readonly ? runtime.submission : draft;
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [uploadWarning, setUploadWarning] = useState("");
@@ -364,6 +393,17 @@ function RuntimeNodeDialog({
   const [clock, setClock] = useState(Date.now());
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [touchedFieldIds, setTouchedFieldIds] = useState<Set<string>>(() => new Set());
+  const approvedForm = runtime.status === "approved" && node.kind === "form";
+  const deadlinePassed = Boolean(
+    runtime.effectiveDeadline
+      && new Date(runtime.effectiveDeadline).getTime() <= clock,
+  );
+  const canAmendApprovedForm = approvedForm && !deadlinePassed;
+  const writable = writableStatuses.has(runtime.status) || (
+    approvedForm && amendingApprovedForm && !deadlinePassed
+  );
+  const readonly = runtime.status === "approved" && !writable;
+  const displayedPayload = readonly ? runtime.submission : draft;
   const draftFile = getDraftFile(draft.file);
   const fileReady = Boolean(draftFile?.fileId);
   const templateRequired = Boolean(runtime.template);
@@ -382,10 +422,13 @@ function RuntimeNodeDialog({
   );
 
   useEffect(() => {
-    if (runtime.status !== "scheduled") return;
+    if (
+      runtime.status !== "scheduled"
+      && !(approvedForm && runtime.effectiveDeadline)
+    ) return;
     const timer = window.setInterval(() => setClock(Date.now()), 1_000);
     return () => window.clearInterval(timer);
-  }, [runtime.status]);
+  }, [approvedForm, runtime.effectiveDeadline, runtime.status]);
 
   const uploadSelectedFile = async (file: File) => {
     setUploadWarning("");
@@ -451,10 +494,26 @@ function RuntimeNodeDialog({
         {readonly ? (
           <>
             <section className="runtime-completion-banner">
-              <strong>已完成 · 提交内容已锁定</strong>
+              <strong>
+                {approvedForm ? "已完成 · 当前通过内容" : "已完成 · 提交内容已锁定"}
+              </strong>
               <span>提交时间：{formatDateTime(runtime.submittedAt)}</span>
             </section>
             <ReadonlySubmission node={node} payload={displayedPayload} submittedAt={runtime.submittedAt} />
+            {canAmendApprovedForm ? (
+              <div className="runtime-node-actions">
+                <span />
+                <button
+                  className="primary-action"
+                  onClick={onBeginFormAmendment}
+                  type="button"
+                >
+                  {Object.keys(runtime.draft).length > 0 ? "继续修改" : "修改内容"}
+                </button>
+              </div>
+            ) : approvedForm ? (
+              <p className="runtime-state-hint">节点已截止，如需修改请联系教师延期。</p>
+            ) : null}
           </>
         ) : writable ? (
           <div className="runtime-node-form">
@@ -533,10 +592,18 @@ function RuntimeNodeDialog({
             </label>
           ) : null}
           <div className="runtime-node-actions">
-            <button disabled={fileBusy} onClick={onSave}>暂存</button>
+            <button disabled={fileBusy} onClick={onSave}>
+              {amendingApprovedForm ? "暂存修改" : "暂存"}
+            </button>
             <div className="runtime-submit-control">
               <button className="primary-action" disabled={submitDisabled} onClick={handleSubmit}>
-                {isUploadingFile ? "正在上传" : busy ? "处理中" : "提交节点"}
+                {isUploadingFile
+                  ? "正在上传"
+                  : busy
+                    ? "处理中"
+                    : amendingApprovedForm
+                      ? "重新提交"
+                      : "提交节点"}
               </button>
               {node.kind === "file" && !fileReady ? <small>请先上传文件</small> : null}
             </div>

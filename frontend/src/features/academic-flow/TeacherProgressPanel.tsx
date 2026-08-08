@@ -18,7 +18,7 @@ function minimumExtensionValue(effectiveDeadline: string) {
 }
 
 export function TeacherProgressPanel({
-  nodes: _nodes,
+  nodes,
   onClose,
   versionId,
 }: {
@@ -37,6 +37,13 @@ export function TeacherProgressPanel({
     nodeKey: "",
     reason: "批准个别延期",
   });
+  const formNodeKeys = new Set(
+    nodes.filter((node) => node.kind === "form").map((node) => node.id),
+  );
+  const canExtendNode = (node: WorkflowProgressNode) => Boolean(
+    node.effectiveDeadline
+      && (node.status !== "approved" || formNodeKeys.has(node.nodeKey)),
+  );
 
   const refresh = async () => {
     const value = await workflowApi.getProgress(versionId);
@@ -72,9 +79,7 @@ export function TeacherProgressPanel({
   };
 
   const openExtension = (student: WorkflowProgressStudent) => {
-    const eligibleNodes = student.nodes.filter(
-      (node) => node.status !== "approved" && node.effectiveDeadline,
-    );
+    const eligibleNodes = student.nodes.filter(canExtendNode);
     setEditingInstanceId(student.instanceId);
     setExtension({
       deadline: "",
@@ -132,9 +137,7 @@ export function TeacherProgressPanel({
   const editingStudent = progress?.students.find(
     (student) => student.instanceId === editingInstanceId,
   ) ?? null;
-  const eligibleNodes = editingStudent?.nodes.filter(
-    (node) => node.status !== "approved" && node.effectiveDeadline,
-  ) ?? [];
+  const eligibleNodes = editingStudent?.nodes.filter(canExtendNode) ?? [];
   const currentNode = eligibleNodes.find((node) => node.nodeKey === extension.nodeKey);
 
   const handleExtensionDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
