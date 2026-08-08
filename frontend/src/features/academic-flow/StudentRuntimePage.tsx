@@ -501,8 +501,7 @@ function RuntimeNodeDialog({
             </section>
             <ReadonlySubmission node={node} payload={displayedPayload} submittedAt={runtime.submittedAt} />
             {canAmendApprovedForm ? (
-              <div className="runtime-node-actions">
-                <span />
+              <div className="runtime-node-actions runtime-node-actions-readonly">
                 <button
                   className="primary-action"
                   onClick={onBeginFormAmendment}

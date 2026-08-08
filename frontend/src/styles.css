@@ -4808,6 +4808,10 @@ button {
   gap: 12px;
 }
 
+.runtime-node-actions-readonly {
+  margin: 0 24px 24px;
+}
+
 .runtime-node-actions button {
   min-height: 40px;
   padding: 0 16px;
@@ -5263,6 +5267,12 @@ button {
   .runtime-readonly-submission,
   .runtime-file-summary {
     margin-right: 18px;
+    margin-left: 18px;
+  }
+
+  .runtime-node-actions-readonly {
+    margin-right: 18px;
+    margin-bottom: 18px;
     margin-left: 18px;
   }
 

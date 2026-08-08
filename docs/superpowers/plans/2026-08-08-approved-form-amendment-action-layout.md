@@ -28,7 +28,7 @@
 - Consumes: 已通过表单只读分支中的 `.runtime-node-actions` 和现有窄屏媒体查询。
 - Produces: `.runtime-node-actions-readonly` 布局修饰类；不产生新的 React 属性或状态。
 
-- [ ] **Step 1: 标记只读操作区**
+- [x] **Step 1: 标记只读操作区**
 
 将已通过表单的操作区改为：
 
@@ -46,7 +46,7 @@
 
 删除原有无语义的 `<span />`。
 
-- [ ] **Step 2: 增加桌面端留白**
+- [x] **Step 2: 增加桌面端留白**
 
 在 `.runtime-node-actions` 通用规则之后增加：
 
@@ -58,7 +58,7 @@
 
 该规则只改变只读表单操作区的外边距，不与 `.runtime-node-form` 内的操作区叠加。
 
-- [ ] **Step 3: 增加窄屏留白**
+- [x] **Step 3: 增加窄屏留白**
 
 在现有同一窄屏媒体查询中，紧随 `.runtime-readonly-submission` 规则增加：
 
@@ -70,7 +70,7 @@
 }
 ```
 
-- [ ] **Step 4: 静态审计**
+- [x] **Step 4: 静态审计**
 
 运行：
 
@@ -82,7 +82,7 @@ rg -n "runtime-node-actions-readonly|runtime-node-actions" frontend/src/features
 
 确认只读分支使用修饰类，编辑分支仍只使用 `.runtime-node-actions`；无依赖、业务逻辑和其他文件差异。
 
-- [ ] **Step 5: 清理、提交并重启**
+- [x] **Step 5: 清理、提交并重启**
 
 定位并仅清理源码目录中的 `__pycache__`、`.pytest_cache` 和 `*.egg-info`，排除 `backend/.venv` 与 `frontend/node_modules`。随后只提交本计划和两个实现文件：
 
