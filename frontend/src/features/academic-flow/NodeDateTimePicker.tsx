@@ -211,6 +211,7 @@ export function NodeDateTimePicker({
     if (event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
+      closePicker();
       return;
     }
     if (event.key !== "Tab") return;

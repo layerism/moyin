@@ -33,7 +33,6 @@ import {
   canEditRevisionNodeCore,
   canMoveRevisionNode,
   filterPublishedRuntimeNodes,
-  layoutRevisionNodes,
   preservePublishedEdges,
   shouldReloadRevisionAfterConflict,
 } from "./flowRevision";
@@ -436,14 +435,6 @@ export function AcademicFlowDesigner({
     }
   };
 
-  const autoLayoutNodes = () => {
-    if (editorLocked || workingProcess.published) return;
-    commitDesignChange({
-      ...workingProcess,
-      nodes: layoutRevisionNodes(workingProcess.nodes),
-    });
-  };
-
   return (
     <main className="academic-standalone-page">
       <AcademicStandaloneHeader
@@ -532,7 +523,6 @@ export function AcademicFlowDesigner({
             nodeMovementLocked={workingProcess.published}
             nodes={workingProcess.nodes}
             onAddNode={addNode}
-            onAutoLayout={autoLayoutNodes}
             onConnectNodes={connectNodes}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
@@ -731,7 +721,6 @@ function FlowNodeCanvas({
   nodeMovementLocked,
   nodes,
   onAddNode,
-  onAutoLayout,
   onConnectNodes,
   onDeleteEdge,
   onDeleteNode,
@@ -752,7 +741,6 @@ function FlowNodeCanvas({
     title: string,
     position?: { x: number; y: number },
   ) => void;
-  onAutoLayout: () => void;
   onConnectNodes: (
     source: string,
     target: string,
@@ -1045,11 +1033,6 @@ function FlowNodeCanvas({
     setConnectionSource(null);
   };
 
-  const autoLayout = () => {
-    if (locked || nodeMovementLocked) return;
-    onAutoLayout();
-  };
-
   const startCanvasPan = (event: PointerEvent<HTMLDivElement>) => {
     if (
       !shouldStartCanvasPan({ button: event.button }) ||
@@ -1122,9 +1105,6 @@ function FlowNodeCanvas({
         <h2>流程画布</h2>
         <div className="canvas-toolbar">
           <button type="button">{Math.round(zoom * 100)}%</button>
-          <button disabled={locked || nodeMovementLocked} onClick={autoLayout} type="button">
-            自动布局
-          </button>
         </div>
       </div>
       <div
@@ -1394,11 +1374,16 @@ function NodeInspector({
 }) {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
     document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
     return () => {
+      window.removeEventListener("keydown", closeOnEscape);
       document.body.style.overflow = previousOverflow;
     };
-  }, []);
+  }, [onClose]);
 
   if (!node) {
     return null;
