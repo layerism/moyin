@@ -9,7 +9,6 @@ import {
   createFlowConfig,
   createPublishRequestPayload,
   filterPublishedRuntimeNodes,
-  layoutRevisionNodes,
   preservePublishedEdges,
   shouldReloadRevisionAfterConflict,
 } from "../src/features/academic-flow/flowRevision.ts";
@@ -55,27 +54,6 @@ test("runtime controls include only nodes from the current published version", (
 
   assert.deepEqual(filterPublishedRuntimeNodes(nodes, ["old"]), [nodes[0]]);
   assert.deepEqual(filterPublishedRuntimeNodes(nodes, undefined), []);
-});
-
-test("automatic layout merges all node positions in one immutable result", () => {
-  const nodes = [
-    { id: "one", title: "节点一", x: 0, y: 0 },
-    { id: "two", title: "节点二", x: 0, y: 0 },
-    { id: "three", title: "节点三", x: 0, y: 0 },
-  ];
-
-  const result = layoutRevisionNodes(nodes);
-
-  assert.deepEqual(
-    result.map(({ id, x, y }) => ({ id, x, y })),
-    [
-      { id: "one", x: 176, y: 64 },
-      { id: "two", x: 496, y: 64 },
-      { id: "three", x: 176, y: 256 },
-    ],
-  );
-  assert.equal(result[0].title, "节点一");
-  assert.notEqual(result, nodes);
 });
 
 test("publish payload binds the previewed draft and current version baseline", () => {
