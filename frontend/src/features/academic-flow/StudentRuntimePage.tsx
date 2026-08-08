@@ -39,6 +39,7 @@ export function StudentRuntimePage({
   const [instance, setInstance] = useState<RuntimeFlowInstance | null>(initialInstance ?? null);
   const [drafts, setDrafts] = useState<Record<string, Record<string, unknown>>>({});
   const [notice, setNotice] = useState("");
+  const [actionWarning, setActionWarning] = useState("");
   const [busyNodeId, setBusyNodeId] = useState<string | null>(null);
   const [activeNodeKey, setActiveNodeKey] = useState<string | null>(null);
   const [amendingNodeId, setAmendingNodeId] = useState<string | null>(null);
@@ -154,6 +155,7 @@ export function StudentRuntimePage({
   const save = async (runtime: RuntimeNodeInstance) => {
     setBusyNodeId(runtime.id);
     setNotice("");
+    setActionWarning("");
     try {
       setInstance(await workflowApi.saveNodeDraft(runtime.id, drafts[runtime.id] ?? {}));
       setNotice(
@@ -162,7 +164,7 @@ export function StudentRuntimePage({
           : "当前节点已暂存",
       );
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "暂存失败");
+      setActionWarning(reason instanceof Error ? reason.message : "暂存失败");
     } finally {
       setBusyNodeId(null);
     }
@@ -200,6 +202,7 @@ export function StudentRuntimePage({
       && instance?.config.nodes.find((node) => node.id === runtime.nodeKey)?.kind === "form";
     setBusyNodeId(runtime.id);
     setNotice("");
+    setActionWarning("");
     try {
       const next = await workflowApi.submitNode(
         runtime.id,
@@ -227,7 +230,7 @@ export function StudentRuntimePage({
           [runtime.id]: reason.fieldErrors,
         }));
       }
-      setNotice(reason instanceof Error ? reason.message : "提交失败");
+      setActionWarning(reason instanceof Error ? reason.message : "提交失败");
     } finally {
       setBusyNodeId(null);
     }
@@ -236,11 +239,12 @@ export function StudentRuntimePage({
   const retryAudit = async (runtime: RuntimeNodeInstance) => {
     setBusyNodeId(runtime.id);
     setNotice("");
+    setActionWarning("");
     try {
       setInstance(await workflowApi.retryAudit(runtime.id));
       setNotice("已重新发起自动审核");
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "重新审核失败");
+      setActionWarning(reason instanceof Error ? reason.message : "重新审核失败");
     } finally {
       setBusyNodeId(null);
     }
@@ -249,6 +253,7 @@ export function StudentRuntimePage({
   const downloadTemplate = async (runtime: RuntimeNodeInstance) => {
     setBusyNodeId(runtime.id);
     setNotice("");
+    setActionWarning("");
     try {
       const result = await workflowApi.downloadNodeTemplate(runtime.id);
       const anchor = document.createElement("a");
@@ -261,7 +266,7 @@ export function StudentRuntimePage({
       setInstance(await workflowApi.getInstance(instanceId));
       setNotice("模板已下载，请填写后上传");
     } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "模板下载失败");
+      setActionWarning(reason instanceof Error ? reason.message : "模板下载失败");
     } finally {
       setBusyNodeId(null);
     }
@@ -349,6 +354,15 @@ export function StudentRuntimePage({
             fieldId,
           )}
           runtime={activeRuntime}
+        />
+      ) : null}
+      {actionWarning ? (
+        <RuntimeWarningDialog
+          category="操作提示"
+          idPrefix="runtime-action-warning"
+          message={actionWarning}
+          onClose={() => setActionWarning("")}
+          title="操作未完成"
         />
       ) : null}
     </main>
@@ -618,37 +632,61 @@ function RuntimeNodeDialog({
         ) : <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>}
       </section>
       {uploadWarning ? (
-        <div
-          className="runtime-upload-warning-backdrop"
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          <section
-            aria-describedby="runtime-upload-warning-message"
-            aria-labelledby="runtime-upload-warning-title"
-            aria-modal="true"
-            className="runtime-upload-warning-dialog"
-            role="alertdialog"
-          >
-            <span aria-hidden="true" className="runtime-upload-warning-icon">
-              <svg fill="none" viewBox="0 0 24 24">
-                <path d="M12 8v5" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
-                <path d="M12 16.5h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="2.5" />
-                <path d="M10.3 4.4 3.2 17a2 2 0 0 0 1.75 3h14.1a2 2 0 0 0 1.75-3L13.7 4.4a1.95 1.95 0 0 0-3.4 0Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
-              </svg>
-            </span>
-            <div className="runtime-upload-warning-copy">
-              <span>文件校验</span>
-              <h3 id="runtime-upload-warning-title">文件上传未通过</h3>
-              <p id="runtime-upload-warning-message">{uploadWarning}</p>
-            </div>
-            <footer>
-              <button autoFocus onClick={() => setUploadWarning("")} type="button">
-                我知道了
-              </button>
-            </footer>
-          </section>
-        </div>
+        <RuntimeWarningDialog
+          category="文件校验"
+          idPrefix="runtime-upload-warning"
+          message={uploadWarning}
+          onClose={() => setUploadWarning("")}
+          title="文件上传未通过"
+        />
       ) : null}
+    </div>
+  );
+}
+
+function RuntimeWarningDialog({
+  category,
+  idPrefix,
+  message,
+  onClose,
+  title,
+}: {
+  category: string;
+  idPrefix: string;
+  message: string;
+  onClose: () => void;
+  title: string;
+}) {
+  const messageId = `${idPrefix}-message`;
+  const titleId = `${idPrefix}-title`;
+  return (
+    <div
+      className="runtime-warning-backdrop"
+      onMouseDown={(event) => event.stopPropagation()}
+    >
+      <section
+        aria-describedby={messageId}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className="runtime-warning-dialog"
+        role="alertdialog"
+      >
+        <span aria-hidden="true" className="runtime-warning-icon">
+          <svg fill="none" viewBox="0 0 24 24">
+            <path d="M12 8v5" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+            <path d="M12 16.5h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="2.5" />
+            <path d="M10.3 4.4 3.2 17a2 2 0 0 0 1.75 3h14.1a2 2 0 0 0 1.75-3L13.7 4.4a1.95 1.95 0 0 0-3.4 0Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
+          </svg>
+        </span>
+        <div className="runtime-warning-copy">
+          <span>{category}</span>
+          <h3 id={titleId}>{title}</h3>
+          <p id={messageId}>{message}</p>
+        </div>
+        <footer>
+          <button autoFocus onClick={onClose} type="button">我知道了</button>
+        </footer>
+      </section>
     </div>
   );
 }
