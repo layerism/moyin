@@ -35,6 +35,6 @@
 ## 验收
 
 - `.local/node/bin/node --version` 输出 `v24.18.0`。
-- `.local/node/bin/npm --version` 输出 `11.16.0`。
-- `PATH` 指向本地目录后，`command -v node` 与 `command -v npm` 均解析到项目 `.local/node/bin`。
+- `PATH` 指向本地目录后，`npm --version` 输出 `11.16.0`。
+- `command -v node` 与 `command -v npm` 均解析到项目 `.local/node/bin`。
 - 按项目约定不运行测试或浏览器，仅进行安装结果检查和业务逻辑审计。
