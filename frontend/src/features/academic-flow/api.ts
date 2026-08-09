@@ -107,6 +107,12 @@ export const workflowApi = {
       body: JSON.stringify({ name }),
     });
   },
+  renameFlow(serverId: string, name: string) {
+    return request<ServerFlow>(`/api/workflows/${encodeURIComponent(serverId)}/name`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    });
+  },
   saveDraft(serverId: string, process: AcademicProcess) {
     return request<ServerFlow>(`/api/workflows/${encodeURIComponent(serverId)}/draft`, {
       method: "PUT",

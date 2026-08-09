@@ -63,7 +63,9 @@ export function NameDialog({
   onConfirm,
   onValueChange,
   placeholder,
+  selectOnFocus = false,
   submitting = false,
+  submittingLabel = "创建中",
   title,
   value,
 }: {
@@ -72,7 +74,9 @@ export function NameDialog({
   onConfirm: () => void;
   onValueChange: (value: string) => void;
   placeholder: string;
+  selectOnFocus?: boolean;
   submitting?: boolean;
+  submittingLabel?: string;
   title: string;
   value: string;
 }) {
@@ -87,6 +91,9 @@ export function NameDialog({
           placeholder={placeholder}
           value={value}
           onChange={(event) => onValueChange(event.target.value)}
+          onFocus={(event) => {
+            if (selectOnFocus) event.currentTarget.select();
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !submitting) {
               onConfirm();
@@ -97,7 +104,7 @@ export function NameDialog({
         <div className="dialog-actions">
           <button disabled={submitting} onClick={onCancel}>取消</button>
           <button className="primary small" disabled={submitting} onClick={onConfirm}>
-            {submitting ? "创建中" : "确定"}
+            {submitting ? submittingLabel : "确定"}
           </button>
         </div>
       </section>

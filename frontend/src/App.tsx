@@ -581,6 +581,15 @@ export function App() {
           ]);
           return cloned;
         }}
+        onRenameProcess={async (process, name) => {
+          const renamed = mapServerFlow(
+            await workflowApi.renameFlow(process.serverId ?? process.id, name),
+          );
+          setAcademicProcesses((current) =>
+            current.map((item) => (item.id === renamed.id ? renamed : item)),
+          );
+          return renamed;
+        }}
         onDatabaseAdmin={openDatabaseAdmin}
         onHome={openHome}
         onOssCloud={() => {

@@ -403,6 +403,37 @@ button {
   background: #f1f6ff;
 }
 
+.academic-flow-rename {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #c9d9f5;
+  border-radius: 6px;
+  background: #f6f9ff;
+  color: #3267bd;
+}
+
+.academic-flow-rename svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.academic-flow-rename:hover {
+  border-color: #8cafe9;
+  background: #eaf2ff;
+}
+
+.academic-flow-rename:focus-visible {
+  outline: 3px solid rgb(43 116 255 / 20%);
+  outline-offset: 2px;
+}
+
 .academic-flow-delete {
   width: 34px;
   height: 34px;
