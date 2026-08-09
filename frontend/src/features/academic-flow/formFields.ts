@@ -28,6 +28,7 @@ export function normalizeFormFields(fields: FormFieldConfig[]): NormalizedFormFi
           answerKey: field.id,
           legacy: false,
           options: field.options?.map((option) => ({ ...option })),
+          required: true,
         },
   );
 }
@@ -36,7 +37,11 @@ export function upgradeFormFields(fields: FormFieldConfig[]): FormField[] {
   return fields.map((field, index) =>
     typeof field === "string"
       ? { id: `legacy-${index}`, label: field, required: true, type: "text" }
-      : { ...field, options: field.options?.map((option) => ({ ...option })) },
+      : {
+          ...field,
+          options: field.options?.map((option) => ({ ...option })),
+          required: true,
+        },
   );
 }
 
@@ -119,7 +124,7 @@ export function validateFormFieldConfig(
         "选择数",
         addError,
       );
-      const effectiveMinimum = Math.max(field.minSelections ?? 0, field.required ? 1 : 0);
+      const effectiveMinimum = Math.max(field.minSelections ?? 0, 1);
       if (field.maxSelections !== undefined && effectiveMinimum > field.maxSelections) {
         addError(field.id, "最少选择数不能大于最多选择数");
       }
@@ -146,7 +151,7 @@ export function validateFormAnswers(
       const value = typeof rawValue === "string" ? rawValue.trim() : "";
       if (rawValue !== undefined && typeof rawValue !== "string") {
         errors[field.id] = "填写内容格式无效";
-      } else if (field.required && !value) {
+      } else if (!value) {
         errors[field.id] = "此项为必填项";
       } else if (field.type === "textarea" && value) {
         const length = Array.from(value).length;
@@ -167,7 +172,7 @@ export function validateFormAnswers(
         && (validIds.has(selected) || (field.allowOther && selected === OTHER_OPTION_ID));
       if (rawValue !== undefined && (!answer || (selected !== undefined && selected !== null && !valid))) {
         errors[field.id] = "选择内容无效";
-      } else if (field.required && !valid) {
+      } else if (!valid) {
         errors[field.id] = "请选择一项";
       } else if (selected === OTHER_OPTION_ID && !asTrimmedString(answer?.otherText)) {
         errors[field.id] = "请填写“其他”内容";
@@ -196,12 +201,11 @@ export function validateFormAnswers(
       continue;
     }
     const count = unique.size;
-    if (!count && field.required) {
+    if (!count) {
       errors[field.id] = "请至少选择一项";
       continue;
     }
-    if (!count) continue;
-    const minimum = Math.max(field.minSelections ?? 0, field.required ? 1 : 0);
+    const minimum = Math.max(field.minSelections ?? 0, 1);
     if (count < minimum) {
       errors[field.id] = `请至少选择 ${minimum} 项`;
     } else if (field.maxSelections !== undefined && count > field.maxSelections) {

@@ -66,10 +66,6 @@ function sameDragList(left: DragList, right: DragList): boolean {
     ));
 }
 
-function isSelectionType(type: FormFieldType): boolean {
-  return type === "radio" || type === "checkbox";
-}
-
 export function FormFieldEditor({
   disabled,
   fields,
@@ -81,7 +77,7 @@ export function FormFieldEditor({
 }) {
   const displayedFields = normalizeFormFields(fields);
   const errors = validateFormFieldConfig(fields);
-  const [expandedSelectionFieldId, setExpandedSelectionFieldId] = useState<string | null>(null);
+  const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null);
   const [openActionMenu, setOpenActionMenu] = useState<ActionMenuTarget | null>(null);
   const [editingTitleFieldId, setEditingTitleFieldId] = useState<string | null>(null);
   const [editingTitleValue, setEditingTitleValue] = useState("");
@@ -95,10 +91,8 @@ export function FormFieldEditor({
 
   useEffect(() => {
     const currentFields = normalizeFormFields(fields);
-    setExpandedSelectionFieldId((current) =>
-      current && currentFields.some(
-        (field) => field.id === current && isSelectionType(field.type),
-      )
+    setExpandedFieldId((current) =>
+      current && currentFields.some((field) => field.id === current)
         ? current
         : null,
     );
@@ -345,24 +339,20 @@ export function FormFieldEditor({
   const addField = (type: FormFieldType) => {
     const field = createFormField(type);
     onChange([...upgradeFormFields(fields), field]);
-    if (isSelectionType(type)) setExpandedSelectionFieldId(field.id);
+    setExpandedFieldId(field.id);
     setOpenActionMenu(null);
   };
 
   const changeFieldType = (fieldIndex: number, type: FormFieldType) => {
     const field = displayedFields[fieldIndex];
     updateField(fieldIndex, { type });
-    if (isSelectionType(type)) {
-      setExpandedSelectionFieldId(field.id);
-    } else if (isSelectionType(field.type)) {
-      setExpandedSelectionFieldId((current) => (current === field.id ? null : current));
-    }
+    setExpandedFieldId(field.id);
     setOpenActionMenu(null);
   };
 
   const deleteField = (fieldIndex: number, fieldId: string) => {
     onChange(upgradeFormFields(fields).filter((_, index) => index !== fieldIndex));
-    setExpandedSelectionFieldId((current) => (current === fieldId ? null : current));
+    setExpandedFieldId((current) => (current === fieldId ? null : current));
     setOpenActionMenu(null);
   };
 
@@ -405,54 +395,38 @@ export function FormFieldEditor({
 
       {displayedFields.map((field, fieldIndex) => {
         const fieldDragList: DragList = { kind: "field" };
-        const selectionField = isSelectionType(field.type);
-        const expanded = selectionField && expandedSelectionFieldId === field.id;
+        const selectionField = field.type === "radio" || field.type === "checkbox";
+        const expanded = expandedFieldId === field.id;
         const fieldErrors = errors[field.id] ?? [];
         const fieldMenuOpen = openActionMenu?.kind === "field"
           && openActionMenu.fieldId === field.id;
-        const toggleSelectionField = () => {
-          setExpandedSelectionFieldId(expanded ? null : field.id);
+        const toggleField = () => {
+          setExpandedFieldId(expanded ? null : field.id);
           setOpenActionMenu(null);
         };
+        const fieldMeta = selectionField
+          ? `${fieldTypeLabels[field.type]} · ${field.options?.length ?? 0} 个选项`
+          : fieldTypeLabels[field.type];
         const fieldSettings = (
           <>
-            {!selectionField ? (
-              <div className="form-field-base-settings">
-                <label>
-                  <span>字段标题</span>
-                  <input
-                    disabled={disabled}
-                    value={field.label}
-                    onChange={(event) => updateField(fieldIndex, { label: event.target.value })}
-                  />
-                </label>
-                <label>
-                  <span>字段类型</span>
-                  <select
-                    disabled={disabled}
-                    value={field.type}
-                    onChange={(event) => changeFieldType(
-                      fieldIndex,
-                      event.target.value as FormFieldType,
-                    )}
-                  >
-                    <option value="text">单行文本</option>
-                    <option value="textarea">多行文本</option>
-                    <option value="radio">单项选择</option>
-                    <option value="checkbox">多项选择</option>
-                  </select>
-                </label>
-                <label className="form-field-required">
-                  <input
-                    checked={field.required}
-                    disabled={disabled}
-                    onChange={(event) => updateField(fieldIndex, { required: event.target.checked })}
-                    type="checkbox"
-                  />
-                  <span>必填</span>
-                </label>
-              </div>
-            ) : null}
+            <div className="form-field-common-settings">
+              <label>
+                <span>字段类型</span>
+                <select
+                  disabled={disabled}
+                  value={field.type}
+                  onChange={(event) => changeFieldType(
+                    fieldIndex,
+                    event.target.value as FormFieldType,
+                  )}
+                >
+                  <option value="text">单行文本</option>
+                  <option value="textarea">多行文本</option>
+                  <option value="radio">单项选择</option>
+                  <option value="checkbox">多项选择</option>
+                </select>
+              </label>
+            </div>
 
             {field.type === "textarea" ? (
               <div className="form-field-type-settings two-column">
@@ -600,180 +574,119 @@ export function FormFieldEditor({
 
         return (
           <section
-            className={`form-field-card${selectionField ? " selection-field-card" : ""}${
+            className={`form-field-card form-field-collapsible${
               fieldErrors.length ? " has-errors" : ""
             }${getDragClassName(fieldDragList, fieldIndex)}`}
             data-reorder-index={fieldIndex}
             data-reorder-kind="field"
             key={field.id}
           >
-            {selectionField ? (
-              <div className="selection-field-summary">
-                <div className="selection-field-summary-main">
-                  <ReorderHandle
-                    ariaLabel={`拖拽字段 ${field.label.trim() || "未命名字段"} 排序`}
-                    disabled={disabled}
-                    dragging={Boolean(
-                      dragState?.active
-                      && dragState.list.kind === "field"
-                      && dragState.sourceIndex === fieldIndex
-                    )}
-                    onKeyDown={(event) => handleReorderKeyDown(
-                      event,
-                      fieldIndex,
-                      displayedFields.length,
-                      (offset) => moveField(fieldIndex, offset),
-                    )}
-                    onPointerCancel={cancelPointerReorder}
-                    onPointerDown={(event) => beginPointerReorder(
-                      event,
-                      fieldDragList,
-                      fieldIndex,
-                    )}
-                    onPointerMove={updatePointerReorder}
-                    onPointerUp={finishPointerReorder}
-                  />
-                  <span className="selection-field-title-control">
-                    {editingTitleFieldId === field.id ? (
-                      <input
-                        aria-label="字段标题"
-                        autoFocus
-                        disabled={disabled}
-                        onBlur={() => commitTitleEditing(fieldIndex, field.id)}
-                        onChange={(event) => setEditingTitleValue(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            commitTitleEditing(fieldIndex, field.id);
-                          } else if (event.key === "Escape") {
-                            event.preventDefault();
-                            cancelTitleEditing();
-                          }
-                        }}
-                        value={editingTitleValue}
-                      />
-                    ) : (
-                      <button
-                        className="selection-field-title-button"
-                        disabled={disabled}
-                        onClick={() => beginTitleEditing(field)}
-                        title="点击修改字段标题"
-                        type="button"
-                      >{field.label.trim() || "未命名字段"}</button>
-                    )}
-                  </span>
-                  <div
-                    aria-controls={expanded ? `selection-field-content-${field.id}` : undefined}
-                    aria-expanded={expanded}
-                    className="selection-field-meta-toggle"
-                    onClick={toggleSelectionField}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter" && event.key !== " ") return;
-                      event.preventDefault();
-                      toggleSelectionField();
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <small>
-                      {fieldTypeLabels[field.type]} · {field.options?.length ?? 0} 个选项
-                    </small>
-                    {fieldErrors.length ? (
-                      <span className="selection-field-error-badge">需修正</span>
-                    ) : null}
-                    <span
-                      aria-hidden="true"
-                      className={`selection-field-chevron${expanded ? " expanded" : ""}`}
-                    >
-                      <svg viewBox="0 0 16 16">
-                        <path d="m3.5 6 4.5 4 4.5-4" />
-                      </svg>
-                    </span>
-                  </div>
-                  <label className="selection-field-summary-required">
+            <div className="form-field-summary">
+              <div className="form-field-summary-main">
+                <ReorderHandle
+                  ariaLabel={`拖拽字段 ${field.label.trim() || "未命名字段"} 排序`}
+                  disabled={disabled}
+                  dragging={Boolean(
+                    dragState?.active
+                    && dragState.list.kind === "field"
+                    && dragState.sourceIndex === fieldIndex
+                  )}
+                  onKeyDown={(event) => handleReorderKeyDown(
+                    event,
+                    fieldIndex,
+                    displayedFields.length,
+                    (offset) => moveField(fieldIndex, offset),
+                  )}
+                  onPointerCancel={cancelPointerReorder}
+                  onPointerDown={(event) => beginPointerReorder(
+                    event,
+                    fieldDragList,
+                    fieldIndex,
+                  )}
+                  onPointerMove={updatePointerReorder}
+                  onPointerUp={finishPointerReorder}
+                />
+                <span className="form-field-title-control">
+                  {editingTitleFieldId === field.id ? (
                     <input
-                      checked={field.required}
+                      aria-label="字段标题"
+                      autoFocus
                       disabled={disabled}
-                      onChange={(event) => updateField(fieldIndex, {
-                        required: event.target.checked,
-                      })}
-                      type="checkbox"
+                      onBlur={() => commitTitleEditing(fieldIndex, field.id)}
+                      onChange={(event) => setEditingTitleValue(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          commitTitleEditing(fieldIndex, field.id);
+                        } else if (event.key === "Escape") {
+                          event.preventDefault();
+                          cancelTitleEditing();
+                        }
+                      }}
+                      value={editingTitleValue}
                     />
-                    <span>必填</span>
-                  </label>
-                </div>
-                <FieldActionMenu
-                  ariaLabel={`字段操作 ${field.label.trim() || "未命名字段"}`}
-                  disabled={disabled}
-                  items={[
-                    {
-                      danger: true,
-                      label: "删除字段",
-                      onSelect: () => deleteField(fieldIndex, field.id),
-                    },
-                  ]}
-                  onOpenChange={(open) => setOpenActionMenu(open
-                    ? { kind: "field", fieldId: field.id }
-                    : null)}
-                  open={fieldMenuOpen}
-                />
-              </div>
-            ) : (
-              <div className="form-field-card-header">
-                <div className="form-field-card-title">
-                  <ReorderHandle
-                    ariaLabel={`拖拽字段 ${field.label.trim() || "未命名字段"} 排序`}
-                    disabled={disabled}
-                    dragging={Boolean(
-                      dragState?.active
-                      && dragState.list.kind === "field"
-                      && dragState.sourceIndex === fieldIndex
-                    )}
-                    onKeyDown={(event) => handleReorderKeyDown(
-                      event,
-                      fieldIndex,
-                      displayedFields.length,
-                      (offset) => moveField(fieldIndex, offset),
-                    )}
-                    onPointerCancel={cancelPointerReorder}
-                    onPointerDown={(event) => beginPointerReorder(
-                      event,
-                      fieldDragList,
-                      fieldIndex,
-                    )}
-                    onPointerMove={updatePointerReorder}
-                    onPointerUp={finishPointerReorder}
-                  />
-                  <strong>{fieldTypeLabels[field.type]}</strong>
-                </div>
-                <FieldActionMenu
-                  ariaLabel={`字段操作 ${field.label.trim() || "未命名字段"}`}
-                  disabled={disabled}
-                  items={[
-                    {
-                      danger: true,
-                      label: "删除字段",
-                      onSelect: () => deleteField(fieldIndex, field.id),
-                    },
-                  ]}
-                  onOpenChange={(open) => setOpenActionMenu(open
-                    ? { kind: "field", fieldId: field.id }
-                    : null)}
-                  open={fieldMenuOpen}
-                />
-              </div>
-            )}
-
-            {selectionField ? (
-              expanded ? (
+                  ) : (
+                    <button
+                      className="form-field-title-button"
+                      disabled={disabled}
+                      onClick={() => beginTitleEditing(field)}
+                      title="点击修改字段标题"
+                      type="button"
+                    >{field.label.trim() || "未命名字段"}</button>
+                  )}
+                </span>
                 <div
-                  className="selection-field-content"
-                  id={`selection-field-content-${field.id}`}
+                  aria-controls={expanded ? `form-field-content-${field.id}` : undefined}
+                  aria-expanded={expanded}
+                  className="form-field-meta-toggle"
+                  onClick={toggleField}
+                  onKeyDown={(event) => {
+                    if (event.key !== "Enter" && event.key !== " ") return;
+                    event.preventDefault();
+                    toggleField();
+                  }}
+                  role="button"
+                  tabIndex={0}
                 >
-                  {fieldSettings}
+                  <small>{fieldMeta}</small>
+                  {fieldErrors.length ? (
+                    <span className="form-field-error-badge">需修正</span>
+                  ) : null}
+                  <span
+                    aria-hidden="true"
+                    className={`form-field-chevron${expanded ? " expanded" : ""}`}
+                  >
+                    <svg viewBox="0 0 16 16">
+                      <path d="m3.5 6 4.5 4 4.5-4" />
+                    </svg>
+                  </span>
                 </div>
-              ) : null
-            ) : fieldSettings}
+              </div>
+              <FieldActionMenu
+                ariaLabel={`字段操作 ${field.label.trim() || "未命名字段"}`}
+                disabled={disabled}
+                items={[
+                  {
+                    danger: true,
+                    label: "删除字段",
+                    onSelect: () => deleteField(fieldIndex, field.id),
+                  },
+                ]}
+                onOpenChange={(open) => setOpenActionMenu(open
+                  ? { kind: "field", fieldId: field.id }
+                  : null)}
+                open={fieldMenuOpen}
+              />
+            </div>
+
+            {expanded ? (
+              <div
+                className="form-field-content"
+                id={`form-field-content-${field.id}`}
+              >
+                {fieldSettings}
+              </div>
+            ) : null}
           </section>
         );
       })}
@@ -919,7 +832,7 @@ function normalizeFieldSettings(field: FormField): FormField {
     return {
       id: field.id,
       label: field.label,
-      required: field.required,
+      required: true,
       type: field.type,
     };
   }
@@ -929,7 +842,7 @@ function normalizeFieldSettings(field: FormField): FormField {
       label: field.label,
       maxLength: field.maxLength,
       minLength: field.minLength,
-      required: field.required,
+      required: true,
       type: field.type,
     };
   }
@@ -942,7 +855,7 @@ function normalizeFieldSettings(field: FormField): FormField {
       id: field.id,
       label: field.label,
       options,
-      required: field.required,
+      required: true,
       type: field.type,
     };
   }
@@ -953,7 +866,7 @@ function normalizeFieldSettings(field: FormField): FormField {
     maxSelections: field.maxSelections,
     minSelections: field.minSelections,
     options,
-    required: field.required,
+    required: true,
     type: field.type,
   };
 }

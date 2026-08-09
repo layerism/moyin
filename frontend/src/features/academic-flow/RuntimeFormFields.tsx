@@ -43,7 +43,6 @@ export function RuntimeFormFields({
           >
             <div className="runtime-form-field-label">
               <strong>{field.label}</strong>
-              <span>{field.required ? "必填" : "选填"}</span>
             </div>
 
             {field.type === "text" ? (
