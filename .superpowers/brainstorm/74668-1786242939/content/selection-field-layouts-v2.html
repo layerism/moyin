@@ -1,0 +1,117 @@
+<style>
+  .cards { grid-template-columns: repeat(3, minmax(290px, 1fr)); align-items: start; }
+  .card-image { min-height: 430px; padding: 18px; background: #f3f6fa; }
+  .demo { border: 1px solid #ccd7e5; border-radius: 9px; background: #fff; color: #233147; box-shadow: 0 2px 8px rgb(26 44 72 / 5%); overflow: hidden; }
+  .topline { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-bottom: 1px solid #e6ecf3; }
+  .title-input { min-width: 0; flex: 1; height: 30px; padding: 0 8px; border: 1px solid #d0dae7; border-radius: 5px; color: #26364c; font-weight: 700; }
+  .type-tag { padding: 5px 7px; border-radius: 5px; background: #edf4ff; color: #245eb5; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .required { display: flex; align-items: center; gap: 3px; font-size: 11px; white-space: nowrap; }
+  .more { width: 28px; height: 28px; border: 1px solid #cbd7e6; border-radius: 5px; background: #fff; color: #536a87; font-weight: 800; }
+  .body { padding: 10px 12px 12px; }
+  .body-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; font-size: 11px; color: #6f7f93; }
+  .rows { display: grid; gap: 4px; }
+  .row { min-height: 32px; display: grid; grid-template-columns: 18px minmax(0, 1fr) 28px; align-items: center; gap: 6px; }
+  .index { color: #94a1b2; font-size: 10px; text-align: center; }
+  .input { box-sizing: border-box; width: 100%; height: 31px; padding: 0 8px; border: 1px solid #d4deea; border-radius: 5px; color: #29394e; font-size: 12px; }
+  .add { width: 100%; height: 30px; margin-top: 7px; border: 1px dashed #b7c8de; border-radius: 5px; background: #f7faff; color: #245eb5; font-size: 11px; font-weight: 700; }
+  .menu-wrap { position: relative; }
+  .menu { position: absolute; z-index: 2; top: 31px; right: 0; width: 104px; padding: 4px; border: 1px solid #d2dce8; border-radius: 6px; background: #fff; box-shadow: 0 8px 22px rgb(30 48 75 / 16%); }
+  .menu span { display: block; padding: 6px 8px; border-radius: 4px; font-size: 11px; }
+  .menu span:hover { background: #f1f5fa; }
+  .menu .danger { color: #b42318; }
+  .collapsed-stack { display: grid; gap: 8px; padding: 12px; }
+  .summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 10px; border: 1px solid #d5dfeb; border-radius: 7px; background: #fff; }
+  .summary strong { display: block; font-size: 13px; }
+  .summary small { display: block; margin-top: 2px; color: #7c899b; font-size: 10px; }
+  .summary .count { padding: 4px 7px; border-radius: 10px; background: #f0f4f9; color: #607188; font-size: 10px; }
+  .expanded { border-color: #80aaf0; box-shadow: 0 0 0 2px rgb(43 116 255 / 8%); }
+  .expanded-body { margin-top: -3px; padding: 0 10px 10px; }
+  .drag-row { grid-template-columns: 26px minmax(0, 1fr) 28px; padding: 2px 3px; border-radius: 6px; background: #f8fafc; }
+  .handle { color: #8a99ab; font-size: 16px; text-align: center; cursor: grab; }
+  .trash { width: 28px; height: 28px; border: 0; border-radius: 5px; background: transparent; color: #b45650; }
+  .drag-hint { margin: 8px 0 0; color: #7d8999; font-size: 10px; text-align: center; }
+  .difference { margin: 0 0 20px; padding: 10px 12px; border-left: 3px solid #2b74ff; background: #f4f8ff; color: #465973; }
+  @media (max-width: 1000px) { .cards { grid-template-columns: 1fr; } }
+</style>
+
+<h2>第二版：真正改变信息密度</h2>
+<p class="difference">这次不是缩小原按钮，而是重新组织操作入口。三种方案仍保留原有编辑、排序、删除和添加功能。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a2" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="demo">
+        <div class="topline">
+          <input class="title-input" value="班级" readonly>
+          <span class="type-tag">单项选择</span>
+          <span class="required">☑ 必填</span>
+          <div class="menu-wrap"><button class="more">•••</button><div class="menu"><span>字段上移</span><span>字段下移</span><span class="danger">删除字段</span></div></div>
+        </div>
+        <div class="body">
+          <div class="body-head"><strong>选项</strong><span>6 项</span></div>
+          <div class="rows">
+            <div class="row"><span class="index">1</span><input class="input" value="软件 1 班" readonly><button class="more">•••</button></div>
+            <div class="row"><span class="index">2</span><input class="input" value="软件 2 班" readonly><div class="menu-wrap"><button class="more">•••</button><div class="menu"><span>上移</span><span>下移</span><span class="danger">删除</span></div></div></div>
+            <div class="row"><span class="index">3</span><input class="input" value="软件 3 班" readonly><button class="more">•••</button></div>
+            <div class="row"><span class="index">4</span><input class="input" value="软件 4 班" readonly><button class="more">•••</button></div>
+            <div class="row"><span class="index">5</span><input class="input" value="软件 5 班" readonly><button class="more">•••</button></div>
+          </div>
+          <button class="add">＋ 添加选项</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A · 操作收进三点菜单</h3><p>界面最干净，字段与每个选项只保留一个操作入口；排序和删除多一次点击。</p></div>
+  </div>
+
+  <div class="card" data-choice="b2" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="demo collapsed-stack">
+        <div class="summary">
+          <span><strong>姓名</strong><small>单行文本 · 必填</small></span><span class="count">文本</span><button class="more">⌄</button>
+        </div>
+        <div class="summary expanded">
+          <span><strong>班级</strong><small>单项选择 · 必填</small></span><span class="count">6 个选项</span><button class="more">⌃</button>
+          <div class="expanded-body" style="grid-column:1/-1">
+            <div class="rows">
+              <div class="row"><span class="index">1</span><input class="input" value="软件 1 班" readonly><button class="more">•••</button></div>
+              <div class="row"><span class="index">2</span><input class="input" value="软件 2 班" readonly><button class="more">•••</button></div>
+              <div class="row"><span class="index">3</span><input class="input" value="软件 3 班" readonly><button class="more">•••</button></div>
+            </div>
+            <button class="add">＋ 添加选项</button>
+          </div>
+        </div>
+        <div class="summary">
+          <span><strong>实习方向</strong><small>多项选择 · 可选</small></span><span class="count">8 个选项</span><button class="more">⌄</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B · 字段卡片默认折叠（推荐）</h3><p>大量字段时最紧凑；当前编辑项展开，其余只显示摘要。所有设置仍在展开区内。</p></div>
+  </div>
+
+  <div class="card" data-choice="c2" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="demo">
+        <div class="topline">
+          <span class="handle">≡</span>
+          <input class="title-input" value="班级" readonly>
+          <span class="type-tag">单项选择</span>
+          <span class="required">☑ 必填</span>
+          <button class="trash">⌫</button>
+        </div>
+        <div class="body">
+          <div class="body-head"><strong>拖动调整选项顺序</strong><span>6 项</span></div>
+          <div class="rows">
+            <div class="row drag-row"><span class="handle">≡</span><input class="input" value="软件 1 班" readonly><button class="trash">⌫</button></div>
+            <div class="row drag-row"><span class="handle">≡</span><input class="input" value="软件 2 班" readonly><button class="trash">⌫</button></div>
+            <div class="row drag-row"><span class="handle">≡</span><input class="input" value="软件 3 班" readonly><button class="trash">⌫</button></div>
+            <div class="row drag-row"><span class="handle">≡</span><input class="input" value="软件 4 班" readonly><button class="trash">⌫</button></div>
+            <div class="row drag-row"><span class="handle">≡</span><input class="input" value="软件 5 班" readonly><button class="trash">⌫</button></div>
+          </div>
+          <button class="add">＋ 添加选项</button>
+          <p class="drag-hint">拖拽取代上移 / 下移按钮</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body"><h3>C · 拖拽轻列表</h3><p>操作最直接、纵向最紧凑；但需要新增拖拽交互，并处理键盘排序的可访问替代。</p></div>
+  </div>
+</div>

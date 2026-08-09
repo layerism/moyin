@@ -1,0 +1,121 @@
+<style>
+  .comparison-note { margin-bottom: 22px; color: #526076; }
+  .cards { grid-template-columns: repeat(3, minmax(280px, 1fr)); align-items: start; }
+  .card-image { min-height: 390px; padding: 18px; background: #f5f7fb; }
+  .field-demo { padding: 14px; border: 1px solid #cad5e4; border-radius: 9px; background: #fff; color: #1f2b3d; box-shadow: 0 2px 8px rgb(31 43 61 / 5%); }
+  .field-head, .field-meta, .option-row, .table-head { display: grid; align-items: center; gap: 8px; }
+  .field-head { grid-template-columns: minmax(0, 1fr) auto; padding-bottom: 10px; }
+  .field-title { font-size: 14px; font-weight: 800; }
+  .tools { display: flex; gap: 4px; }
+  .icon-button { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid #cbd7e7; border-radius: 5px; background: #fff; color: #526985; font-size: 12px; }
+  .icon-button.danger { color: #b42318; }
+  .field-meta { grid-template-columns: minmax(0, 1fr) 104px 52px; padding-bottom: 11px; border-bottom: 1px solid #e8edf4; }
+  .compact-input, .compact-select { box-sizing: border-box; width: 100%; height: 32px; padding: 0 9px; border: 1px solid #d2dce9; border-radius: 5px; background: #fff; color: #27364a; font-size: 12px; }
+  .required { height: 32px; display: flex; align-items: center; justify-content: center; gap: 4px; border: 1px solid #d2dce9; border-radius: 5px; background: #f8fafc; font-size: 11px; }
+  .option-title { display: flex; align-items: center; justify-content: space-between; margin: 10px 0 6px; font-size: 12px; font-weight: 800; }
+  .option-list { display: grid; gap: 5px; }
+  .option-row { grid-template-columns: 20px minmax(0, 1fr) auto; min-height: 32px; }
+  .option-index { color: #8a98aa; font-size: 11px; text-align: center; }
+  .option-tools { display: flex; gap: 3px; }
+  .option-tools .icon-button { width: 27px; height: 27px; }
+  .add-option { width: 100%; min-height: 30px; margin-top: 7px; border: 1px dashed #b9c9df; border-radius: 5px; background: #f8fbff; color: #245fbd; font-size: 12px; font-weight: 700; }
+  .hover-card .option-tools { opacity: .18; }
+  .hover-card .option-row.active { margin: -1px; padding: 1px; border-radius: 5px; background: #f2f7ff; }
+  .hover-card .option-row.active .option-tools { opacity: 1; }
+  .table-head, .table-card .option-row { grid-template-columns: 24px minmax(0, 1fr) 58px 28px; }
+  .table-head { margin: 10px 0 5px; color: #7b8899; font-size: 10px; }
+  .order-pair { display: flex; justify-content: center; gap: 2px; }
+  .order-pair .icon-button { width: 26px; height: 26px; border: 0; background: transparent; }
+  .micro-note { margin-top: 9px; color: #7b8899; font-size: 10px; line-height: 1.5; }
+  @media (max-width: 1000px) { .cards { grid-template-columns: 1fr; } }
+</style>
+
+<h2>选择字段：哪种紧凑布局更合适？</h2>
+<p class="subtitle comparison-note">三种方案都保留：字段标题、类型切换、必填、字段排序/删除、选项编辑、选项排序/删除和添加选项。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="field-demo">
+        <div class="field-head">
+          <span class="field-title">单项选择</span>
+          <div class="tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></div>
+        </div>
+        <div class="field-meta">
+          <input class="compact-input" value="班级" readonly>
+          <select class="compact-select"><option>单项选择</option></select>
+          <span class="required">☑ 必填</span>
+        </div>
+        <div class="option-title"><span>选项 · 6</span><span style="color:#8592a3;font-weight:500">名称可直接编辑</span></div>
+        <div class="option-list">
+          <div class="option-row"><span class="option-index">1</span><input class="compact-input" value="软件 1 班" readonly><span class="option-tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></span></div>
+          <div class="option-row"><span class="option-index">2</span><input class="compact-input" value="软件 2 班" readonly><span class="option-tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></span></div>
+          <div class="option-row"><span class="option-index">3</span><input class="compact-input" value="软件 3 班" readonly><span class="option-tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></span></div>
+          <div class="option-row"><span class="option-index">4</span><input class="compact-input" value="软件 4 班" readonly><span class="option-tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></span></div>
+        </div>
+        <button class="add-option">＋ 添加选项</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · 常驻紧凑工具列（推荐）</h3>
+      <p>缩小间距和按钮，保留所有操作始终可见；学习成本最低，键盘和触屏也稳定。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="field-demo hover-card">
+        <div class="field-head">
+          <span class="field-title">单项选择</span>
+          <div class="tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></div>
+        </div>
+        <div class="field-meta">
+          <input class="compact-input" value="班级" readonly>
+          <select class="compact-select"><option>单项选择</option></select>
+          <span class="required">☑ 必填</span>
+        </div>
+        <div class="option-title"><span>选项 · 6</span><span style="color:#8592a3;font-weight:500">悬浮显示操作</span></div>
+        <div class="option-list">
+          <div class="option-row"><span class="option-index">1</span><input class="compact-input" value="软件 1 班" readonly><span class="option-tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></span></div>
+          <div class="option-row active"><span class="option-index">2</span><input class="compact-input" value="软件 2 班" readonly><span class="option-tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></span></div>
+          <div class="option-row"><span class="option-index">3</span><input class="compact-input" value="软件 3 班" readonly><span class="option-tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></span></div>
+          <div class="option-row"><span class="option-index">4</span><input class="compact-input" value="软件 4 班" readonly><span class="option-tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></span></div>
+        </div>
+        <button class="add-option">＋ 添加选项</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 悬浮操作</h3>
+      <p>静态界面最干净，鼠标经过选项才显示排序和删除；触屏发现性与键盘操作稍弱。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="field-demo table-card">
+        <div class="field-head">
+          <span class="field-title">单项选择</span>
+          <div class="tools"><span class="icon-button">↑</span><span class="icon-button">↓</span><span class="icon-button danger">⌫</span></div>
+        </div>
+        <div class="field-meta">
+          <input class="compact-input" value="班级" readonly>
+          <select class="compact-select"><option>单项选择</option></select>
+          <span class="required">☑ 必填</span>
+        </div>
+        <div class="table-head"><span>序号</span><span>选项名称</span><span>排序</span><span></span></div>
+        <div class="option-list">
+          <div class="option-row"><span class="option-index">1</span><input class="compact-input" value="软件 1 班" readonly><span class="order-pair"><span class="icon-button">↑</span><span class="icon-button">↓</span></span><span class="icon-button danger">⌫</span></div>
+          <div class="option-row"><span class="option-index">2</span><input class="compact-input" value="软件 2 班" readonly><span class="order-pair"><span class="icon-button">↑</span><span class="icon-button">↓</span></span><span class="icon-button danger">⌫</span></div>
+          <div class="option-row"><span class="option-index">3</span><input class="compact-input" value="软件 3 班" readonly><span class="order-pair"><span class="icon-button">↑</span><span class="icon-button">↓</span></span><span class="icon-button danger">⌫</span></div>
+          <div class="option-row"><span class="option-index">4</span><input class="compact-input" value="软件 4 班" readonly><span class="order-pair"><span class="icon-button">↑</span><span class="icon-button">↓</span></span><span class="icon-button danger">⌫</span></div>
+        </div>
+        <button class="add-option">＋ 添加选项</button>
+        <p class="micro-note">表头明确，但窄侧栏内列宽更紧，对长选项名称不如 A 灵活。</p>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · 小型表格</h3>
+      <p>结构最规整，适合大量选项；但在当前窄弹窗中显得更像后台表格，响应式成本较高。</p>
+    </div>
+  </div>
+</div>
