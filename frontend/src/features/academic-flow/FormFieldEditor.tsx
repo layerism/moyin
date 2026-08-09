@@ -212,6 +212,7 @@ export function FormFieldEditor({
                     disabled={disabled}
                     value={field.label}
                     onChange={(event) => updateField(fieldIndex, { label: event.target.value })}
+                  />
                 </label>
                 <label>
                   <span>字段类型</span>
