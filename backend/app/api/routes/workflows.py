@@ -236,7 +236,7 @@ def get_flow_route(
 @router.post("/validate")
 def validate(payload: FlowConfigRequest) -> dict[str, bool]:
     try:
-        validate_flow_config(payload.config)
+        validate_flow_config(payload.config, require_publishable=True)
     except FlowValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"valid": True}
