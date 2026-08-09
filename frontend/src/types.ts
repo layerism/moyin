@@ -133,9 +133,15 @@ export type AcademicFlowEdge = {
   targetPort?: AcademicFlowPort;
 };
 
+export type AcademicFlowConfig = {
+  edges: AcademicFlowEdge[];
+  nodes: AcademicFlowNode[];
+};
+
 export type AcademicProcess = {
   createdAt: string;
   description: string;
+  draftConfig: AcademicFlowConfig;
   edges: AcademicFlowEdge[];
   encryptedSlug: string;
   hasUnpublishedChanges: boolean;

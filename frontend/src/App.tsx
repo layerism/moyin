@@ -115,6 +115,10 @@ function mapServerFlow(flow: ServerFlow): AcademicProcess {
   return {
     createdAt: new Date(flow.createdAt).toLocaleString("zh-CN"),
     description: flow.description,
+    draftConfig: {
+      edges: flow.draftConfig.edges ?? [],
+      nodes: flow.draftConfig.nodes ?? [],
+    },
     edges: flow.config.edges ?? [],
     encryptedSlug: "",
     hasUnpublishedChanges: flow.hasUnpublishedChanges,
@@ -296,6 +300,7 @@ export function App() {
     );
     return {
       ...saved,
+      draftConfig: { nodes: saved.nodes, edges: saved.edges },
       encryptedSlug: published.token,
       hasUnpublishedChanges: false,
       published: true,
@@ -304,6 +309,11 @@ export function App() {
       publishedVersionNo: published.versionNo,
       shareUrl: published.shareUrl,
     };
+  };
+
+  const saveAcademicProcess = async (process: AcademicProcess) => {
+    const serverId = process.serverId ?? process.id;
+    return mapServerFlow(await workflowApi.saveDraft(serverId, process));
   };
 
   const updateAcademicProcess = (nextProcess: AcademicProcess) => {
@@ -616,6 +626,7 @@ export function App() {
           onOpenStudent={openStudentFlow}
           onPublishProcess={publishAcademicProcess}
           onProcessChange={updateAcademicProcess}
+          onSaveProcess={saveAcademicProcess}
         />
       );
     }
@@ -628,6 +639,7 @@ export function App() {
         onOpenStudent={openStudentFlow}
         onPublishProcess={publishAcademicProcess}
         onProcessChange={updateAcademicProcess}
+        onSaveProcess={saveAcademicProcess}
       />
     );
   }

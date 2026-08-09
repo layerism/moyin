@@ -3711,6 +3711,7 @@ button {
 }
 
 .unsaved-changes-dialog > footer {
+  flex-wrap: wrap;
   justify-content: flex-end;
   margin-top: 20px;
 }
@@ -3731,6 +3732,17 @@ button {
   color: #ffffff;
 }
 
+.unsaved-changes-dialog > footer .primary-action {
+  border-color: #2773f6;
+  background: #2773f6;
+  color: #ffffff;
+}
+
+.unsaved-changes-dialog button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 @media (max-width: 520px) {
   .unsaved-changes-backdrop {
     padding: 16px;
@@ -3742,7 +3754,7 @@ button {
 
   .unsaved-changes-dialog > footer {
     align-items: stretch;
-    flex-direction: column-reverse;
+    flex-direction: column;
   }
 }
 

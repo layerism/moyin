@@ -50,6 +50,19 @@ test("revision without changes offers a local revision exit", () => {
   );
 });
 
+test("staged revision remains available for republishing", () => {
+  assert.deepEqual(
+    getPublishButtonState({
+      hasUnpublishedChanges: true,
+      operationLocked: false,
+      published: true,
+      revisionEditing: true,
+      rosterActiveCount: 1,
+    }),
+    { action: "republish", disabled: false, label: "重新发布", title: undefined },
+  );
+});
+
 test("publish explains roster and operation locks", () => {
   const base = {
     hasUnpublishedChanges: true,
@@ -80,8 +93,9 @@ test("publish explains roster and operation locks", () => {
   );
 });
 
-test("revision editing follows only the local unlock request", () => {
-  assert.equal(getRevisionEditing(true, false), false);
-  assert.equal(getRevisionEditing(true, true), true);
-  assert.equal(getRevisionEditing(false, true), false);
+test("revision editing follows local unlock or a staged server revision", () => {
+  assert.equal(getRevisionEditing(true, false, true), true);
+  assert.equal(getRevisionEditing(true, false, false), false);
+  assert.equal(getRevisionEditing(true, true, false), true);
+  assert.equal(getRevisionEditing(false, true, true), false);
 });

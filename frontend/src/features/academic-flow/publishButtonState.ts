@@ -11,8 +11,12 @@ export type PublishButtonState = {
   title: string | undefined;
 };
 
-export function getRevisionEditing(published: boolean, revisionEditingRequested: boolean) {
-  return published && revisionEditingRequested;
+export function getRevisionEditing(
+  published: boolean,
+  revisionEditingRequested: boolean,
+  hasUnpublishedChanges: boolean,
+) {
+  return published && (revisionEditingRequested || hasUnpublishedChanges);
 }
 
 export function getPublishButtonState(input: {
