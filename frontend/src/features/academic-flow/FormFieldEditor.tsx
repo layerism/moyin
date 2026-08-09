@@ -49,6 +49,8 @@ export function FormFieldEditor({
   const errors = validateFormFieldConfig(fields);
   const [expandedSelectionFieldId, setExpandedSelectionFieldId] = useState<string | null>(null);
   const [openActionMenu, setOpenActionMenu] = useState<ActionMenuTarget | null>(null);
+  const [editingTitleFieldId, setEditingTitleFieldId] = useState<string | null>(null);
+  const [editingTitleValue, setEditingTitleValue] = useState("");
 
   useEffect(() => {
     const currentFields = normalizeFormFields(fields);
@@ -68,6 +70,9 @@ export function FormFieldEditor({
         ? current
         : null;
     });
+    setEditingTitleFieldId((current) =>
+      current && currentFields.some((field) => field.id === current) ? current : null,
+    );
   }, [fields]);
 
   useEffect(() => {
@@ -89,7 +94,11 @@ export function FormFieldEditor({
   }, [openActionMenu]);
 
   useEffect(() => {
-    if (disabled) setOpenActionMenu(null);
+    if (disabled) {
+      setOpenActionMenu(null);
+      setEditingTitleFieldId(null);
+      setEditingTitleValue("");
+    }
   }, [disabled]);
 
   const updateField = (index: number, patch: Partial<FormField>) => {
@@ -146,6 +155,25 @@ export function FormFieldEditor({
     setOpenActionMenu(null);
   };
 
+  const beginTitleEditing = (field: FormField) => {
+    if (disabled) return;
+    setEditingTitleFieldId(field.id);
+    setEditingTitleValue(field.label);
+    setOpenActionMenu(null);
+  };
+
+  const commitTitleEditing = (fieldIndex: number, fieldId: string) => {
+    if (editingTitleFieldId !== fieldId) return;
+    updateField(fieldIndex, { label: editingTitleValue });
+    setEditingTitleFieldId(null);
+    setEditingTitleValue("");
+  };
+
+  const cancelTitleEditing = () => {
+    setEditingTitleFieldId(null);
+    setEditingTitleValue("");
+  };
+
   return (
     <div className="form-field-editor">
       <div className="section-heading">
@@ -176,18 +204,15 @@ export function FormFieldEditor({
         };
         const fieldSettings = (
           <>
-            <div className={`form-field-base-settings${selectionField
-              ? " selection-field-base-settings"
-              : ""}`}>
-              <label>
-                <span>字段标题</span>
-                <input
-                  disabled={disabled}
-                  value={field.label}
-                  onChange={(event) => updateField(fieldIndex, { label: event.target.value })}
-                />
-              </label>
-              {!selectionField ? (
+            {!selectionField ? (
+              <div className="form-field-base-settings">
+                <label>
+                  <span>字段标题</span>
+                  <input
+                    disabled={disabled}
+                    value={field.label}
+                    onChange={(event) => updateField(fieldIndex, { label: event.target.value })}
+                </label>
                 <label>
                   <span>字段类型</span>
                   <select
@@ -204,17 +229,17 @@ export function FormFieldEditor({
                     <option value="checkbox">多项选择</option>
                   </select>
                 </label>
-              ) : null}
-              <label className="form-field-required">
-                <input
-                  checked={field.required}
-                  disabled={disabled}
-                  onChange={(event) => updateField(fieldIndex, { required: event.target.checked })}
-                  type="checkbox"
-                />
-                <span>必填</span>
-              </label>
-            </div>
+                <label className="form-field-required">
+                  <input
+                    checked={field.required}
+                    disabled={disabled}
+                    onChange={(event) => updateField(fieldIndex, { required: event.target.checked })}
+                    type="checkbox"
+                  />
+                  <span>必填</span>
+                </label>
+              </div>
+            ) : null}
 
             {field.type === "textarea" ? (
               <div className="form-field-type-settings two-column">
@@ -338,37 +363,75 @@ export function FormFieldEditor({
           >
             {selectionField ? (
               <div className="selection-field-summary">
-                <div
-                  aria-controls={expanded ? `selection-field-content-${field.id}` : undefined}
-                  aria-expanded={expanded}
-                  className="selection-field-summary-main"
-                  onClick={toggleSelectionField}
-                  onKeyDown={(event) => {
-                    if (event.key !== "Enter" && event.key !== " ") return;
-                    event.preventDefault();
-                    toggleSelectionField();
-                  }}
-                  role="button"
-                  tabIndex={0}
-                >
-                  <span className="selection-field-summary-copy">
-                    <strong>{field.label.trim() || "未命名字段"}</strong>
-                    <small>
-                      {fieldTypeLabels[field.type]} · {field.required ? "必填" : "选填"}
-                      {` · ${field.options?.length ?? 0} 个选项`}
-                    </small>
+                <div className="selection-field-summary-main">
+                  <span className="selection-field-title-control">
+                    {editingTitleFieldId === field.id ? (
+                      <input
+                        aria-label="字段标题"
+                        autoFocus
+                        disabled={disabled}
+                        onBlur={() => commitTitleEditing(fieldIndex, field.id)}
+                        onChange={(event) => setEditingTitleValue(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            commitTitleEditing(fieldIndex, field.id);
+                          } else if (event.key === "Escape") {
+                            event.preventDefault();
+                            cancelTitleEditing();
+                          }
+                        }}
+                        value={editingTitleValue}
+                      />
+                    ) : (
+                      <button
+                        className="selection-field-title-button"
+                        disabled={disabled}
+                        onClick={() => beginTitleEditing(field)}
+                        title="点击修改字段标题"
+                        type="button"
+                      >{field.label.trim() || "未命名字段"}</button>
+                    )}
                   </span>
-                  {fieldErrors.length ? (
-                    <span className="selection-field-error-badge">需修正</span>
-                  ) : null}
-                  <span
-                    aria-hidden="true"
-                    className={`selection-field-chevron${expanded ? " expanded" : ""}`}
+                  <div
+                    aria-controls={expanded ? `selection-field-content-${field.id}` : undefined}
+                    aria-expanded={expanded}
+                    className="selection-field-meta-toggle"
+                    onClick={toggleSelectionField}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" && event.key !== " ") return;
+                      event.preventDefault();
+                      toggleSelectionField();
+                    }}
+                    role="button"
+                    tabIndex={0}
                   >
-                    <svg viewBox="0 0 16 16">
-                      <path d="m3.5 6 4.5 4 4.5-4" />
-                    </svg>
-                  </span>
+                    <small>
+                      {fieldTypeLabels[field.type]} · {field.options?.length ?? 0} 个选项
+                    </small>
+                    {fieldErrors.length ? (
+                      <span className="selection-field-error-badge">需修正</span>
+                    ) : null}
+                    <span
+                      aria-hidden="true"
+                      className={`selection-field-chevron${expanded ? " expanded" : ""}`}
+                    >
+                      <svg viewBox="0 0 16 16">
+                        <path d="m3.5 6 4.5 4 4.5-4" />
+                      </svg>
+                    </span>
+                  </div>
+                  <label className="selection-field-summary-required">
+                    <input
+                      checked={field.required}
+                      disabled={disabled}
+                      onChange={(event) => updateField(fieldIndex, {
+                        required: event.target.checked,
+                      })}
+                      type="checkbox"
+                    />
+                    <span>必填</span>
+                  </label>
                 </div>
                 <FieldActionMenu
                   ariaLabel={`字段操作 ${field.label.trim() || "未命名字段"}`}
