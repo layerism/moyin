@@ -9,7 +9,9 @@ class FlowValidationError(ValueError):
     pass
 
 
-def validate_flow_config(config: dict[str, Any]) -> None:
+def validate_flow_config(
+    config: dict[str, Any], *, require_publishable: bool = False
+) -> None:
     nodes = config.get("nodes")
     edges = config.get("edges")
     if not isinstance(nodes, list) or not isinstance(edges, list):
@@ -25,7 +27,7 @@ def validate_flow_config(config: dict[str, Any]) -> None:
 
     for node in nodes:
         _validate_node_time_window(node)
-        _validate_confirmation_scan(node)
+        _validate_confirmation_scan(node, require_publishable=require_publishable)
         _validate_node_template(node)
         try:
             validate_form_config(node)
@@ -99,7 +101,9 @@ def _validate_node_template(node: dict[str, Any]) -> None:
         raise FlowValidationError("确认承诺模板必须为 DOCX 文件")
 
 
-def _validate_confirmation_scan(node: dict[str, Any]) -> None:
+def _validate_confirmation_scan(
+    node: dict[str, Any], *, require_publishable: bool
+) -> None:
     enabled = node.get("scanAuditEnabled", False)
     if not isinstance(enabled, bool):
         raise FlowValidationError("扫描审核开关格式无效")
@@ -107,12 +111,18 @@ def _validate_confirmation_scan(node: dict[str, Any]) -> None:
         raise FlowValidationError("只有确认承诺节点可以启用扫描审核")
     if not enabled:
         return
-    if node.get("scanAuditMode") not in {"pass_fail", "score"}:
+    mode = node.get("scanAuditMode")
+    if mode is not None and mode not in {"pass_fail", "score"}:
         raise FlowValidationError("请选择扫描审核模式")
     prompt = node.get("scanAuditPrompt")
-    if not isinstance(prompt, str) or not prompt.strip():
-        raise FlowValidationError("请填写扫描审核标准")
-    if len(prompt) > 2000:
+    if prompt is not None and not isinstance(prompt, str):
+        raise FlowValidationError("扫描审核标准格式无效")
+    if isinstance(prompt, str) and len(prompt) > 2000:
         raise FlowValidationError("扫描审核标准不能超过 2000 字")
-    if not node.get("templateAsset"):
-        raise FlowValidationError("请上传 DOCX 承诺书模板")
+    if require_publishable:
+        if mode not in {"pass_fail", "score"}:
+            raise FlowValidationError("请选择扫描审核模式")
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise FlowValidationError("请填写扫描审核标准")
+        if not node.get("templateAsset"):
+            raise FlowValidationError("请上传 DOCX 承诺书模板")

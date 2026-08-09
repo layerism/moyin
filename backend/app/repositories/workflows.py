@@ -1090,7 +1090,7 @@ def publish_flow(
         if baseline is not None and expected_draft_config_hash is None:
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         _assert_valid_published_revision(connection, flow_id, config)
-        validate_flow_config(config)
+        validate_flow_config(config, require_publishable=True)
         _validate_audit_script_nodes(config)
         version_templates = validate_version_templates(connection, flow_id, config)
         plan = _build_migration_plan(
@@ -1264,7 +1264,7 @@ def get_revision_impact(
             else json.loads(flow["draft_config"])
         )
         _assert_valid_published_revision(connection, flow_id, config)
-        validate_flow_config(config)
+        validate_flow_config(config, require_publishable=True)
         _validate_audit_script_nodes(config)
         validate_version_templates(connection, flow_id, config)
         published = _latest_published_version(connection, flow_id, teacher_id)

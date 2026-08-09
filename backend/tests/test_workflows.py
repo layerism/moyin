@@ -310,6 +310,34 @@ def test_cycle_is_rejected(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def test_incomplete_scan_audit_can_be_saved_as_draft_but_not_published(
+    client: TestClient,
+) -> None:
+    flow = client.post("/api/workflows", json={"name": "承诺书流程"}).json()
+    config = {
+        "nodes": [
+            {
+                "id": "confirmation-1",
+                "kind": "confirmation",
+                "title": "签署承诺书",
+                "requirement": "下载、签署并上传承诺书",
+                "infoFields": [],
+                "scanAuditEnabled": True,
+                "scanAuditMode": "pass_fail",
+                "scanAuditPrompt": "",
+            }
+        ],
+        "edges": [],
+    }
+
+    saved = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
+    publish_validation = client.post("/api/workflows/validate", json={"config": config})
+
+    assert saved.status_code == 200
+    assert publish_validation.status_code == 422
+    assert publish_validation.json()["detail"] == "请填写扫描审核标准"
+
+
 def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "证明收集"}).json()
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
