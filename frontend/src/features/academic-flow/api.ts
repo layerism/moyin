@@ -232,6 +232,15 @@ export const workflowApi = {
       { method: "POST", body: createFileUploadBody(file) },
     );
   },
+  downloadNodeFile(fileId: string) {
+    return request<{
+      contentType: string;
+      fileId: string;
+      originalName: string;
+      sizeBytes: number;
+      url: string;
+    }>(`/api/student/files/${encodeURIComponent(fileId)}/download`);
+  },
   uploadNodeTemplate(flowId: string, nodeKey: string, file: File) {
     const body = new FormData();
     body.append("file", file);

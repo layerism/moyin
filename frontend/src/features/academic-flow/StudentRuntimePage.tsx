@@ -274,6 +274,27 @@ export function StudentRuntimePage({
     }
   };
 
+  const downloadFile = async (runtime: RuntimeNodeInstance, fileId: string) => {
+    setBusyNodeId(runtime.id);
+    setNotice("");
+    setActionWarning("");
+    try {
+      const result = await workflowApi.downloadNodeFile(fileId);
+      const anchor = document.createElement("a");
+      anchor.href = result.url;
+      anchor.download = result.originalName;
+      anchor.rel = "noreferrer";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setNotice("文件下载已开始");
+    } catch (reason) {
+      setActionWarning(reason instanceof Error ? reason.message : "文件下载失败");
+    } finally {
+      setBusyNodeId(null);
+    }
+  };
+
   if (!instance) {
     return (
       <main className="student-runtime-page">
@@ -344,6 +365,7 @@ export function StudentRuntimePage({
             setActiveNodeKey(null);
             setAmendingNodeId(null);
           }}
+          onDownloadFile={(fileId) => void downloadFile(activeRuntime, fileId)}
           onDownloadTemplate={() => void downloadTemplate(activeRuntime)}
           onSave={() => void save(activeRuntime)}
           onRetryAudit={() => void retryAudit(activeRuntime)}
@@ -379,6 +401,7 @@ function RuntimeNodeDialog({
   node,
   onBeginFormAmendment,
   onClose,
+  onDownloadFile,
   onDownloadTemplate,
   onSave,
   onRetryAudit,
@@ -394,6 +417,7 @@ function RuntimeNodeDialog({
   node: AcademicFlowNode;
   onBeginFormAmendment: () => void;
   onClose: () => void;
+  onDownloadFile: (fileId: string) => void;
   onDownloadTemplate: () => void;
   onSave: () => void;
   onRetryAudit: () => void;
@@ -422,7 +446,22 @@ function RuntimeNodeDialog({
   const readonly = runtime.status === "approved" && !writable;
   const displayedPayload = readonly ? runtime.submission : draft;
   const draftFile = getDraftFile(draft.file);
-  const fileReady = Boolean(draftFile?.fileId);
+  const submittedFile = getDraftFile(runtime.submission.file);
+  const needsFileReplacement = runtime.status === "rejected" && Boolean(
+    submittedFile?.fileId
+      && (!draftFile?.fileId || draftFile.fileId === submittedFile.fileId),
+  );
+  const pendingFile = needsFileReplacement ? null : draftFile;
+  const fileReady = Boolean(pendingFile?.fileId);
+  const downloadableFile = pendingFile ?? submittedFile;
+  const downloadableFileId = typeof downloadableFile?.fileId === "string"
+    ? downloadableFile.fileId
+    : null;
+  const downloadingPreviousFile = Boolean(
+    downloadableFileId
+      && downloadableFileId === submittedFile?.fileId
+      && !fileReady,
+  );
   const templateRequired = Boolean(runtime.template);
   const uploadUnlocked = !templateRequired || runtime.templateDownloaded;
   const fileBusy = busy || isUploadingFile || !uploadUnlocked;
@@ -560,7 +599,7 @@ function RuntimeNodeDialog({
             ) : null}
             {runtime.template ? <strong className="runtime-upload-step-title">2 上传已填写文件</strong> : null}
             <label
-              className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
+              className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${needsFileReplacement ? " is-rejected" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
               onDragEnter={(event) => {
                 event.preventDefault();
                 if (!fileBusy) setIsDraggingFile(true);
@@ -579,24 +618,49 @@ function RuntimeNodeDialog({
                 }}
               />
               <span aria-hidden="true" className="runtime-file-workspace-icon">
-                {fileReady ? "✓" : "↑"}
+                {needsFileReplacement ? "!" : fileReady ? "✓" : "↑"}
               </span>
               <span className="runtime-file-workspace-copy" aria-live="polite">
                 <strong>
-                  {!uploadUnlocked ? "请先下载填写模板" : isUploadingFile ? "正在上传文件" : fileReady ? "文件已上传，可提交" : "点击选择或拖拽文件到此处"}
+                  {!uploadUnlocked
+                    ? "请先下载填写模板"
+                    : isUploadingFile
+                      ? "正在上传文件"
+                      : needsFileReplacement
+                        ? "审核未通过，请重新上传文件"
+                        : fileReady
+                          ? "文件已上传，可提交"
+                          : "点击选择或拖拽文件到此处"}
                 </strong>
                 <small>
                   {!uploadUnlocked
                     ? "下载成功后自动解锁上传"
                     : isUploadingFile
-                    ? `${uploadingFileName}，请勿关闭窗口`
-                    : fileReady
-                      ? `${getDraftFileName(draft.file)} · ${formatFileSize(draftFile?.size)}`
-                      : "选择后将自动上传"}
+                      ? `${uploadingFileName}，请勿关闭窗口`
+                      : needsFileReplacement
+                        ? `${getDraftFileName(runtime.submission.file)} · ${formatFileSize(submittedFile?.size)}`
+                        : fileReady
+                          ? `${getDraftFileName(draft.file)} · ${formatFileSize(pendingFile?.size)}`
+                          : "选择后将自动上传"}
                 </small>
               </span>
-              {fileReady ? <span className="runtime-file-workspace-action">更换文件</span> : null}
+              {fileReady || needsFileReplacement ? (
+                <span className="runtime-file-workspace-action">
+                  {needsFileReplacement ? "重新上传" : "更换文件"}
+                </span>
+              ) : null}
             </label>
+            {downloadableFileId ? (
+              <div className="runtime-uploaded-file-actions">
+                <button
+                  disabled={busy}
+                  onClick={() => onDownloadFile(downloadableFileId)}
+                  type="button"
+                >
+                  {downloadingPreviousFile ? "下载上次提交文件" : "下载已上传文件"}
+                </button>
+              </div>
+            ) : null}
             </div>
           ) : null}
           {node.kind === "confirmation" || node.kind === "announcement" ? (
@@ -623,7 +687,9 @@ function RuntimeNodeDialog({
                       ? "重新提交"
                       : "提交节点"}
               </button>
-              {node.kind === "file" && !fileReady ? <small>请先上传文件</small> : null}
+              {node.kind === "file" && !fileReady ? (
+                <small>{needsFileReplacement ? "请重新上传文件" : "请先上传文件"}</small>
+              ) : null}
             </div>
           </div>
           </div>
