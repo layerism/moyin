@@ -2933,6 +2933,7 @@ button {
 }
 
 .form-field-card {
+  position: relative;
   display: grid;
   gap: 12px;
   padding: 13px;
@@ -2958,7 +2959,7 @@ button {
   min-width: 0;
   min-height: 48px;
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) auto auto;
+  grid-template-columns: 28px minmax(120px, 1fr) auto auto;
   align-items: center;
   gap: 9px;
   padding: 7px 8px 7px 12px;
@@ -3093,6 +3094,11 @@ button {
   font-size: 14px;
 }
 
+.form-field-card-title strong {
+  color: #1e3a5f;
+  font-size: 14px;
+}
+
 .form-field-base-settings {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 150px auto;
@@ -3141,8 +3147,9 @@ button {
 }
 
 .form-field-option-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
   align-items: center;
   gap: 5px;
 }
@@ -3161,7 +3168,80 @@ button {
 }
 
 .selection-option-index {
+  min-width: 14px;
   text-align: center;
+}
+
+.selection-option-order {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.form-field-card .form-field-reorder-handle {
+  width: 28px;
+  min-height: 30px;
+  display: grid;
+  flex: 0 0 28px;
+  place-items: center;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: #8b99aa;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.form-field-card .form-field-reorder-handle:hover:not(:disabled),
+.form-field-card .form-field-reorder-handle:focus-visible,
+.form-field-card .form-field-reorder-handle.dragging {
+  border-color: #b8cff5;
+  background: #f1f6ff;
+  color: #2563c9;
+}
+
+.form-field-card .form-field-reorder-handle.dragging {
+  cursor: grabbing;
+}
+
+.form-field-reorder-handle svg {
+  width: 12px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.form-field-card.is-dragging,
+.form-field-option-row.is-dragging {
+  opacity: 0.58;
+  outline: 2px solid rgb(43 116 255 / 18%);
+  outline-offset: 1px;
+}
+
+.form-field-card.drop-before::before,
+.form-field-card.drop-after::after,
+.form-field-option-row.drop-before::before,
+.form-field-option-row.drop-after::after {
+  height: 2px;
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  left: 0;
+  border-radius: 999px;
+  background: #2b74ff;
+  box-shadow: 0 0 0 2px rgb(43 116 255 / 10%);
+  content: "";
+  pointer-events: none;
+}
+
+.form-field-card.drop-before::before,
+.form-field-option-row.drop-before::before {
+  top: -4px;
+}
+
+.form-field-card.drop-after::after,
+.form-field-option-row.drop-after::after {
+  bottom: -4px;
 }
 
 .selection-field-content .form-field-option-list {
@@ -3245,6 +3325,7 @@ button {
 
 .selection-field-title-button:focus-visible,
 .selection-field-meta-toggle:focus-visible,
+.form-field-reorder-handle:focus-visible,
 .form-field-menu-trigger:focus-visible,
 .form-field-action-menu button:focus-visible {
   outline: 3px solid rgb(43 116 255 / 16%);
@@ -3316,11 +3397,11 @@ button {
   }
 
   .form-field-card .selection-field-summary-main {
-    grid-template-columns: minmax(100px, 1fr) auto;
+    grid-template-columns: 28px minmax(100px, 1fr) auto;
   }
 
   .selection-field-summary-required {
-    grid-column: 1 / -1;
+    grid-column: 2 / -1;
     justify-self: start;
   }
 
