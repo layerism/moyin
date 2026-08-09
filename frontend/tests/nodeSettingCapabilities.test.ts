@@ -9,11 +9,18 @@ import {
 test("节点设置不提供运行时提交或审核状态配置", () => {
   assert.deepEqual(getNodeSettingCapabilities("announcement"), {
     collectsInformation: false,
+    configuresConfirmationScan: false,
     configuresMaterialReview: false,
   });
   assert.deepEqual(getNodeSettingCapabilities("file"), {
     collectsInformation: false,
+    configuresConfirmationScan: false,
     configuresMaterialReview: true,
+  });
+  assert.deepEqual(getNodeSettingCapabilities("confirmation"), {
+    collectsInformation: false,
+    configuresConfirmationScan: true,
+    configuresMaterialReview: false,
   });
 });
 

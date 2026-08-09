@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import type { AcademicFlowNode } from "../../types";
 import { workflowApi } from "./api";
-import type { WorkflowProgress, WorkflowProgressNode, WorkflowProgressStudent } from "./runtimeTypes";
+import type { TeacherSubmissionDetail, WorkflowProgress, WorkflowProgressNode, WorkflowProgressStudent } from "./runtimeTypes";
 
 function toLocalDateTimeInput(timestamp: number) {
   const date = new Date(timestamp);
@@ -30,6 +30,8 @@ export function TeacherProgressPanel({
   const [notice, setNotice] = useState("");
   const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
   const [savingExtension, setSavingExtension] = useState(false);
+  const [submissionDetail, setSubmissionDetail] = useState<TeacherSubmissionDetail | null>(null);
+  const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const triggerRefs = useRef(new Map<string, HTMLButtonElement>());
   const [extension, setExtension] = useState({
@@ -39,6 +41,9 @@ export function TeacherProgressPanel({
   });
   const formNodeKeys = new Set(
     nodes.filter((node) => node.kind === "form").map((node) => node.id),
+  );
+  const scanNodeKeys = new Set(
+    nodes.filter((node) => node.kind === "confirmation" && node.scanAuditEnabled).map((node) => node.id),
   );
   const canExtendNode = (node: WorkflowProgressNode) => Boolean(
     node.effectiveDeadline
@@ -67,6 +72,20 @@ export function TeacherProgressPanel({
     };
   }, [editingInstanceId]);
 
+  useEffect(() => {
+    if (!submissionDetail) return;
+    const previousOverflow = document.body.style.overflow;
+    const close = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") setSubmissionDetail(null);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", close);
+    return () => {
+      window.removeEventListener("keydown", close);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [submissionDetail]);
+
   const clearExtension = () => {
     const trigger = editingInstanceId
       ? triggerRefs.current.get(editingInstanceId)
@@ -86,6 +105,18 @@ export function TeacherProgressPanel({
       nodeKey: eligibleNodes[0]?.nodeKey ?? "",
       reason: "批准个别延期",
     });
+  };
+
+  const openSubmissionDetail = async (nodeInstanceId: string) => {
+    setLoadingDetailId(nodeInstanceId);
+    setNotice("");
+    try {
+      setSubmissionDetail(await workflowApi.getSubmissionDetail(nodeInstanceId));
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "审核详情读取失败");
+    } finally {
+      setLoadingDetailId(null);
+    }
   };
 
   const saveExtension = async (instanceId: string, currentNode: WorkflowProgressNode | undefined) => {
@@ -210,6 +241,11 @@ export function TeacherProgressPanel({
                       >
                         设置延期
                       </button>
+                      {student.nodes.filter((node) => scanNodeKeys.has(node.nodeKey) && ["reviewing", "approved", "rejected", "audit_error"].includes(node.status)).map((node) => (
+                        <button className="progress-extension-trigger" disabled={loadingDetailId === node.nodeInstanceId} key={node.nodeInstanceId} onClick={() => void openSubmissionDetail(node.nodeInstanceId)} type="button">
+                          {loadingDetailId === node.nodeInstanceId ? "读取中" : `查看审核 · ${node.title}`}
+                        </button>
+                      ))}
                     </td>
                   </tr>
                 ))}
@@ -326,6 +362,20 @@ export function TeacherProgressPanel({
           </section>
         </div>
       ) : null}
+      {submissionDetail ? <div className="student-extension-backdrop" role="presentation" onMouseDown={() => setSubmissionDetail(null)}>
+        <section aria-modal="true" className="student-extension-dialog submission-detail-dialog" onMouseDown={(event) => event.stopPropagation()} role="dialog">
+          <header><div><span>扫描件审核详情</span><h3>{submissionDetail.nodeTitle}</h3><p>{submissionDetail.student.name}（{submissionDetail.student.studentNo}）</p></div><button aria-label="关闭审核详情" onClick={() => setSubmissionDetail(null)} type="button">×</button></header>
+          <div className="student-extension-dialog-body">
+            <dl className="submission-detail-summary">
+              <div><dt>状态</dt><dd>{submissionDetail.status}</dd></div>
+              <div><dt>模式</dt><dd>{submissionDetail.mode === "score" ? "评分" : "通过 / 不通过"}</dd></div>
+              {submissionDetail.mode === "score" ? <div><dt>分数</dt><dd>{submissionDetail.score === null ? "尚未生成" : `${submissionDetail.score} 分`}</dd></div> : <div><dt>审核结论</dt><dd>{submissionDetail.passed === null ? "尚未生成" : submissionDetail.passed ? "通过" : "不通过"}</dd></div>}
+            </dl>
+            {submissionDetail.reason ? <section className="submission-detail-reason"><strong>{submissionDetail.mode === "score" ? "评分说明" : "审核原因"}</strong><p>{submissionDetail.reason}</p></section> : null}
+            <ul className="runtime-submitted-scan-list">{submissionDetail.scans.map((scan) => <li key={scan.fileId}><span>{scan.originalName} · {scan.pageCount} 页</span><a href={scan.url} rel="noreferrer" target="_blank">下载</a></li>)}</ul>
+          </div>
+        </section>
+      </div> : null}
     </>
   );
 }

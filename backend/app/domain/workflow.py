@@ -25,6 +25,7 @@ def validate_flow_config(config: dict[str, Any]) -> None:
 
     for node in nodes:
         _validate_node_time_window(node)
+        _validate_confirmation_scan(node)
         _validate_node_template(node)
         try:
             validate_form_config(node)
@@ -81,8 +82,12 @@ def _validate_node_template(node: dict[str, Any]) -> None:
     template = node.get("templateAsset")
     if template is None:
         return
-    if node.get("kind") != "file":
-        raise FlowValidationError("只有文件节点可以配置模板")
+    is_file = node.get("kind") == "file"
+    is_scan_confirmation = (
+        node.get("kind") == "confirmation" and node.get("scanAuditEnabled") is True
+    )
+    if not (is_file or is_scan_confirmation):
+        raise FlowValidationError("当前节点不能配置模板")
     if not isinstance(template, dict):
         raise FlowValidationError("模板元数据格式错误")
     required = {"assetId", "contentType", "originalName", "sha256", "sizeBytes"}
@@ -90,3 +95,24 @@ def _validate_node_template(node: dict[str, Any]) -> None:
         raise FlowValidationError("模板元数据不完整")
     if not isinstance(template["sizeBytes"], int) or template["sizeBytes"] < 0:
         raise FlowValidationError("模板大小信息无效")
+    if is_scan_confirmation and not str(template["originalName"]).lower().endswith(".docx"):
+        raise FlowValidationError("确认承诺模板必须为 DOCX 文件")
+
+
+def _validate_confirmation_scan(node: dict[str, Any]) -> None:
+    enabled = node.get("scanAuditEnabled", False)
+    if not isinstance(enabled, bool):
+        raise FlowValidationError("扫描审核开关格式无效")
+    if enabled and node.get("kind") != "confirmation":
+        raise FlowValidationError("只有确认承诺节点可以启用扫描审核")
+    if not enabled:
+        return
+    if node.get("scanAuditMode") not in {"pass_fail", "score"}:
+        raise FlowValidationError("请选择扫描审核模式")
+    prompt = node.get("scanAuditPrompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise FlowValidationError("请填写扫描审核标准")
+    if len(prompt) > 2000:
+        raise FlowValidationError("扫描审核标准不能超过 2000 字")
+    if not node.get("templateAsset"):
+        raise FlowValidationError("请上传 DOCX 承诺书模板")

@@ -12,6 +12,10 @@ export type NormalizedFormField = FormField & {
   legacy: boolean;
 };
 
+export function hasFormFieldSettings(type: FormFieldType): boolean {
+  return type !== "text";
+}
+
 export function normalizeFormFields(fields: FormFieldConfig[]): NormalizedFormField[] {
   return fields.map((field, index) =>
     typeof field === "string"

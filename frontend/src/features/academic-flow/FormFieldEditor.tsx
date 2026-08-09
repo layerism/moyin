@@ -12,6 +12,7 @@ import type {
 import {
   createFormField,
   createFormOption,
+  hasFormFieldSettings,
   normalizeFormFields,
   upgradeFormFields,
   validateFormFieldConfig,
@@ -339,14 +340,7 @@ export function FormFieldEditor({
   const addField = (type: FormFieldType) => {
     const field = createFormField(type);
     onChange([...upgradeFormFields(fields), field]);
-    setExpandedFieldId(field.id);
-    setOpenActionMenu(null);
-  };
-
-  const changeFieldType = (fieldIndex: number, type: FormFieldType) => {
-    const field = displayedFields[fieldIndex];
-    updateField(fieldIndex, { type });
-    setExpandedFieldId(field.id);
+    setExpandedFieldId(hasFormFieldSettings(type) ? field.id : null);
     setOpenActionMenu(null);
   };
 
@@ -396,7 +390,8 @@ export function FormFieldEditor({
       {displayedFields.map((field, fieldIndex) => {
         const fieldDragList: DragList = { kind: "field" };
         const selectionField = field.type === "radio" || field.type === "checkbox";
-        const expanded = expandedFieldId === field.id;
+        const hasSettings = hasFormFieldSettings(field.type);
+        const expanded = hasSettings && expandedFieldId === field.id;
         const fieldErrors = errors[field.id] ?? [];
         const fieldMenuOpen = openActionMenu?.kind === "field"
           && openActionMenu.fieldId === field.id;
@@ -407,27 +402,8 @@ export function FormFieldEditor({
         const fieldMeta = selectionField
           ? `${fieldTypeLabels[field.type]} · ${field.options?.length ?? 0} 个选项`
           : fieldTypeLabels[field.type];
-        const fieldSettings = (
+        const fieldSettings = hasSettings ? (
           <>
-            <div className="form-field-common-settings">
-              <label>
-                <span>字段类型</span>
-                <select
-                  disabled={disabled}
-                  value={field.type}
-                  onChange={(event) => changeFieldType(
-                    fieldIndex,
-                    event.target.value as FormFieldType,
-                  )}
-                >
-                  <option value="text">单行文本</option>
-                  <option value="textarea">多行文本</option>
-                  <option value="radio">单项选择</option>
-                  <option value="checkbox">多项选择</option>
-                </select>
-              </label>
-            </div>
-
             {field.type === "textarea" ? (
               <div className="form-field-type-settings two-column">
                 <NumberSetting
@@ -570,7 +546,7 @@ export function FormFieldEditor({
               <p className="form-field-error" key={message}>{message}</p>
             ))}
           </>
-        );
+        ) : null;
 
         return (
           <section
@@ -635,8 +611,8 @@ export function FormFieldEditor({
                     >{field.label.trim() || "未命名字段"}</button>
                   )}
                 </span>
-                <div
-                  aria-controls={expanded ? `form-field-content-${field.id}` : undefined}
+                {hasSettings ? <div
+                  aria-controls={`form-field-content-${field.id}`}
                   aria-expanded={expanded}
                   className="form-field-meta-toggle"
                   onClick={toggleField}
@@ -660,7 +636,9 @@ export function FormFieldEditor({
                       <path d="m3.5 6 4.5 4 4.5-4" />
                     </svg>
                   </span>
-                </div>
+                </div> : (
+                  <small className="form-field-static-meta">{fieldMeta}</small>
+                )}
               </div>
               <FieldActionMenu
                 ariaLabel={`字段操作 ${field.label.trim() || "未命名字段"}`}
@@ -679,7 +657,7 @@ export function FormFieldEditor({
               />
             </div>
 
-            {expanded ? (
+            {expanded && fieldSettings ? (
               <div
                 className="form-field-content"
                 id={`form-field-content-${field.id}`}

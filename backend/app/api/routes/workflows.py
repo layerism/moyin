@@ -101,7 +101,11 @@ def upload_node_template(
         digest.update(chunk)
     file.file.seek(0)
     try:
-        validate_file_metadata(node, filename, size_bytes)
+        if node.get("kind") == "confirmation":
+            if not filename.lower().endswith(".docx"):
+                raise ValueError("确认承诺模板必须为 DOCX 文件")
+        else:
+            validate_file_metadata(node, filename, size_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     content_type = file.content_type or "application/octet-stream"

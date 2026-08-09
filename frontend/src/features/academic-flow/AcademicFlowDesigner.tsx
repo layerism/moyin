@@ -163,6 +163,7 @@ export function AcademicFlowDesigner({
     published: workingProcess.published,
     revisionEditing,
     rosterActiveCount,
+    nodes: workingProcess.nodes,
   });
 
   const commitDesignChange = (nextProcess: AcademicProcess) => {
@@ -1543,6 +1544,16 @@ function NodeInspector({
           </section>
         ) : null}
 
+        {settingCapabilities.configuresConfirmationScan ? (
+          <ConfirmationScanSettings
+            disabled={nodeCoreLocked}
+            node={node}
+            onDeleteTemplate={onDeleteTemplate}
+            onUpdate={(patch) => onUpdateNode(node.id, patch)}
+            onUploadTemplate={onUploadTemplate}
+          />
+        ) : null}
+
         {settingCapabilities.configuresMaterialReview ? (
           <>
             <section className="inspector-section">
@@ -1673,6 +1684,76 @@ function NodeInspector({
         </footer>
       </aside>
     </div>
+  );
+}
+
+function ConfirmationScanSettings({
+  disabled,
+  node,
+  onDeleteTemplate,
+  onUpdate,
+  onUploadTemplate,
+}: {
+  disabled: boolean;
+  node: AcademicFlowNode;
+  onDeleteTemplate: () => void;
+  onUpdate: (patch: Partial<AcademicFlowNode>) => void;
+  onUploadTemplate: (file: File) => void;
+}) {
+  const enabled = Boolean(node.scanAuditEnabled);
+  const selectTemplate = (file: File | undefined, input: HTMLInputElement) => {
+    input.value = "";
+    if (file) onUploadTemplate(file);
+  };
+  return (
+    <section className="inspector-section confirmation-scan-settings" aria-disabled={disabled}>
+      <div className="file-type-restriction-heading">
+        <div><h3>扫描件视觉审核</h3><small>学生确认后上传扫描件，由 AI 自动审核。</small></div>
+        <button
+          aria-checked={enabled}
+          aria-label="启用扫描件视觉审核"
+          className={`restriction-switch ${enabled ? "is-enabled" : ""}`}
+          disabled={disabled}
+          onClick={() => onUpdate({
+            scanAuditEnabled: !enabled,
+            scanAuditMode: enabled ? undefined : node.scanAuditMode,
+            scanAuditPrompt: enabled ? "" : node.scanAuditPrompt,
+          })}
+          role="switch"
+          type="button"
+        ><span /></button>
+      </div>
+      {!enabled && node.templateAsset ? <div className="node-template-file">
+        <div><strong>{node.templateAsset.originalName}</strong><small>扫描审核已关闭；发布前请删除此模板，或重新启用扫描审核。</small></div>
+        {!disabled ? <button onClick={onDeleteTemplate} type="button">删除模板</button> : null}
+      </div> : null}
+      {enabled ? <>
+        <div className="node-template-card">
+          <h3>承诺书模板（DOCX）</h3>
+          {node.templateAsset ? <div className="node-template-file">
+            <div><strong>{node.templateAsset.originalName}</strong><small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small></div>
+            {disabled ? <span>已随发布版本固化</span> : <div className="node-template-actions">
+              <label>替换模板<input accept=".docx" type="file" onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)} /></label>
+              <button onClick={onDeleteTemplate} type="button">删除模板</button>
+            </div>}
+          </div> : disabled ? <p className="muted-line">该节点发布时未配置模板。</p> : <label className="node-template-upload">
+            <input accept=".docx" type="file" onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)} />
+            <strong>选择 DOCX 模板</strong><small>教师模板必须为 .docx 文件</small>
+          </label>}
+        </div>
+        <fieldset className="scan-audit-mode" disabled={disabled}>
+          <legend>审核模式</legend>
+          <label><input checked={node.scanAuditMode === "pass_fail"} name={`scan-mode-${node.id}`} onChange={() => onUpdate({ scanAuditMode: "pass_fail" })} type="radio" />通过 / 不通过</label>
+          <label><input checked={node.scanAuditMode === "score"} name={`scan-mode-${node.id}`} onChange={() => onUpdate({ scanAuditMode: "score" })} type="radio" />评分（0–100 分）</label>
+        </fieldset>
+        <label>
+          <span>{node.scanAuditMode === "score" ? "评分标准" : "形式审核标准"}</span>
+          <textarea maxLength={2000} placeholder="请说明 AI 应检查的项目和判定标准" value={node.scanAuditPrompt ?? ""} onChange={(event) => onUpdate({ scanAuditPrompt: event.target.value })} />
+          <small>{(node.scanAuditPrompt ?? "").length}/2000</small>
+        </label>
+        <p className="muted-line">学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB。支持 JPG、PNG、PDF。</p>
+      </> : null}
+    </section>
   );
 }
 

@@ -21,6 +21,7 @@ from app.services.audit_script_parameters import (
 logger = logging.getLogger(__name__)
 SCRIPT_ID_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 ENTRY_SUFFIXES: dict[str, str] = {"js": ".js", "py": ".py"}
+CONFIRMATION_VISUAL_AUDIT_ID = "confirmation-visual-audit"
 
 
 class AuditScriptCatalogError(ValueError):
@@ -53,6 +54,7 @@ class AuditScriptRecord:
     parameters: tuple[dict[str, object], ...]
     version_config: AuditScriptVersionConfig
     updated_at: str
+    visibility: Literal["public", "internal"]
 
 
 @dataclass(frozen=True)
@@ -66,10 +68,11 @@ class _AuditScriptManifest:
     data: dict[str, object]
     manifest_path: Path
     script_dir: Path
+    visibility: Literal["public", "internal"]
 
 
 def list_audit_scripts() -> list[dict[str, object]]:
-    records = _current_records()
+    records = [record for record in _current_records() if record.visibility == "public"]
     records.sort(key=lambda record: (record.name.casefold(), record.id))
     return [
         {
@@ -118,6 +121,8 @@ def update_audit_script_metadata(
     if len(matches) != 1:
         raise AuditScriptCatalogError("审核脚本 ID 重复，无法修改")
     manifest = matches[0]
+    if manifest.visibility == "internal":
+        raise AuditScriptNotFoundError("审核脚本不存在")
     try:
         _record_for_version(manifest, manifest.version)
     except (AuditScriptCatalogError, OSError) as exc:
@@ -242,6 +247,10 @@ def _read_manifest(manifest_path: Path) -> _AuditScriptManifest:
     ):
         raise AuditScriptCatalogError("审核脚本版本无效")
     entry = _bounded_text(manifest.get("entry"), "entry", 255)
+    visibility_value = manifest.get("visibility", "public")
+    if visibility_value not in {"public", "internal"}:
+        raise AuditScriptCatalogError("审核脚本可见性无效")
+    visibility = cast(Literal["public", "internal"], visibility_value)
     if (
         Path(entry).is_absolute()
         or Path(entry).name != entry
@@ -261,6 +270,7 @@ def _read_manifest(manifest_path: Path) -> _AuditScriptManifest:
         data=dict(manifest),
         manifest_path=resolved_manifest_path,
         script_dir=script_dir,
+        visibility=visibility,
     )
 
 
@@ -308,6 +318,7 @@ def _record_for_version(
             ),
             timezone.utc,
         ).isoformat(),
+        visibility=manifest.visibility,
     )
 
 

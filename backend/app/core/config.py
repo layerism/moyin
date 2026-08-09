@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     audit_script_stderr_max_bytes: int = 262_144
     audit_temp_root: str = ""
     audit_script_env_allowlist: str = "OPENAI_API_KEY"
+    vision_api_base_url: str = ""
+    vision_api_key: str = ""
+    vision_model: str = ""
+    vision_api_timeout_seconds: int = 60
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

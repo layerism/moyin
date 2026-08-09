@@ -5,8 +5,10 @@ import type {
   PublishedFlow,
   RevisionImpact,
   RuntimeFlowInstance,
+  RuntimeScanFile,
   SharedFlow,
   StudentIdentity,
+  TeacherSubmissionDetail,
   WorkflowProgress,
 } from "./runtimeTypes";
 import { createFlowConfig, createPublishRequestPayload } from "./flowRevision";
@@ -233,6 +235,29 @@ export const workflowApi = {
       { method: "POST", body: createFileUploadBody(file) },
     );
   },
+  listScans(nodeInstanceId: string) {
+    return request<RuntimeScanFile[]>(
+      `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/scans`,
+    );
+  },
+  uploadScan(nodeInstanceId: string, file: File) {
+    return request<RuntimeScanFile>(
+      `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/scans`,
+      { method: "POST", body: createFileUploadBody(file) },
+    );
+  },
+  deleteScan(nodeInstanceId: string, fileId: string) {
+    return request<{ deleted: boolean }>(
+      `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/scans/${encodeURIComponent(fileId)}`,
+      { method: "DELETE" },
+    );
+  },
+  reorderScans(nodeInstanceId: string, fileIds: string[]) {
+    return request<RuntimeScanFile[]>(
+      `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/scans/order`,
+      { method: "PUT", body: JSON.stringify({ fileIds }) },
+    );
+  },
   downloadNodeFile(fileId: string) {
     return request<{
       contentType: string;
@@ -277,6 +302,11 @@ export const workflowApi = {
   getProgress(versionId: string) {
     return request<WorkflowProgress>(
       `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/progress`,
+    );
+  },
+  getSubmissionDetail(nodeInstanceId: string) {
+    return request<TeacherSubmissionDetail>(
+      `/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/submission-detail`,
     );
   },
   setStudentDeadline(instanceId: string, nodeKey: string, deadlineAt: string, reason: string) {

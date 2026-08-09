@@ -1,0 +1,9 @@
+{
+  "id": "confirmation-visual-audit",
+  "name": "确认承诺视觉审核",
+  "description": "内部使用的多扫描件视觉审核程序",
+  "language": "py",
+  "version": 1,
+  "entry": "handler.py",
+  "visibility": "internal"
+}

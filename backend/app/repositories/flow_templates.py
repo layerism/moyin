@@ -23,6 +23,17 @@ class TemplateDownloadError(ValueError):
     pass
 
 
+def supports_template(node: dict[str, Any]) -> bool:
+    return node.get("kind") == "file" or (
+        node.get("kind") == "confirmation" and node.get("scanAuditEnabled") is True
+    )
+
+
+def _validate_template_name(node: dict[str, Any], original_name: str) -> None:
+    if node.get("kind") == "confirmation" and not original_name.lower().endswith(".docx"):
+        raise TemplateMutationError("确认承诺模板必须为 DOCX 文件")
+
+
 def _canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -47,8 +58,8 @@ def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int) -> 
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if node.get("kind") != "file":
-            raise TemplateMutationError("当前节点不是文件节点")
+        if not supports_template(node):
+            raise TemplateMutationError("当前节点不支持模板")
         if node_key in _historical_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
         return dict(node)
@@ -78,8 +89,9 @@ def save_template_asset(
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if node.get("kind") != "file" or node_key in _historical_node_ids(connection, flow_id):
+        if not supports_template(node) or node_key in _historical_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
+        _validate_template_name(node, original_name)
         old_id = (node.get("templateAsset") or {}).get("assetId")
         connection.execute(
             """
@@ -129,7 +141,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int) -> dict[
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if node.get("kind") != "file" or node_key in _historical_node_ids(connection, flow_id):
+        if not supports_template(node) or node_key in _historical_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
         asset_id = (node.get("templateAsset") or {}).get("assetId")
         if not asset_id:
@@ -194,10 +206,13 @@ def validate_version_templates(connection: Any, flow_id: str, config: dict[str, 
         }
         if template != expected:
             raise TemplateMutationError("模板资产元数据已变更，请重新加载")
-        try:
-            validate_file_metadata(node, row["original_name"], row["size_bytes"])
-        except ValueError as exc:
-            raise TemplateMutationError(str(exc)) from exc
+        if node.get("kind") == "confirmation":
+            _validate_template_name(node, row["original_name"])
+        else:
+            try:
+                validate_file_metadata(node, row["original_name"], row["size_bytes"])
+            except ValueError as exc:
+                raise TemplateMutationError(str(exc)) from exc
         result[node["id"]] = row["id"]
     return result
 

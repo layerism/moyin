@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState, type DragEvent as ReactDragEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent as ReactDragEvent } from "react";
 import Markdown from "react-markdown";
 
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, workflowApi } from "./api";
 import { validateFormAnswers } from "./formFields";
 import { ReadonlyFormFields, RuntimeFormFields } from "./RuntimeFormFields";
+import { getScanSubmitBlocker, ScanUploadWorkspace } from "./ScanUploadWorkspace";
 import type {
   RuntimeFlowInstance,
   RuntimeNodeInstance,
+  RuntimeScanFile,
   RuntimeNodeStatus,
 } from "./runtimeTypes";
 import { StudentFlowTopology } from "./StudentFlowTopology";
@@ -433,6 +435,8 @@ function RuntimeNodeDialog({
   const [clock, setClock] = useState(Date.now());
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [touchedFieldIds, setTouchedFieldIds] = useState<Set<string>>(() => new Set());
+  const [scanState, setScanState] = useState<{ scans: RuntimeScanFile[]; uploading: boolean }>({ scans: [], uploading: false });
+  const updateScanState = useCallback((value: { scans: RuntimeScanFile[]; uploading: boolean }) => setScanState(value), []);
   const approvedForm = runtime.status === "approved" && node.kind === "form";
   const awaitingReview = runtime.status === "reviewing" || runtime.status === "submitted";
   const deadlinePassed = Boolean(
@@ -465,9 +469,16 @@ function RuntimeNodeDialog({
   const templateRequired = Boolean(runtime.template);
   const uploadUnlocked = !templateRequired || runtime.templateDownloaded;
   const fileBusy = busy || isUploadingFile || !uploadUnlocked;
-  const submitDisabled = busy || (
-    node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile)
-  );
+  const scanBlocker = getScanSubmitBlocker({
+    confirmed: draft.confirmed === true,
+    scanAuditEnabled: Boolean(node.scanAuditEnabled),
+    scans: scanState.scans,
+    templateDownloaded: !runtime.template || runtime.templateDownloaded,
+    uploading: scanState.uploading,
+  });
+  const submitDisabled = busy
+    || (node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile))
+    || Boolean(scanBlocker);
   const clientFieldErrors = node.kind === "form"
     ? validateFormAnswers(node.infoFields, draft)
     : {};
@@ -555,7 +566,7 @@ function RuntimeNodeDialog({
               </strong>
               <span>提交时间：{formatDateTime(runtime.submittedAt)}</span>
             </section>
-            <ReadonlySubmission node={node} payload={displayedPayload} submittedAt={runtime.submittedAt} />
+            <ReadonlySubmission node={node} onDownloadFile={onDownloadFile} payload={displayedPayload} submittedAt={runtime.submittedAt} />
             {canAmendApprovedForm ? (
               <div className="runtime-node-actions runtime-node-actions-readonly">
                 <button
@@ -571,7 +582,7 @@ function RuntimeNodeDialog({
             ) : null}
           </>
         ) : awaitingReview ? (
-          <ReviewingSubmission node={node} runtime={runtime} />
+          <ReviewingSubmission node={node} onDownloadFile={onDownloadFile} runtime={runtime} />
         ) : writable ? (
           <div className="runtime-node-form">
           {node.kind === "form" ? (
@@ -673,6 +684,16 @@ function RuntimeNodeDialog({
               <span>我已阅读并确认以上内容</span>
             </label>
           ) : null}
+          {node.kind === "confirmation" && node.scanAuditEnabled ? (
+            <div className="runtime-template-steps has-template">
+              {runtime.template ? <section className="runtime-template-download">
+                <span>1</span><div><strong>{runtime.templateDownloaded ? "模板已下载" : "下载承诺书模板"}</strong><small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small></div>
+                <button disabled={busy} onClick={onDownloadTemplate} type="button">{runtime.templateDownloaded ? "重新下载" : "下载模板"}</button>
+              </section> : null}
+              <strong className="runtime-upload-step-title">2 上传签署后的扫描件</strong>
+              <ScanUploadWorkspace disabled={busy || !runtime.templateDownloaded} nodeInstanceId={runtime.id} onDownload={onDownloadFile} onStateChange={updateScanState} />
+            </div>
+          ) : null}
           <div className="runtime-node-actions">
             <button disabled={fileBusy} onClick={onSave}>
               {amendingApprovedForm ? "暂存修改" : "暂存"}
@@ -690,6 +711,7 @@ function RuntimeNodeDialog({
               {node.kind === "file" && !fileReady ? (
                 <small>{needsFileReplacement ? "请重新上传文件" : "请先上传文件"}</small>
               ) : null}
+              {scanBlocker ? <small>{scanBlocker}</small> : null}
             </div>
           </div>
           </div>
@@ -717,9 +739,11 @@ function RuntimeNodeDialog({
 
 function ReviewingSubmission({
   node,
+  onDownloadFile,
   runtime,
 }: {
   node: AcademicFlowNode;
+  onDownloadFile: (fileId: string) => void;
   runtime: RuntimeNodeInstance;
 }) {
   const attemptCount = Math.max(1, runtime.audit?.attemptCount || 1);
@@ -741,6 +765,7 @@ function ReviewingSubmission({
       <h3 className="runtime-reviewing-submission-title">本次提交内容</h3>
       <ReadonlySubmission
         node={node}
+        onDownloadFile={onDownloadFile}
         payload={runtime.submission}
         submittedAt={runtime.submittedAt}
       />
@@ -797,10 +822,12 @@ function RuntimeWarningDialog({
 
 function ReadonlySubmission({
   node,
+  onDownloadFile,
   payload,
   submittedAt,
 }: {
   node: AcademicFlowNode;
+  onDownloadFile?: (fileId: string) => void;
   payload: Record<string, unknown>;
   submittedAt: string | null;
 }) {
@@ -820,6 +847,17 @@ function ReadonlySubmission({
         </dl>
       </section>
     );
+  }
+  if (node.kind === "confirmation" && node.scanAuditEnabled) {
+    const scans = Array.isArray(payload.scans) ? payload.scans : [];
+    return <section className="runtime-readonly-submission runtime-readonly-confirmation">
+      <strong>{payload.confirmed === true ? "已阅读并确认" : "未记录确认状态"}</strong>
+      <ul className="runtime-submitted-scan-list">{scans.map((value, index) => {
+        const scan = value && typeof value === "object" ? value as Record<string, unknown> : {};
+        const fileId = typeof scan.fileId === "string" ? scan.fileId : "";
+        return <li key={fileId || index}><span>{formatSubmittedValue(scan.name)} · {formatSubmittedValue(scan.pageCount)} 页</span>{fileId && onDownloadFile ? <button onClick={() => onDownloadFile(fileId)} type="button">下载扫描件</button> : null}</li>;
+      })}</ul>
+    </section>;
   }
   return (
     <section className="runtime-readonly-submission runtime-readonly-confirmation">
