@@ -3,19 +3,23 @@ import { useEffect } from "react";
 export function UnsavedChangesDialog({
   destination,
   onCancel,
-  onConfirm,
+  onDiscard,
+  onSave,
+  saving,
 }: {
   destination: string;
   onCancel: () => void;
-  onConfirm: () => void;
+  onDiscard: () => void;
+  onSave: () => void;
+  saving: boolean;
 }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancel();
+      if (event.key === "Escape" && !saving) onCancel();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onCancel]);
+  }, [onCancel, saving]);
 
   return (
     <div className="unsaved-changes-backdrop" role="presentation">
@@ -27,16 +31,21 @@ export function UnsavedChangesDialog({
       >
         <header>
           <div>
-            <span>未发布修改</span>
-            <h2 id="unsaved-changes-title">放弃未发布的修改？</h2>
+            <span>未暂存修改</span>
+            <h2 id="unsaved-changes-title">当前修改尚未暂存</h2>
           </div>
-          <button aria-label="继续编辑" onClick={onCancel} type="button">
+          <button
+            aria-label="继续编辑"
+            disabled={saving}
+            onClick={onCancel}
+            type="button"
+          >
             ×
           </button>
         </header>
 
         <p className="unsaved-changes-warning">
-          当前修改仅保存在本页面。离开后将无法恢复，但已发布版本不会受到影响。
+          你可以先暂存到服务器后离开，或放弃本页面尚未暂存的修改。已发布版本不会受到影响。
         </p>
         <p className="unsaved-changes-destination">
           <span>即将前往</span>
@@ -44,11 +53,24 @@ export function UnsavedChangesDialog({
         </p>
 
         <footer>
-          <button autoFocus onClick={onCancel} type="button">
+          <button autoFocus disabled={saving} onClick={onCancel} type="button">
             继续编辑
           </button>
-          <button className="danger-action" onClick={onConfirm} type="button">
-            放弃修改并离开
+          <button
+            className="danger-action"
+            disabled={saving}
+            onClick={onDiscard}
+            type="button"
+          >
+            不暂存并离开
+          </button>
+          <button
+            className="primary-action"
+            disabled={saving}
+            onClick={onSave}
+            type="button"
+          >
+            {saving ? "暂存中" : "暂存并离开"}
           </button>
         </footer>
       </section>

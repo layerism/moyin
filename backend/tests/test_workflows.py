@@ -322,7 +322,8 @@ def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> No
 
     reloaded = client.get(f"/api/workflows/{flow['id']}").json()
     assert reloaded["config"]["nodes"][0]["title"] == "基本信息"
-    assert reloaded["hasUnpublishedChanges"] is False
+    assert reloaded["draftConfig"]["nodes"][0]["title"] == "修改后的标题"
+    assert reloaded["hasUnpublishedChanges"] is True
 
     registered = client.post(
         "/api/auth/student/register",
@@ -357,6 +358,7 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
     current = client.get(f"/api/workflows/{flow['id']}").json()
     assert current["publishedNodeIds"] == ["n1", "n2"]
     assert current["publishedVersionNo"] == 1
+    assert current["draftConfig"] == current["config"]
     assert current["hasUnpublishedChanges"] is False
 
     for entry in roster:
@@ -372,7 +374,9 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
     changed["nodes"][0]["title"] = "修改后的基本信息"
     saved = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": changed})
     assert saved.status_code == 200
-    assert saved.json()["hasUnpublishedChanges"] is False
+    assert saved.json()["config"]["nodes"][0]["title"] == "基本信息"
+    assert saved.json()["draftConfig"]["nodes"][0]["title"] == "修改后的基本信息"
+    assert saved.json()["hasUnpublishedChanges"] is True
 
     impact = client.post(f"/api/workflows/{flow['id']}/revision-impact")
     assert impact.status_code == 200

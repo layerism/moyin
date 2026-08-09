@@ -34,6 +34,7 @@ export function createAcademicProcess(name: string, id = `academic-${Date.now()}
   return {
     createdAt: "刚刚",
     description: `用于“${name}”的分阶段提交与审核。`,
+    draftConfig: { edges: [], nodes: [] },
     edges: [],
     encryptedSlug,
     hasUnpublishedChanges: false,

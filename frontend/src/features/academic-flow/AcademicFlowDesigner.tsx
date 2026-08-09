@@ -90,12 +90,21 @@ type PendingNavigation = {
   run: () => void;
 };
 
+function createDraftWorkingProcess(process: AcademicProcess): AcademicProcess {
+  return structuredClone({
+    ...process,
+    edges: process.draftConfig.edges,
+    nodes: process.draftConfig.nodes,
+  });
+}
+
 export function AcademicFlowDesigner({
   onBack,
   onHome,
   onOpenStudent,
   onPublishProcess,
   onProcessChange,
+  onSaveProcess,
   process,
 }: {
   onBack: () => void;
@@ -107,10 +116,11 @@ export function AcademicFlowDesigner({
     expectedCurrentVersionId?: string | null,
   ) => Promise<AcademicProcess>;
   onProcessChange: (process: AcademicProcess) => void;
+  onSaveProcess: (process: AcademicProcess) => Promise<AcademicProcess>;
   process: AcademicProcess;
 }) {
-  const [workingProcess, setWorkingProcess] = useState(() => structuredClone(process));
-  const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
+  const [workingProcess, setWorkingProcess] = useState(() => createDraftWorkingProcess(process));
+  const [activeNodeId, setActiveNodeId] = useState(process.draftConfig.nodes[0]?.id ?? "");
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
@@ -122,11 +132,13 @@ export function AcademicFlowDesigner({
   const [pendingPublishProcess, setPendingPublishProcess] = useState<AcademicProcess | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
   const [saving, setSaving] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false);
   const [revisionEditingRequested, setRevisionEditingRequested] = useState(false);
   const [revisionDirty, setRevisionDirty] = useState(false);
   const revisionEditing = getRevisionEditing(
     workingProcess.published,
     revisionEditingRequested,
+    workingProcess.hasUnpublishedChanges,
   );
   const operationLocked = saving || revisionImpact !== null || pendingNavigation !== null;
   const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
@@ -146,7 +158,7 @@ export function AcademicFlowDesigner({
     [process.nodes, process.publishedNodeIds],
   );
   const publishButtonState = getPublishButtonState({
-    hasUnpublishedChanges: revisionDirty,
+    hasUnpublishedChanges: workingProcess.hasUnpublishedChanges || revisionDirty,
     operationLocked,
     published: workingProcess.published,
     revisionEditing,
@@ -160,7 +172,6 @@ export function AcademicFlowDesigner({
       edges: process.published
         ? preservePublishedEdges(nextProcess.edges, process.edges)
         : nextProcess.edges,
-      hasUnpublishedChanges: true,
     });
     setRevisionDirty(true);
   };
@@ -174,8 +185,8 @@ export function AcademicFlowDesigner({
   };
 
   useEffect(() => {
-    setWorkingProcess(structuredClone(process));
-    setActiveNodeId(process.nodes[0]?.id ?? "");
+    setWorkingProcess(createDraftWorkingProcess(process));
+    setActiveNodeId(process.draftConfig.nodes[0]?.id ?? "");
     setRevisionEditingRequested(false);
     setRevisionDirty(false);
     setRevisionImpact(null);
@@ -215,6 +226,31 @@ export function AcademicFlowDesigner({
     };
   }, [serverFlowId]);
 
+  const saveWorkingDraft = async (
+    candidate: AcademicProcess,
+    successMessage = "流程已暂存",
+  ) => {
+    setSaving(true);
+    setDraftSaving(true);
+    setActionNotice("");
+    try {
+      const saved = await onSaveProcess(candidate);
+      const nextWorking = createDraftWorkingProcess(saved);
+      onProcessChange(saved);
+      setWorkingProcess(nextWorking);
+      setRevisionDirty(false);
+      setActionNotice(successMessage);
+      return nextWorking;
+    } catch (reason) {
+      setRevisionDirty(true);
+      setActionNotice(reason instanceof Error ? reason.message : "暂存失败");
+      return null;
+    } finally {
+      setDraftSaving(false);
+      setSaving(false);
+    }
+  };
+
   const publishProcess = async (
     candidate: AcademicProcess,
     expectedDraftConfigHash?: string | null,
@@ -230,7 +266,7 @@ export function AcademicFlowDesigner({
         expectedCurrentVersionId,
       );
       onProcessChange(nextProcess);
-      setWorkingProcess(structuredClone(nextProcess));
+      setWorkingProcess(createDraftWorkingProcess(nextProcess));
       setRevisionEditingRequested(false);
       setRevisionDirty(false);
       setRevisionImpact(null);
@@ -292,7 +328,7 @@ export function AcademicFlowDesigner({
       return;
     }
     if (publishButtonState.action === "finish-revision") {
-      setWorkingProcess(structuredClone(process));
+      setWorkingProcess(createDraftWorkingProcess(process));
       setRevisionEditingRequested(false);
       setRevisionDirty(false);
       setRevisionImpact(null);
@@ -369,20 +405,25 @@ export function AcademicFlowDesigner({
   };
 
   const uploadNodeTemplate = async (nodeId: string, file: File) => {
+    let candidate = workingProcess;
+    if (revisionDirty) {
+      const saved = await saveWorkingDraft(workingProcess, "");
+      if (!saved) return;
+      candidate = saved;
+    }
     setSaving(true);
     setActionNotice("");
     try {
-      await workflowApi.saveDraft(serverFlowId, workingProcess);
       const result = await workflowApi.uploadNodeTemplate(serverFlowId, nodeId, file);
-      setWorkingProcess((current) => ({
-        ...current,
-        hasUnpublishedChanges: true,
-        nodes: current.nodes.map((node) =>
+      const nextProcess = {
+        ...candidate,
+        nodes: candidate.nodes.map((node) =>
           node.id === nodeId ? { ...node, templateAsset: result.templateAsset } : node
         ),
-      }));
+      };
+      setWorkingProcess(nextProcess);
       setRevisionDirty(true);
-      setActionNotice("模板已上传，重新发布后供学生下载");
+      await saveWorkingDraft(nextProcess, "模板已上传，重新发布后供学生下载");
     } catch (reason) {
       setActionNotice(reason instanceof Error ? reason.message : "模板上传失败");
     } finally {
@@ -395,15 +436,15 @@ export function AcademicFlowDesigner({
     setActionNotice("");
     try {
       await workflowApi.deleteNodeTemplate(serverFlowId, nodeId);
-      setWorkingProcess((current) => ({
-        ...current,
-        hasUnpublishedChanges: true,
-        nodes: current.nodes.map((node) =>
+      const nextProcess = {
+        ...workingProcess,
+        nodes: workingProcess.nodes.map((node) =>
           node.id === nodeId ? { ...node, templateAsset: null } : node
         ),
-      }));
+      };
+      setWorkingProcess(nextProcess);
       setRevisionDirty(true);
-      setActionNotice("模板已删除");
+      await saveWorkingDraft(nextProcess, "模板已删除");
     } catch (reason) {
       setActionNotice(reason instanceof Error ? reason.message : "模板删除失败");
     } finally {
@@ -488,6 +529,13 @@ export function AcademicFlowDesigner({
             {workingProcess.publishedVersionId ? (
               <button onClick={() => setShowProgress(true)}>填写进度</button>
             ) : null}
+            <button
+              disabled={editorLocked || !revisionDirty}
+              onClick={() => void saveWorkingDraft(workingProcess)}
+              type="button"
+            >
+              {draftSaving ? "暂存中" : "暂存"}
+            </button>
             <button
               className="primary-action"
               disabled={publishButtonState.disabled}
@@ -591,11 +639,21 @@ export function AcademicFlowDesigner({
           <UnsavedChangesDialog
             destination={pendingNavigation.destination}
             onCancel={() => setPendingNavigation(null)}
-            onConfirm={() => {
+            onDiscard={() => {
               const navigate = pendingNavigation.run;
               setPendingNavigation(null);
               navigate();
             }}
+            onSave={() => {
+              void (async () => {
+                const saved = await saveWorkingDraft(workingProcess);
+                if (!saved || !pendingNavigation) return;
+                const navigate = pendingNavigation.run;
+                setPendingNavigation(null);
+                navigate();
+              })();
+            }}
+            saving={draftSaving}
           />
         ) : null}
       </section>

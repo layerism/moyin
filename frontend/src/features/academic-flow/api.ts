@@ -1,4 +1,4 @@
-import type { AcademicProcess } from "../../types";
+import type { AcademicFlowConfig, AcademicProcess } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
 import type { AuditScriptSummary } from "./auditScripts";
 import type {
@@ -12,9 +12,10 @@ import type {
 import { createFlowConfig, createPublishRequestPayload } from "./flowRevision";
 
 export type ServerFlow = {
-  config: { edges: AcademicProcess["edges"]; nodes: AcademicProcess["nodes"] };
+  config: AcademicFlowConfig;
   createdAt: string;
   description: string;
+  draftConfig: AcademicFlowConfig;
   hasUnpublishedChanges: boolean;
   id: string;
   name: string;

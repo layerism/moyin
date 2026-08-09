@@ -580,6 +580,10 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             _version_config_with_runtime_deadlines(connection, published) if published else None
         )
         visible_config = published_config if published_config is not None else draft_config
+        has_unpublished_changes = (
+            published_config is not None
+            and canonical_json(draft_config) != canonical_json(published_config)
+        )
     return {
         "id": row["id"],
         "name": row["name"],
@@ -588,11 +592,12 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         if published_config
         else [],
         "publishedVersionNo": published["version_no"] if published else None,
-        "hasUnpublishedChanges": False,
+        "hasUnpublishedChanges": has_unpublished_changes,
         "shareUrl": f"/s/{token['token_value']}" if token and token["token_value"] else "",
         "description": row["description"],
         "status": row["status"],
         "config": visible_config,
+        "draftConfig": draft_config,
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
