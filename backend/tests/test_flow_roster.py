@@ -83,6 +83,36 @@ def test_teacher_imports_updates_revokes_and_restores_roster(client: TestClient)
     assert actions == ["roster_import", "roster_import", "roster_revoke", "roster_import"]
 
 
+def test_single_roster_entry_reuses_import_semantics(client: TestClient) -> None:
+    flow_id = create_flow(client)
+
+    added = import_roster(
+        client,
+        flow_id,
+        [{"studentNo": "001", "name": "学生甲"}],
+    )
+    assert added.status_code == 200
+    assert added.json()["summary"] == {"added": 1, "restored": 0, "updated": 0}
+
+    updated = import_roster(
+        client,
+        flow_id,
+        [{"studentNo": "001", "name": "学生甲（更名）"}],
+    )
+    assert updated.json()["summary"] == {"added": 0, "restored": 0, "updated": 1}
+
+    entry_id = updated.json()["entries"][0]["id"]
+    assert client.delete(f"/api/workflows/{flow_id}/roster/{entry_id}").status_code == 200
+
+    restored = import_roster(
+        client,
+        flow_id,
+        [{"studentNo": "001", "name": "学生甲（更名）"}],
+    )
+    assert restored.json()["summary"] == {"added": 0, "restored": 1, "updated": 0}
+    assert restored.json()["activeCount"] == 1
+
+
 def test_import_rejects_conflicting_duplicate_student_numbers(client: TestClient) -> None:
     flow_id = create_flow(client)
 

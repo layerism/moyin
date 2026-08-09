@@ -24,6 +24,11 @@ export function FlowRosterDialog({
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmingEntryId, setConfirmingEntryId] = useState<number | null>(null);
+  const [manualStudentNo, setManualStudentNo] = useState("");
+  const [manualName, setManualName] = useState("");
+  const [hasRosterChanges, setHasRosterChanges] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
+  const canAddManualEntry = Boolean(manualStudentNo.trim() && manualName.trim());
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +54,15 @@ export function FlowRosterDialog({
         entry.studentNo.toLowerCase().includes(normalizedQuery),
     );
   }, [query, roster]);
+
+  const requestClose = () => {
+    if (busy) return;
+    if (!hasRosterChanges) {
+      onClose();
+      return;
+    }
+    setConfirmingClose(true);
+  };
 
   const selectFile = async (file: File | null) => {
     if (!file) return;
@@ -77,6 +91,7 @@ export function FlowRosterDialog({
       });
       setRoster(next);
       onRosterChange(next);
+      setHasRosterChanges(true);
       setParsed(null);
       setFileName("");
       setNotice(
@@ -89,6 +104,39 @@ export function FlowRosterDialog({
     }
   };
 
+  const addManualEntry = async () => {
+    const studentNo = manualStudentNo.trim();
+    const name = manualName.trim();
+    if (!studentNo || !name) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const next = await workflowApi.importRoster(flowId, {
+        entries: [{ studentNo, name }],
+        sourceFileName: "手动录入",
+      });
+      setRoster(next);
+      onRosterChange(next);
+      setHasRosterChanges(true);
+      setManualStudentNo("");
+      setManualName("");
+      setNotice(
+        next.summary.added
+          ? `已添加 ${name}（${studentNo}）`
+          : next.summary.restored
+            ? `已恢复 ${name}（${studentNo}）的流程访问权限`
+            : next.summary.updated
+              ? `已更新 ${studentNo} 的姓名为 ${name}`
+              : `${name}（${studentNo}）已在有效名单中`,
+      );
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "添加学生失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const revokeEntry = async (entry: FlowRosterEntry) => {
     setBusy(true);
     setError("");
@@ -96,6 +144,7 @@ export function FlowRosterDialog({
       const next = await workflowApi.revokeRosterEntry(flowId, entry.id);
       setRoster(next);
       onRosterChange(next);
+      setHasRosterChanges(true);
       setConfirmingEntryId(null);
       setNotice(`已移除 ${entry.name}（${entry.studentNo}）的流程访问权限`);
     } catch (reason) {
@@ -106,21 +155,27 @@ export function FlowRosterDialog({
   };
 
   return (
-    <div className="flow-roster-backdrop" onMouseDown={onClose}>
+    <div className="flow-roster-backdrop" onMouseDown={requestClose}>
       <section className="flow-roster-dialog" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
             <p>流程访问控制</p>
             <h2>学生名单</h2>
           </div>
-          <button aria-label="关闭学生名单" onClick={onClose}>×</button>
+          <button
+            aria-label="关闭学生名单"
+            disabled={busy || confirmingClose}
+            onClick={requestClose}
+          >
+            ×
+          </button>
         </header>
 
         <div className="flow-roster-import">
           <label>
             <input
               accept=".xlsx,.csv"
-              disabled={busy}
+              disabled={busy || confirmingClose}
               onChange={(event) => void selectFile(event.target.files?.[0] ?? null)}
               type="file"
             />
@@ -133,13 +188,47 @@ export function FlowRosterDialog({
           <button
             className="primary-action"
             disabled={
-              busy || !parsed || parsed.entries.length === 0 || parsed.errors.length > 0
+              busy ||
+              confirmingClose ||
+              !parsed ||
+              parsed.entries.length === 0 ||
+              parsed.errors.length > 0
             }
             onClick={() => void importEntries()}
           >
             导入名单
           </button>
         </div>
+
+        <form
+          className="flow-roster-manual-entry"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void addManualEntry();
+          }}
+        >
+          <strong>单个录入</strong>
+          <input
+            aria-label="学生学号"
+            disabled={busy || confirmingClose}
+            onChange={(event) => setManualStudentNo(event.target.value)}
+            placeholder="学号"
+            value={manualStudentNo}
+          />
+          <input
+            aria-label="学生姓名"
+            disabled={busy || confirmingClose}
+            onChange={(event) => setManualName(event.target.value)}
+            placeholder="姓名"
+            value={manualName}
+          />
+          <button
+            disabled={busy || confirmingClose || !canAddManualEntry}
+            type="submit"
+          >
+            添加学生
+          </button>
+        </form>
 
         {parsed ? (
           <div className={`flow-roster-preview ${parsed.errors.length ? "has-error" : ""}`}>
@@ -152,6 +241,37 @@ export function FlowRosterDialog({
         ) : null}
         {error ? <p className="flow-roster-message error" role="alert">{error}</p> : null}
         {notice ? <p className="flow-roster-message">{notice}</p> : null}
+        {confirmingClose ? (
+          <section
+            aria-modal="true"
+            aria-label="关闭名单核对"
+            className="flow-roster-close-review"
+            role="alertdialog"
+          >
+            <div className="flow-roster-close-review-card">
+              <p><strong>名单变更已保存</strong><span>请确认是否完成核对。</span></p>
+              <div className="flow-roster-close-review-actions">
+                <button
+                  disabled={busy}
+                  onClick={() => setConfirmingClose(false)}
+                  type="button"
+                >
+                  继续核对
+                </button>
+                <button
+                  className="primary-action"
+                  disabled={busy}
+                  onClick={() => {
+                    if (!busy) onClose();
+                  }}
+                  type="button"
+                >
+                  确认关闭
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <div className="flow-roster-toolbar">
           <div>
@@ -160,6 +280,7 @@ export function FlowRosterDialog({
           </div>
           <input
             aria-label="搜索学生名单"
+            disabled={confirmingClose}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索姓名或学号"
             value={query}
@@ -179,11 +300,26 @@ export function FlowRosterDialog({
                     {entry.status === "active" ? (
                       confirmingEntryId === entry.id ? (
                         <span className="flow-roster-confirm">
-                          <button disabled={busy} onClick={() => setConfirmingEntryId(null)}>取消</button>
-                          <button disabled={busy} onClick={() => void revokeEntry(entry)}>确认移除</button>
+                          <button
+                            disabled={busy || confirmingClose}
+                            onClick={() => setConfirmingEntryId(null)}
+                          >
+                            取消
+                          </button>
+                          <button
+                            disabled={busy || confirmingClose}
+                            onClick={() => void revokeEntry(entry)}
+                          >
+                            确认移除
+                          </button>
                         </span>
                       ) : (
-                        <button disabled={busy} onClick={() => setConfirmingEntryId(entry.id)}>移除</button>
+                        <button
+                          disabled={busy || confirmingClose}
+                          onClick={() => setConfirmingEntryId(entry.id)}
+                        >
+                          移除
+                        </button>
                       )
                     ) : "-"}
                   </td>
