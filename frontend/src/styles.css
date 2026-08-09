@@ -3055,6 +3055,10 @@ button {
   gap: 10px;
 }
 
+.selection-field-base-settings {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .form-field-required,
 .form-field-other-toggle {
   display: flex !important;

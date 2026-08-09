@@ -176,7 +176,9 @@ export function FormFieldEditor({
         };
         const fieldSettings = (
           <>
-            <div className="form-field-base-settings">
+            <div className={`form-field-base-settings${selectionField
+              ? " selection-field-base-settings"
+              : ""}`}>
               <label>
                 <span>字段标题</span>
                 <input
@@ -185,22 +187,24 @@ export function FormFieldEditor({
                   onChange={(event) => updateField(fieldIndex, { label: event.target.value })}
                 />
               </label>
-              <label>
-                <span>字段类型</span>
-                <select
-                  disabled={disabled}
-                  value={field.type}
-                  onChange={(event) => changeFieldType(
-                    fieldIndex,
-                    event.target.value as FormFieldType,
-                  )}
-                >
-                  <option value="text">单行文本</option>
-                  <option value="textarea">多行文本</option>
-                  <option value="radio">单项选择</option>
-                  <option value="checkbox">多项选择</option>
-                </select>
-              </label>
+              {!selectionField ? (
+                <label>
+                  <span>字段类型</span>
+                  <select
+                    disabled={disabled}
+                    value={field.type}
+                    onChange={(event) => changeFieldType(
+                      fieldIndex,
+                      event.target.value as FormFieldType,
+                    )}
+                  >
+                    <option value="text">单行文本</option>
+                    <option value="textarea">多行文本</option>
+                    <option value="radio">单项选择</option>
+                    <option value="checkbox">多项选择</option>
+                  </select>
+                </label>
+              ) : null}
               <label className="form-field-required">
                 <input
                   checked={field.required}
