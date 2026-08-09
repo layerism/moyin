@@ -2,9 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  getScanAuditConfigError,
   getPublishButtonState,
   getRevisionEditing,
 } from "../src/features/academic-flow/publishButtonState.ts";
+
+test("scan audit requires a DOCX template, mode and prompt", () => {
+  const node = {
+    id: "confirm", kind: "confirmation" as const, title: "承诺书",
+    scanAuditEnabled: true,
+  } as Parameters<typeof getScanAuditConfigError>[0];
+  assert.match(getScanAuditConfigError(node) ?? "", /DOCX/);
+  node.templateAsset = { assetId: "a", contentType: "", originalName: "承诺书.docx", sha256: "a", sizeBytes: 1 };
+  assert.match(getScanAuditConfigError(node) ?? "", /审核模式/);
+  node.scanAuditMode = "score";
+  assert.match(getScanAuditConfigError(node) ?? "", /审核标准/);
+  node.scanAuditPrompt = "按完整性评分";
+  assert.equal(getScanAuditConfigError(node), undefined);
+});
 
 test("new draft uses the submit publish action", () => {
   assert.deepEqual(

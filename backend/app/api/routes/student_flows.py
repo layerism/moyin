@@ -10,8 +10,12 @@ from app.domain.form_fields import FormAnswerValidationError
 from app.domain.workflow_runtime import validate_file_metadata, validate_template_filename
 from app.repositories.flow_files import (
     FileContextError,
+    add_pending_scan,
+    delete_pending_scan,
     get_upload_context,
     get_uploaded_file_for_download,
+    list_pending_scans,
+    reorder_pending_scans,
     replace_uploaded_file,
 )
 from app.repositories.audit_jobs import AuditJobConflictError, retry_audit_job
@@ -39,6 +43,7 @@ from app.services.object_storage import (
     timestamped_object_name,
 )
 from app.services.security import get_current_student
+from app.services.scan_materials import ScanMaterialError, inspect_scan_material
 
 router = APIRouter()
 
@@ -50,6 +55,10 @@ class DraftRequest(BaseModel):
 class SubmitRequest(BaseModel):
     payload: dict[str, Any]
     idempotencyKey: str = Field(min_length=1, max_length=100)
+
+
+class ScanOrderRequest(BaseModel):
+    fileIds: list[str] = Field(min_length=1, max_length=10)
 
 
 def runtime_error(exc: Exception) -> HTTPException:
@@ -171,6 +180,106 @@ def upload_node_file(
         except Exception:
             pass
     return record
+
+
+@router.post("/node-instances/{node_instance_id}/scans")
+def upload_node_scan(
+    node_instance_id: str,
+    file: UploadFile = File(...),
+    student: dict[str, object] = Depends(get_current_student),
+) -> dict[str, object]:
+    student_id = int(student["id"])
+    try:
+        context = get_upload_context(node_instance_id, student_id)
+        if context.upload_mode != "scan_set":
+            raise FileContextError("当前节点不支持扫描件")
+    except (KeyError, RosterAccessError, FileContextError) as exc:
+        raise runtime_error(exc) from exc
+    filename = PurePosixPath(str(file.filename or "").replace("\\", "/")).name
+    if not filename:
+        raise HTTPException(status_code=422, detail="请选择扫描件")
+    digest = hashlib.sha256()
+    size_bytes = 0
+    file.file.seek(0)
+    while chunk := file.file.read(1024 * 1024):
+        size_bytes += len(chunk)
+        digest.update(chunk)
+    file.file.seek(0)
+    try:
+        inspection = inspect_scan_material(file.file, filename, size_bytes)
+    except ScanMaterialError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    sha256 = digest.hexdigest()
+    storage_key = object_key(
+        settings.oss_prefix, "submissions", context.flow_id, context.flow_instance_id,
+        timestamped_object_name(filename, sha256),
+    )
+    try:
+        storage = get_object_storage()
+        uploaded = storage.put_object(storage_key, file.file, inspection.content_type)
+        return add_pending_scan(
+            node_instance_id, student_id, storage_key, filename, inspection.content_type,
+            size_bytes, sha256, uploaded.etag, inspection.page_count,
+        )
+    except FileContextError as exc:
+        try:
+            get_object_storage().delete_object(storage_key)
+        except Exception:
+            pass
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="OSS 未配置，请联系管理员") from exc
+    except Exception as exc:
+        try:
+            get_object_storage().delete_object(storage_key)
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail="扫描件上传失败，请稍后重试") from exc
+
+
+@router.get("/node-instances/{node_instance_id}/scans")
+def get_node_scans(
+    node_instance_id: str,
+    student: dict[str, object] = Depends(get_current_student),
+) -> list[dict[str, object]]:
+    try:
+        get_upload_context(node_instance_id, int(student["id"]))
+        return list_pending_scans(node_instance_id, int(student["id"]))
+    except (KeyError, RosterAccessError, FileContextError) as exc:
+        raise runtime_error(exc) from exc
+
+
+@router.delete("/node-instances/{node_instance_id}/scans/{file_id}")
+def remove_node_scan(
+    node_instance_id: str,
+    file_id: str,
+    student: dict[str, object] = Depends(get_current_student),
+) -> dict[str, bool]:
+    try:
+        get_upload_context(node_instance_id, int(student["id"]))
+        storage_key = delete_pending_scan(node_instance_id, int(student["id"]), file_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="扫描件不存在") from exc
+    except (RosterAccessError, FileContextError) as exc:
+        raise runtime_error(exc) from exc
+    try:
+        get_object_storage().delete_object(storage_key)
+    except Exception:
+        pass
+    return {"deleted": True}
+
+
+@router.put("/node-instances/{node_instance_id}/scans/order")
+def put_node_scan_order(
+    node_instance_id: str,
+    payload: ScanOrderRequest,
+    student: dict[str, object] = Depends(get_current_student),
+) -> list[dict[str, object]]:
+    try:
+        get_upload_context(node_instance_id, int(student["id"]))
+        return reorder_pending_scans(node_instance_id, int(student["id"]), payload.fileIds)
+    except (KeyError, RosterAccessError, FileContextError) as exc:
+        raise runtime_error(exc) from exc
 
 
 @router.get("/files/{file_id}/download")

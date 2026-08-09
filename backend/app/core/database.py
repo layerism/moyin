@@ -193,6 +193,8 @@ CREATE TABLE IF NOT EXISTS uploaded_files (
     size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
     sha256 TEXT NOT NULL,
     etag TEXT NOT NULL,
+    page_count INTEGER NOT NULL DEFAULT 1 CHECK(page_count > 0),
+    display_order INTEGER NOT NULL DEFAULT 0 CHECK(display_order >= 0),
     created_at TEXT NOT NULL
 );
 
@@ -290,6 +292,7 @@ def initialize_database() -> None:
         _apply_flow_owner_migration(connection)
         _apply_share_token_value_migration(connection)
         _apply_audit_script_metadata_migration(connection)
+        _apply_scan_file_metadata_migration(connection)
 
 
 def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
@@ -398,3 +401,22 @@ def _apply_audit_script_metadata_migration(connection: sqlite3.Connection) -> No
             "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
             (migration_id, datetime.now(UTC).isoformat()),
         )
+
+
+def _apply_scan_file_metadata_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260810_add_scan_file_metadata"
+    columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(uploaded_files)").fetchall()
+    }
+    if "page_count" not in columns:
+        connection.execute(
+            "ALTER TABLE uploaded_files ADD COLUMN page_count INTEGER NOT NULL DEFAULT 1 CHECK(page_count > 0)"
+        )
+    if "display_order" not in columns:
+        connection.execute(
+            "ALTER TABLE uploaded_files ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0 CHECK(display_order >= 0)"
+        )
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )

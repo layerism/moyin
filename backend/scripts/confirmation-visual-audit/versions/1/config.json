@@ -1,0 +1,25 @@
+{
+  "acceptedExtensions": [".jpg", ".jpeg", ".png", ".pdf"],
+  "parameters": [
+    {
+      "key": "scanAuditMode",
+      "label": "审核模式",
+      "type": "select",
+      "required": true,
+      "default": "pass_fail",
+      "options": [
+        {"label": "通过/不通过", "value": "pass_fail"},
+        {"label": "评分", "value": "score"}
+      ]
+    },
+    {
+      "key": "scanAuditPrompt",
+      "label": "审核标准",
+      "type": "string",
+      "required": true,
+      "default": "请依据材料完整性进行审核。",
+      "minimumLength": 1,
+      "maximumLength": 2000
+    }
+  ]
+}

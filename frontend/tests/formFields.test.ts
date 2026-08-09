@@ -2,11 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  hasFormFieldSettings,
   normalizeFormFields,
   upgradeFormFields,
   validateFormAnswers,
   validateFormFieldConfig,
 } from "../src/features/academic-flow/formFields.ts";
+
+test("only fields with extra settings are expandable", () => {
+  assert.equal(hasFormFieldSettings("text"), false);
+  assert.equal(hasFormFieldSettings("textarea"), true);
+  assert.equal(hasFormFieldSettings("radio"), true);
+  assert.equal(hasFormFieldSettings("checkbox"), true);
+});
 
 const optionalFields = [
   { id: "text", label: "姓名", required: false, type: "text" as const },

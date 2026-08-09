@@ -16,7 +16,11 @@ from app.domain.workflow_revision import (
 )
 from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_node_status
 from app.repositories.flow_templates import TemplateMutationError, validate_version_templates
-from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script_version
+from app.services.audit_script_catalog import (
+    CONFIRMATION_VISUAL_AUDIT_ID,
+    AuditScriptCatalogError,
+    find_audit_script_version,
+)
 from app.services.audit_script_parameters import (
     AuditScriptParameterError,
     validate_script_params,
@@ -26,6 +30,38 @@ from app.services.object_storage import get_object_storage, object_key, timestam
 
 
 logger = logging.getLogger(__name__)
+
+
+def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
+    for node in config.get("nodes", []):
+        if node.get("kind") != "confirmation":
+            continue
+        if node.get("scanAuditEnabled") is not True:
+            for key in (
+                "auditScriptId", "auditScriptVersion", "auditScriptHash",
+                "auditScriptConfigHash", "auditScriptAcceptedExtensions", "auditScriptParams",
+            ):
+                node.pop(key, None)
+            continue
+        try:
+            record = find_audit_script_version(CONFIRMATION_VISUAL_AUDIT_ID, 1)
+            params = {
+                "scanAuditMode": node.get("scanAuditMode"),
+                "scanAuditPrompt": str(node.get("scanAuditPrompt", "")).strip(),
+            }
+            validate_script_params(record.version_config, params)
+        except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
+            raise FlowValidationError(str(exc)) from exc
+        node.update({
+            "auditScriptId": record.id,
+            "auditScriptVersion": record.version,
+            "auditScriptHash": record.sha256,
+            "auditScriptConfigHash": record.config_sha256,
+            "auditScriptAcceptedExtensions": list(record.accepted_extensions),
+            "auditScriptParams": params,
+            "auditScriptType": record.language,
+            "auditScriptName": record.name,
+        })
 
 
 class ArchivedFlowError(ValueError):
@@ -60,7 +96,7 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
                 raise FlowValidationError("未启用审核脚本的节点不能保留脚本参数")
             continue
         if (
-            node.get("kind") != "file"
+            node.get("kind") not in {"file", "confirmation"}
             or not isinstance(script_id, str)
             or not isinstance(version, int)
             or isinstance(version, bool)
@@ -86,7 +122,7 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
             validate_script_params(record.version_config, params)
         except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
             raise FlowValidationError(str(exc)) from exc
-        if record.accepted_extensions:
+        if record.accepted_extensions and node.get("kind") == "file":
             node_extensions = [
                 f".{value.strip().lower().removeprefix('.')}"
                 for value in str(node.get("fileExtensions") or "").split(",")
@@ -1032,6 +1068,7 @@ def publish_flow(
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可发布")
         config = supplied_config if supplied_config is not None else json.loads(flow["draft_config"])
+        _bind_confirmation_visual_audits(config)
         snapshot = canonical_json(config)
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         if expected_draft_config_hash is not None and expected_draft_config_hash != config_hash:

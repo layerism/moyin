@@ -1,5 +1,6 @@
 import hashlib
 import json
+import math
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -17,6 +18,8 @@ from app.repositories.audit_jobs import create_audit_job
 from app.repositories.flow_files import (
     FileContextError,
     attach_uploaded_file,
+    attach_uploaded_files,
+    get_pending_scans_for_submit,
     get_uploaded_file_for_node,
 )
 from app.repositories.flow_roster import assert_student_roster_access
@@ -273,10 +276,28 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "templateDownloaded": bool(template and template["downloaded_at"]),
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
-                    "audit": _audit_summary(row, status),
+                    "audit": _audit_summary(row, status, config_node),
                 }
             )
         nodes.sort(key=lambda item: node_order[item["nodeKey"]])
+        safe_config = {
+            **config,
+            "nodes": [
+                {
+                    key: value
+                    for key, value in node.items()
+                    if not (
+                        node.get("kind") == "confirmation"
+                        and key in {
+                            "scanAuditMode", "scanAuditPrompt", "auditScriptId",
+                            "auditScriptVersion", "auditScriptHash", "auditScriptConfigHash",
+                            "auditScriptAcceptedExtensions", "auditScriptParams",
+                        }
+                    )
+                }
+                for node in config["nodes"]
+            ],
+        }
     return {
         "id": instance["id"],
         "flowId": instance["flow_id"],
@@ -285,7 +306,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         "description": instance["description"],
         "status": instance["status"],
         "student": {"studentNo": instance["student_no"], "name": instance["name"]},
-        "config": config,
+        "config": safe_config,
         "nodeInstances": nodes,
     }
 
@@ -497,7 +518,7 @@ def submit_node(
             if configured_count not in {0, 3}:
                 raise RuntimeConflictError("审核脚本配置无效，请联系教师")
             if has_audit_script and (
-                node.get("kind") != "file"
+                node.get("kind") not in {"file", "confirmation"}
                 or not isinstance(script_values[0], str)
                 or not isinstance(script_values[1], int)
                 or isinstance(script_values[1], bool)
@@ -512,6 +533,7 @@ def submit_node(
                 raise RuntimeConflictError("审核脚本配置无效，请联系教师")
             submission_payload = payload
             uploaded_file = None
+            uploaded_scans: list[dict[str, object]] = []
             if node.get("kind") == "file":
                 file_value = payload.get("file")
                 if not isinstance(file_value, dict) or not file_value.get("fileId"):
@@ -530,6 +552,28 @@ def submit_node(
                     "name": uploaded_file["original_name"],
                     "size": uploaded_file["size_bytes"],
                     "type": uploaded_file["content_type"],
+                }
+            if node.get("kind") == "confirmation" and node.get("scanAuditEnabled") is True:
+                if payload.get("confirmed") is not True:
+                    raise RuntimeConflictError("请先确认承诺内容")
+                uploaded_scans = get_pending_scans_for_submit(
+                    connection, node_instance_id, student_id
+                )
+                if not uploaded_scans:
+                    raise RuntimeConflictError("请先上传扫描件")
+                submission_payload = {
+                    "confirmed": True,
+                    "scans": [
+                        {
+                            "fileId": item["id"],
+                            "name": item["original_name"],
+                            "size": item["size_bytes"],
+                            "type": item["content_type"],
+                            "pageCount": item["page_count"],
+                            "order": item["display_order"],
+                        }
+                        for item in uploaded_scans
+                    ],
                 }
             if node.get("kind") == "form":
                 submission_payload = normalize_form_answers(node, payload, strict=True)
@@ -571,6 +615,13 @@ def submit_node(
                     attach_uploaded_file(connection, str(uploaded_file["id"]), submission_id)
                 except FileContextError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
+            if uploaded_scans:
+                try:
+                    attach_uploaded_files(
+                        connection, [str(item["id"]) for item in uploaded_scans], submission_id
+                    )
+                except FileContextError as exc:
+                    raise RuntimeConflictError(str(exc)) from exc
             if has_audit_script:
                 create_audit_job(
                     connection,
@@ -610,7 +661,9 @@ def submit_node(
     return get_instance(row["flow_instance_id"], student_id)
 
 
-def _audit_summary(row, status: str) -> dict[str, object] | None:
+def _audit_summary(
+    row, status: str, config_node: dict[str, Any]
+) -> dict[str, object] | None:
     if row["audit_job_status"] is None:
         return None
     result: dict[str, object] = {}
@@ -625,6 +678,14 @@ def _audit_summary(row, status: str) -> dict[str, object] | None:
     details = result.get("details") if isinstance(result.get("details"), dict) else None
     if status == "audit_error":
         reason = "自动审核暂时失败，请重新审核"
+        details = None
+    elif (
+        config_node.get("kind") == "confirmation"
+        and config_node.get("scanAuditMode") == "score"
+    ):
+        reason = None
+        details = None
+    elif config_node.get("kind") == "confirmation" and isinstance(details, dict):
         details = None
     return {
         "status": status,
@@ -786,6 +847,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
         node_rows = connection.execute(
             """
             SELECT n.flow_instance_id,
+                   n.id AS node_instance_id,
                    n.node_key,
                    n.status,
                    r.deadline_at AS global_deadline,
@@ -805,6 +867,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
     for row in node_rows:
         nodes_by_instance.setdefault(str(row["flow_instance_id"]), []).append(
             {
+                "nodeInstanceId": row["node_instance_id"],
                 "nodeKey": row["node_key"],
                 "title": node_titles.get(row["node_key"], row["node_key"]),
                 "status": row["status"],
@@ -830,4 +893,62 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             }
             for row in rows
         ],
+    }
+
+
+def get_teacher_submission_detail(
+    node_instance_id: str, teacher_id: int
+) -> dict[str, object]:
+    with get_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT n.id, n.node_key, n.status, i.student_account_id,
+                   a.student_no, a.name AS student_name, v.config_snapshot,
+                   s.id AS submission_id, j.result_json, j.status AS audit_job_status
+            FROM node_instances n
+            JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN student_accounts a ON a.id = i.student_account_id
+            JOIN flow_versions v ON v.id = i.flow_version_id
+            JOIN flows f ON f.id = v.flow_id
+            LEFT JOIN submissions s
+              ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
+            LEFT JOIN audit_jobs j ON j.submission_id = s.id
+            WHERE n.id = ? AND f.owner_id = ?
+            """,
+            (node_instance_id, str(teacher_id)),
+        ).fetchone()
+        if row is None:
+            raise KeyError(node_instance_id)
+        config = json.loads(row["config_snapshot"])
+        node = node_by_key(config, row["node_key"])
+        result = _json_object(row["result_json"])
+        details = result.get("details") if isinstance(result.get("details"), dict) else {}
+        mode = node.get("scanAuditMode")
+        score_value = details.get("score")
+        score = (
+            float(score_value)
+            if mode == "score"
+            and not isinstance(score_value, bool)
+            and isinstance(score_value, (int, float))
+            and math.isfinite(float(score_value))
+            and 0 <= float(score_value) <= 100
+            else None
+        )
+        scans = connection.execute(
+            """SELECT id, original_name, content_type, size_bytes, page_count, storage_key
+               FROM uploaded_files WHERE submission_id = ?
+               ORDER BY display_order, created_at, id""",
+            (row["submission_id"],),
+        ).fetchall() if row["submission_id"] else []
+    return {
+        "nodeInstanceId": row["id"],
+        "nodeTitle": node.get("title") or row["node_key"],
+        "student": {"studentNo": row["student_no"], "name": row["student_name"]},
+        "mode": mode,
+        "status": row["status"],
+        "auditJobStatus": row["audit_job_status"],
+        "passed": result.get("passed") if isinstance(result.get("passed"), bool) else None,
+        "score": score,
+        "reason": result.get("reason") if isinstance(result.get("reason"), str) else None,
+        "scans": [dict(scan) for scan in scans],
     }

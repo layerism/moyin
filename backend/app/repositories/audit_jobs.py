@@ -115,8 +115,8 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             return None
         file_rows = connection.execute(
             """
-            SELECT id, original_name, storage_key, content_type, size_bytes, sha256
-            FROM uploaded_files WHERE submission_id = ? ORDER BY created_at, id
+            SELECT id, original_name, storage_key, content_type, size_bytes, sha256, page_count
+            FROM uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at, id
             """,
             (job["submission_id"],),
         ).fetchall()
@@ -128,6 +128,7 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
                 content_type=file["content_type"],
                 size=int(file["size_bytes"]),
                 sha256=file["sha256"],
+                page_count=int(file["page_count"]),
             )
             for file in file_rows
         ]

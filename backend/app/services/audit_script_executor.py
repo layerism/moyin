@@ -18,6 +18,7 @@ from dotenv import dotenv_values
 
 from app.core.config import settings
 from app.services.audit_script_runtime import AuditScriptRuntimeDescriptor
+from app.services.audit_script_catalog import CONFIRMATION_VISUAL_AUDIT_ID
 from app.services.object_storage import get_object_storage
 
 
@@ -36,6 +37,7 @@ class AuditMaterial:
     content_type: str
     size: int
     sha256: str
+    page_count: int = 1
 
 
 def stage_audit_materials(
@@ -73,6 +75,7 @@ def stage_audit_materials(
                 "path": str(path),
                 "size": material.size,
                 "sha256": material.sha256,
+                "pageCount": material.page_count,
             }
         )
     return staged
@@ -131,7 +134,7 @@ def _run_process(
         stdin = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     except (TypeError, ValueError):
         raise AuditScriptExecutionError("审核脚本输入协议无效") from None
-    environment = _script_environment()
+    environment = _script_environment(descriptor)
 
     try:
         process = subprocess.Popen(
@@ -200,7 +203,7 @@ def _run_process(
             process.stderr.close()
 
 
-def _script_environment() -> dict[str, str]:
+def _script_environment(descriptor: AuditScriptRuntimeDescriptor) -> dict[str, str]:
     environment = {
         "PATH": os.environ.get("PATH", os.defpath),
         "LANG": os.environ.get("LANG", "C.UTF-8"),
@@ -214,6 +217,11 @@ def _script_environment() -> dict[str, str]:
         name = candidate.strip()
         if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) and name not in names:
             names.append(name)
+    if descriptor.script_id == CONFIRMATION_VISUAL_AUDIT_ID:
+        names.extend([
+            "VISION_API_BASE_URL", "VISION_API_KEY", "VISION_MODEL",
+            "VISION_API_TIMEOUT_SECONDS",
+        ])
     for name in names:
         value = os.environ.get(name)
         if value is None:

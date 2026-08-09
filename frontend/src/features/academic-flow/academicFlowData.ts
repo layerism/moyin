@@ -67,6 +67,9 @@ export function createNode(
     infoFields: [],
     kind,
     requirement: getDefaultRequirement(kind, title),
+    scanAuditEnabled: false,
+    scanAuditMode: undefined,
+    scanAuditPrompt: "",
     startAt: null,
     status: "disabled",
     templateAsset: null,
@@ -113,6 +116,7 @@ export function getFileTypeRestrictionPreset(extensions: string) {
 export function getNodeSettingCapabilities(kind: AcademicFlowNodeKind) {
   return {
     collectsInformation: kind === "form",
+    configuresConfirmationScan: kind === "confirmation",
     configuresMaterialReview: kind === "file",
   };
 }

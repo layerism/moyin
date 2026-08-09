@@ -39,6 +39,9 @@ BUSINESS_NODE_FIELDS = (
     "auditScriptType",
     "auditScriptName",
     "autoApprove",
+    "scanAuditEnabled",
+    "scanAuditMode",
+    "scanAuditPrompt",
 )
 
 

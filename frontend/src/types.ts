@@ -117,6 +117,9 @@ export type AcademicFlowNode = {
   infoFields: FormFieldConfig[];
   kind: AcademicFlowNodeKind;
   requirement: string;
+  scanAuditEnabled?: boolean;
+  scanAuditMode?: "pass_fail" | "score";
+  scanAuditPrompt?: string;
   startAt?: string | null;
   status: AcademicFlowNodeStatus;
   templateAsset?: NodeTemplateAsset | null;

@@ -63,6 +63,15 @@ export type RuntimeNodeTemplate = {
   sizeBytes: number;
 };
 
+export type RuntimeScanFile = {
+  contentType: string;
+  fileId: string;
+  order: number;
+  originalName: string;
+  pageCount: number;
+  sizeBytes: number;
+};
+
 export type RuntimeNodeAudit = {
   attemptCount: number;
   canRetry: boolean;
@@ -115,9 +124,23 @@ export type WorkflowProgressNode = {
   effectiveDeadline: string | null;
   globalDeadline: string | null;
   nodeKey: string;
+  nodeInstanceId: string;
   overrideDeadline: string | null;
   status: RuntimeNodeStatus;
   title: string;
+};
+
+export type TeacherSubmissionDetail = {
+  auditJobStatus: "failed" | "pending" | "running" | "succeeded" | null;
+  mode: "pass_fail" | "score" | null;
+  nodeInstanceId: string;
+  nodeTitle: string;
+  passed: boolean | null;
+  reason: string | null;
+  scans: Array<RuntimeScanFile & { url: string }>;
+  score: number | null;
+  status: RuntimeNodeStatus;
+  student: { name: string; studentNo: string };
 };
 
 export type WorkflowProgress = {

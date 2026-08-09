@@ -1,7 +1,7 @@
 import json
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from app.core.database import get_connection
 from app.domain.workflow_runtime import incoming_nodes, pending_node_status
@@ -26,6 +26,12 @@ class FileUploadContext:
     config_node: dict[str, Any]
     template_asset_id: str | None
     template_original_name: str | None
+    upload_mode: Literal["single", "scan_set"]
+
+
+MAX_SCAN_FILES = 10
+MAX_SCAN_PAGES = 20
+MAX_SCAN_TOTAL_BYTES = 30 * 1024 * 1024
 
 
 def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadContext:
@@ -52,8 +58,13 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         assert_student_roster_access(connection, row["flow_id"], student_id)
         config = json.loads(row["config_snapshot"])
         config_node = next(node for node in config["nodes"] if node["id"] == row["node_key"])
-        if config_node.get("kind") != "file":
-            raise FileContextError("当前节点不是文件上传节点")
+        is_file = config_node.get("kind") == "file"
+        is_scan = (
+            config_node.get("kind") == "confirmation"
+            and config_node.get("scanAuditEnabled") is True
+        )
+        if not (is_file or is_scan):
+            raise FileContextError("当前节点不支持文件上传")
         statuses = {
             item["node_key"]: item["status"]
             for item in connection.execute(
@@ -86,6 +97,7 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         config_node=config_node,
         template_asset_id=row["template_asset_id"],
         template_original_name=row["template_original_name"],
+        upload_mode="single" if config_node.get("kind") == "file" else "scan_set",
     )
 
 
@@ -178,6 +190,147 @@ def attach_uploaded_file(connection, file_id: str, submission_id: str) -> None:
     ).rowcount
     if updated != 1:
         raise FileContextError("文件已提交或不存在")
+
+
+def _scan_file(row: Any) -> dict[str, object]:
+    return {
+        "fileId": row["id"],
+        "originalName": row["original_name"],
+        "contentType": row["content_type"],
+        "sizeBytes": row["size_bytes"],
+        "pageCount": row["page_count"],
+        "order": row["display_order"],
+    }
+
+
+def list_pending_scans(node_instance_id: str, student_id: int) -> list[dict[str, object]]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT * FROM uploaded_files
+            WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
+            ORDER BY display_order, created_at, id
+            """,
+            (node_instance_id, student_id),
+        ).fetchall()
+    return [_scan_file(row) for row in rows]
+
+
+def add_pending_scan(
+    node_instance_id: str,
+    student_id: int,
+    storage_key: str,
+    original_name: str,
+    content_type: str,
+    size_bytes: int,
+    sha256: str,
+    etag: str,
+    page_count: int,
+) -> dict[str, object]:
+    file_id = str(uuid.uuid4())
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        totals = connection.execute(
+            """
+            SELECT COUNT(*) AS file_count, COALESCE(SUM(page_count), 0) AS pages,
+                   COALESCE(SUM(size_bytes), 0) AS bytes
+            FROM uploaded_files
+            WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
+            """,
+            (node_instance_id, student_id),
+        ).fetchone()
+        if totals["file_count"] >= MAX_SCAN_FILES:
+            raise FileContextError("扫描件最多上传 10 个文件")
+        if totals["pages"] + page_count > MAX_SCAN_PAGES:
+            raise FileContextError("扫描件总页数不能超过 20 页")
+        if totals["bytes"] + size_bytes > MAX_SCAN_TOTAL_BYTES:
+            raise FileContextError("扫描件总大小不能超过 30 MB")
+        order = totals["file_count"]
+        now = utc_now_iso()
+        connection.execute(
+            """
+            INSERT INTO uploaded_files
+                (id, node_instance_id, student_account_id, storage_key, original_name,
+                 content_type, size_bytes, sha256, etag, page_count, display_order, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (file_id, node_instance_id, student_id, storage_key, original_name,
+             content_type, size_bytes, sha256, etag, page_count, order, now),
+        )
+    return {
+        "fileId": file_id, "originalName": original_name, "contentType": content_type,
+        "sizeBytes": size_bytes, "pageCount": page_count, "order": order,
+    }
+
+
+def delete_pending_scan(node_instance_id: str, student_id: int, file_id: str) -> str:
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            """SELECT storage_key FROM uploaded_files
+               WHERE id = ? AND node_instance_id = ? AND student_account_id = ?
+                 AND submission_id IS NULL""",
+            (file_id, node_instance_id, student_id),
+        ).fetchone()
+        if row is None:
+            raise KeyError(file_id)
+        connection.execute("DELETE FROM uploaded_files WHERE id = ?", (file_id,))
+        remaining = connection.execute(
+            """SELECT id FROM uploaded_files
+               WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
+               ORDER BY display_order, created_at, id""",
+            (node_instance_id, student_id),
+        ).fetchall()
+        for order, item in enumerate(remaining):
+            connection.execute(
+                "UPDATE uploaded_files SET display_order = ? WHERE id = ?", (order, item["id"])
+            )
+    return str(row["storage_key"])
+
+
+def reorder_pending_scans(
+    node_instance_id: str, student_id: int, file_ids: list[str]
+) -> list[dict[str, object]]:
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        rows = connection.execute(
+            """SELECT * FROM uploaded_files
+               WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
+               ORDER BY display_order, created_at, id""",
+            (node_instance_id, student_id),
+        ).fetchall()
+        if len(file_ids) != len(rows) or len(set(file_ids)) != len(file_ids) or set(file_ids) != {row["id"] for row in rows}:
+            raise FileContextError("扫描件排序列表无效")
+        by_id = {row["id"]: row for row in rows}
+        for order, file_id in enumerate(file_ids):
+            connection.execute(
+                "UPDATE uploaded_files SET display_order = ? WHERE id = ?", (order, file_id)
+            )
+    return [{**_scan_file(by_id[file_id]), "order": order} for order, file_id in enumerate(file_ids)]
+
+
+def get_pending_scans_for_submit(
+    connection: Any, node_instance_id: str, student_id: int
+) -> list[dict[str, object]]:
+    rows = connection.execute(
+        """SELECT * FROM uploaded_files
+           WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
+           ORDER BY display_order, created_at, id""",
+        (node_instance_id, student_id),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def attach_uploaded_files(connection: Any, file_ids: list[str], submission_id: str) -> None:
+    if not file_ids:
+        raise FileContextError("请先上传扫描件")
+    placeholders = ",".join("?" for _ in file_ids)
+    updated = connection.execute(
+        f"UPDATE uploaded_files SET submission_id = ? WHERE id IN ({placeholders}) AND submission_id IS NULL",
+        (submission_id, *file_ids),
+    ).rowcount
+    if updated != len(file_ids):
+        raise FileContextError("扫描件已提交或不存在")
 
 
 def get_uploaded_file_for_download(file_id: str, student_id: int) -> dict[str, object]:

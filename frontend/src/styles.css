@@ -3169,11 +3169,135 @@ button {
   border-top: 1px solid #e5ebf2;
 }
 
-.form-field-common-settings {
+.form-field-static-meta {
+  color: #718096;
+  white-space: nowrap;
+}
+
+.confirmation-scan-settings,
+.runtime-scan-workspace {
   display: grid;
-  grid-template-columns: minmax(150px, 220px);
-  align-items: end;
+  gap: 12px;
+}
+
+.scan-audit-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  padding: 12px;
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+}
+
+.scan-audit-mode legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+.scan-audit-mode label {
+  display: flex !important;
+  align-items: center;
+  gap: 7px !important;
+}
+
+.scan-audit-mode input {
+  width: 16px !important;
+  min-height: 16px !important;
+}
+
+.runtime-scan-dropzone {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  padding: 22px;
+  border: 1px dashed #8fb3e8;
+  border-radius: 10px;
+  background: #f7faff;
+  cursor: pointer;
+}
+
+.runtime-scan-dropzone input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.runtime-scan-list,
+.runtime-submitted-scan-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.runtime-scan-list li,
+.runtime-submitted-scan-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.runtime-scan-list li > div:first-child {
+  min-width: 0;
+}
+
+.runtime-scan-list li strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-scan-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.runtime-scan-replace {
+  position: relative;
+  display: inline-flex !important;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid #cbd5e0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.runtime-scan-replace input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.submission-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.submission-detail-summary div,
+.submission-detail-reason {
+  padding: 12px;
+  border-radius: 8px;
+  background: #f7f9fc;
+}
+
+.submission-detail-summary dt {
+  color: #718096;
+  font-size: 12px;
+}
+
+.submission-detail-summary dd {
+  margin: 4px 0 0;
+  font-weight: 700;
 }
 
 .form-field-other-toggle {
@@ -3458,6 +3582,16 @@ button {
 
   .form-field-card .form-field-summary-main {
     grid-template-columns: 28px minmax(100px, 1fr) auto;
+  }
+
+  .runtime-scan-list li,
+  .runtime-submitted-scan-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .runtime-scan-actions {
+    flex-wrap: wrap;
   }
 
   .node-inspector-footer {
