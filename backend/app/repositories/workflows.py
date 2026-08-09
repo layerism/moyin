@@ -341,6 +341,55 @@ def create_flow(name: str, description: str, teacher_id: int) -> dict[str, objec
     return get_flow(flow_id, teacher_id)
 
 
+def rename_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
+    new_name = name.strip()
+    if not new_name or len(new_name) > 120:
+        raise FlowValidationError("流程名称不能为空且不能超过 120 个字符")
+
+    owner_id = str(teacher_id)
+    now = utc_now_iso()
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        flow = connection.execute(
+            "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+            (flow_id, owner_id),
+        ).fetchone()
+        if flow is None:
+            raise KeyError(flow_id)
+        if new_name == flow["name"]:
+            raise DuplicateFlowNameError("新名称不能与当前流程名称相同")
+        duplicate = connection.execute(
+            """
+            SELECT 1 FROM flows
+            WHERE owner_id = ? AND name = ? AND status != 'archived' AND id != ?
+            LIMIT 1
+            """,
+            (owner_id, new_name, flow_id),
+        ).fetchone()
+        if duplicate is not None:
+            raise DuplicateFlowNameError("已存在同名流程")
+        connection.execute(
+            "UPDATE flows SET name = ?, updated_at = ? WHERE id = ?",
+            (new_name, now, flow_id),
+        )
+        connection.execute(
+            """
+            INSERT INTO audit_logs
+                (actor_id, action, entity_type, entity_id,
+                 before_data, after_data, created_at)
+            VALUES (?, 'workflow_renamed', 'workflow', ?, ?, ?, ?)
+            """,
+            (
+                owner_id,
+                flow_id,
+                canonical_json({"name": flow["name"]}),
+                canonical_json({"name": new_name}),
+                now,
+            ),
+        )
+    return get_flow(flow_id, teacher_id)
+
+
 def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
     new_name = name.strip()
     if not new_name or len(new_name) > 120:

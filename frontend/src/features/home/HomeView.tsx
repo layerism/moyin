@@ -465,6 +465,7 @@ export function AcademicFlowView({
   onHome,
   onOssCloud,
   onOpenProcess,
+  onRenameProcess,
   onTeacherLogout,
   teacherIdentity,
 }: {
@@ -476,6 +477,7 @@ export function AcademicFlowView({
   onHome: () => void;
   onOssCloud: () => void;
   onOpenProcess: (processId: string) => void;
+  onRenameProcess: (process: AcademicProcess, name: string) => Promise<AcademicProcess>;
   onTeacherLogout: () => void;
   teacherIdentity: AuthIdentity;
 }) {
@@ -492,6 +494,10 @@ export function AcademicFlowView({
   const [cloneError, setCloneError] = useState("");
   const [cloneSubmitting, setCloneSubmitting] = useState(false);
   const [cloneResult, setCloneResult] = useState<FlowCloneResult>(null);
+  const [renameProcess, setRenameProcess] = useState<AcademicProcess | null>(null);
+  const [renameName, setRenameName] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [renameSubmitting, setRenameSubmitting] = useState(false);
   const [highlightedProcessId, setHighlightedProcessId] = useState<string | null>(null);
   const cloneTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -570,6 +576,36 @@ export function AcademicFlowView({
       setCloneError(error instanceof Error ? error.message : "复制失败，请稍后重试");
     } finally {
       setCloneSubmitting(false);
+    }
+  };
+
+  const confirmRenameProcess = async () => {
+    if (!renameProcess) return;
+    const nextName = renameName.trim();
+    if (!nextName || nextName.length > 120) {
+      setRenameError("流程名称不能为空且不能超过 120 个字符");
+      return;
+    }
+    if (nextName === renameProcess.name.trim()) {
+      setRenameError("新名称不能与当前流程名称相同");
+      return;
+    }
+    if (processes.some(
+      (process) => process.id !== renameProcess.id && process.name.trim() === nextName,
+    )) {
+      setRenameError("已存在同名流程");
+      return;
+    }
+    setRenameSubmitting(true);
+    setRenameError("");
+    try {
+      await onRenameProcess(renameProcess, nextName);
+      setRenameProcess(null);
+      setRenameName("");
+    } catch (error) {
+      setRenameError(error instanceof Error ? error.message : "重命名失败，请稍后重试");
+    } finally {
+      setRenameSubmitting(false);
     }
   };
 
@@ -658,6 +694,21 @@ export function AcademicFlowView({
                     <span>复制</span>
                   </button>
                   <button
+                    aria-label={`重命名流程 ${process.name}`}
+                    className="academic-flow-rename"
+                    onClick={() => {
+                      setRenameProcess(process);
+                      setRenameName(process.name);
+                      setRenameError("");
+                    }}
+                    title="重命名流程"
+                    type="button"
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 24 24">
+                      <path d="M4 20h4L19 9l-4-4L4 16v4Zm10-13 4 4" />
+                    </svg>
+                  </button>
+                  <button
                     aria-label={`删除流程 ${process.name}`}
                     className="academic-flow-delete"
                     onClick={() => {
@@ -701,6 +752,26 @@ export function AcademicFlowView({
           onCancel={() => setDeleteProcess(null)}
           onConfirm={() => void confirmDeleteProcess()}
           submitting={deleting}
+        />
+      ) : null}
+      {renameProcess ? (
+        <NameDialog
+          error={renameError}
+          onCancel={() => {
+            setRenameProcess(null);
+            setRenameError("");
+          }}
+          onConfirm={() => void confirmRenameProcess()}
+          onValueChange={(value) => {
+            setRenameName(value);
+            setRenameError("");
+          }}
+          placeholder="请输入新的流程名称"
+          selectOnFocus
+          submitting={renameSubmitting}
+          submittingLabel="保存中"
+          title="重命名流程"
+          value={renameName}
         />
       ) : null}
       {cloneSource ? (

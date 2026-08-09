@@ -23,6 +23,7 @@ from app.repositories.workflows import (
     get_revision_impact,
     list_flows,
     publish_flow,
+    rename_flow,
     resolve_share_token,
     save_draft,
 )
@@ -55,6 +56,10 @@ class CreateFlowRequest(BaseModel):
 
 class CloneFlowRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
+
+class RenameFlowRequest(BaseModel):
+    name: str
 
 
 class FlowConfigRequest(BaseModel):
@@ -195,6 +200,22 @@ def post_flow_clone(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ObjectStorageError as exc:
         raise HTTPException(status_code=502, detail="模板复制失败，请稍后重试") from exc
+
+
+@router.patch("/{flow_id}/name")
+def patch_flow_name(
+    flow_id: str,
+    payload: RenameFlowRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return rename_flow(flow_id, payload.name, int(teacher["id"]))
+    except KeyError as exc:
+        raise not_found() from exc
+    except DuplicateFlowNameError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FlowValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{flow_id}")
