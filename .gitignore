@@ -23,6 +23,7 @@ dist/
 # Generated documents and uploads
 storage/uploads/
 storage/generated/
+/outputs/
 
 # System
 .DS_Store
