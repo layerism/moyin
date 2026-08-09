@@ -5262,6 +5262,11 @@ button {
   background: #f0fdf4;
 }
 
+.runtime-file-workspace.is-rejected {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
 .runtime-file-workspace.is-busy {
   cursor: wait;
 }
@@ -5297,6 +5302,11 @@ button {
   color: #166534;
 }
 
+.runtime-file-workspace.is-rejected .runtime-file-workspace-icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
 .runtime-file-workspace-copy {
   display: grid !important;
   min-width: 0;
@@ -5325,6 +5335,27 @@ button {
   color: #175cd3;
   font-size: 12px !important;
   font-weight: 700;
+}
+
+.runtime-uploaded-file-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.runtime-uploaded-file-actions button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #84adff;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #175cd3;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.runtime-uploaded-file-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 .runtime-confirmation {
