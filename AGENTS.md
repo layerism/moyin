@@ -1,4 +1,9 @@
 # 开发须知
+
+## Node.js 与 npm
+- 项目固定使用 `.local/node` 中的 Node.js `24.18.0` 与 npm `11.16.0`，不得依赖系统安装。
+- 执行 Node.js、npm 或 npx 命令前，必须先在项目根目录运行 `export PATH="$PWD/.local/node/bin:$PATH"`。
+
 - 自动使用 superpowers，build-web-app，Ponytail 插件
 - 实现用户需求前，先做逻辑检查，补全缺失的逻辑，避免用户思维不健壮导致的开发冲突
 - 用户没有特殊指定，请在当前分支完成开发或修改，执行前 commit 一版检查点，完成后 commit 新的检查点，中间不要 commit
