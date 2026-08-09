@@ -3054,24 +3054,24 @@ button {
   background: #fff;
 }
 
-.selection-field-card {
+.form-field-collapsible {
   gap: 0;
   padding: 0;
   overflow: visible;
 }
 
-.selection-field-summary {
+.form-field-summary {
   min-height: 48px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
 }
 
-.form-field-card .selection-field-summary-main {
+.form-field-card .form-field-summary-main {
   min-width: 0;
   min-height: 48px;
   display: grid;
-  grid-template-columns: 28px minmax(120px, 1fr) auto auto;
+  grid-template-columns: 28px minmax(120px, 1fr) auto;
   align-items: center;
   gap: 9px;
   padding: 7px 8px 7px 12px;
@@ -3080,12 +3080,12 @@ button {
   text-align: left;
 }
 
-.selection-field-title-control {
+.form-field-title-control {
   min-width: 0;
 }
 
-.form-field-card .selection-field-title-button,
-.selection-field-title-control input {
+.form-field-card .form-field-title-button,
+.form-field-title-control input {
   width: 100%;
   min-height: 32px;
   padding: 0 8px;
@@ -3097,24 +3097,24 @@ button {
   text-align: left;
 }
 
-.form-field-card .selection-field-title-button {
+.form-field-card .form-field-title-button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.form-field-card .selection-field-title-button:hover {
+.form-field-card .form-field-title-button:hover {
   border-color: #b8cff5;
   background: #f6f9ff;
 }
 
-.selection-field-title-control input {
+.form-field-title-control input {
   border-color: #2b74ff;
   background: #fff;
   outline: 3px solid rgb(43 116 255 / 12%);
 }
 
-.form-field-card .selection-field-meta-toggle {
+.form-field-card .form-field-meta-toggle {
   min-height: 32px;
   display: flex;
   align-items: center;
@@ -3128,39 +3128,18 @@ button {
   white-space: nowrap;
 }
 
-.form-field-card .selection-field-meta-toggle:hover {
+.form-field-card .form-field-meta-toggle:hover {
   background: #f8fbff;
 }
 
-.selection-field-summary-required {
-  min-height: 32px;
-  display: flex !important;
-  align-items: center;
-  gap: 5px !important;
-  padding: 0 7px;
-  border: 1px solid #d7dfe9;
-  border-radius: 5px;
-  background: #f8fafc;
-  color: #475467;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.selection-field-summary-required input {
-  width: 15px !important;
-  min-height: 15px !important;
-  margin: 0;
-}
-
-.selection-field-error-badge {
+.form-field-error-badge {
   color: #b42318;
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
 }
 
-.selection-field-chevron {
+.form-field-chevron {
   width: 18px;
   height: 18px;
   display: grid;
@@ -3169,11 +3148,11 @@ button {
   transition: transform 140ms ease;
 }
 
-.selection-field-chevron.expanded {
+.form-field-chevron.expanded {
   transform: rotate(180deg);
 }
 
-.selection-field-chevron svg {
+.form-field-chevron svg {
   width: 14px;
   height: 14px;
   fill: none;
@@ -3183,57 +3162,26 @@ button {
   stroke-width: 1.7;
 }
 
-.selection-field-content {
+.form-field-content {
   display: grid;
   gap: 10px;
   padding: 10px 12px 12px;
   border-top: 1px solid #e5ebf2;
 }
 
-.form-field-card-header,
-.form-field-card-header > div {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.form-field-card-header {
-  justify-content: space-between;
-}
-
-.form-field-card-header > strong {
-  color: #1e3a5f;
-  font-size: 14px;
-}
-
-.form-field-card-title strong {
-  color: #1e3a5f;
-  font-size: 14px;
-}
-
-.form-field-base-settings {
+.form-field-common-settings {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 150px auto;
+  grid-template-columns: minmax(150px, 220px);
   align-items: end;
   gap: 10px;
 }
 
-.form-field-required,
 .form-field-other-toggle {
   display: flex !important;
   align-items: center;
   gap: 7px !important;
 }
 
-.form-field-required {
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid #d7dfe9;
-  border-radius: 5px;
-  background: #f8fafc;
-}
-
-.form-field-required input,
 .form-field-other-toggle input {
   width: 16px !important;
   min-height: 16px !important;
@@ -3356,11 +3304,11 @@ button {
   bottom: -4px;
 }
 
-.selection-field-content .form-field-option-list {
+.form-field-content .form-field-option-list {
   gap: 5px;
 }
 
-.selection-field-content .form-field-option-row input {
+.form-field-content .form-field-option-row input {
   min-height: 34px;
 }
 
@@ -3377,7 +3325,7 @@ button {
   position: relative;
 }
 
-.selection-field-summary > .form-field-action-menu-wrap {
+.form-field-summary > .form-field-action-menu-wrap {
   padding-right: 8px;
 }
 
@@ -3435,8 +3383,8 @@ button {
   color: #b42318;
 }
 
-.selection-field-title-button:focus-visible,
-.selection-field-meta-toggle:focus-visible,
+.form-field-title-button:focus-visible,
+.form-field-meta-toggle:focus-visible,
 .form-field-reorder-handle:focus-visible,
 .form-field-menu-trigger:focus-visible,
 .form-field-action-menu button:focus-visible {
@@ -3503,18 +3451,13 @@ button {
     max-height: calc(100vh - 24px);
   }
 
-  .selection-field-content .form-field-base-settings,
-  .selection-field-content .form-field-type-settings .two-column {
+  .form-field-content .form-field-type-settings.two-column,
+  .form-field-content .form-field-type-settings .two-column {
     grid-template-columns: 1fr;
   }
 
-  .form-field-card .selection-field-summary-main {
+  .form-field-card .form-field-summary-main {
     grid-template-columns: 28px minmax(100px, 1fr) auto;
-  }
-
-  .selection-field-summary-required {
-    grid-column: 2 / -1;
-    justify-self: start;
   }
 
   .node-inspector-footer {
@@ -5216,15 +5159,6 @@ button {
 .runtime-form-field-label > strong {
   color: #1d2939;
   font-size: 14px;
-}
-
-.runtime-form-field-label > span {
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 700;
 }
 
 .runtime-form-field textarea {

@@ -161,7 +161,7 @@ def _validate_normalized_fields(title: str, fields: list[dict[str, Any]]) -> Non
 
         minimum = _optional_nonnegative_int(field, "minSelections", prefix, "最少选择数")
         maximum = _optional_nonnegative_int(field, "maxSelections", prefix, "最多选择数")
-        effective_minimum = max(minimum or 0, 1 if field["required"] else 0)
+        effective_minimum = max(minimum or 0, 1)
         if maximum is not None and effective_minimum > maximum:
             raise FormFieldConfigError(f"{prefix}：最少选择数不能大于最多选择数")
         available_count = option_count + int(allow_other)
@@ -256,7 +256,7 @@ def _validate_text_answer(
     if raw_value is not None and not isinstance(raw_value, str):
         errors[field_id] = "填写内容格式无效"
         return
-    if field["required"] and not trimmed:
+    if not trimmed:
         errors[field_id] = "此项为必填项"
         return
     if field["type"] != "textarea" or not trimmed:
@@ -304,7 +304,7 @@ def _validate_radio_answer(
     field_id = str(field["id"])
     if invalid:
         errors[field_id] = "选择内容无效"
-    elif field["required"] and answer["selectedOptionId"] is None:
+    elif answer["selectedOptionId"] is None:
         errors[field_id] = "请选择一项"
     elif answer["selectedOptionId"] == OTHER_OPTION_ID and not str(answer["otherText"] or "").strip():
         errors[field_id] = "请填写“其他”内容"
@@ -349,10 +349,9 @@ def _validate_checkbox_answer(
         errors[field_id] = "选择内容无效"
         return
     if not selected:
-        if field["required"]:
-            errors[field_id] = "请至少选择一项"
+        errors[field_id] = "请至少选择一项"
         return
-    minimum = max(field.get("minSelections") or 0, 1 if field["required"] else 0)
+    minimum = max(field.get("minSelections") or 0, 1)
     maximum = field.get("maxSelections")
     if len(selected) < minimum:
         errors[field_id] = f"请至少选择 {minimum} 项"
