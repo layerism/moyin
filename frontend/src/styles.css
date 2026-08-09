@@ -2941,6 +2941,97 @@ button {
   background: #fff;
 }
 
+.selection-field-card {
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+.selection-field-summary {
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.form-field-card .selection-field-summary-main {
+  min-width: 0;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px 7px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.form-field-card .selection-field-summary-main:hover {
+  background: #f8fbff;
+}
+
+.selection-field-summary-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.selection-field-summary-copy strong,
+.selection-field-summary-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-field-summary-copy strong {
+  color: #1e3a5f;
+  font-size: 13px;
+}
+
+.selection-field-summary-copy small {
+  color: #718096;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.selection-field-error-badge {
+  color: #b42318;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.selection-field-chevron {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  color: #718096;
+  transition: transform 140ms ease;
+}
+
+.selection-field-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.selection-field-chevron svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.selection-field-content {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid #e5ebf2;
+}
+
 .form-field-card-header,
 .form-field-card-header > div {
   display: flex;
@@ -3006,9 +3097,112 @@ button {
 
 .form-field-option-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(3, auto);
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+}
+
+.form-field-option-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.form-field-option-heading span,
+.selection-option-index {
+  color: #8b99aa;
+  font-size: 11px;
+}
+
+.selection-option-index {
+  text-align: center;
+}
+
+.selection-field-content .form-field-option-list {
+  gap: 5px;
+}
+
+.selection-field-content .form-field-option-row input {
+  min-height: 34px;
+}
+
+.form-field-card .form-field-add-option {
+  width: 100%;
+  margin-top: 2px;
+  border-style: dashed;
+  border-color: #b9c9dd;
+  background: #f8fbff;
+  color: #245fbd;
+}
+
+.form-field-action-menu-wrap {
+  position: relative;
+}
+
+.selection-field-summary > .form-field-action-menu-wrap {
+  padding-right: 8px;
+}
+
+.form-field-option-row .form-field-action-menu-wrap {
+  padding-right: 0;
+}
+
+.form-field-card .form-field-menu-trigger {
+  width: 30px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #5f7189;
+}
+
+.form-field-menu-trigger svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.form-field-action-menu {
+  width: 112px;
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid #d7e0eb;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgb(31 41 55 / 14%);
+}
+
+.form-field-card .form-field-action-menu button {
+  width: 100%;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 9px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.form-field-card .form-field-action-menu button:hover:not(:disabled) {
+  background: #f2f6fb;
+}
+
+.form-field-card .form-field-action-menu button.danger {
+  color: #b42318;
+}
+
+.selection-field-summary-main:focus-visible,
+.form-field-menu-trigger:focus-visible,
+.form-field-action-menu button:focus-visible {
+  outline: 3px solid rgb(43 116 255 / 16%);
+  outline-offset: 1px;
 }
 
 .form-field-error {
@@ -3019,6 +3213,11 @@ button {
 }
 
 .form-field-card:has(.form-field-error) {
+  border-color: #f04438;
+  box-shadow: 0 0 0 2px rgb(240 68 56 / 8%);
+}
+
+.form-field-card.has-errors {
   border-color: #f04438;
   box-shadow: 0 0 0 2px rgb(240 68 56 / 8%);
 }
@@ -3063,6 +3262,15 @@ button {
   .node-inspector-modal {
     width: 100%;
     max-height: calc(100vh - 24px);
+  }
+
+  .selection-field-content .form-field-base-settings,
+  .selection-field-content .form-field-type-settings .two-column {
+    grid-template-columns: 1fr;
+  }
+
+  .selection-field-summary-copy small {
+    max-width: 190px;
   }
 
   .node-inspector-footer {
