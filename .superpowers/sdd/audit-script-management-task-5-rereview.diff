@@ -1,0 +1,777 @@
+# Review package: 24edf2d..HEAD
+
+## Commits
+ba936c8 Validate audit script file content
+49e66de Checkpoint before audit script file validation
+b5fb663 Add audit script management dialog
+fdb531a Checkpoint before audit script manager
+
+## Files changed
+ .../academic-flow/AuditScriptManagerDialog.tsx     | 209 +++++++++++++++++
+ .../features/academic-flow/auditScriptManager.ts   |  63 ++++++
+ frontend/src/features/home/HomeView.tsx            |   8 +
+ frontend/src/styles.css                            | 251 +++++++++++++++++++++
+ frontend/tests/auditScriptManager.test.ts          |  84 +++++++
+ 5 files changed, 615 insertions(+)
+
+## Diff
+diff --git a/frontend/src/features/academic-flow/AuditScriptManagerDialog.tsx b/frontend/src/features/academic-flow/AuditScriptManagerDialog.tsx
+new file mode 100644
+index 0000000..fb4b953
+--- /dev/null
++++ b/frontend/src/features/academic-flow/AuditScriptManagerDialog.tsx
+@@ -0,0 +1,209 @@
++import { useEffect, useState, type FormEvent } from "react";
++
++import { workflowApi } from "./api";
++import {
++  getAuditScriptFormState,
++  validateAuditScriptFileContent,
++  validateAuditScriptForm,
++  type AuditScriptFormMode,
++} from "./auditScriptManager";
++import type { AuditScriptSummary } from "./auditScripts";
++
++type FormState = AuditScriptFormMode & { description: string; name: string };
++
++function formatUpdatedAt(value: string) {
++  const date = new Date(value);
++  return Number.isNaN(date.getTime())
++    ? value
++    : new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(date);
++}
++
++function languageLabel(language: AuditScriptSummary["language"]) {
++  return language === "py" ? "Python" : "JavaScript";
++}
++
++export function AuditScriptManager({ onClose }: { onClose: () => void }) {
++  const [scripts, setScripts] = useState<AuditScriptSummary[] | null>(null);
++  const [form, setForm] = useState<FormState | null>(null);
++  const [file, setFile] = useState<File | null>(null);
++  const [error, setError] = useState("");
++  const [busy, setBusy] = useState(false);
++  const [downloading, setDownloading] = useState<"javascript" | "python" | null>(null);
++
++  const loadScripts = async () => {
++    setError("");
++    try {
++      setScripts(await workflowApi.listAuditScripts());
++    } catch (reason) {
++      setError(reason instanceof Error ? reason.message : "审核脚本列表读取失败，请稍后重试");
++    }
++  };
++
++  useEffect(() => {
++    void loadScripts();
++  }, []);
++
++  const startForm = (mode: AuditScriptFormMode) => {
++    const state = getAuditScriptFormState(mode);
++    setError("");
++    setFile(null);
++    setForm({ ...mode, description: mode.kind === "update" ? mode.script.description : "", name: state.name });
++  };
++
++  const downloadTemplate = async (language: "javascript" | "python") => {
++    setDownloading(language);
++    setError("");
++    try {
++      const blob = await workflowApi.downloadAuditScriptTemplate(language);
++      const url = URL.createObjectURL(blob);
++      const link = document.createElement("a");
++      link.href = url;
++      link.download = language === "python" ? "audit_script_template.py" : "audit_script_template.js";
++      link.click();
++      URL.revokeObjectURL(url);
++    } catch (reason) {
++      setError(reason instanceof Error ? reason.message : "模板下载失败，请稍后重试");
++    } finally {
++      setDownloading(null);
++    }
++  };
++
++  const submitForm = async (event: FormEvent<HTMLFormElement>) => {
++    event.preventDefault();
++    if (!form) return;
++    const validationError = validateAuditScriptForm({
++      mode: form,
++      name: form.name,
++      description: form.description,
++      file,
++    });
++    if (validationError) {
++      setError(validationError);
++      return;
++    }
++
++    setBusy(true);
++    setError("");
++    try {
++      const contentValidationError = await validateAuditScriptFileContent(file!);
++      if (contentValidationError) {
++        setError(contentValidationError);
++        return;
++      }
++      const saved = form.kind === "create"
++        ? await workflowApi.uploadAuditScript(form.name.trim(), form.description.trim(), file!)
++        : await workflowApi.updateAuditScript(form.script.id, form.description.trim(), file!);
++      setScripts((current) =>
++        form.kind === "create"
++          ? [saved, ...(current ?? [])]
++          : (current ?? []).map((script) => (script.id === saved.id ? saved : script)),
++      );
++      setForm(null);
++      setFile(null);
++    } catch (reason) {
++      setError(reason instanceof Error ? reason.message : "保存审核脚本失败，请稍后重试");
++    } finally {
++      setBusy(false);
++    }
++  };
++
++  const close = () => {
++    if (!busy) onClose();
++  };
++
++  const fileAccept = form?.kind === "update"
++    ? form.script.language === "py" ? ".py" : ".js"
++    : ".py,.js";
++
++  return (
++    <div className="audit-script-backdrop" onMouseDown={close}>
++      <section
++        aria-labelledby="audit-script-manager-title"
++        aria-modal="true"
++        className="audit-script-dialog"
++        onMouseDown={(event) => event.stopPropagation()}
++        role="dialog"
++      >
++        <header>
++          <div>
++            <p>超级管理员</p>
++            <h2 id="audit-script-manager-title">{form ? form.kind === "create" ? "上传审核脚本" : "更新审核脚本版本" : "文件审核脚本"}</h2>
++          </div>
++          <button aria-label="关闭审核脚本管理" disabled={busy} onClick={close} type="button">×</button>
++        </header>
++
++        {error ? <p className="audit-script-message error" role="alert">{error}</p> : null}
++
++        {form ? (
++          <form className="audit-script-form" onSubmit={(event) => void submitForm(event)}>
++            <label>
++              功能名称
++              <input
++                disabled={busy || form.kind === "update"}
++                maxLength={120}
++                onChange={(event) => setForm((current) => current ? { ...current, name: event.target.value } : current)}
++                required
++                value={form.name}
++              />
++            </label>
++            <label>
++              功能描述
++              <textarea
++                disabled={busy}
++                maxLength={500}
++                onChange={(event) => setForm((current) => current ? { ...current, description: event.target.value } : current)}
++                required
++                rows={4}
++                value={form.description}
++              />
++              <small>{form.description.trim().length}/500</small>
++            </label>
++            <label>
++              脚本文件{form.kind === "update" ? `（仅 ${languageLabel(form.script.language)}）` : ""}
++              <input
++                accept={fileAccept}
++                disabled={busy}
++                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
++                required
++                type="file"
++              />
++            </label>
++            <footer>
++              <button disabled={busy} onClick={() => { setError(""); setForm(null); setFile(null); }} type="button">取消</button>
++              <button className="primary-action" disabled={busy} type="submit">{busy ? "正在保存…" : form.kind === "create" ? "上传脚本" : "更新版本"}</button>
++            </footer>
++          </form>
++        ) : (
++          <div className="audit-script-list-view">
++            <div className="audit-script-tools">
++              <button disabled={downloading !== null} onClick={() => void downloadTemplate("python")} type="button">{downloading === "python" ? "下载中…" : "下载 Python 模板"}</button>
++              <button disabled={downloading !== null} onClick={() => void downloadTemplate("javascript")} type="button">{downloading === "javascript" ? "下载中…" : "下载 JavaScript 模板"}</button>
++              <button className="primary-action" disabled={scripts === null} onClick={() => startForm({ kind: "create" })} type="button">上传新脚本</button>
++            </div>
++            {scripts === null ? <p className="audit-script-empty">正在读取审核脚本…</p> : (
++              <div className="audit-script-table-wrap">
++                <table className="audit-script-table">
++                  <thead><tr><th>功能名称</th><th>功能描述</th><th>语言</th><th>当前版本</th><th>更新时间</th><th>操作</th></tr></thead>
++                  <tbody>
++                    {scripts.map((script) => (
++                      <tr key={script.id}>
++                        <td>{script.name}</td>
++                        <td>{script.description}</td>
++                        <td>{languageLabel(script.language)}</td>
++                        <td>v{script.version}</td>
++                        <td>{formatUpdatedAt(script.updatedAt)}</td>
++                        <td><button onClick={() => startForm({ kind: "update", script })} type="button">更新版本</button></td>
++                      </tr>
++                    ))}
++                  </tbody>
++                </table>
++                {scripts.length === 0 ? <p className="audit-script-empty">暂无审核脚本，请先上传脚本。</p> : null}
++              </div>
++            )}
++            {scripts === null && error ? <button className="audit-script-retry" onClick={() => void loadScripts()} type="button">重新读取</button> : null}
++          </div>
++        )}
++      </section>
++    </div>
++  );
++}
+diff --git a/frontend/src/features/academic-flow/auditScriptManager.ts b/frontend/src/features/academic-flow/auditScriptManager.ts
+new file mode 100644
+index 0000000..a28b4cd
+--- /dev/null
++++ b/frontend/src/features/academic-flow/auditScriptManager.ts
+@@ -0,0 +1,63 @@
++import type { AuditScriptSummary } from "./auditScripts";
++
++const MAX_AUDIT_SCRIPT_FILE_SIZE = 1024 * 1024;
++
++export type AuditScriptFormMode =
++  | { kind: "create" }
++  | { kind: "update"; script: AuditScriptSummary };
++
++export function getAuditScriptFormState(mode: AuditScriptFormMode) {
++  return {
++    name: mode.kind === "update" ? mode.script.name : "",
++    nameLocked: mode.kind === "update",
++  };
++}
++
++export function validateAuditScriptForm(input: {
++  mode: AuditScriptFormMode;
++  name: string;
++  description: string;
++  file: File | null;
++}): string | null {
++  const name = input.name.trim();
++  const description = input.description.trim();
++  if (!name) return "请填写功能名称";
++  if (name.length > 120) return "功能名称不能超过 120 个字符";
++  if (!description) return "请填写功能描述";
++  if (description.length > 500) return "功能描述不能超过 500 个字符";
++  if (!input.file) return "请选择脚本文件";
++
++  const language = getAuditScriptLanguage(input.file.name);
++  if (!language) return "请选择 .py 或 .js 脚本文件";
++  if (input.mode.kind === "update" && language !== input.mode.script.language) {
++    return `更新版本必须保持 ${input.mode.script.language === "py" ? "Python" : "JavaScript"} 语言`;
++  }
++  return null;
++}
++
++export function getAuditScriptLanguage(filename: string): "js" | "py" | null {
++  const parts = filename.trim().toLowerCase().split(".");
++  const extension = parts[parts.length - 1];
++  return extension === "py" || extension === "js" ? extension : null;
++}
++
++export async function validateAuditScriptFileContent(file: File): Promise<string | null> {
++  if (file.size === 0) return "脚本文件不能为空";
++  if (file.size > MAX_AUDIT_SCRIPT_FILE_SIZE) return "脚本文件不能超过 1 MiB";
++
++  let bytes: Uint8Array;
++  try {
++    bytes = new Uint8Array(await file.arrayBuffer());
++  } catch {
++    return "脚本文件读取失败，请重新选择";
++  }
++  if (bytes.byteLength === 0) return "脚本文件不能为空";
++  if (bytes.byteLength > MAX_AUDIT_SCRIPT_FILE_SIZE) return "脚本文件不能超过 1 MiB";
++
++  try {
++    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
++  } catch {
++    return "脚本文件必须使用 UTF-8 编码";
++  }
++  return null;
++}
+diff --git a/frontend/src/features/home/HomeView.tsx b/frontend/src/features/home/HomeView.tsx
+index e104530..d2d9a52 100644
+--- a/frontend/src/features/home/HomeView.tsx
++++ b/frontend/src/features/home/HomeView.tsx
+@@ -11,20 +11,21 @@ import type {
+ } from "../../types";
+ import type { AuthIdentity } from "../auth/authApi";
+ import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
+ import {
+   ContextMenu,
+   DeleteConfirmDialog,
+   FlowDeleteDialog,
+   MoveFileDialog,
+   NameDialog,
+ } from "./HomeDialogs";
++import { AuditScriptManager } from "../academic-flow/AuditScriptManagerDialog";
+ 
+ export function HomeView({
+   activeFolder,
+   files,
+   folders,
+   onAdminDemo,
+   onActiveFolderChange,
+   onAcademicFlow,
+   onFilesChange,
+   onFoldersChange,
+@@ -474,20 +475,21 @@ export function AcademicFlowView({
+   onTeacherLogout: () => void;
+   teacherIdentity: AuthIdentity;
+ }) {
+   const [processDialogOpen, setProcessDialogOpen] = useState(false);
+   const [processNameValue, setProcessNameValue] = useState("");
+   const [processCreateError, setProcessCreateError] = useState("");
+   const [processCreating, setProcessCreating] = useState(false);
+   const [deleteProcess, setDeleteProcess] = useState<AcademicProcess | null>(null);
+   const [deleting, setDeleting] = useState(false);
+   const [deleteError, setDeleteError] = useState("");
++  const [scriptManagerOpen, setScriptManagerOpen] = useState(false);
+ 
+   const startCreateProcess = () => {
+     setProcessNameValue("");
+     setProcessCreateError("");
+     setProcessDialogOpen(true);
+   };
+ 
+   const confirmCreateProcess = async () => {
+     const nextName = processNameValue.trim();
+     if (!nextName) {
+@@ -564,20 +566,25 @@ export function AcademicFlowView({
+         <section className="drive-panel academic-flow-panel" aria-label="教务流程">
+           <div className="drive-breadcrumb">
+             <span>首页</span>
+             <span>›</span>
+             <strong>教务流程</strong>
+           </div>
+           <div className="drive-tools">
+             <button className="ai-create" onClick={startCreateProcess}>
+               创建流程
+             </button>
++            {teacherIdentity.role === "super_admin" ? (
++              <button onClick={() => setScriptManagerOpen(true)} type="button">
++                审核脚本
++              </button>
++            ) : null}
+           </div>
+           <div className="academic-flow-list" role="list" aria-label="采集流程列表">
+             {processes.map((process) => (
+               <div
+                 className="academic-flow-item"
+                 key={process.id}
+                 role="listitem"
+               >
+                 <button className="academic-flow-open" onClick={() => onOpenProcess(process.id)}>
+                   <span className="academic-flow-icon">流</span>
+@@ -625,13 +632,14 @@ export function AcademicFlowView({
+       )}
+       {deleteProcess ? (
+         <FlowDeleteDialog
+           error={deleteError}
+           name={deleteProcess.name}
+           onCancel={() => setDeleteProcess(null)}
+           onConfirm={() => void confirmDeleteProcess()}
+           submitting={deleting}
+         />
+       ) : null}
++      {scriptManagerOpen ? <AuditScriptManager onClose={() => setScriptManagerOpen(false)} /> : null}
+     </main>
+   );
+ }
+diff --git a/frontend/src/styles.css b/frontend/src/styles.css
+index 4e2416e..1edf680 100644
+--- a/frontend/src/styles.css
++++ b/frontend/src/styles.css
+@@ -1588,20 +1588,248 @@ button {
+ }
+ 
+ .flow-roster-table-wrap > p {
+   min-height: 180px;
+   display: grid;
+   place-items: center;
+   margin: 0;
+   color: #667085;
+ }
+ 
++.audit-script-backdrop {
++  position: fixed;
++  z-index: 190;
++  inset: 0;
++  display: grid;
++  place-items: center;
++  padding: 24px;
++  background: rgb(15 23 42 / 42%);
++}
++
++.audit-script-dialog {
++  width: min(980px, 100%);
++  max-height: calc(100vh - 48px);
++  overflow: auto;
++  border: 1px solid #d7deea;
++  border-radius: 8px;
++  background: #fff;
++  box-shadow: 0 28px 80px rgb(15 23 42 / 24%);
++}
++
++.audit-script-dialog > header {
++  display: flex;
++  align-items: flex-start;
++  justify-content: space-between;
++  gap: 18px;
++  padding: 18px 20px;
++  border-bottom: 1px solid #e4e9f1;
++}
++
++.audit-script-dialog header p,
++.audit-script-dialog header h2 {
++  margin: 0;
++}
++
++.audit-script-dialog header p {
++  margin-bottom: 3px;
++  color: #667085;
++  font-size: 12px;
++}
++
++.audit-script-dialog header h2 {
++  font-size: 21px;
++}
++
++.audit-script-dialog header > button {
++  width: 34px;
++  height: 34px;
++  flex: 0 0 34px;
++  border: 1px solid #d7deea;
++  border-radius: 6px;
++  background: #fff;
++  color: #475467;
++  font-size: 20px;
++}
++
++.audit-script-tools {
++  display: flex;
++  flex-wrap: wrap;
++  justify-content: flex-end;
++  gap: 10px;
++  padding: 16px 20px;
++  border-bottom: 1px solid #e4e9f1;
++  background: #f8fafc;
++}
++
++.audit-script-tools button,
++.audit-script-form footer button,
++.audit-script-table button,
++.audit-script-retry {
++  min-height: 36px;
++  padding: 0 14px;
++  border: 1px solid #cfd7e5;
++  border-radius: 6px;
++  background: #fff;
++  color: #344054;
++  font-weight: 750;
++}
++
++.audit-script-tools .primary-action,
++.audit-script-form footer .primary-action {
++  border-color: #2773f6;
++  background: #2773f6;
++  color: #fff;
++}
++
++.audit-script-tools button:disabled,
++.audit-script-form button:disabled,
++.audit-script-dialog header > button:disabled {
++  cursor: not-allowed;
++  opacity: 0.6;
++}
++
++.audit-script-message {
++  margin: 12px 20px 0;
++  padding: 10px 12px;
++  border: 1px solid #fecdca;
++  background: #fef3f2;
++  color: #b42318;
++  font-size: 13px;
++}
++
++.audit-script-table-wrap {
++  overflow: auto;
++  margin: 20px;
++  border: 1px solid #d8dee8;
++}
++
++.audit-script-table {
++  width: 100%;
++  min-width: 780px;
++  border-collapse: collapse;
++  font-size: 13px;
++}
++
++.audit-script-table th,
++.audit-script-table td {
++  padding: 11px 12px;
++  border-bottom: 1px solid #edf0f4;
++  text-align: left;
++  vertical-align: top;
++}
++
++.audit-script-table th {
++  background: #f8fafc;
++  color: #475467;
++  font-size: 12px;
++  white-space: nowrap;
++}
++
++.audit-script-table td:nth-child(2) {
++  min-width: 180px;
++  color: #475467;
++  line-height: 1.55;
++}
++
++.audit-script-table td:last-child {
++  width: 110px;
++  white-space: nowrap;
++}
++
++.audit-script-table td:last-child button {
++  min-height: 30px;
++  padding: 0 10px;
++  border-color: #b8cff5;
++  color: #175cd3;
++}
++
++.audit-script-empty {
++  min-height: 160px;
++  display: grid;
++  place-items: center;
++  margin: 0;
++  padding: 20px;
++  color: #667085;
++  text-align: center;
++}
++
++.audit-script-list-view > .audit-script-empty {
++  margin: 20px;
++  border: 1px solid #d8dee8;
++}
++
++.audit-script-retry {
++  display: block;
++  margin: 0 auto 20px;
++}
++
++.audit-script-form {
++  display: grid;
++  gap: 16px;
++  padding: 20px;
++}
++
++.audit-script-form label {
++  display: grid;
++  gap: 7px;
++  color: #344054;
++  font-size: 14px;
++  font-weight: 700;
++}
++
++.audit-script-form input,
++.audit-script-form textarea {
++  width: 100%;
++  box-sizing: border-box;
++  padding: 9px 10px;
++  border: 1px solid #cfd7e5;
++  border-radius: 6px;
++  background: #fff;
++  color: #172033;
++  font: inherit;
++  font-weight: 400;
++}
++
++.audit-script-form input[type="file"] {
++  padding: 7px 10px;
++}
++
++.audit-script-form textarea {
++  resize: vertical;
++}
++
++.audit-script-form input:focus,
++.audit-script-form textarea:focus {
++  outline: 0;
++  border-color: #2773f6;
++  box-shadow: 0 0 0 3px rgb(39 115 246 / 12%);
++}
++
++.audit-script-form input:disabled {
++  background: #f2f4f7;
++  color: #667085;
++}
++
++.audit-script-form small {
++  color: #667085;
++  font-size: 12px;
++  font-weight: 400;
++  text-align: right;
++}
++
++.audit-script-form footer {
++  display: flex;
++  justify-content: flex-end;
++  gap: 10px;
++  padding-top: 4px;
++}
++
+ @media (max-width: 700px) {
+   .flow-roster-backdrop {
+     padding: 0;
+   }
+ 
+   .flow-roster-dialog {
+     width: 100%;
+     max-height: 100vh;
+     min-height: 100vh;
+     border: 0;
+@@ -1618,20 +1846,43 @@ button {
+   }
+ 
+   .flow-roster-toolbar {
+     align-items: stretch;
+     flex-direction: column;
+   }
+ 
+   .flow-roster-toolbar input {
+     width: 100%;
+   }
++
++  .audit-script-backdrop {
++    padding: 0;
++  }
++
++  .audit-script-dialog {
++    width: 100%;
++    max-height: 100vh;
++    min-height: 100vh;
++    border: 0;
++    border-radius: 0;
++  }
++
++  .audit-script-tools,
++  .audit-script-form footer {
++    align-items: stretch;
++    flex-direction: column;
++  }
++
++  .audit-script-tools button,
++  .audit-script-form footer button {
++    width: 100%;
++  }
+ }
+ 
+ .status-pill {
+   min-height: 26px;
+   display: inline-flex;
+   align-items: center;
+   padding: 0 10px;
+   border: 1px solid #bfdbfe;
+   border-radius: 5px;
+   background: #eff6ff;
+diff --git a/frontend/tests/auditScriptManager.test.ts b/frontend/tests/auditScriptManager.test.ts
+new file mode 100644
+index 0000000..0590137
+--- /dev/null
++++ b/frontend/tests/auditScriptManager.test.ts
+@@ -0,0 +1,84 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++
++import {
++  getAuditScriptFormState,
++  validateAuditScriptFileContent,
++  validateAuditScriptForm,
++  type AuditScriptFormMode,
++} from "../src/features/academic-flow/auditScriptManager.ts";
++
++const pythonScript = {
++  description: "校验材料内容",
++  id: "script-1",
++  language: "py" as const,
++  name: "材料审核",
++  sha256: "abc123",
++  updatedAt: "2026-07-17T10:00:00+00:00",
++  version: 2,
++};
++
++const file = (name: string) => ({ name }) as File;
++
++const fileFromBytes = (name: string, bytes: Uint8Array) => new File([bytes], name);
++
++test("功能名称去除首尾空格后必须填写且最多 120 个字符", () => {
++  const mode: AuditScriptFormMode = { kind: "create" };
++
++  assert.equal(validateAuditScriptForm({ mode, name: "   ", description: "说明", file: file("audit.py") }), "请填写功能名称");
++  assert.equal(validateAuditScriptForm({ mode, name: "a".repeat(121), description: "说明", file: file("audit.py") }), "功能名称不能超过 120 个字符");
++});
++
++test("功能描述必须填写且最多 500 个字符", () => {
++  const mode: AuditScriptFormMode = { kind: "create" };
++
++  assert.equal(validateAuditScriptForm({ mode, name: "审核", description: " ", file: file("audit.py") }), "请填写功能描述");
++  assert.equal(validateAuditScriptForm({ mode, name: "审核", description: "a".repeat(501), file: file("audit.py") }), "功能描述不能超过 500 个字符");
++});
++
++test("新增仅接受 Python 或 JavaScript 脚本", () => {
++  const mode: AuditScriptFormMode = { kind: "create" };
++
++  assert.equal(validateAuditScriptForm({ mode, name: "审核", description: "说明", file: file("audit.py") }), null);
++  assert.equal(validateAuditScriptForm({ mode, name: "审核", description: "说明", file: file("audit.js") }), null);
++  assert.equal(validateAuditScriptForm({ mode, name: "审核", description: "说明", file: file("audit.txt") }), "请选择 .py 或 .js 脚本文件");
++});
++
++test("更新时必须保持原脚本语言", () => {
++  const mode: AuditScriptFormMode = { kind: "update", script: pythonScript };
++
++  assert.equal(validateAuditScriptForm({ mode, name: pythonScript.name, description: "更新说明", file: file("audit.js") }), "更新版本必须保持 Python 语言");
++  assert.equal(validateAuditScriptForm({ mode, name: pythonScript.name, description: "更新说明", file: file("audit.py") }), null);
++});
++
++test("更新表单锁定功能名称但允许修改描述", () => {
++  const mode: AuditScriptFormMode = { kind: "update", script: pythonScript };
++
++  assert.deepEqual(getAuditScriptFormState(mode), { name: "材料审核", nameLocked: true });
++  assert.equal(validateAuditScriptForm({ mode, name: pythonScript.name, description: "新的功能描述", file: file("audit.py") }), null);
++});
++
++test("空审核脚本文件会在提交前被拒绝", async () => {
++  assert.equal(await validateAuditScriptFileContent(fileFromBytes("audit.py", new Uint8Array())), "脚本文件不能为空");
++});
++
++test("超过 1 MiB 的审核脚本文件会在提交前被拒绝", async () => {
++  assert.equal(
++    await validateAuditScriptFileContent(fileFromBytes("audit.py", new Uint8Array(1024 * 1024 + 1))),
++    "脚本文件不能超过 1 MiB",
++  );
++});
++
++test("非 UTF-8 的审核脚本文件会在提交前被拒绝", async () => {
++  assert.equal(
++    await validateAuditScriptFileContent(fileFromBytes("audit.py", new Uint8Array([0xc3, 0x28]))),
++    "脚本文件必须使用 UTF-8 编码",
++  );
++});
++
++test("合法 UTF-8 审核脚本文件可以通过字节校验", async () => {
++  assert.equal(
++    await validateAuditScriptFileContent(fileFromBytes("audit.py", new TextEncoder().encode("def run(): pass"))),
++    null,
++  );
++});

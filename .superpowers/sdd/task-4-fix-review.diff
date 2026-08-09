@@ -1,0 +1,846 @@
+# Review package: 973df86..762140f
+
+## Commits
+762140f Harden workflow revision editing
+
+## Files changed
+ .superpowers/sdd/task-4-report.md                  | 29 +++----
+ .../academic-flow/AcademicFlowDesigner.tsx         | 93 +++++++++++++++-------
+ .../src/features/academic-flow/academicFlowData.ts |  3 +
+ .../src/features/academic-flow/flowRevision.ts     | 32 +++++++-
+ frontend/src/styles.css                            | 19 +++++
+ frontend/src/types.ts                              |  4 +-
+ frontend/tests/flowRevision.test.ts                | 42 +++++++++-
+ 7 files changed, 176 insertions(+), 46 deletions(-)
+
+## Diff
+diff --git a/.superpowers/sdd/task-4-report.md b/.superpowers/sdd/task-4-report.md
+index 43aadf9..d55025a 100644
+--- a/.superpowers/sdd/task-4-report.md
++++ b/.superpowers/sdd/task-4-report.md
+@@ -1,30 +1,31 @@
+ # Task 4 实施报告：教师端已发布流程修订交互与影响确认
+ 
+ ## 实施范围
+ 
+-本任务仅修改任务指定的前端文件，并新增 `RevisionImpactDialog.tsx`、`flowRevision.ts` 与 `flowRevision.test.ts`。仓库中不存在独立的 `FlowNodeCanvas.tsx` 或 `NodeInspector.tsx`；两者均内嵌于 `AcademicFlowDesigner.tsx`，因此节点级删除策略和 deadline 只读接口在该文件内做了最小调整，未创建或修改额外组件文件。
++本任务仅修改前端代码与本报告，未修改后端。仓库中不存在独立的 `FlowNodeCanvas.tsx` 或 `NodeInspector.tsx`；两者均内嵌于 `AcademicFlowDesigner.tsx`，因此节点级删除策略、异步编辑锁和 deadline 只读接口均在该文件内做最小调整。审查修复要求修订元数据必填，因此同步修改本地流程构造器 `academicFlowData.ts`。
+ 
+ ## TDD 记录
+ 
+-1. 先新增 `frontend/tests/flowRevision.test.ts`，覆盖“已发布节点不可删除”和“修订新增节点可删除”。
+-2. 执行 `node --experimental-strip-types --test tests/flowRevision.test.ts`，确认因 `flowRevision.ts` 不存在而失败，错误为 `ERR_MODULE_NOT_FOUND`。
+-3. 实现最小策略函数 `canDeleteRevisionNode` 后再次执行，2 项测试全部通过。
++1. 首轮先新增 `flowRevision.test.ts`，确认因 `flowRevision.ts` 不存在而出现 `ERR_MODULE_NOT_FOUND`，随后实现最小删除策略并使 2 项测试转绿。
++2. 审查修复先扩展 fail-closed、运行时节点过滤和批量布局测试；首次运行因 `filterPublishedRuntimeNodes` 等导出不存在而失败。
++3. 实现三个纯 helper 后，focused tests 5/5 通过；最终全量前端测试 19/19 通过。
+ 
+ ## 实现结果
+ 
+ - 对接 `8ba6ae2` 后端接口：映射 `publishedNodeIds`、`publishedVersionNo`、`hasUnpublishedChanges`，并增加完整的 `RevisionImpact` / `sourceVersionImpacts` 类型与 `workflowApi.getRevisionImpact()`。
+-- `PUT /draft` 的完整响应直接回写为当前流程，保存修订后立即刷新服务端元数据；本地发布态设计变更会立即设置 `hasUnpublishedChanges: true`。
+-- 已发布流程恢复节点内容编辑、新增、连线、删线、拖动和排序；旧已发布节点的删除按钮被锁定提示替代，删除处理函数同时执行策略校验；修订新增节点仍可删除。
+-- 发布态按钮文案为“保存修订”和“重新发布”；状态按元数据显示“修订中”或“已发布”。
+-- “重新发布”先保存修订，再请求 revision impact 并打开确认弹窗；确认后调用既有发布回调，取消不触发发布。
+-- 影响弹窗显示当前/下一版本、内容变更节点数、新增节点数、需重新提交节点数和受影响学生数，并明确说明受影响提交将仅作为审计历史保留。
+-- 发布态节点检查器保持可编辑，但 deadline 字段只读，并引导至“填写进度”；运行时 deadline 更新不再写回修订内容。
+-
+-`AcademicProcess` 中修订元数据保持可选，以兼容任务范围外现有的本地草稿/fallback 构造器；`ServerFlow` 对这三个后端字段采用必填约束，服务端流程映射始终完整填充。
++- `AcademicProcess.publishedNodeIds` 和 `hasUnpublishedChanges` 改为必填，`publishedVersionNo` 保持可选；所有本地流程构造器显式初始化相应修订元数据。
++- 删除策略在发布流程元数据异常缺失时 fail-closed，将全部现有节点视为已发布节点；正常情况下旧节点显示锁定提示，修订新增节点仍可删除。
++- 已发布流程支持节点内容编辑、新增、连线、删线、拖动和排序；每次本地设计变更立即设置 `hasUnpublishedChanges: true`。
++- 保存、影响预检、重新发布确认期间统一启用设计锁：组件库、画布拖动、连线、删线、节点操作、自动布局和检查器字段均不可修改；所有设计变更回调同时执行锁状态校验，异步响应不会覆盖期间本地编辑。
++- 自动布局通过 `layoutRevisionNodes` 一次计算全部位置，并只执行一次 `onProcessChange`，消除循环使用旧 `process` 的闭包覆盖问题。
++- `TeacherProgressPanel` 仅接收 `publishedNodeIds` 对应节点；修订新增节点在重新发布前不会进入旧版本 deadline 控制。
++- 发布态按钮文案为“保存修订”和“重新发布”，状态按元数据显示“修订中”或“已发布”。“重新发布”先保存修订，再请求 impact 并打开确认弹窗；确认后调用既有发布回调，取消不触发发布。
++- 影响弹窗显示当前/下一版本、内容变更节点数、新增节点数、需重新提交节点数和受影响学生数，并明确说明受影响提交仅作为审计历史保留。
++- 发布态节点检查器中的 deadline 字段只读，并引导至“填写进度”；运行时 deadline 更新不写回修订内容。
+ 
+ ## 验证结果
+ 
+-- `cd frontend && node --experimental-strip-types --test tests/*.test.ts`：16/16 通过。
++- `cd frontend && node --experimental-strip-types --test tests/*.test.ts`：19/19 通过。
+ - `cd frontend && npm run build`：TypeScript 与 Vite production build 通过。
+ - `git diff --check`：通过，无输出。
+-- 按任务要求未执行浏览器测试；后端测试不在本前端子任务验证范围内。
++- 浏览器测试由主代理统一执行，本子任务未执行浏览器测试。
+diff --git a/frontend/src/features/academic-flow/AcademicFlowDesigner.tsx b/frontend/src/features/academic-flow/AcademicFlowDesigner.tsx
+index 6eca7ce..db818b6 100644
+--- a/frontend/src/features/academic-flow/AcademicFlowDesigner.tsx
++++ b/frontend/src/features/academic-flow/AcademicFlowDesigner.tsx
+@@ -6,21 +6,25 @@ import type {
+   AcademicFlowNode,
+   AcademicFlowNodeKind,
+   AcademicFlowPort,
+   AcademicFlowNodeStatus,
+   AcademicProcess,
+   AuditScriptType,
+ } from "../../types";
+ import { createNode, getAuditScriptLabel, nodeTemplates } from "./academicFlowData";
+ import { workflowApi } from "./api";
+ import { getCanvasPanScroll, type CanvasPanStart } from "./canvasPan";
+-import { canDeleteRevisionNode } from "./flowRevision";
++import {
++  canDeleteRevisionNode,
++  filterPublishedRuntimeNodes,
++  layoutRevisionNodes,
++} from "./flowRevision";
+ import { FlowRosterDialog } from "./FlowRosterDialog";
+ import { RevisionImpactDialog } from "./RevisionImpactDialog";
+ import type { RevisionImpact } from "./runtimeTypes";
+ import { getAbsoluteShareUrl } from "./shareUrl";
+ import { TeacherProgressPanel } from "./TeacherProgressPanel";
+ 
+ const statusLabels: Record<AcademicFlowNodeStatus, string> = {
+   approved: "已通过",
+   disabled: "待开放",
+   pending: "审核中",
+@@ -73,28 +77,35 @@ export function AcademicFlowDesigner({
+ }) {
+   const [activeNodeId, setActiveNodeId] = useState(process.nodes[0]?.id ?? "");
+   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
+   const [showProgress, setShowProgress] = useState(false);
+   const [showRoster, setShowRoster] = useState(false);
+   const [rosterActiveCount, setRosterActiveCount] = useState<number | null>(null);
+   const [actionNotice, setActionNotice] = useState("");
+   const [publishedShareUrl, setPublishedShareUrl] = useState("");
+   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
+   const [saving, setSaving] = useState(false);
++  const designLocked = saving || revisionImpact !== null;
+   const processEdges = process.edges ?? [];
+   const activeNode =
+     process.nodes.find((node) => node.id === activeNodeId) ?? process.nodes[0] ?? null;
+   const inspectorNode = process.nodes.find((node) => node.id === inspectorNodeId) ?? null;
+   const serverFlowId = process.serverId ?? process.id;
+-  const publishedNodeIds = process.publishedNodeIds ?? [];
++  const existingNodeIds = process.nodes.map((node) => node.id);
++  const protectedNodeIds = process.published ? process.publishedNodeIds : [];
++  const publishedRuntimeNodes = useMemo(
++    () => filterPublishedRuntimeNodes(process.nodes, process.publishedNodeIds),
++    [process.nodes, process.publishedNodeIds],
++  );
+ 
+   const commitDesignChange = (nextProcess: AcademicProcess) => {
++    if (designLocked) return;
+     onProcessChange(
+       process.published ? { ...nextProcess, hasUnpublishedChanges: true } : nextProcess,
+     );
+   };
+ 
+   useEffect(() => {
+     let cancelled = false;
+     workflowApi
+       .getRoster(serverFlowId)
+       .then((roster) => {
+@@ -160,97 +171,110 @@ export function AcademicFlowDesigner({
+     } finally {
+       setSaving(false);
+     }
+   };
+ 
+   const addNode = (
+     kind: AcademicFlowNodeKind,
+     title: string,
+     position?: { x: number; y: number },
+   ) => {
++    if (designLocked) return;
+     const nextNode = createNode(kind, title, position);
+     const nextProcess = { ...process, nodes: [...process.nodes, nextNode] };
+     commitDesignChange(nextProcess);
+     setActiveNodeId(nextNode.id);
+   };
+ 
+   const updateNode = (nodeId: string, value: Partial<AcademicFlowNode>) => {
++    if (designLocked) return;
+     const nextValue = { ...value };
+     if (process.published) {
+       delete nextValue.deadlineAt;
+     }
+     if (Object.keys(nextValue).length === 0) {
+       return;
+     }
+     commitDesignChange({
+       ...process,
+       nodes: process.nodes.map((node) => (node.id === nodeId ? { ...node, ...nextValue } : node)),
+     });
+   };
+ 
+   const connectNodes = (
+     source: string,
+     target: string,
+     sourcePort: AcademicFlowPort,
+     targetPort: AcademicFlowPort,
+   ) => {
++    if (designLocked) return;
+     const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
+     if (source === target || exists) {
+       return;
+     }
+     const nextEdge = {
+       id: `edge-${source}-${target}-${Date.now()}`,
+       source,
+       sourcePort,
+       target,
+       targetPort,
+     };
+     const nextEdges = [...processEdges, nextEdge];
+     if (hasCycle(process.nodes.map((node) => node.id), nextEdges)) {
+       return;
+     }
+     commitDesignChange({ ...process, edges: nextEdges });
+   };
+ 
+   const deleteEdge = (edgeId: string) => {
++    if (designLocked) return;
+     commitDesignChange({
+       ...process,
+       edges: processEdges.filter((edge) => edge.id !== edgeId),
+     });
+   };
+ 
+   const moveNode = (nodeId: string, direction: -1 | 1) => {
++    if (designLocked) return;
+     const currentIndex = process.nodes.findIndex((node) => node.id === nodeId);
+     const nextIndex = currentIndex + direction;
+     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= process.nodes.length) {
+       return;
+     }
+ 
+     const nodes = [...process.nodes];
+     const [target] = nodes.splice(currentIndex, 1);
+     nodes.splice(nextIndex, 0, target);
+     commitDesignChange({ ...process, nodes });
+   };
+ 
+   const deleteNode = (nodeId: string) => {
+-    if (!canDeleteRevisionNode(nodeId, publishedNodeIds)) {
++    if (
++      designLocked ||
++      !canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
++    ) {
+       return;
+     }
+     const nodes = process.nodes.filter((node) => node.id !== nodeId);
+     const edges = processEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
+     commitDesignChange({ ...process, edges, nodes });
+     setActiveNodeId(nodes[0]?.id ?? "");
+     if (inspectorNodeId === nodeId) {
+       setInspectorNodeId(null);
+     }
+   };
+ 
++  const autoLayoutNodes = () => {
++    if (designLocked) return;
++    commitDesignChange({ ...process, nodes: layoutRevisionNodes(process.nodes) });
++  };
++
+   return (
+     <main className="academic-standalone-page">
+       <AcademicStandaloneHeader onBack={onBack} onHome={onHome} />
+       <section className="academic-workspace-main">
+         <header className="academic-topbar">
+           <div>
+             <div className="drive-breadcrumb academic-breadcrumb">
+               <span>首页</span>
+               <span>›</span>
+               <button className="breadcrumb-button" onClick={onBack}>
+@@ -284,94 +308,98 @@ export function AcademicFlowDesigner({
+               学生名单{rosterActiveCount === null ? "" : ` (${rosterActiveCount})`}
+             </button>
+             {process.published ? (
+               <button onClick={() => onOpenStudent(process.shareUrl)}>打开学生链接</button>
+             ) : null}
+             {process.publishedVersionId ? (
+               <button onClick={() => setShowProgress(true)}>填写进度</button>
+             ) : null}
+             <button
+               disabled={
+-                saving ||
++                designLocked ||
+                 rosterActiveCount === null ||
+                 rosterActiveCount === 0 ||
+                 (process.published && !process.hasUnpublishedChanges)
+               }
+               onClick={() => void preparePublish()}
+               title={
+                 rosterActiveCount === null
+                   ? "正在读取学生名单"
+                   : rosterActiveCount === 0
+                     ? "请先导入学生名单"
+                     : process.published && !process.hasUnpublishedChanges
+                       ? "当前没有待发布的修订"
+                     : undefined
+               }
+             >
+               {process.published ? "重新发布" : "发布与分享"}
+             </button>
+-            <button disabled={saving} onClick={() => void saveProcess()}>
++            <button disabled={designLocked} onClick={() => void saveProcess()}>
+               {process.published ? "保存修订" : "保存草稿"}
+             </button>
+             <button
+               className="primary-action"
+-              disabled={saving}
++              disabled={designLocked}
+               onClick={() => void saveProcess(true)}
+             >
+               保存并退出
+             </button>
+           </div>
+         </header>
+         {actionNotice ? (
+           <p className="academic-action-notice">
+             {actionNotice}
+             {publishedShareUrl ? (
+               <a href={publishedShareUrl} rel="noreferrer" target="_blank">
+                 {publishedShareUrl}
+               </a>
+             ) : null}
+           </p>
+         ) : null}
+ 
+         <section className="flow-designer-grid">
+-          <ComponentPalette onAddNode={addNode} />
++          <ComponentPalette locked={designLocked} onAddNode={addNode} />
+           <FlowNodeCanvas
+             activeNodeId={activeNode?.id ?? ""}
+-            canDeleteNode={(nodeId) => canDeleteRevisionNode(nodeId, publishedNodeIds)}
++            canDeleteNode={(nodeId) =>
++              canDeleteRevisionNode(nodeId, protectedNodeIds, existingNodeIds)
++            }
+             edges={processEdges}
+-            locked={false}
++            locked={designLocked}
+             nodes={process.nodes}
+             onAddNode={addNode}
++            onAutoLayout={autoLayoutNodes}
+             onConnectNodes={connectNodes}
+             onDeleteNode={deleteNode}
+             onDeleteEdge={deleteEdge}
+             onMoveNode={moveNode}
+             onOpenInspector={setInspectorNodeId}
+             onSelectNode={setActiveNodeId}
+             onUpdateNode={updateNode}
+           />
+         </section>
+         {inspectorNode && (
+           <NodeInspector
+             deadlineReadOnly={process.published}
++            editingLocked={designLocked}
+             node={inspectorNode}
+             onClose={() => setInspectorNodeId(null)}
+             onOpenProgress={() => {
+               setInspectorNodeId(null);
+               setShowProgress(true);
+             }}
+             onUpdateNode={updateNode}
+           />
+         )}
+         {showProgress && process.publishedVersionId ? (
+           <TeacherProgressPanel
+-            nodes={process.nodes}
++            nodes={publishedRuntimeNodes}
+             onClose={() => setShowProgress(false)}
+             onDeadlineChange={() => undefined}
+             versionId={process.publishedVersionId}
+           />
+         ) : null}
+         {showRoster ? (
+           <FlowRosterDialog
+             flowId={serverFlowId}
+             onClose={() => setShowRoster(false)}
+             onRosterChange={(roster) => setRosterActiveCount(roster.activeCount)}
+@@ -438,94 +466,100 @@ function AcademicStandaloneHeader({ onBack, onHome }: { onBack: () => void; onHo
+       </div>
+       <nav aria-label="流程页面导航">
+         <button onClick={onBack}>返回教务流程</button>
+         <button onClick={onHome}>返回首页</button>
+       </nav>
+     </header>
+   );
+ }
+ 
+ function ComponentPalette({
++  locked,
+   onAddNode,
+ }: {
++  locked: boolean;
+   onAddNode: (kind: AcademicFlowNodeKind, title: string) => void;
+ }) {
+   return (
+-    <aside className="flow-panel palette-panel">
++    <aside aria-disabled={locked} className="flow-panel palette-panel">
+       <h2>组件库</h2>
+       <p>拖拽组件到画布，构建流程节点</p>
+       <h3>流程节点</h3>
+       <div className="node-template-list">
+         {nodeTemplates.map((template) => (
+           <button
+             className={`node-template ${template.kind}`}
+-            draggable
++            disabled={locked}
++            draggable={!locked}
+             key={`${template.kind}-${template.title}`}
+             onDragStart={(event) => {
++              if (locked) return;
+               event.dataTransfer.effectAllowed = "copy";
+               event.dataTransfer.setData("application/x-academic-node-kind", template.kind);
+               event.dataTransfer.setData("application/x-academic-node-title", template.title);
+             }}
+             onClick={() => onAddNode(template.kind, template.title)}
+             type="button"
+           >
+             <span>{getTemplateIcon(template.kind)}</span>
+             <strong>{template.title}</strong>
+             <small>{template.description}</small>
+           </button>
+         ))}
+       </div>
+       <h3>流程控制</h3>
+       <div className="node-template-list compact">
+-        <button type="button">
++        <button disabled={locked} type="button">
+           <span>↳</span>
+           <strong>条件分支</strong>
+           <small>根据条件走不同分支</small>
+         </button>
+-        <button type="button">
++        <button disabled={locked} type="button">
+           <span>⇄</span>
+           <strong>并行节点</strong>
+           <small>多个分支并行进行</small>
+         </button>
+       </div>
+       <div className="palette-hint">
+         提示：可将组件拖入画布，节点进入画布后可拖动定位，并通过上下连接点手动连线。
+       </div>
+     </aside>
+   );
+ }
+ 
+ function FlowNodeCanvas({
+   activeNodeId,
+   canDeleteNode,
+   edges,
+   locked,
+   nodes,
+   onAddNode,
++  onAutoLayout,
+   onConnectNodes,
+   onDeleteEdge,
+   onDeleteNode,
+   onMoveNode,
+   onOpenInspector,
+   onSelectNode,
+   onUpdateNode,
+ }: {
+   activeNodeId: string;
+   canDeleteNode: (nodeId: string) => boolean;
+   edges: AcademicFlowEdge[];
+   locked: boolean;
+   nodes: AcademicFlowNode[];
+   onAddNode: (
+     kind: AcademicFlowNodeKind,
+     title: string,
+     position?: { x: number; y: number },
+   ) => void;
++  onAutoLayout: () => void;
+   onConnectNodes: (
+     source: string,
+     target: string,
+     sourcePort: AcademicFlowPort,
+     targetPort: AcademicFlowPort,
+   ) => void;
+   onDeleteEdge: (edgeId: string) => void;
+   onDeleteNode: (nodeId: string) => void;
+   onMoveNode: (nodeId: string, direction: -1 | 1) => void;
+   onOpenInspector: (nodeId: string) => void;
+@@ -545,20 +579,31 @@ function FlowNodeCanvas({
+   const [connectionPreviewTargetId, setConnectionPreviewTargetId] = useState<string | null>(null);
+   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+   const [panToolActive, setPanToolActive] = useState(false);
+   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
+   const [draggingNode, setDraggingNode] = useState<{
+     id: string;
+     offsetX: number;
+     offsetY: number;
+   } | null>(null);
+ 
++  useEffect(() => {
++    if (!locked) return;
++    connectingFromRef.current = null;
++    setConnectingFrom(null);
++    setConnectionPreviewPoint(null);
++    setConnectionPreviewPort(null);
++    setConnectionPreviewTargetId(null);
++    setDraggingNode(null);
++    setSelectedEdgeId(null);
++  }, [locked]);
++
+   const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+   const edgeLines = edges
+     .map((edge) => {
+       const source = nodeById.get(edge.source);
+       const target = nodeById.get(edge.target);
+       if (!source || !target) {
+         return null;
+       }
+       const ports = resolveEdgePorts(edge, source, target);
+       return { ...edge, ...ports };
+@@ -760,32 +805,22 @@ function FlowNodeCanvas({
+     }
+     const magnetTarget = findMagnetTarget(getCanvasPoint(clientX, clientY), source.nodeId);
+     if (magnetTarget) {
+       completeConnection(magnetTarget.node.id, magnetTarget.port);
+       return;
+     }
+     setConnectionSource(null);
+   };
+ 
+   const autoLayout = () => {
+-    if (locked) {
+-      return;
+-    }
+-    nodes.forEach((node, index) => {
+-      onUpdateNode(
+-        node.id,
+-        snapCanvasPoint({
+-          x: 170 + (index % 2) * 330,
+-          y: 70 + Math.floor(index / 2) * 185,
+-        }),
+-      );
+-    });
++    if (locked) return;
++    onAutoLayout();
+   };
+ 
+   const startCanvasPan = (event: PointerEvent<HTMLDivElement>) => {
+     if (
+       !panToolActive ||
+       event.button !== 0 ||
+       event.target !== event.currentTarget ||
+       !canvasRef.current
+     ) {
+       return;
+@@ -1038,21 +1073,21 @@ function FlowNodeCanvas({
+                 />
+               ))}
+               <span className="node-index">{index + 1}</span>
+               <strong>{node.title}</strong>
+               <small>{node.requirement}</small>
+               <span className="node-meta">
+                 <em>{kindLabels[node.kind]}</em>
+                 <i>{statusLabels[node.status]}</i>
+               </span>
+             </button>
+-            {node.id === activeNodeId && (
++            {!locked && node.id === activeNodeId && (
+               <div className="node-quick-actions" aria-label="节点操作">
+                 <button
+                   className="node-config-action"
+                   onClick={() => onOpenInspector(node.id)}
+                   title="配置节点"
+                   type="button"
+                 >
+                   ⚙
+                 </button>
+                 <button onClick={() => onMoveNode(node.id, -1)} type="button">
+@@ -1087,26 +1122,28 @@ function FlowNodeCanvas({
+         {nodes.length === 0 && (
+           <div className="canvas-empty">请从左侧组件库拖入第一个流程节点。</div>
+         )}
+       </div>
+     </section>
+   );
+ }
+ 
+ function NodeInspector({
+   deadlineReadOnly,
++  editingLocked,
+   node,
+   onClose,
+   onOpenProgress,
+   onUpdateNode,
+ }: {
+   deadlineReadOnly: boolean;
++  editingLocked: boolean;
+   node: AcademicFlowNode | null;
+   onClose: () => void;
+   onOpenProgress: () => void;
+   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
+ }) {
+   if (!node) {
+     return null;
+   }
+ 
+   const addInfoField = () => {
+@@ -1137,20 +1174,21 @@ function NodeInspector({
+       >
+         <div className="panel-heading inspector-modal-heading">
+           <div>
+             <h2>节点设置</h2>
+             <span>{kindLabels[node.kind]}</span>
+           </div>
+           <button aria-label="关闭节点设置" onClick={onClose} type="button">
+             ×
+           </button>
+         </div>
++        <fieldset className="node-inspector-fields" disabled={editingLocked}>
+         <label>
+           <span>节点标题</span>
+           <input
+             maxLength={50}
+             value={node.title}
+             onChange={(event) => onUpdateNode(node.id, { title: event.target.value })}
+           />
+         </label>
+         <label>
+           <span>节点说明</span>
+@@ -1263,20 +1301,21 @@ function NodeInspector({
+           <label>
+             <span>脚本文件</span>
+             <input
+               disabled={node.auditScriptType === "none"}
+               value={node.auditScriptName}
+               onChange={(event) => onUpdateNode(node.id, { auditScriptName: event.target.value })}
+               placeholder="check_material.py"
+             />
+           </label>
+         </section>
++        </fieldset>
+       </aside>
+     </div>
+   );
+ }
+ 
+ function StudentFlowPreview({
+   process,
+   showShareUrl,
+ }: {
+   process: AcademicProcess;
+diff --git a/frontend/src/features/academic-flow/academicFlowData.ts b/frontend/src/features/academic-flow/academicFlowData.ts
+index b5b4bfb..599560a 100644
+--- a/frontend/src/features/academic-flow/academicFlowData.ts
++++ b/frontend/src/features/academic-flow/academicFlowData.ts
+@@ -17,24 +17,27 @@ export const nodeTemplates: Array<{
+   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
+ ];
+ 
+ export function createAcademicProcess(name: string, id = `academic-${Date.now()}`): AcademicProcess {
+   const encryptedSlug = createEncryptedSlug();
+   return {
+     createdAt: "刚刚",
+     description: `用于“${name}”的分阶段提交与审核。`,
+     edges: [],
+     encryptedSlug,
++    hasUnpublishedChanges: false,
+     id,
+     name,
+     nodes: [],
+     published: false,
++    publishedNodeIds: [],
++    publishedVersionNo: undefined,
+     shareUrl: `/academic-flow/${encodeURIComponent(id)}/student/${encryptedSlug}`,
+   };
+ }
+ 
+ export function createFallbackAcademicProcess(id: string): AcademicProcess {
+   return createAcademicProcess("未命名 OA 流程", id);
+ }
+ 
+ export function createNode(
+   kind: AcademicFlowNodeKind,
+diff --git a/frontend/src/features/academic-flow/flowRevision.ts b/frontend/src/features/academic-flow/flowRevision.ts
+index cba01dc..f6f2a3a 100644
+--- a/frontend/src/features/academic-flow/flowRevision.ts
++++ b/frontend/src/features/academic-flow/flowRevision.ts
+@@ -1,3 +1,31 @@
+-export function canDeleteRevisionNode(nodeId: string, publishedNodeIds: string[]) {
+-  return !publishedNodeIds.includes(nodeId);
++type IdentifiedNode = { id: string };
++type PositionedNode = IdentifiedNode & { x: number; y: number };
++
++export function canDeleteRevisionNode(
++  nodeId: string,
++  publishedNodeIds: readonly string[] | undefined,
++  existingNodeIds: readonly string[] = [],
++) {
++  return !(publishedNodeIds ?? existingNodeIds).includes(nodeId);
++}
++
++export function filterPublishedRuntimeNodes<T extends IdentifiedNode>(
++  nodes: readonly T[],
++  publishedNodeIds: readonly string[] | undefined,
++) {
++  if (!publishedNodeIds) return [];
++  const publishedIds = new Set(publishedNodeIds);
++  return nodes.filter((node) => publishedIds.has(node.id));
++}
++
++export function layoutRevisionNodes<T extends PositionedNode>(nodes: readonly T[]): T[] {
++  return nodes.map((node, index) => ({
++    ...node,
++    x: snapToGrid(170 + (index % 2) * 330),
++    y: snapToGrid(70 + Math.floor(index / 2) * 185),
++  }));
++}
++
++function snapToGrid(value: number) {
++  return Math.max(16, Math.round(value / 16) * 16);
+ }
+diff --git a/frontend/src/styles.css b/frontend/src/styles.css
+index 3efb4dc..8f5a42a 100644
+--- a/frontend/src/styles.css
++++ b/frontend/src/styles.css
+@@ -1492,20 +1492,26 @@ button {
+ }
+ 
+ .node-template {
+   cursor: grab;
+ }
+ 
+ .node-template:active {
+   cursor: grabbing;
+ }
+ 
++.palette-panel[aria-disabled="true"] .node-template,
++.palette-panel[aria-disabled="true"] .node-template-list.compact button {
++  opacity: 0.62;
++  cursor: not-allowed;
++}
++
+ .node-template span,
+ .node-template-list.compact span {
+   width: 32px;
+   height: 32px;
+   grid-row: span 2;
+   display: grid;
+   place-items: center;
+   border-radius: 6px;
+   background: #e8f1ff;
+   color: #1d4ed8;
+@@ -1914,20 +1920,33 @@ button {
+   color: #7b8494;
+   pointer-events: none;
+ }
+ 
+ .inspector-panel {
+   display: grid;
+   align-content: start;
+   gap: 14px;
+ }
+ 
++.node-inspector-fields {
++  min-inline-size: 0;
++  display: grid;
++  gap: 14px;
++  margin: 0;
++  padding: 0;
++  border: 0;
++}
++
++.node-inspector-fields:disabled {
++  opacity: 0.7;
++}
++
+ .node-inspector-backdrop {
+   position: fixed;
+   inset: 0;
+   z-index: 40;
+   background: rgba(15, 23, 42, 0.16);
+ }
+ 
+ .node-inspector-modal {
+   width: min(390px, calc(100vw - 32px));
+   max-height: calc(100vh - 120px);
+diff --git a/frontend/src/types.ts b/frontend/src/types.ts
+index 245a046..8b6dcd7 100644
+--- a/frontend/src/types.ts
++++ b/frontend/src/types.ts
+@@ -95,26 +95,26 @@ export type AcademicFlowEdge = {
+   sourcePort?: AcademicFlowPort;
+   target: string;
+   targetPort?: AcademicFlowPort;
+ };
+ 
+ export type AcademicProcess = {
+   createdAt: string;
+   description: string;
+   edges: AcademicFlowEdge[];
+   encryptedSlug: string;
+-  hasUnpublishedChanges?: boolean;
++  hasUnpublishedChanges: boolean;
+   id: string;
+   name: string;
+   nodes: AcademicFlowNode[];
+   published: boolean;
+-  publishedNodeIds?: string[];
++  publishedNodeIds: string[];
+   publishedVersionId?: string;
+   publishedVersionNo?: number;
+   serverId?: string;
+   shareUrl: string;
+ };
+ 
+ export type Stats = {
+   failed: number;
+   overwritten: number;
+   submitted: number;
+diff --git a/frontend/tests/flowRevision.test.ts b/frontend/tests/flowRevision.test.ts
+index a033e2c..b8aee43 100644
+--- a/frontend/tests/flowRevision.test.ts
++++ b/frontend/tests/flowRevision.test.ts
+@@ -1,12 +1,52 @@
+ import assert from "node:assert/strict";
+ import test from "node:test";
+ 
+-import { canDeleteRevisionNode } from "../src/features/academic-flow/flowRevision.ts";
++import {
++  canDeleteRevisionNode,
++  filterPublishedRuntimeNodes,
++  layoutRevisionNodes,
++} from "../src/features/academic-flow/flowRevision.ts";
+ 
+ test("published nodes cannot be deleted from a revision", () => {
+   assert.equal(canDeleteRevisionNode("old", ["old"]), false);
+ });
+ 
+ test("new unpublished nodes can be deleted", () => {
+   assert.equal(canDeleteRevisionNode("new", ["old"]), true);
+ });
++
++test("missing published metadata fails closed for existing nodes", () => {
++  assert.equal(canDeleteRevisionNode("old", undefined, ["old", "new"]), false);
++  assert.equal(canDeleteRevisionNode("new", undefined, ["old", "new"]), false);
++});
++
++test("runtime controls include only nodes from the current published version", () => {
++  const nodes = [
++    { id: "old", title: "已发布节点" },
++    { id: "new", title: "修订新增节点" },
++  ];
++
++  assert.deepEqual(filterPublishedRuntimeNodes(nodes, ["old"]), [nodes[0]]);
++  assert.deepEqual(filterPublishedRuntimeNodes(nodes, undefined), []);
++});
++
++test("automatic layout merges all node positions in one immutable result", () => {
++  const nodes = [
++    { id: "one", title: "节点一", x: 0, y: 0 },
++    { id: "two", title: "节点二", x: 0, y: 0 },
++    { id: "three", title: "节点三", x: 0, y: 0 },
++  ];
++
++  const result = layoutRevisionNodes(nodes);
++
++  assert.deepEqual(
++    result.map(({ id, x, y }) => ({ id, x, y })),
++    [
++      { id: "one", x: 176, y: 64 },
++      { id: "two", x: 496, y: 64 },
++      { id: "three", x: 176, y: 256 },
++    ],
++  );
++  assert.equal(result[0].title, "节点一");
++  assert.notEqual(result, nodes);
++});
