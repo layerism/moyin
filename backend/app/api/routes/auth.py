@@ -61,6 +61,9 @@ def set_teacher_session_cookie(response: Response, token: str) -> None:
 @router.post("/register", status_code=status.HTTP_201_CREATED, include_in_schema=False)
 def register(payload: Credentials, response: Response) -> dict[str, object]:
     now = utc_now_iso()
+    student_no = payload.studentNo.strip()
+    if student_no.startswith("preview-student-"):
+        raise HTTPException(status_code=422, detail="该学号为系统保留学号")
     try:
         with get_connection() as connection:
             cursor = connection.execute(
@@ -70,7 +73,7 @@ def register(payload: Credentials, response: Response) -> dict[str, object]:
                 VALUES (?, ?, ?, ?, ?)
                 """,
                 (
-                    payload.studentNo.strip(),
+                    student_no,
                     payload.name.strip(),
                     hash_password(payload.password),
                     now,
@@ -83,7 +86,7 @@ def register(payload: Credentials, response: Response) -> dict[str, object]:
 
     token = create_session(student_id)
     set_session_cookie(response, token)
-    return {"id": student_id, "studentNo": payload.studentNo.strip(), "name": payload.name.strip()}
+    return {"id": student_id, "studentNo": student_no, "name": payload.name.strip()}
 
 
 @router.post("/student/login")
@@ -94,7 +97,7 @@ def login(payload: Credentials, response: Response) -> dict[str, object]:
             """
             SELECT id, student_no, name, password_hash
             FROM student_accounts
-            WHERE student_no = ? AND status = 'active'
+            WHERE student_no = ? AND status = 'active' AND account_kind = 'normal'
             """,
             (payload.studentNo.strip(),),
         ).fetchone()

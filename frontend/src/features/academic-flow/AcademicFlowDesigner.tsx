@@ -17,7 +17,7 @@ import {
   getFileTypeRestrictionPreset,
   nodeTemplates,
 } from "./academicFlowData";
-import { ApiError, workflowApi } from "./api";
+import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
 import { AuditScriptSelector } from "./AuditScriptSelector";
 import {
   bindCtrlWheelListener,
@@ -153,6 +153,7 @@ export function AcademicFlowDesigner({
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
   const [saving, setSaving] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false);
+  const [previewCreating, setPreviewCreating] = useState(false);
   const [revisionEditingRequested, setRevisionEditingRequested] = useState(false);
   const [revisionDirty, setRevisionDirty] = useState(false);
   const revisionEditing = getRevisionEditing(
@@ -160,7 +161,7 @@ export function AcademicFlowDesigner({
     revisionEditingRequested,
     workingProcess.hasUnpublishedChanges,
   );
-  const operationLocked = saving || revisionImpact !== null || pendingNavigation !== null;
+  const operationLocked = saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
   const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
   const processEdges = workingProcess.edges ?? [];
   const activeNode =
@@ -361,6 +362,31 @@ export function AcademicFlowDesigner({
     void preparePublish();
   };
 
+  const openPreview = async () => {
+    if (revisionDirty) {
+      setActionNotice("请先暂存当前修改后再预览");
+      return;
+    }
+    const previewWindow = window.open("", "_blank");
+    if (!previewWindow) {
+      setActionNotice("请允许本站打开新标签页");
+      return;
+    }
+    setPreviewCreating(true);
+    setActionNotice("");
+    try {
+      const preview = await workflowApi.createPreview(serverFlowId);
+      previewWindow.sessionStorage.setItem(FLOW_PREVIEW_TOKEN_KEY, preview.previewToken);
+      previewWindow.opener = null;
+      previewWindow.location.href = preview.previewUrl;
+    } catch (reason) {
+      previewWindow.close();
+      setActionNotice(reason instanceof Error ? reason.message : "预览创建失败");
+    } finally {
+      setPreviewCreating(false);
+    }
+  };
+
   const addNode = (
     kind: AcademicFlowNodeKind,
     title: string,
@@ -555,6 +581,9 @@ export function AcademicFlowDesigner({
           <div className="academic-actions">
             <button onClick={() => setShowRoster(true)}>
               学生名单{rosterActiveCount === null ? "" : ` (${rosterActiveCount})`}
+            </button>
+            <button disabled={operationLocked} onClick={() => void openPreview()} type="button">
+              {previewCreating ? "正在创建预览" : "预览"}
             </button>
             {workingProcess.published ? (
               <button onClick={() => setShowStudentLinks(true)}>

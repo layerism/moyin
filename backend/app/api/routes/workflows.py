@@ -27,6 +27,13 @@ from app.repositories.workflows import (
     resolve_share_token,
     save_draft,
 )
+from app.repositories.flow_previews import (
+    PreviewConflictError,
+    create_preview,
+    delete_marked_preview,
+    list_expired_preview_teacher_ids,
+    mark_preview_for_cleanup,
+)
 from app.core.config import settings
 from app.domain.workflow_runtime import validate_file_metadata
 from app.repositories.flow_templates import (
@@ -233,6 +240,50 @@ def get_flow_route(
         raise not_found() from exc
 
 
+def _cleanup_teacher_preview(teacher_id: int) -> None:
+    storage_keys = mark_preview_for_cleanup(teacher_id)
+    if storage_keys:
+        try:
+            storage = get_object_storage()
+            for storage_key in storage_keys:
+                storage.delete_object(storage_key)
+        except Exception as exc:
+            raise ObjectStorageError("旧预览文件清理失败，请重试") from exc
+    delete_marked_preview(teacher_id)
+
+
+@router.post("/{flow_id}/preview")
+def post_flow_preview(
+    flow_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    teacher_id = int(teacher["id"])
+    for expired_teacher_id in list_expired_preview_teacher_ids():
+        if expired_teacher_id == teacher_id:
+            continue
+        try:
+            _cleanup_teacher_preview(expired_teacher_id)
+        except ObjectStorageError:
+            pass
+    try:
+        _cleanup_teacher_preview(teacher_id)
+        instance, preview_token = create_preview(flow_id, teacher_id)
+    except KeyError as exc:
+        raise not_found() from exc
+    except (FlowValidationError, TemplateMutationError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except PreviewConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    instance_id = str(instance["id"])
+    return {
+        "instanceId": instance_id,
+        "previewToken": preview_token,
+        "previewUrl": f"/student/flows/{instance_id}?preview=1",
+    }
+
+
 @router.post("/validate")
 def validate(payload: FlowConfigRequest) -> dict[str, bool]:
     try:
@@ -320,9 +371,12 @@ def delete_workflow(
     flow_id: str, teacher: dict[str, object] = Depends(get_current_teacher)
 ) -> Response:
     try:
+        _cleanup_teacher_preview(int(teacher["id"]))
         delete_flow(flow_id, int(teacher["id"]))
     except KeyError as exc:
         raise not_found() from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
