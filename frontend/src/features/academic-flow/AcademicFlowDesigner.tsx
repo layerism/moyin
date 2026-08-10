@@ -1389,8 +1389,11 @@ function FlowNodeCanvas({
             width: 1200 * zoom,
           }}
         >
-          <div className="canvas-zoom-content" style={{ transform: `scale(${zoom})` }}>
-            <svg className="flow-edge-layer">
+          <div
+            className="canvas-zoom-content"
+            style={{ height: canvasSurfaceHeight, transform: `scale(${zoom})` }}
+          >
+            <svg className="flow-edge-layer" style={{ height: canvasSurfaceHeight }}>
           {edgeLines.map((edge) => {
             const path = createOrthogonalPath(edge, layoutNodes);
             const deletable = !locked && canDeleteEdge(edge.id);
