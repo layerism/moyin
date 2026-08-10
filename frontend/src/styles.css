@@ -2205,7 +2205,7 @@ button {
   min-height: 126px;
   position: relative;
   display: grid;
-  grid-template-rows: minmax(0, auto) minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr;
   gap: 6px;
   padding: 18px 28px 14px 48px;
   border: 1px solid #cbd5e1;
@@ -2273,19 +2273,10 @@ button {
   white-space: normal;
 }
 
-.flow-node small {
-  display: -webkit-box;
-  overflow: hidden;
-  color: #5f6b7a;
-  font-size: 12px;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
 .node-meta {
   min-width: 0;
   display: flex;
+  align-self: end;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -3850,19 +3841,12 @@ button {
   cursor: not-allowed;
 }
 
-.student-node strong,
-.student-node small {
+.student-node strong {
   display: block;
 }
 
 .student-node strong {
-  margin-bottom: 5px;
   font-size: 16px;
-}
-
-.student-node small {
-  color: #64748b;
-  font-size: 13px;
 }
 
 .student-node em {
@@ -4707,7 +4691,7 @@ button {
   z-index: 2;
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
   gap: 5px 12px;
   padding: 16px;
   overflow: hidden;
@@ -4771,10 +4755,6 @@ button {
   cursor: pointer;
 }
 
-.student-topology-node.approved > small {
-  color: #166534;
-}
-
 .student-topology-node.locked,
 .student-topology-node.expired {
   border-style: dashed;
@@ -4827,17 +4807,6 @@ button {
   font-size: 17px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.student-topology-node > small {
-  grid-column: 2;
-  display: -webkit-box;
-  overflow: hidden;
-  color: #667085;
-  font-size: 12px;
-  line-height: 1.45;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 .student-topology-node-meta {
