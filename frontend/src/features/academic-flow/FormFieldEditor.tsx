@@ -422,7 +422,7 @@ export function FormFieldEditor({
             ) : null}
 
             {selectionField ? (
-              <div className="form-field-type-settings">
+              <div className={`form-field-type-settings selection-field-settings is-${field.type}`}>
                 <div className="form-field-option-list">
                   <div className="form-field-option-heading">
                     <strong>选项</strong>
@@ -465,10 +465,11 @@ export function FormFieldEditor({
                             onPointerMove={updatePointerReorder}
                             onPointerUp={finishPointerReorder}
                           />
-                          <span aria-hidden="true" className="selection-option-index">
-                            {optionIndex + 1}
-                          </span>
                         </span>
+                        <span
+                          aria-hidden="true"
+                          className={`selection-option-kind is-${field.type}`}
+                        />
                         <input
                           aria-label={`选项 ${optionIndex + 1}`}
                           disabled={disabled}
@@ -503,26 +504,25 @@ export function FormFieldEditor({
                       </div>
                     );
                   })}
-                  <button
-                    className="form-field-add-option"
-                    disabled={disabled}
-                    onClick={() => updateField(fieldIndex, {
-                      options: [...(field.options ?? []), createFormOption()],
-                    })}
-                    type="button"
-                  >+ 添加选项</button>
+                  <div className="form-field-option-actions">
+                    <button
+                      className="form-field-add-option"
+                      disabled={disabled}
+                      onClick={() => updateField(fieldIndex, {
+                        options: [...(field.options ?? []), createFormOption()],
+                      })}
+                      type="button"
+                    >+ 添加选项</button>
+                    <button
+                      className="form-field-other-action"
+                      disabled={disabled}
+                      onClick={() => updateField(fieldIndex, {
+                        allowOther: !field.allowOther,
+                      })}
+                      type="button"
+                    >{field.allowOther ? "移除“其他”项" : "添加“其他”项"}</button>
+                  </div>
                 </div>
-                <label className="form-field-other-toggle">
-                  <input
-                    checked={Boolean(field.allowOther)}
-                    disabled={disabled}
-                    onChange={(event) => updateField(fieldIndex, {
-                      allowOther: event.target.checked,
-                    })}
-                    type="checkbox"
-                  />
-                  <span>允许填写“其他”内容</span>
-                </label>
                 {field.type === "checkbox" ? (
                   <div className="two-column">
                     <NumberSetting
@@ -539,6 +539,13 @@ export function FormFieldEditor({
                     />
                   </div>
                 ) : null}
+                <div className="selection-field-type-footer">
+                  <span
+                    aria-hidden="true"
+                    className={`selection-option-kind is-${field.type}`}
+                  />
+                  <strong>{field.type === "radio" ? "单选题" : "多选题"}</strong>
+                </div>
               </div>
             ) : null}
 
@@ -583,7 +590,17 @@ export function FormFieldEditor({
                   onPointerUp={finishPointerReorder}
                 />
                 <span className="form-field-title-control">
-                  {editingTitleFieldId === field.id ? (
+                  {selectionField && expanded ? (
+                    <input
+                      aria-label="字段标题"
+                      disabled={disabled}
+                      onChange={(event) => updateField(fieldIndex, {
+                        label: event.target.value,
+                      })}
+                      placeholder="请输入问题"
+                      value={field.label}
+                    />
+                  ) : editingTitleFieldId === field.id ? (
                     <input
                       aria-label="字段标题"
                       autoFocus
