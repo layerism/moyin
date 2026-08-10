@@ -2556,8 +2556,7 @@ button {
   font-weight: 700;
 }
 
-.node-time-settings-toggle:hover:not(:disabled),
-.node-time-settings-toggle[aria-expanded="true"] {
+.node-time-settings-toggle:hover:not(:disabled) {
   background: #eaf2ff;
   color: #175cd3;
 }
@@ -2567,16 +2566,106 @@ button {
   font-size: 12px;
 }
 
-.node-time-window-card {
-  min-width: 0;
+.node-time-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
   display: grid;
-  grid-template-rows: max-content max-content;
-  align-self: start;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.3);
+}
+
+.node-time-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid #dfe5ee;
-  border-radius: 10px;
+  border: 1px solid #d7e1ee;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 24px 72px rgba(15, 23, 42, 0.28);
+}
+
+.node-time-dialog > header,
+.node-time-dialog > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.node-time-dialog > header {
+  border-bottom: 1px solid #e7ecf3;
+}
+
+.node-time-dialog > header h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 18px;
+}
+
+.node-time-dialog > header button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d9e2ef;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.node-time-dialog-body {
+  overflow: auto;
+  padding: 20px;
+}
+
+.node-time-dialog .node-time-window-fields {
+  padding: 0;
+}
+
+.node-time-dialog-summary,
+.node-time-dialog-error {
+  margin: 16px 0 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.node-time-dialog-error {
+  color: #b42318;
+  font-weight: 700;
+}
+
+.node-time-dialog > footer {
+  justify-content: flex-end;
+  border-top: 1px solid #e7ecf3;
+  background: #fbfcfe;
+}
+
+.node-time-dialog > footer button {
+  min-width: 82px;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  font-weight: 750;
+}
+
+.node-time-dialog > footer .primary-action {
+  border-color: #2874f6;
+  background: #2874f6;
+  color: #fff;
+}
+
+.node-time-dialog > footer .primary-action:disabled {
+  border-color: #d0d5dd;
+  background: #e4e7ec;
+  color: #98a2b3;
 }
 
 .node-time-window-fields {
@@ -2835,12 +2924,6 @@ button {
   border: 1px solid #2874f6;
   background: #2874f6;
   color: #fff;
-}
-
-.node-time-window-card > small {
-  display: block;
-  padding: 0 16px 15px;
-  color: #475569;
 }
 
 .node-template-card { border-width: 2px; }
@@ -6035,14 +6118,24 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .node-time-window-card {
-    min-height: 0;
-  }
-
   .node-time-window-fields > i {
     width: 5px;
     height: 22px;
     justify-self: center;
+  }
+
+  .node-time-dialog-backdrop {
+    padding: 12px;
+  }
+
+  .node-time-dialog {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+  }
+
+  .node-time-dialog > footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .runtime-template-download {
