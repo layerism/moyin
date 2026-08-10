@@ -1431,6 +1431,10 @@ function NodeInspector({
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   publishedRevision: boolean;
 }) {
+  const [timeSettingsExpanded, setTimeSettingsExpanded] = useState(
+    () => Boolean(node?.startAt || node?.deadlineAt),
+  );
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
@@ -1443,6 +1447,10 @@ function NodeInspector({
       document.body.style.overflow = previousOverflow;
     };
   }, [onClose]);
+
+  useEffect(() => {
+    setTimeSettingsExpanded(Boolean(node?.startAt || node?.deadlineAt));
+  }, [node?.id]);
 
   if (!node) {
     return null;
@@ -1460,80 +1468,92 @@ function NodeInspector({
         className="flow-panel inspector-panel node-inspector-modal"
         role="dialog"
       >
-        <header className="panel-heading inspector-modal-heading">
-          <div>
-            <span>节点设置</span>
-            <h2>{node.title}</h2>
-          </div>
-          <em>{kindLabels[node.kind]}</em>
+        <header className="node-inspector-toolbar">
           <button aria-label="关闭节点设置" onClick={onClose} type="button">
             ×
           </button>
         </header>
         <fieldset className="node-inspector-fields" disabled={editingLocked}>
+        <label className="node-basic-title-field">
+          <input
+            aria-label="节点标题"
+            maxLength={50}
+            placeholder="请添加标题"
+            value={node.title}
+            onChange={(event) => onUpdateNode(node.id, { title: event.target.value })}
+          />
+        </label>
+        <label className="node-basic-description-field">
+          <textarea
+            aria-label="节点说明"
+            placeholder="添加描述"
+            value={node.requirement}
+            onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
+          />
+        </label>
+        <div className="node-basic-actions">
+          <button
+            aria-controls={`node-time-settings-${node.id}`}
+            aria-expanded={timeSettingsExpanded}
+            className="node-time-settings-toggle"
+            onClick={() => setTimeSettingsExpanded((expanded) => !expanded)}
+            type="button"
+          >
+            <span aria-hidden="true">＋</span>
+            定时设置
+          </button>
+          {node.startAt || node.deadlineAt ? (
+            <small>{getTimeWindowStatus(node)}</small>
+          ) : null}
+        </div>
+        {timeSettingsExpanded ? (
+          <section
+            className="node-time-window-card"
+            id={`node-time-settings-${node.id}`}
+          >
+            <div className="node-time-window-fields">
+              <div className="node-time-window-field">
+                <span>起始时间</span>
+                <NodeDateTimePicker
+                  ariaLabel="起始时间"
+                  onConfirm={(startAt) => onUpdateNode(node.id, { startAt })}
+                  value={node.startAt}
+                />
+                {node.startAt ? (
+                  <button
+                    onClick={() => onUpdateNode(node.id, { startAt: null })}
+                    type="button"
+                  >
+                    清除
+                  </button>
+                ) : null}
+              </div>
+              <i aria-hidden="true" />
+              <div className="node-time-window-field">
+                <span>截止时间</span>
+                <NodeDateTimePicker
+                  ariaLabel="截止时间"
+                  onConfirm={(deadlineAt) => onUpdateNode(node.id, { deadlineAt })}
+                  value={node.deadlineAt}
+                />
+                {node.deadlineAt ? (
+                  <button
+                    onClick={() => onUpdateNode(node.id, { deadlineAt: null })}
+                    type="button"
+                  >
+                    清除
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <small>{getTimeWindowSummary(node)}</small>
+          </section>
+        ) : null}
         {publishedRevision ? (
           <p className="node-inspector-revision-note">
             当前为发布后修订。旧节点仅可修改标题、说明、起始时间和截止时间；修改标题或说明后，该节点及下游需重新完成。
           </p>
         ) : null}
-        <label>
-          <span>节点标题</span>
-          <input
-            maxLength={50}
-            value={node.title}
-            onChange={(event) => onUpdateNode(node.id, { title: event.target.value })}
-          />
-        </label>
-        <label>
-          <span>节点说明</span>
-          <textarea
-            value={node.requirement}
-            onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
-          />
-        </label>
-        <section className="node-time-window-card">
-          <header>
-            <span aria-hidden="true">◷</span>
-            <strong>节点开放时间窗口</strong>
-            <em>{getTimeWindowStatus(node)}</em>
-          </header>
-          <div className="node-time-window-fields">
-            <div className="node-time-window-field">
-              <span>起始时间</span>
-              <NodeDateTimePicker
-                ariaLabel="起始时间"
-                onConfirm={(startAt) => onUpdateNode(node.id, { startAt })}
-                value={node.startAt}
-              />
-              {node.startAt ? (
-                <button
-                  onClick={() => onUpdateNode(node.id, { startAt: null })}
-                  type="button"
-                >
-                  清除
-                </button>
-              ) : null}
-            </div>
-            <i aria-hidden="true" />
-            <div className="node-time-window-field">
-              <span>截止时间</span>
-              <NodeDateTimePicker
-                ariaLabel="截止时间"
-                onConfirm={(deadlineAt) => onUpdateNode(node.id, { deadlineAt })}
-                value={node.deadlineAt}
-              />
-              {node.deadlineAt ? (
-                <button
-                  onClick={() => onUpdateNode(node.id, { deadlineAt: null })}
-                  type="button"
-                >
-                  清除
-                </button>
-              ) : null}
-            </div>
-          </div>
-          <small>{getTimeWindowSummary(node)}</small>
-        </section>
         {settingCapabilities.collectsInformation ? (
           <section className="inspector-section" aria-disabled={nodeCoreLocked}>
             <FormFieldEditor
