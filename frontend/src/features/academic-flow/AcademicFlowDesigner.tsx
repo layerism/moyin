@@ -862,7 +862,7 @@ function FlowNodeCanvas({
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.5);
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
     () => new Set(activeNodeId ? [activeNodeId] : []),
   );
