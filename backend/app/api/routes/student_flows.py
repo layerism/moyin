@@ -42,7 +42,7 @@ from app.services.object_storage import (
     object_key,
     timestamped_object_name,
 )
-from app.services.security import get_current_student
+from app.services.security import get_current_runtime_student, get_current_student
 from app.services.scan_materials import ScanMaterialError, inspect_scan_material
 
 router = APIRouter()
@@ -82,7 +82,7 @@ def runtime_error(exc: Exception) -> HTTPException:
 @router.post("/node-instances/{node_instance_id}/template/download")
 def download_node_template(
     node_instance_id: str,
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> dict[str, object]:
     try:
         record = get_student_template(node_instance_id, int(student["id"]))
@@ -109,7 +109,7 @@ def download_node_template(
 def upload_node_file(
     node_instance_id: str,
     file: UploadFile = File(...),
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> dict[str, object]:
     student_id = int(student["id"])
     try:
@@ -186,7 +186,7 @@ def upload_node_file(
 def upload_node_scan(
     node_instance_id: str,
     file: UploadFile = File(...),
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> dict[str, object]:
     student_id = int(student["id"])
     try:
@@ -240,7 +240,7 @@ def upload_node_scan(
 @router.get("/node-instances/{node_instance_id}/scans")
 def get_node_scans(
     node_instance_id: str,
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> list[dict[str, object]]:
     try:
         get_upload_context(node_instance_id, int(student["id"]))
@@ -253,7 +253,7 @@ def get_node_scans(
 def remove_node_scan(
     node_instance_id: str,
     file_id: str,
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> dict[str, bool]:
     try:
         get_upload_context(node_instance_id, int(student["id"]))
@@ -273,7 +273,7 @@ def remove_node_scan(
 def put_node_scan_order(
     node_instance_id: str,
     payload: ScanOrderRequest,
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> list[dict[str, object]]:
     try:
         get_upload_context(node_instance_id, int(student["id"]))
@@ -285,7 +285,7 @@ def put_node_scan_order(
 @router.get("/files/{file_id}/download")
 def download_node_file(
     file_id: str,
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> dict[str, object]:
     try:
         record = get_uploaded_file_for_download(file_id, int(student["id"]))
@@ -348,7 +348,7 @@ def flow_instances(
 
 @router.get("/flow-instances/{instance_id}")
 def flow_instance(
-    instance_id: str, student: dict[str, object] = Depends(get_current_student)
+    instance_id: str, student: dict[str, object] = Depends(get_current_runtime_student)
 ) -> dict[str, object]:
     try:
         return get_instance(instance_id, int(student["id"]))
@@ -360,7 +360,7 @@ def flow_instance(
 def put_draft(
     node_instance_id: str,
     payload: DraftRequest,
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> dict[str, object]:
     try:
         return save_node_draft(node_instance_id, int(student["id"]), payload.payload)
@@ -372,7 +372,7 @@ def put_draft(
 def post_submit(
     node_instance_id: str,
     payload: SubmitRequest,
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> dict[str, object]:
     try:
         return submit_node(
@@ -394,7 +394,7 @@ def post_submit(
 @router.post("/node-instances/{node_instance_id}/audit/retry")
 def post_audit_retry(
     node_instance_id: str,
-    student: dict[str, object] = Depends(get_current_student),
+    student: dict[str, object] = Depends(get_current_runtime_student),
 ) -> dict[str, object]:
     student_id = int(student["id"])
     try:

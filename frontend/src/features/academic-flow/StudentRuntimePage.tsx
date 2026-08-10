@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type DragEvent as ReactDragE
 import Markdown from "react-markdown";
 
 import type { AcademicFlowNode } from "../../types";
-import { ApiError, workflowApi } from "./api";
+import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
 import { validateFormAnswers } from "./formFields";
 import { ReadonlyFormFields, RuntimeFormFields } from "./RuntimeFormFields";
 import { getScanSubmitBlocker, ScanUploadWorkspace } from "./ScanUploadWorkspace";
@@ -33,10 +33,12 @@ export function StudentRuntimePage({
   initialInstance,
   instanceId,
   onHome,
+  preview = false,
 }: {
   initialInstance?: RuntimeFlowInstance | null;
   instanceId: string;
   onHome: () => void;
+  preview?: boolean;
 }) {
   const [instance, setInstance] = useState<RuntimeFlowInstance | null>(initialInstance ?? null);
   const [drafts, setDrafts] = useState<Record<string, Record<string, unknown>>>({});
@@ -314,8 +316,15 @@ export function StudentRuntimePage({
         <button
           aria-label="返回首页"
           className="runtime-home-button"
-          onClick={onHome}
-          title="返回首页"
+          onClick={() => {
+            if (!preview) {
+              onHome();
+              return;
+            }
+            window.sessionStorage.removeItem(FLOW_PREVIEW_TOKEN_KEY);
+            window.close();
+          }}
+          title={preview ? "关闭预览" : "返回首页"}
           type="button"
         >
           <svg aria-hidden="true" viewBox="0 0 24 24">

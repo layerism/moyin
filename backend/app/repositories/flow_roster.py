@@ -17,6 +17,22 @@ class RosterAccessError(PermissionError):
 def assert_student_roster_access(
     connection: sqlite3.Connection, flow_id: str, student_id: int
 ) -> None:
+    preview = connection.execute(
+        """
+        SELECT 1
+        FROM student_accounts a
+        JOIN flow_preview_sessions p ON p.preview_student_account_id = a.id
+        JOIN flows f ON f.id = p.flow_id
+        WHERE a.id = ? AND p.flow_id = ? AND a.account_kind = 'preview'
+          AND a.preview_owner_teacher_id = p.teacher_account_id
+          AND f.owner_id = CAST(p.teacher_account_id AS TEXT)
+          AND p.status = 'active' AND p.expires_at > ?
+        LIMIT 1
+        """,
+        (student_id, flow_id, utc_now_iso()),
+    ).fetchone()
+    if preview is not None:
+        return
     row = connection.execute(
         """
         SELECT 1

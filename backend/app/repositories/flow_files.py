@@ -7,7 +7,7 @@ from app.core.database import get_connection
 from app.domain.workflow import confirmation_requires_scans
 from app.domain.workflow_runtime import incoming_nodes, pending_node_status
 from app.repositories.flow_roster import assert_student_roster_access
-from app.repositories.flow_runtime_state import effective_deadline
+from app.repositories.flow_runtime_state import effective_deadline, is_preview_instance
 from app.repositories.flow_templates import template_downloaded
 from app.services.security import utc_now_iso
 
@@ -50,7 +50,8 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
               ON t.flow_version_id = v.id AND t.node_key = n.node_key
             LEFT JOIN flow_template_assets a
               ON a.id = t.template_asset_id
-            WHERE n.id = ? AND i.student_account_id = ? AND v.status = 'published'
+            WHERE n.id = ? AND i.student_account_id = ?
+              AND v.status IN ('published', 'preview')
             """,
             (node_instance_id, student_id),
         ).fetchone()
@@ -72,7 +73,7 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         }
         state = pending_node_status(
             all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
-            config_node.get("startAt"),
+            None if is_preview_instance(connection, row["flow_instance_id"]) else config_node.get("startAt"),
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )
         if state != "available" or row["status"] not in {

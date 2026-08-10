@@ -697,6 +697,7 @@ export function App() {
       <StudentRuntimePage
         initialInstance={runtimeInstance}
         instanceId={activeRuntimeInstanceId}
+        preview={new URLSearchParams(window.location.search).get("preview") === "1"}
         onHome={() => {
           pushAppPath("/student");
           setScreen("studentHome");

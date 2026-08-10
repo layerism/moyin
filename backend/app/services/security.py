@@ -4,7 +4,7 @@ import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from fastapi import Cookie, Depends, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, status
 
 from app.core.database import get_connection
 
@@ -108,6 +108,7 @@ def get_current_student(oa_session: str | None = Cookie(default=None)) -> dict[s
             FROM student_sessions s
             JOIN student_accounts a ON a.id = s.student_account_id
             WHERE s.token_hash = ? AND s.expires_at > ? AND a.status = 'active'
+              AND a.account_kind = 'normal'
             """,
             (token_hash, utc_now_iso()),
         ).fetchone()
@@ -116,11 +117,9 @@ def get_current_student(oa_session: str | None = Cookie(default=None)) -> dict[s
     return {"id": row["id"], "studentNo": row["student_no"], "name": row["name"]}
 
 
-def get_current_teacher(
-    teacher_session: str | None = Cookie(default=None),
-) -> dict[str, object]:
+def _teacher_from_session(teacher_session: str | None) -> dict[str, object] | None:
     if not teacher_session:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请先以教师身份登录")
+        return None
     token_hash = hashlib.sha256(teacher_session.encode("utf-8")).hexdigest()
     with get_connection() as connection:
         row = connection.execute(
@@ -132,14 +131,42 @@ def get_current_teacher(
             """,
             (token_hash, utc_now_iso()),
         ).fetchone()
-    if row is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="教师登录状态已失效")
-    return {
+    return None if row is None else {
         "id": row["id"],
         "employeeNo": row["employee_no"],
         "name": row["name"],
         "role": row["role"],
     }
+
+
+def get_current_teacher(
+    teacher_session: str | None = Cookie(default=None),
+) -> dict[str, object]:
+    teacher = _teacher_from_session(teacher_session)
+    if teacher is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请先以教师身份登录")
+    return teacher
+
+
+def get_current_runtime_student(
+    preview_token: str | None = Header(default=None, alias="X-Flow-Preview-Token"),
+    oa_session: str | None = Cookie(default=None),
+    teacher_session: str | None = Cookie(default=None),
+) -> dict[str, object]:
+    if not preview_token:
+        return get_current_student(oa_session)
+    teacher = _teacher_from_session(teacher_session)
+    if teacher is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="预览会话已失效，请返回教师页面重新预览",
+        )
+    from app.repositories.flow_previews import PreviewSessionError, resolve_preview_actor
+
+    try:
+        return resolve_preview_actor(preview_token, int(teacher["id"]))
+    except PreviewSessionError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
 
 def get_current_super_admin(

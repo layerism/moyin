@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS student_accounts (
     name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'active',
+    account_kind TEXT NOT NULL DEFAULT 'normal'
+        CHECK (account_kind IN ('normal', 'preview')),
+    preview_owner_teacher_id INTEGER REFERENCES teacher_accounts(id),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -150,6 +153,19 @@ CREATE TABLE IF NOT EXISTS flow_instances (
     completed_at TEXT,
     last_active_at TEXT NOT NULL,
     UNIQUE(flow_version_id, student_account_id)
+);
+
+CREATE TABLE IF NOT EXISTS flow_preview_sessions (
+    id TEXT PRIMARY KEY,
+    teacher_account_id INTEGER NOT NULL UNIQUE REFERENCES teacher_accounts(id),
+    preview_student_account_id INTEGER NOT NULL REFERENCES student_accounts(id),
+    flow_id TEXT NOT NULL REFERENCES flows(id),
+    flow_version_id TEXT NOT NULL UNIQUE REFERENCES flow_versions(id),
+    flow_instance_id TEXT NOT NULL UNIQUE REFERENCES flow_instances(id),
+    token_hash TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL CHECK (status IN ('active', 'cleaning')),
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS node_instances (
@@ -293,6 +309,7 @@ def initialize_database() -> None:
         _apply_share_token_value_migration(connection)
         _apply_audit_script_metadata_migration(connection)
         _apply_scan_file_metadata_migration(connection)
+        _apply_flow_preview_migration(connection)
 
 
 def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
@@ -416,6 +433,55 @@ def _apply_scan_file_metadata_migration(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE uploaded_files ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0 CHECK(display_order >= 0)"
         )
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )
+
+
+def _apply_flow_preview_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260810_add_flow_preview_scope"
+    columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(student_accounts)").fetchall()
+    }
+    if "account_kind" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE student_accounts
+            ADD COLUMN account_kind TEXT NOT NULL DEFAULT 'normal'
+            CHECK (account_kind IN ('normal', 'preview'))
+            """
+        )
+    if "preview_owner_teacher_id" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE student_accounts
+            ADD COLUMN preview_owner_teacher_id INTEGER REFERENCES teacher_accounts(id)
+            """
+        )
+    connection.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_student_accounts_preview_owner
+        ON student_accounts(preview_owner_teacher_id)
+        WHERE preview_owner_teacher_id IS NOT NULL
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS flow_preview_sessions (
+            id TEXT PRIMARY KEY,
+            teacher_account_id INTEGER NOT NULL UNIQUE REFERENCES teacher_accounts(id),
+            preview_student_account_id INTEGER NOT NULL REFERENCES student_accounts(id),
+            flow_id TEXT NOT NULL REFERENCES flows(id),
+            flow_version_id TEXT NOT NULL UNIQUE REFERENCES flow_versions(id),
+            flow_instance_id TEXT NOT NULL UNIQUE REFERENCES flow_instances(id),
+            token_hash TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL CHECK (status IN ('active', 'cleaning')),
+            expires_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        """
+    )
     connection.execute(
         "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
         (migration_id, datetime.now(UTC).isoformat()),

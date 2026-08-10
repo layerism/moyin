@@ -28,6 +28,7 @@ from app.repositories.flow_runtime_state import (
     advance_downstream,
     complete_flow_if_ready,
     effective_deadline,
+    is_preview_instance,
     version_config,
 )
 from app.repositories.workflows import canonical_json
@@ -206,6 +207,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         if student_id is not None:
             assert_student_roster_access(connection, instance["flow_id"], student_id)
         config = json.loads(instance["config_snapshot"])
+        preview = is_preview_instance(connection, instance_id)
         incoming = incoming_nodes(config)
         node_rows = connection.execute(
             """
@@ -233,7 +235,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             if status in {"available", "draft", "rejected", "locked", "scheduled", "expired"}:
                 base_status = pending_node_status(
                     all(raw_statuses.get(source) == "approved" for source in incoming[row["node_key"]]),
-                    config_node.get("startAt"),
+                    None if preview else config_node.get("startAt"),
                     deadline,
                 )
                 status = (
@@ -267,7 +269,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),
                     "effectiveDeadline": deadline,
-                    "effectiveStartAt": config_node.get("startAt"),
+                    "effectiveStartAt": None if preview else config_node.get("startAt"),
                     "template": {
                         "assetId": template["id"],
                         "contentType": template["content_type"],
@@ -396,7 +398,8 @@ def save_node_draft(
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
-            WHERE n.id = ? AND i.student_account_id = ? AND v.status = 'published'
+            WHERE n.id = ? AND i.student_account_id = ?
+              AND v.status IN ('published', 'preview')
             """,
             (node_instance_id, student_id),
         ).fetchone()
@@ -404,6 +407,7 @@ def save_node_draft(
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
         config = json.loads(row["config_snapshot"])
+        preview = is_preview_instance(connection, row["flow_instance_id"])
         node = node_by_key(config, row["node_key"])
         approved_form_amendment = _is_approved_form_amendment(row["status"], node)
         statuses = {
@@ -415,7 +419,7 @@ def save_node_draft(
         }
         base_status = pending_node_status(
             all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
-            node.get("startAt"),
+            None if preview else node.get("startAt"),
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )
         if base_status != "available":
@@ -464,7 +468,8 @@ def submit_node(
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
-            WHERE n.id = ? AND i.student_account_id = ? AND v.status = 'published'
+            WHERE n.id = ? AND i.student_account_id = ?
+              AND v.status IN ('published', 'preview')
             """,
             (node_instance_id, student_id),
         ).fetchone()
@@ -483,6 +488,7 @@ def submit_node(
                 row["node_key"],
             )
             config = version_config(connection, row["flow_version_id"])
+            preview = is_preview_instance(connection, row["flow_instance_id"])
             node = node_by_key(config, row["node_key"])
             approved_form_amendment = _is_approved_form_amendment(row["status"], node)
             statuses = {
@@ -494,7 +500,7 @@ def submit_node(
             }
             base_status = pending_node_status(
                 all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
-                node.get("startAt"),
+                None if preview else node.get("startAt"),
                 deadline,
             )
             if base_status == "expired":
@@ -819,7 +825,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             """
             SELECT v.id, v.flow_id, v.config_snapshot, f.name FROM flow_versions v
             JOIN flows f ON f.id = v.flow_id
-            WHERE v.id = ? AND f.owner_id = ?
+            WHERE v.id = ? AND f.owner_id = ? AND v.status = 'published'
             """,
             (version_id, str(teacher_id)),
         ).fetchone()
@@ -914,7 +920,7 @@ def get_teacher_submission_detail(
             LEFT JOIN submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
-            WHERE n.id = ? AND f.owner_id = ?
+            WHERE n.id = ? AND f.owner_id = ? AND v.status = 'published'
             """,
             (node_instance_id, str(teacher_id)),
         ).fetchone()

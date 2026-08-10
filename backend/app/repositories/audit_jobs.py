@@ -79,10 +79,24 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             """
             SELECT id FROM audit_jobs
             WHERE status = 'pending' AND next_attempt_at <= ?
+              AND (
+                NOT EXISTS (
+                  SELECT 1 FROM node_instances n
+                  JOIN flow_instances i ON i.id = n.flow_instance_id
+                  JOIN flow_versions v ON v.id = i.flow_version_id
+                  WHERE n.id = audit_jobs.node_instance_id AND v.status = 'preview'
+                )
+                OR EXISTS (
+                  SELECT 1 FROM node_instances n
+                  JOIN flow_preview_sessions p ON p.flow_instance_id = n.flow_instance_id
+                  WHERE n.id = audit_jobs.node_instance_id
+                    AND p.status = 'active' AND p.expires_at > ?
+                )
+              )
             ORDER BY next_attempt_at, created_at
             LIMIT 1
             """,
-            (now,),
+            (now, now),
         ).fetchone()
         if row is None:
             return None
@@ -172,6 +186,8 @@ def complete_audit_job(job_id: str, result: dict[str, object]) -> None:
         job = _current_job_context(connection, job_id)
         if job is None or job["job_status"] != "running":
             return
+        if not _audit_write_allowed(connection, job):
+            return
         connection.execute(
             """
             UPDATE audit_jobs
@@ -218,6 +234,8 @@ def fail_audit_job(job_id: str, message: str) -> None:
         job = _current_job_context(connection, job_id)
         if job is None or job["job_status"] != "running":
             return
+        if not _audit_write_allowed(connection, job):
+            return
         attempt_count = int(job["attempt_count"])
         if attempt_count <= len(RETRY_DELAYS_SECONDS):
             next_attempt = now + timedelta(seconds=RETRY_DELAYS_SECONDS[attempt_count - 1])
@@ -261,8 +279,22 @@ def recover_audit_jobs() -> None:
             UPDATE audit_jobs
             SET status = 'pending', claimed_at = NULL, next_attempt_at = ?, updated_at = ?
             WHERE status = 'running'
+              AND (
+                NOT EXISTS (
+                  SELECT 1 FROM node_instances n
+                  JOIN flow_instances i ON i.id = n.flow_instance_id
+                  JOIN flow_versions v ON v.id = i.flow_version_id
+                  WHERE n.id = audit_jobs.node_instance_id AND v.status = 'preview'
+                )
+                OR EXISTS (
+                  SELECT 1 FROM node_instances n
+                  JOIN flow_preview_sessions p ON p.flow_instance_id = n.flow_instance_id
+                  WHERE n.id = audit_jobs.node_instance_id
+                    AND p.status = 'active' AND p.expires_at > ?
+                )
+              )
             """,
-            (now, now),
+            (now, now, now),
         )
         rows = connection.execute(
             """
@@ -275,7 +307,16 @@ def recover_audit_jobs() -> None:
             WHERE n.status = 'reviewing'
               AND EXISTS (SELECT 1 FROM uploaded_files u WHERE u.submission_id = s.id)
               AND NOT EXISTS (SELECT 1 FROM audit_jobs j WHERE j.submission_id = s.id)
+              AND (
+                v.status != 'preview'
+                OR EXISTS (
+                  SELECT 1 FROM flow_preview_sessions p
+                  WHERE p.flow_instance_id = i.id
+                    AND p.status = 'active' AND p.expires_at > ?
+                )
+              )
             """
+            , (now,)
         ).fetchall()
         for row in rows:
             config = json.loads(row["config_snapshot"])
@@ -352,11 +393,12 @@ def _current_job_context(connection, job_id: str):
         SELECT j.status AS job_status, j.attempt_count, j.submission_id,
                j.node_instance_id, s.attempt_no AS submission_attempt,
                n.attempt_no AS node_attempt, n.status AS node_status,
-               n.flow_instance_id, i.flow_version_id
+               n.flow_instance_id, i.flow_version_id, v.status AS version_status
         FROM audit_jobs j
         JOIN submissions s ON s.id = j.submission_id
         JOIN node_instances n ON n.id = j.node_instance_id
         JOIN flow_instances i ON i.id = n.flow_instance_id
+        JOIN flow_versions v ON v.id = i.flow_version_id
         WHERE j.id = ?
         """,
         (job_id,),
@@ -365,6 +407,19 @@ def _current_job_context(connection, job_id: str):
 
 def _is_current_attempt(job) -> bool:
     return int(job["submission_attempt"]) == int(job["node_attempt"])
+
+
+def _audit_write_allowed(connection, job) -> bool:
+    if job["version_status"] != "preview":
+        return True
+    row = connection.execute(
+        """
+        SELECT 1 FROM flow_preview_sessions
+        WHERE flow_instance_id = ? AND status = 'active' AND expires_at > ?
+        """,
+        (job["flow_instance_id"], utc_now_iso()),
+    ).fetchone()
+    return row is not None
 
 
 def _script_config(node: Any) -> tuple[str, int, str] | None:

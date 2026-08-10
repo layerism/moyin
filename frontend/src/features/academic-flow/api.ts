@@ -13,6 +13,8 @@ import type {
 } from "./runtimeTypes";
 import { createFlowConfig, createPublishRequestPayload } from "./flowRevision";
 
+export const FLOW_PREVIEW_TOKEN_KEY = "oa-flow-preview-token";
+
 export type ServerFlow = {
   config: AcademicFlowConfig;
   createdAt: string;
@@ -67,14 +69,18 @@ type ErrorDetail = string | {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isMultipart =
     typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const headers = new Headers(init?.headers);
+  if (!isMultipart && init?.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  const previewToken = window.sessionStorage.getItem(FLOW_PREVIEW_TOKEN_KEY);
+  if (previewToken) {
+    headers.set("X-Flow-Preview-Token", previewToken);
+  }
   const response = await fetch(path, {
     ...init,
     credentials: "include",
-    headers: isMultipart
-      ? init?.headers
-      : init?.body
-      ? { "Content-Type": "application/json", ...init.headers }
-      : init?.headers,
+    headers,
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { detail?: ErrorDetail } | null;
@@ -121,6 +127,12 @@ export const workflowApi = {
       method: "PUT",
       body: JSON.stringify({ config: { nodes: process.nodes, edges: process.edges } }),
     });
+  },
+  createPreview(serverId: string) {
+    return request<{ instanceId: string; previewToken: string; previewUrl: string }>(
+      `/api/workflows/${encodeURIComponent(serverId)}/preview`,
+      { method: "POST" },
+    );
   },
   getRevisionImpact(serverId: string, process: AcademicProcess) {
     return request<RevisionImpact>(

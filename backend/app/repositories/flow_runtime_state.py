@@ -5,9 +5,19 @@ from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_nod
 from app.services.security import utc_now_iso
 
 
+def is_preview_instance(connection, instance_id: str) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM flow_preview_sessions WHERE flow_instance_id = ?",
+        (instance_id,),
+    ).fetchone()
+    return row is not None
+
+
 def effective_deadline(
     connection, instance_id: str, version_id: str, node_key: str
 ) -> str | None:
+    if is_preview_instance(connection, instance_id):
+        return None
     override = connection.execute(
         """
         SELECT deadline_at FROM student_deadline_overrides
@@ -38,6 +48,7 @@ def advance_downstream(
         ).fetchall()
     }
     now = utc_now_iso()
+    preview = is_preview_instance(connection, instance_id)
     for node_key, predecessors in incoming_nodes(config).items():
         if statuses.get(node_key) not in {"locked", "scheduled", "expired"} or not predecessors:
             continue
@@ -45,7 +56,7 @@ def advance_downstream(
         deadline = effective_deadline(connection, instance_id, version_id, node_key)
         next_status = pending_node_status(
             predecessors_approved,
-            node_by_key(config, node_key).get("startAt"),
+            None if preview else node_by_key(config, node_key).get("startAt"),
             deadline,
         )
         if next_status != statuses.get(node_key):

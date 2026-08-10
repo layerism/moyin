@@ -132,6 +132,15 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
                 raise FlowValidationError("文件格式必须符合审核脚本要求")
 
 
+def prepare_runtime_config(
+    connection: Any, flow_id: str, config: dict[str, Any]
+) -> dict[str, str]:
+    _bind_confirmation_visual_audits(config)
+    validate_flow_config(config, require_publishable=True)
+    _validate_audit_script_nodes(config)
+    return validate_version_templates(connection, flow_id, config)
+
+
 def _latest_published_version(connection: Any, flow_id: str, teacher_id: int) -> Any:
     return connection.execute(
         """
@@ -152,7 +161,7 @@ def _latest_flow_version(connection: Any, flow_id: str, teacher_id: int) -> Any:
         SELECT v.id, v.version_no, v.config_snapshot, v.config_hash, v.status
         FROM flow_versions v
         JOIN flows f ON f.id = v.flow_id
-        WHERE v.flow_id = ? AND f.owner_id = ?
+        WHERE v.flow_id = ? AND f.owner_id = ? AND v.status != 'preview'
         ORDER BY v.version_no DESC
         LIMIT 1
         """,
@@ -181,7 +190,7 @@ def _revision_source_versions(
         SELECT v.id, v.version_no, v.config_snapshot, v.config_hash, v.status
         FROM flow_versions v
         JOIN flows f ON f.id = v.flow_id
-        WHERE v.flow_id = ? AND f.owner_id = ?
+        WHERE v.flow_id = ? AND f.owner_id = ? AND v.status != 'preview'
           AND (
               v.status = 'published'
               OR EXISTS (
@@ -298,7 +307,7 @@ def _historical_node_ids(connection: Any, flow_id: str) -> list[str]:
     rows = connection.execute(
         """
         SELECT config_snapshot FROM flow_versions
-        WHERE flow_id = ? ORDER BY version_no
+        WHERE flow_id = ? AND status != 'preview' ORDER BY version_no
         """,
         (flow_id,),
     ).fetchall()
@@ -1068,7 +1077,7 @@ def publish_flow(
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可发布")
         config = supplied_config if supplied_config is not None else json.loads(flow["draft_config"])
-        _bind_confirmation_visual_audits(config)
+        version_templates = prepare_runtime_config(connection, flow_id, config)
         snapshot = canonical_json(config)
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         if expected_draft_config_hash is not None and expected_draft_config_hash != config_hash:
@@ -1090,9 +1099,6 @@ def publish_flow(
         if baseline is not None and expected_draft_config_hash is None:
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         _assert_valid_published_revision(connection, flow_id, config)
-        validate_flow_config(config, require_publishable=True)
-        _validate_audit_script_nodes(config)
-        version_templates = validate_version_templates(connection, flow_id, config)
         plan = _build_migration_plan(
             connection,
             source_versions,
@@ -1109,7 +1115,10 @@ def publish_flow(
         if active_roster_count == 0:
             raise FlowValidationError("请先导入学生名单")
         row = connection.execute(
-            "SELECT COALESCE(MAX(version_no), 0) + 1 AS next_no FROM flow_versions WHERE flow_id = ?",
+            """
+            SELECT COALESCE(MAX(version_no), 0) + 1 AS next_no
+            FROM flow_versions WHERE flow_id = ? AND status != 'preview'
+            """,
             (flow_id,),
         ).fetchone()
         version_no = int(row["next_no"])
@@ -1287,7 +1296,7 @@ def get_revision_impact(
         next_version_no = connection.execute(
             """
             SELECT COALESCE(MAX(version_no), 0) + 1 AS value
-            FROM flow_versions WHERE flow_id = ?
+            FROM flow_versions WHERE flow_id = ? AND status != 'preview'
             """,
             (flow_id,),
         ).fetchone()["value"]

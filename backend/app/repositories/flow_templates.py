@@ -11,7 +11,7 @@ from app.domain.workflow_runtime import (
     validate_file_metadata,
 )
 from app.repositories.flow_roster import assert_student_roster_access
-from app.repositories.flow_runtime_state import effective_deadline
+from app.repositories.flow_runtime_state import effective_deadline, is_preview_instance
 from app.services.security import utc_now_iso
 
 
@@ -225,7 +225,8 @@ def get_student_template(node_instance_id: str, student_id: int) -> dict[str, ob
                    a.id AS asset_id, a.storage_key, a.original_name, a.content_type, a.size_bytes
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
-            JOIN flow_versions v ON v.id = i.flow_version_id AND v.status = 'published'
+            JOIN flow_versions v ON v.id = i.flow_version_id
+              AND v.status IN ('published', 'preview')
             JOIN flow_version_templates t
               ON t.flow_version_id = v.id AND t.node_key = n.node_key
             JOIN flow_template_assets a ON a.id = t.template_asset_id
@@ -247,7 +248,7 @@ def get_student_template(node_instance_id: str, student_id: int) -> dict[str, ob
         node = node_by_key(config, row["node_key"])
         state = pending_node_status(
             all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
-            node.get("startAt"),
+            None if is_preview_instance(connection, row["flow_instance_id"]) else node.get("startAt"),
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )
         if state != "available" or row["status"] not in {
