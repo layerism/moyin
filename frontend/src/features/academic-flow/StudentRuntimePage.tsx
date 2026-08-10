@@ -471,7 +471,7 @@ function RuntimeNodeDialog({
   const fileBusy = busy || isUploadingFile || !uploadUnlocked;
   const scanBlocker = getScanSubmitBlocker({
     confirmed: draft.confirmed === true,
-    scanAuditEnabled: Boolean(node.scanAuditEnabled),
+    scanRequired: Boolean(runtime.template),
     scans: scanState.scans,
     templateDownloaded: !runtime.template || runtime.templateDownloaded,
     uploading: scanState.uploading,
@@ -684,12 +684,12 @@ function RuntimeNodeDialog({
               <span>我已阅读并确认以上内容</span>
             </label>
           ) : null}
-          {node.kind === "confirmation" && node.scanAuditEnabled ? (
+          {node.kind === "confirmation" && runtime.template ? (
             <div className="runtime-template-steps has-template">
-              {runtime.template ? <section className="runtime-template-download">
+              <section className="runtime-template-download">
                 <span>1</span><div><strong>{runtime.templateDownloaded ? "模板已下载" : "下载签署文件模板"}</strong><small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small></div>
                 <button disabled={busy} onClick={onDownloadTemplate} type="button">{runtime.templateDownloaded ? "重新下载" : "下载模板"}</button>
-              </section> : null}
+              </section>
               <strong className="runtime-upload-step-title">2 上传签署后的扫描件</strong>
               <ScanUploadWorkspace disabled={busy || !runtime.templateDownloaded} nodeInstanceId={runtime.id} onDownload={onDownloadFile} onStateChange={updateScanState} />
             </div>
@@ -848,7 +848,7 @@ function ReadonlySubmission({
       </section>
     );
   }
-  if (node.kind === "confirmation" && node.scanAuditEnabled) {
+  if (node.kind === "confirmation" && Array.isArray(payload.scans)) {
     const scans = Array.isArray(payload.scans) ? payload.scans : [];
     return <section className="runtime-readonly-submission runtime-readonly-confirmation">
       <strong>{payload.confirmed === true ? "已阅读并确认" : "未记录确认状态"}</strong>

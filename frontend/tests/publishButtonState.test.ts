@@ -21,6 +21,16 @@ test("scan audit requires a DOCX template, mode and prompt", () => {
   assert.equal(getScanAuditConfigError(node), undefined);
 });
 
+test("signing template can publish without AI review", () => {
+  const node = {
+    id: "confirm", kind: "confirmation" as const, title: "承诺书",
+    scanAuditEnabled: false,
+    templateAsset: { assetId: "a", contentType: "", originalName: "承诺书.docx", sha256: "a", sizeBytes: 1 },
+  } as Parameters<typeof getScanAuditConfigError>[0];
+
+  assert.equal(getScanAuditConfigError(node), undefined);
+});
+
 test("new draft uses the submit publish action", () => {
   assert.deepEqual(
     getPublishButtonState({
