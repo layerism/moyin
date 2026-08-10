@@ -9,6 +9,10 @@ class FlowValidationError(ValueError):
     pass
 
 
+def confirmation_requires_scans(node: dict[str, Any]) -> bool:
+    return node.get("kind") == "confirmation" and node.get("templateAsset") is not None
+
+
 def validate_flow_config(
     config: dict[str, Any], *, require_publishable: bool = False
 ) -> None:
@@ -85,9 +89,7 @@ def _validate_node_template(node: dict[str, Any]) -> None:
     if template is None:
         return
     is_file = node.get("kind") == "file"
-    is_scan_confirmation = (
-        node.get("kind") == "confirmation" and node.get("scanAuditEnabled") is True
-    )
+    is_scan_confirmation = node.get("kind") == "confirmation"
     if not (is_file or is_scan_confirmation):
         raise FlowValidationError("当前节点不能配置模板")
     if not isinstance(template, dict):

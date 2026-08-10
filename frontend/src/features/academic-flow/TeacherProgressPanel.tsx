@@ -43,7 +43,7 @@ export function TeacherProgressPanel({
     nodes.filter((node) => node.kind === "form").map((node) => node.id),
   );
   const scanNodeKeys = new Set(
-    nodes.filter((node) => node.kind === "confirmation" && node.scanAuditEnabled).map((node) => node.id),
+    nodes.filter((node) => node.kind === "confirmation" && Boolean(node.templateAsset)).map((node) => node.id),
   );
   const canExtendNode = (node: WorkflowProgressNode) => Boolean(
     node.effectiveDeadline
@@ -243,7 +243,7 @@ export function TeacherProgressPanel({
                       </button>
                       {student.nodes.filter((node) => scanNodeKeys.has(node.nodeKey) && ["reviewing", "approved", "rejected", "audit_error"].includes(node.status)).map((node) => (
                         <button className="progress-extension-trigger" disabled={loadingDetailId === node.nodeInstanceId} key={node.nodeInstanceId} onClick={() => void openSubmissionDetail(node.nodeInstanceId)} type="button">
-                          {loadingDetailId === node.nodeInstanceId ? "读取中" : `查看审核 · ${node.title}`}
+                          {loadingDetailId === node.nodeInstanceId ? "读取中" : `查看扫描件 · ${node.title}`}
                         </button>
                       ))}
                     </td>
@@ -364,12 +364,12 @@ export function TeacherProgressPanel({
       ) : null}
       {submissionDetail ? <div className="student-extension-backdrop" role="presentation" onMouseDown={() => setSubmissionDetail(null)}>
         <section aria-modal="true" className="student-extension-dialog submission-detail-dialog" onMouseDown={(event) => event.stopPropagation()} role="dialog">
-          <header><div><span>扫描件审核详情</span><h3>{submissionDetail.nodeTitle}</h3><p>{submissionDetail.student.name}（{submissionDetail.student.studentNo}）</p></div><button aria-label="关闭审核详情" onClick={() => setSubmissionDetail(null)} type="button">×</button></header>
+          <header><div><span>扫描件提交详情</span><h3>{submissionDetail.nodeTitle}</h3><p>{submissionDetail.student.name}（{submissionDetail.student.studentNo}）</p></div><button aria-label="关闭提交详情" onClick={() => setSubmissionDetail(null)} type="button">×</button></header>
           <div className="student-extension-dialog-body">
             <dl className="submission-detail-summary">
               <div><dt>状态</dt><dd>{submissionDetail.status}</dd></div>
-              <div><dt>模式</dt><dd>{submissionDetail.mode === "score" ? "评分" : "通过 / 不通过"}</dd></div>
-              {submissionDetail.mode === "score" ? <div><dt>分数</dt><dd>{submissionDetail.score === null ? "尚未生成" : `${submissionDetail.score} 分`}</dd></div> : <div><dt>审核结论</dt><dd>{submissionDetail.passed === null ? "尚未生成" : submissionDetail.passed ? "通过" : "不通过"}</dd></div>}
+              <div><dt>模式</dt><dd>{submissionDetail.mode === "score" ? "AI 评分" : submissionDetail.mode === "pass_fail" ? "AI 通过 / 不通过" : "直接通过"}</dd></div>
+              {submissionDetail.mode === "score" ? <div><dt>分数</dt><dd>{submissionDetail.score === null ? "尚未生成" : `${submissionDetail.score} 分`}</dd></div> : submissionDetail.mode === "pass_fail" ? <div><dt>审核结论</dt><dd>{submissionDetail.passed === null ? "尚未生成" : submissionDetail.passed ? "通过" : "不通过"}</dd></div> : <div><dt>提交结论</dt><dd>已通过</dd></div>}
             </dl>
             {submissionDetail.reason ? <section className="submission-detail-reason"><strong>{submissionDetail.mode === "score" ? "评分说明" : "审核原因"}</strong><p>{submissionDetail.reason}</p></section> : null}
             <ul className="runtime-submitted-scan-list">{submissionDetail.scans.map((scan) => <li key={scan.fileId}><span>{scan.originalName} · {scan.pageCount} 页</span><a href={scan.url} rel="noreferrer" target="_blank">下载</a></li>)}</ul>

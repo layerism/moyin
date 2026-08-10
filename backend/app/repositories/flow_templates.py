@@ -24,9 +24,7 @@ class TemplateDownloadError(ValueError):
 
 
 def supports_template(node: dict[str, Any]) -> bool:
-    return node.get("kind") == "file" or (
-        node.get("kind") == "confirmation" and node.get("scanAuditEnabled") is True
-    )
+    return node.get("kind") in {"file", "confirmation"}
 
 
 def _validate_template_name(node: dict[str, Any], original_name: str) -> None:

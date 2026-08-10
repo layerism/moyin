@@ -7,6 +7,7 @@ from typing import Any
 
 from app.core.database import get_connection
 from app.domain.form_fields import normalize_form_answers
+from app.domain.workflow import confirmation_requires_scans
 from app.domain.workflow_runtime import (
     incoming_nodes,
     node_by_key,
@@ -553,7 +554,7 @@ def submit_node(
                     "size": uploaded_file["size_bytes"],
                     "type": uploaded_file["content_type"],
                 }
-            if node.get("kind") == "confirmation" and node.get("scanAuditEnabled") is True:
+            if confirmation_requires_scans(node):
                 if payload.get("confirmed") is not True:
                     raise RuntimeConflictError("请先确认承诺内容")
                 uploaded_scans = get_pending_scans_for_submit(
@@ -923,7 +924,7 @@ def get_teacher_submission_detail(
         node = node_by_key(config, row["node_key"])
         result = _json_object(row["result_json"])
         details = result.get("details") if isinstance(result.get("details"), dict) else {}
-        mode = node.get("scanAuditMode")
+        mode = node.get("scanAuditMode") if node.get("scanAuditEnabled") is True else None
         score_value = details.get("score")
         score = (
             float(score_value)

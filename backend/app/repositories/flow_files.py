@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from app.core.database import get_connection
+from app.domain.workflow import confirmation_requires_scans
 from app.domain.workflow_runtime import incoming_nodes, pending_node_status
 from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.flow_runtime_state import effective_deadline
@@ -59,10 +60,7 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         config = json.loads(row["config_snapshot"])
         config_node = next(node for node in config["nodes"] if node["id"] == row["node_key"])
         is_file = config_node.get("kind") == "file"
-        is_scan = (
-            config_node.get("kind") == "confirmation"
-            and config_node.get("scanAuditEnabled") is True
-        )
+        is_scan = confirmation_requires_scans(config_node)
         if not (is_file or is_scan):
             raise FileContextError("当前节点不支持文件上传")
         statuses = {
