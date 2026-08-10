@@ -1321,7 +1321,7 @@ function FlowNodeCanvas({
             ×
           </button>
             )}
-            {layoutNodes.map((node, index) => (
+            {layoutNodes.map((node) => (
           <div
             className="canvas-node-stack dag-node-stack"
             key={node.id}
@@ -1415,7 +1415,6 @@ function FlowNodeCanvas({
                   title={`${getPortLabel(port)}连接点`}
                 />
               ))}
-              <span className="node-index">{index + 1}</span>
               <strong>{node.title}</strong>
               <span className="node-meta">
                 <em>{kindLabels[node.kind]}</em>
@@ -1856,7 +1855,7 @@ function ConfirmationScanSettings({
       </div> : null}
       {enabled ? <>
         <div className="node-template-card">
-          <h3>承诺书模板（DOCX）</h3>
+          <h3>签署文件模板（DOCX）</h3>
           {node.templateAsset ? <div className="node-template-file">
             <span aria-hidden="true" className="node-template-file-icon">DOCX</span>
             <div className="node-template-file-copy">
@@ -1915,8 +1914,8 @@ function StudentFlowPreview({
         )}
       </div>
       <div className="student-flow-list">
-        {process.nodes.map((node, index) => (
-          <StudentNode key={node.id} node={node} order={index + 1} />
+        {process.nodes.map((node) => (
+          <StudentNode key={node.id} node={node} />
         ))}
       </div>
       {pendingNode && (
@@ -1930,7 +1929,7 @@ function StudentFlowPreview({
   );
 }
 
-function StudentNode({ node, order }: { node: AcademicFlowNode; order: number }) {
+function StudentNode({ node }: { node: AcademicFlowNode }) {
   const isDisabled = node.status === "disabled";
   const isPending = node.status === "pending";
   return (
@@ -1940,7 +1939,6 @@ function StudentNode({ node, order }: { node: AcademicFlowNode; order: number })
       type="button"
       aria-disabled={isDisabled}
     >
-      <span className="student-node-index">{order}</span>
       <span>
         <strong>{node.title}</strong>
       </span>

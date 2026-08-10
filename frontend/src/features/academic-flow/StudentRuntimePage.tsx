@@ -687,7 +687,7 @@ function RuntimeNodeDialog({
           {node.kind === "confirmation" && node.scanAuditEnabled ? (
             <div className="runtime-template-steps has-template">
               {runtime.template ? <section className="runtime-template-download">
-                <span>1</span><div><strong>{runtime.templateDownloaded ? "模板已下载" : "下载承诺书模板"}</strong><small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small></div>
+                <span>1</span><div><strong>{runtime.templateDownloaded ? "模板已下载" : "下载签署文件模板"}</strong><small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small></div>
                 <button disabled={busy} onClick={onDownloadTemplate} type="button">{runtime.templateDownloaded ? "重新下载" : "下载模板"}</button>
               </section> : null}
               <strong className="runtime-upload-step-title">2 上传签署后的扫描件</strong>
