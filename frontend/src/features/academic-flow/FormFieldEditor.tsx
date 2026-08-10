@@ -513,14 +513,6 @@ export function FormFieldEditor({
                       })}
                       type="button"
                     >+ 添加选项</button>
-                    <button
-                      className="form-field-other-action"
-                      disabled={disabled}
-                      onClick={() => updateField(fieldIndex, {
-                        allowOther: !field.allowOther,
-                      })}
-                      type="button"
-                    >{field.allowOther ? "移除“其他”项" : "添加“其他”项"}</button>
                   </div>
                 </div>
                 {field.type === "checkbox" ? (
@@ -846,7 +838,7 @@ function normalizeFieldSettings(field: FormField): FormField {
     : [createFormOption("选项 1"), createFormOption("选项 2")];
   if (field.type === "radio") {
     return {
-      allowOther: Boolean(field.allowOther),
+      allowOther: false,
       id: field.id,
       label: field.label,
       options,
@@ -855,7 +847,7 @@ function normalizeFieldSettings(field: FormField): FormField {
     };
   }
   return {
-    allowOther: Boolean(field.allowOther),
+    allowOther: false,
     id: field.id,
     label: field.label,
     maxSelections: field.maxSelections,

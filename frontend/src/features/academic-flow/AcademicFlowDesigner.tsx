@@ -1278,7 +1278,7 @@ function FlowNodeCanvas({
             <button
               className={`flow-node ${node.status} ${
                 canMoveNode(node.id) ? "movable" : "protected"
-              } ${node.id === activeNodeId ? "selected" : ""}`}
+              } ${node.id === activeNodeId ? "selected" : ""} flow-node-density-${getFlowNodeDensity(node)}`}
               onClick={() => onSelectNode(node.id)}
               onDoubleClick={(event) => {
                 if (locked || (event.target as HTMLElement).closest(".connection-port")) return;
@@ -1288,7 +1288,7 @@ function FlowNodeCanvas({
               onPointerMove={dragNode}
               onPointerUp={endNodeDrag}
               type="button"
-              style={{ width: nodeSize.width }}
+              style={{ height: nodeSize.height, width: nodeSize.width }}
             >
               {!locked && connectionPorts.map((port) => (
                 <span
@@ -1603,7 +1603,13 @@ function NodeInspector({
               <h3>学生填写模板</h3>
               {node.templateAsset ? (
                 <div className="node-template-file">
-                  <div><strong>{node.templateAsset.originalName}</strong><small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small></div>
+                  <span aria-hidden="true" className="node-template-file-icon">
+                    {formatTemplateType(node.templateAsset.originalName)}
+                  </span>
+                  <div className="node-template-file-copy">
+                    <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
+                    <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
+                  </div>
                   {nodeCoreLocked ? <span>已随发布版本固化</span> : <div className="node-template-actions">
                     <label>
                       替换模板
@@ -1788,14 +1794,22 @@ function ConfirmationScanSettings({
         ><span /></button>
       </div>
       {!enabled && node.templateAsset ? <div className="node-template-file">
-        <div><strong>{node.templateAsset.originalName}</strong><small>扫描审核已关闭；发布前请删除此模板，或重新启用扫描审核。</small></div>
-        {!disabled ? <button onClick={onDeleteTemplate} type="button">删除模板</button> : null}
+        <span aria-hidden="true" className="node-template-file-icon">DOCX</span>
+        <div className="node-template-file-copy">
+          <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
+          <small>扫描审核已关闭；发布前请删除此模板，或重新启用扫描审核。</small>
+        </div>
+        {!disabled ? <div className="node-template-actions is-single"><button onClick={onDeleteTemplate} type="button">删除模板</button></div> : null}
       </div> : null}
       {enabled ? <>
         <div className="node-template-card">
           <h3>承诺书模板（DOCX）</h3>
           {node.templateAsset ? <div className="node-template-file">
-            <div><strong>{node.templateAsset.originalName}</strong><small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small></div>
+            <span aria-hidden="true" className="node-template-file-icon">DOCX</span>
+            <div className="node-template-file-copy">
+              <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
+              <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
+            </div>
             {disabled ? <span>已随发布版本固化</span> : <div className="node-template-actions">
               <label>替换模板<input accept=".docx" type="file" onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)} /></label>
               <button onClick={onDeleteTemplate} type="button">删除模板</button>
@@ -1927,6 +1941,18 @@ function getTimeWindowSummary(node: AcademicFlowNode) {
 function formatTemplateSize(value: number) {
   if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatTemplateType(filename: string) {
+  const extension = filename.split(".").pop()?.trim().toUpperCase();
+  return extension && extension.length <= 5 ? extension : "FILE";
+}
+
+function getFlowNodeDensity(node: AcademicFlowNode): "normal" | "compact" | "dense" {
+  const contentLength = Array.from(`${node.title.trim()}${node.requirement.trim()}`).length;
+  if (contentLength > 70) return "dense";
+  if (contentLength > 42) return "compact";
+  return "normal";
 }
 
 function getPortLabel(port: AcademicFlowPort) {

@@ -30,6 +30,9 @@ export function normalizeFormFields(fields: FormFieldConfig[]): NormalizedFormFi
       : {
           ...field,
           answerKey: field.id,
+          allowOther: field.type === "radio" || field.type === "checkbox"
+            ? false
+            : field.allowOther,
           legacy: false,
           options: field.options?.map((option) => ({ ...option })),
           required: true,
@@ -43,6 +46,9 @@ export function upgradeFormFields(fields: FormFieldConfig[]): FormField[] {
       ? { id: `legacy-${index}`, label: field, required: true, type: "text" }
       : {
           ...field,
+          allowOther: field.type === "radio" || field.type === "checkbox"
+            ? false
+            : field.allowOther,
           options: field.options?.map((option) => ({ ...option })),
           required: true,
         },

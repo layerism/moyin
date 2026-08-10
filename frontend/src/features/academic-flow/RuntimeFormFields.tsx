@@ -2,7 +2,6 @@ import type { FormFieldConfig } from "../../types";
 import {
   formatFormAnswer,
   normalizeFormFields,
-  OTHER_OPTION_ID,
 } from "./formFields";
 
 export function RuntimeFormFields({
@@ -90,23 +89,6 @@ export function RuntimeFormFields({
                     <span>{option.label}</span>
                   </label>
                 ))}
-                {field.allowOther ? (
-                  <ChoiceOther
-                    checked={selectedRadio === OTHER_OPTION_ID}
-                    name={`runtime-field-${field.id}`}
-                    onCheck={() => onUpdate(field.answerKey, {
-                      otherText: "",
-                      selectedOptionId: OTHER_OPTION_ID,
-                    }, field.id)}
-                    onText={(otherText) => onUpdate(field.answerKey, {
-                      otherText,
-                      selectedOptionId: OTHER_OPTION_ID,
-                    }, field.id)}
-                    text={selectedRadio === OTHER_OPTION_ID
-                      && typeof answer?.otherText === "string" ? answer.otherText : ""}
-                    type="radio"
-                  />
-                ) : null}
               </div>
             ) : null}
 
@@ -125,32 +107,11 @@ export function RuntimeFormFields({
                         selectedCheckboxes,
                         option.id,
                         event.target.checked,
-                        answer?.otherText,
                       ), field.id)}
                     />
                     <span>{option.label}</span>
                   </label>
                 ))}
-                {field.allowOther ? (
-                  <ChoiceOther
-                    checked={selectedCheckboxes.has(OTHER_OPTION_ID)}
-                    onCheck={(checked) => onUpdate(field.answerKey, checkboxAnswer(
-                      field.options?.map((item) => item.id) ?? [],
-                      selectedCheckboxes,
-                      OTHER_OPTION_ID,
-                      checked,
-                      answer?.otherText,
-                    ), field.id)}
-                    onText={(otherText) => onUpdate(field.answerKey, {
-                      otherText,
-                      selectedOptionIds: [...selectedCheckboxes],
-                    }, field.id)}
-                    text={selectedCheckboxes.has(OTHER_OPTION_ID) && typeof answer?.otherText === "string"
-                      ? answer.otherText
-                      : ""}
-                    type="checkbox"
-                  />
-                ) : null}
                 <small>
                   {selectionHint(field.minSelections, field.maxSelections, selectedCheckboxes.size)}
                 </small>
@@ -184,58 +145,18 @@ export function ReadonlyFormFields({
   );
 }
 
-function ChoiceOther({
-  checked,
-  name,
-  onCheck,
-  onText,
-  text,
-  type,
-}: {
-  checked: boolean;
-  name?: string;
-  onCheck: (checked: boolean) => void;
-  onText: (value: string) => void;
-  text: string;
-  type: "checkbox" | "radio";
-}) {
-  return (
-    <div className="runtime-form-field-other">
-      <label>
-        <input
-          checked={checked}
-          name={name}
-          type={type}
-          onChange={(event) => onCheck(event.target.checked)}
-        />
-        <span>其他</span>
-      </label>
-      {checked ? (
-        <input
-          aria-label="其他内容"
-          placeholder="请填写其他内容"
-          value={text}
-          onChange={(event) => onText(event.target.value)}
-        />
-      ) : null}
-    </div>
-  );
-}
-
 function checkboxAnswer(
   optionIds: string[],
   current: Set<string>,
   changedId: string,
   checked: boolean,
-  otherText: unknown,
 ) {
   const next = new Set(current);
   if (checked) next.add(changedId);
   else next.delete(changedId);
   const selectedOptionIds = optionIds.filter((optionId) => next.has(optionId));
-  if (next.has(OTHER_OPTION_ID)) selectedOptionIds.push(OTHER_OPTION_ID);
   return {
-    otherText: next.has(OTHER_OPTION_ID) && typeof otherText === "string" ? otherText : null,
+    otherText: null,
     selectedOptionIds,
   };
 }

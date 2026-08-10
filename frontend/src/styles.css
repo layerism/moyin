@@ -2202,10 +2202,12 @@ button {
 }
 
 .flow-node {
-  min-height: 126px;
+  height: 126px;
   position: relative;
   display: grid;
-  gap: 8px;
+  grid-template-rows: minmax(0, auto) minmax(0, 1fr) auto;
+  gap: 6px;
+  overflow: hidden;
   padding: 18px 28px 14px 48px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -2265,16 +2267,48 @@ button {
 }
 
 .flow-node strong {
+  display: -webkit-box;
+  overflow: hidden;
   font-size: 17px;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .flow-node small {
+  display: -webkit-box;
+  overflow: hidden;
   color: #5f6b7a;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.flow-node-density-compact strong {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.flow-node-density-compact small {
+  font-size: 11px;
+  line-height: 1.3;
+  -webkit-line-clamp: 3;
+}
+
+.flow-node-density-dense strong {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.flow-node-density-dense small {
+  font-size: 10px;
+  line-height: 1.25;
+  -webkit-line-clamp: 3;
 }
 
 .node-meta {
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2282,10 +2316,18 @@ button {
   font-size: 12px;
 }
 
+.flow-node-density-compact .node-meta,
+.flow-node-density-dense .node-meta {
+  font-size: 11px;
+}
+
 .node-meta em,
 .node-meta i {
   font-style: normal;
   font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .node-meta em {
@@ -2930,31 +2972,55 @@ button {
 .node-template-file {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
 }
 .node-template-actions {
   display: grid;
-  grid-template-columns: repeat(2, 92px);
+  grid-template-columns: repeat(2, 78px);
   align-items: stretch;
-  gap: 10px;
+  gap: 8px;
 }
-.node-template-file > div:first-child { display: grid; gap: 3px; min-width: 0; }
-.node-template-file strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-template-actions.is-single { grid-template-columns: 78px; }
+.node-template-file-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #eaf2ff;
+  color: #175cd3;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+}
+.node-template-file-copy { display: grid; gap: 2px; min-width: 0; }
+.node-template-file strong {
+  overflow: hidden;
+  color: #344054;
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .node-template-file small,
-.node-template-file > span { color: #64748b; font-size: 12px; }
+.node-template-file > span:not(.node-template-file-icon) {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+}
 .node-template-actions label,
 .node-template-actions button {
-  min-height: 38px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin: 0;
-  padding: 0 12px;
+  padding: 0 9px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 750;
   line-height: 1;
   white-space: nowrap;
@@ -3542,17 +3608,11 @@ button {
   margin: 4px 0 0 36px;
 }
 
-.form-field-card .form-field-add-option,
-.form-field-card .form-field-other-action {
+.form-field-card .form-field-add-option {
   border-style: dashed;
   border-color: #b9c9dd;
   background: #f8fbff;
   color: #245fbd;
-}
-
-.form-field-card .form-field-other-action {
-  border-style: solid;
-  background: #fff;
 }
 
 .selection-field-settings {
@@ -3687,13 +3747,14 @@ button {
 
 @media (max-width: 760px) {
   .node-template-file {
-    grid-template-columns: 1fr;
-    align-items: stretch;
+    grid-template-columns: 34px minmax(0, 1fr);
+    align-items: center;
   }
 
   .node-template-actions {
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-column: 1 / -1;
   }
 
   .node-inspector-backdrop {
@@ -5464,8 +5525,7 @@ button {
   gap: 10px;
 }
 
-.runtime-form-field-options > label,
-.runtime-form-field-other > label {
+.runtime-form-field-options > label {
   min-height: 34px;
   display: flex;
   align-items: center;
@@ -5493,19 +5553,6 @@ button {
 .runtime-form-field-options > small {
   color: #667085;
   font-size: 12px;
-}
-
-.runtime-form-field-other {
-  display: grid;
-  grid-template-columns: minmax(100px, auto) minmax(0, 1fr);
-  gap: 8px;
-}
-
-.runtime-form-field-other > input {
-  width: 100%;
-  padding: 9px 11px;
-  border: 1px solid #cfd7e5;
-  border-radius: 6px;
 }
 
 .runtime-form-field-error {
