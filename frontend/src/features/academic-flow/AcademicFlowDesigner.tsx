@@ -1417,7 +1417,6 @@ function FlowNodeCanvas({
               ))}
               <span className="node-index">{index + 1}</span>
               <strong>{node.title}</strong>
-              <small>{node.requirement}</small>
               <span className="node-meta">
                 <em>{kindLabels[node.kind]}</em>
                 <i>{statusLabels[node.status]}</i>
@@ -1944,7 +1943,6 @@ function StudentNode({ node, order }: { node: AcademicFlowNode; order: number })
       <span className="student-node-index">{order}</span>
       <span>
         <strong>{node.title}</strong>
-        <small>{node.requirement}</small>
       </span>
       <em>
         {isDisabled

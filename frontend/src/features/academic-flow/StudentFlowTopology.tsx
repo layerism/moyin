@@ -189,7 +189,6 @@ export function StudentFlowTopology({
               >
                 <span className="student-topology-node-index">{index + 1}</span>
                 <strong>{node.title}</strong>
-                <small>{node.requirement}</small>
                 <span className="student-topology-node-meta">
                   <em>{getKindLabel(node)}</em>
                   <i>{getTopologyStatusLabel(runtime.status, node.kind)}</i>
