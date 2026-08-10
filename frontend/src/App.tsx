@@ -148,9 +148,9 @@ export function App() {
   const [homeFolders, setHomeFolders] = useState<string[]>([]);
   const [homeActiveFolder, setHomeActiveFolder] = useState<string | null>(null);
   const [homeFiles, setHomeFiles] = useState<HomeFile[]>([]);
-  const [academicProcesses, setAcademicProcesses] = useState<AcademicProcess[]>(() =>
-    initialRoute.processId ? [createFallbackAcademicProcess(initialRoute.processId)] : [],
-  );
+  const [academicProcesses, setAcademicProcesses] = useState<AcademicProcess[]>([]);
+  const [academicFlowsLoaded, setAcademicFlowsLoaded] = useState(false);
+  const [academicFlowsLoadError, setAcademicFlowsLoadError] = useState("");
   const [activeAcademicProcessId, setActiveAcademicProcessId] = useState<string | null>(
     initialRoute.processId,
   );
@@ -188,8 +188,29 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!teacherIdentity) return;
-    workflowApi.listFlows().then((flows) => setAcademicProcesses(flows.map(mapServerFlow))).catch(() => undefined);
+    if (!teacherIdentity) {
+      setAcademicProcesses([]);
+      setAcademicFlowsLoaded(false);
+      setAcademicFlowsLoadError("");
+      return;
+    }
+    let cancelled = false;
+    setAcademicProcesses([]);
+    setAcademicFlowsLoaded(false);
+    setAcademicFlowsLoadError("");
+    workflowApi.listFlows()
+      .then((flows) => {
+        if (!cancelled) setAcademicProcesses(flows.map(mapServerFlow));
+      })
+      .catch((reason: Error) => {
+        if (!cancelled) setAcademicFlowsLoadError(reason.message || "流程加载失败");
+      })
+      .finally(() => {
+        if (!cancelled) setAcademicFlowsLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [teacherIdentity]);
 
   useEffect(() => {
@@ -617,17 +638,15 @@ export function App() {
     const activeProcess =
       academicProcesses.find((process) => process.id === activeAcademicProcessId) ?? null;
 
+    if (!academicFlowsLoaded) {
+      return <main className="auth-loading-page"><strong>正在加载流程</strong></main>;
+    }
+
     if (!activeProcess) {
       return (
-        <AcademicFlowDesigner
-          process={createFallbackAcademicProcess(activeAcademicProcessId ?? "academic-demo")}
-          onBack={openAcademicFlow}
-          onHome={openHome}
-          onOpenStudent={openStudentFlow}
-          onPublishProcess={publishAcademicProcess}
-          onProcessChange={updateAcademicProcess}
-          onSaveProcess={saveAcademicProcess}
-        />
+        <main className="auth-loading-page">
+          <strong>{academicFlowsLoadError || "流程不存在或无权访问"}</strong>
+        </main>
       );
     }
 
