@@ -21,10 +21,15 @@ import { ApiError, workflowApi } from "./api";
 import { AuditScriptSelector } from "./AuditScriptSelector";
 import {
   bindCtrlWheelListener,
+  canvasRectsIntersect,
+  constrainCanvasGroupDelta,
   getCanvasPanOffset,
   getCanvasViewportZoomState,
+  normalizeCanvasRect,
   shouldStartCanvasPan,
+  type CanvasPoint,
   type CanvasPanStart,
+  type CanvasRect,
 } from "./canvasPan";
 import {
   canAddRevisionEdge,
@@ -83,6 +88,17 @@ function snapCanvasPoint(position: { x: number; y: number }) {
 type ConnectionDraft = {
   nodeId: string;
   port: AcademicFlowPort;
+};
+
+type CanvasSelectionDraft = {
+  current: CanvasPoint;
+  start: CanvasPoint;
+};
+
+type NodeGroupDrag = {
+  anchorId: string;
+  pointerStart: CanvasPoint;
+  startPositions: Record<string, CanvasPoint>;
 };
 
 type FlowNodeLayout = AcademicFlowNode & {
@@ -380,6 +396,20 @@ export function AcademicFlowDesigner({
     });
   };
 
+  const updateNodePositions = (positions: Record<string, CanvasPoint>) => {
+    if (editorLocked) return;
+    let changed = false;
+    const nextNodes = workingProcess.nodes.map((node) => {
+      const position = positions[node.id];
+      if (!position || !canMoveRevisionNode(node.id, protectedNodeIds)) return node;
+      if (node.x === position.x && node.y === position.y) return node;
+      changed = true;
+      return { ...node, ...position };
+    });
+    if (!changed) return;
+    commitDesignChange({ ...workingProcess, nodes: nextNodes });
+  };
+
   const connectNodes = (
     source: string,
     target: string,
@@ -581,7 +611,7 @@ export function AcademicFlowDesigner({
             onDeleteEdge={deleteEdge}
             onOpenInspector={setInspectorNodeId}
             onSelectNode={setActiveNodeId}
-            onUpdateNode={updateNode}
+            onUpdateNodePositions={updateNodePositions}
           />
         </section>
         {inspectorNode && (
@@ -789,7 +819,7 @@ function FlowNodeCanvas({
   onDeleteNode,
   onOpenInspector,
   onSelectNode,
-  onUpdateNode,
+  onUpdateNodePositions,
 }: {
   activeNodeId: string;
   canDeleteEdge: (edgeId: string) => boolean;
@@ -814,7 +844,7 @@ function FlowNodeCanvas({
   onDeleteNode: (nodeId: string) => void;
   onOpenInspector: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
-  onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
+  onUpdateNodePositions: (positions: Record<string, CanvasPoint>) => void;
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const canvasSurfaceRef = useRef<HTMLDivElement | null>(null);
@@ -833,11 +863,11 @@ function FlowNodeCanvas({
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [draggingNode, setDraggingNode] = useState<{
-    id: string;
-    offsetX: number;
-    offsetY: number;
-  } | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
+    () => new Set(activeNodeId ? [activeNodeId] : []),
+  );
+  const [selectionDraft, setSelectionDraft] = useState<CanvasSelectionDraft | null>(null);
+  const [draggingNodes, setDraggingNodes] = useState<NodeGroupDrag | null>(null);
   const [nodeHeights, setNodeHeights] = useState<Record<string, number>>({});
   const nodeIdKey = nodes.map((node) => node.id).join("|");
   const registerNodeElement = useCallback((nodeId: string, element: HTMLButtonElement | null) => {
@@ -847,6 +877,10 @@ function FlowNodeCanvas({
 
   useEffect(() => {
     const activeNodeIds = new Set(nodeIdKey ? nodeIdKey.split("|") : []);
+    setSelectedNodeIds((current) => {
+      const next = new Set([...current].filter((nodeId) => activeNodeIds.has(nodeId)));
+      return next.size === current.size ? current : next;
+    });
     setNodeHeights((current) => {
       const staleIds = Object.keys(current).filter((nodeId) => !activeNodeIds.has(nodeId));
       if (staleIds.length === 0) return current;
@@ -882,7 +916,9 @@ function FlowNodeCanvas({
     setConnectionPreviewPoint(null);
     setConnectionPreviewPort(null);
     setConnectionPreviewTargetId(null);
-    setDraggingNode(null);
+    setDraggingNodes(null);
+    setSelectionDraft(null);
+    setSelectedNodeIds(new Set());
     setSelectedEdgeId(null);
   }, [locked]);
 
@@ -893,6 +929,12 @@ function FlowNodeCanvas({
   const nodeById = useMemo(
     () => new Map(layoutNodes.map((node) => [node.id, node])),
     [layoutNodes],
+  );
+  const selectionRect = useMemo<CanvasRect | null>(
+    () => selectionDraft
+      ? normalizeCanvasRect(selectionDraft.start, selectionDraft.current)
+      : null,
+    [selectionDraft],
   );
   const edgeLines = edges
     .map((edge) => {
@@ -1039,31 +1081,65 @@ function FlowNodeCanvas({
     ) {
       return;
     }
-    const point = getCanvasPoint(event.clientX, event.clientY);
-    setDraggingNode({ id: node.id, offsetX: point.x - node.x, offsetY: point.y - node.y });
+    event.stopPropagation();
+    const dragIds = selectedNodeIds.has(node.id) ? [...selectedNodeIds] : [node.id];
+    const startPositions = Object.fromEntries(
+      dragIds
+        .filter((nodeId) => canMoveNode(nodeId))
+        .map((nodeId) => nodeById.get(nodeId))
+        .filter((candidate): candidate is FlowNodeLayout => Boolean(candidate))
+        .map((candidate) => [candidate.id, { x: candidate.x, y: candidate.y }]),
+    );
+    if (!startPositions[node.id]) return;
+    if (!selectedNodeIds.has(node.id)) {
+      setSelectedNodeIds(new Set([node.id]));
+    }
+    onSelectNode(node.id);
+    setDraggingNodes({
+      anchorId: node.id,
+      pointerStart: getCanvasPoint(event.clientX, event.clientY),
+      startPositions,
+    });
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const dragNode = (event: PointerEvent<HTMLButtonElement>) => {
-    if (!draggingNode || !canMoveNode(draggingNode.id)) {
-      return;
-    }
+    if (!draggingNodes || !canMoveNode(draggingNodes.anchorId)) return;
     const point = getCanvasPoint(event.clientX, event.clientY);
-    const nextPosition = snapCanvasPoint({
-      x: point.x - draggingNode.offsetX,
-      y: point.y - draggingNode.offsetY,
+    const anchorStart = draggingNodes.startPositions[draggingNodes.anchorId];
+    if (!anchorStart) return;
+    const desiredAnchor = snapCanvasPoint({
+      x: anchorStart.x + point.x - draggingNodes.pointerStart.x,
+      y: anchorStart.y + point.y - draggingNodes.pointerStart.y,
     });
-    const currentNode = nodeById.get(draggingNode.id);
-    if (currentNode?.x === nextPosition.x && currentNode?.y === nextPosition.y) {
-      return;
-    }
-    onUpdateNode(draggingNode.id, nextPosition);
+    const constrainedDelta = constrainCanvasGroupDelta(
+      Object.values(draggingNodes.startPositions),
+      {
+        x: desiredAnchor.x - anchorStart.x,
+        y: desiredAnchor.y - anchorStart.y,
+      },
+      canvasGridSize,
+    );
+    if (constrainedDelta.x === 0 && constrainedDelta.y === 0) return;
+    onUpdateNodePositions(
+      Object.fromEntries(
+        Object.entries(draggingNodes.startPositions).map(([nodeId, position]) => [
+          nodeId,
+          {
+            x: position.x + constrainedDelta.x,
+            y: position.y + constrainedDelta.y,
+          },
+        ]),
+      ),
+    );
   };
 
   const endNodeDrag = (event: PointerEvent<HTMLButtonElement>) => {
-    if (draggingNode) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      setDraggingNode(null);
+    if (draggingNodes) {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      setDraggingNodes(null);
     }
   };
 
@@ -1140,27 +1216,61 @@ function FlowNodeCanvas({
     setConnectionSource(null);
   };
 
-  const startCanvasPan = (event: PointerEvent<HTMLDivElement>) => {
+  const startCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
+    if (!canvasRef.current) return;
+    if (shouldStartCanvasPan({ button: event.button })) {
+      event.preventDefault();
+      setSelectedEdgeId(null);
+      setPanStart({
+        clientX: event.clientX,
+        clientY: event.clientY,
+        offsetX: viewportOffset.x,
+        offsetY: viewportOffset.y,
+      });
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
+    const target = event.target as HTMLElement;
     if (
-      !shouldStartCanvasPan({ button: event.button }) ||
-      !canvasRef.current
+      event.button !== 0 ||
+      locked ||
+      connectingFromRef.current ||
+      target.closest(
+        ".flow-node, .flow-edge-hitbox, .flow-edge-delete, .node-quick-actions",
+      )
     ) {
       return;
     }
     event.preventDefault();
+    const point = getCanvasPoint(event.clientX, event.clientY);
     setSelectedEdgeId(null);
-    setPanStart({
-      clientX: event.clientX,
-      clientY: event.clientY,
-      offsetX: viewportOffset.x,
-      offsetY: viewportOffset.y,
-    });
+    setSelectedNodeIds(new Set());
+    setSelectionDraft({ current: point, start: point });
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const moveCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (panStart) {
       setViewportOffset(getCanvasPanOffset(panStart, event));
+      return;
+    }
+    if (selectionDraft) {
+      const point = getCanvasPoint(event.clientX, event.clientY);
+      const nextRect = normalizeCanvasRect(selectionDraft.start, point);
+      const nextIds = layoutNodes
+        .filter((node) => canMoveNode(node.id))
+        .filter((node) => canvasRectsIntersect(nextRect, {
+          x: node.x,
+          y: node.y,
+          width: nodeSize.width,
+          height: node.renderedHeight,
+        }))
+        .map((node) => node.id);
+      setSelectionDraft({ ...selectionDraft, current: point });
+      setSelectedNodeIds(new Set(nextIds));
+      if (nextIds[0] && nextIds[0] !== activeNodeId) {
+        onSelectNode(nextIds[0]);
+      }
       return;
     }
     updateConnectionPreview(event.clientX, event.clientY);
@@ -1174,6 +1284,13 @@ function FlowNodeCanvas({
       setPanStart(null);
       return;
     }
+    if (selectionDraft) {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      setSelectionDraft(null);
+      return;
+    }
     finishConnectionAt(event.clientX, event.clientY);
   };
 
@@ -1182,6 +1299,7 @@ function FlowNodeCanvas({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     setPanStart(null);
+    setSelectionDraft(null);
     setConnectionSource(null);
   };
   const previewSourceNode = connectingFrom ? nodeById.get(connectingFrom.nodeId) ?? null : null;
@@ -1219,7 +1337,9 @@ function FlowNodeCanvas({
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""}`}
+        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""} ${
+          selectionDraft ? "is-selecting" : ""
+        }`}
         onContextMenu={(event) => event.preventDefault()}
         onDragOver={(event) => {
           if (locked) {
@@ -1231,14 +1351,9 @@ function FlowNodeCanvas({
         }}
         onDrop={dropNode}
         onPointerCancel={cancelCanvasPointer}
-        onPointerDown={startCanvasPan}
+        onPointerDown={startCanvasPointer}
         onPointerMove={moveCanvasPointer}
         onPointerUp={endCanvasPointer}
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) {
-            setSelectedEdgeId(null);
-          }
-        }}
         ref={canvasRef}
         style={{
           backgroundPosition: `${viewportOffset.x}px ${viewportOffset.y}px`,
@@ -1307,6 +1422,17 @@ function FlowNodeCanvas({
               </>
             )}
             </svg>
+            {selectionRect ? (
+              <div
+                className="canvas-selection-box"
+                style={{
+                  height: selectionRect.height,
+                  left: selectionRect.x,
+                  top: selectionRect.y,
+                  width: selectionRect.width,
+                }}
+              />
+            ) : null}
             {!locked && selectedEdge && canDeleteEdge(selectedEdge.id) && (
           <button
             aria-label="删除连接线"
@@ -1330,15 +1456,20 @@ function FlowNodeCanvas({
             <button
               className={`flow-node ${node.status} ${
                 canMoveNode(node.id) ? "movable" : "protected"
-              } ${node.id === activeNodeId ? "selected" : ""}`}
+              } ${selectedNodeIds.has(node.id) ? "selected" : ""}`}
               data-flow-node-id={node.id}
-              onClick={() => onSelectNode(node.id)}
+              onClick={() => {
+                if (selectedNodeIds.has(node.id)) return;
+                setSelectedNodeIds(new Set([node.id]));
+                onSelectNode(node.id);
+              }}
               onDoubleClick={(event) => {
                 if (locked || (event.target as HTMLElement).closest(".connection-port")) return;
                 onOpenInspector(node.id);
               }}
               onPointerDown={(event) => startNodeDrag(event, node)}
               onPointerMove={dragNode}
+              onPointerCancel={endNodeDrag}
               onPointerUp={endNodeDrag}
               type="button"
               ref={(element) => registerNodeElement(node.id, element)}
@@ -1421,7 +1552,7 @@ function FlowNodeCanvas({
                 <i>{statusLabels[node.status]}</i>
               </span>
             </button>
-            {!locked && node.id === activeNodeId && (
+            {!locked && selectedNodeIds.has(node.id) && node.id === activeNodeId && (
               <div className="node-quick-actions" aria-label="节点操作">
                 <button
                   className="node-config-action"

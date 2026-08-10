@@ -1,3 +1,13 @@
+export type CanvasPoint = {
+  x: number;
+  y: number;
+};
+
+export type CanvasRect = CanvasPoint & {
+  height: number;
+  width: number;
+};
+
 export type CanvasPanStart = {
   clientX: number;
   clientY: number;
@@ -33,6 +43,37 @@ const zoomStep = 0.02;
 
 export function shouldStartCanvasPan(input: CanvasPanStartInput) {
   return input.button === 2;
+}
+
+export function normalizeCanvasRect(start: CanvasPoint, end: CanvasPoint): CanvasRect {
+  return {
+    x: Math.min(start.x, end.x),
+    y: Math.min(start.y, end.y),
+    width: Math.abs(end.x - start.x),
+    height: Math.abs(end.y - start.y),
+  };
+}
+
+export function canvasRectsIntersect(left: CanvasRect, right: CanvasRect) {
+  return (
+    left.x <= right.x + right.width &&
+    left.x + left.width >= right.x &&
+    left.y <= right.y + right.height &&
+    left.y + left.height >= right.y
+  );
+}
+
+export function constrainCanvasGroupDelta(
+  points: readonly CanvasPoint[],
+  desiredDelta: CanvasPoint,
+  minimumCoordinate: number,
+): CanvasPoint {
+  const minimumX = Math.min(...points.map((point) => point.x));
+  const minimumY = Math.min(...points.map((point) => point.y));
+  return {
+    x: Math.max(desiredDelta.x, minimumCoordinate - minimumX),
+    y: Math.max(desiredDelta.y, minimumCoordinate - minimumY),
+  };
 }
 
 export function bindCtrlWheelListener(

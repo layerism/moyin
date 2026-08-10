@@ -2093,11 +2093,26 @@ button {
   user-select: none;
 }
 
+.dag-canvas.is-selecting {
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
 .flow-edge-layer {
   position: absolute;
+  z-index: 1;
   inset: 0;
   width: 1200px;
   height: 1000px;
+  pointer-events: none;
+}
+
+.canvas-selection-box {
+  position: absolute;
+  z-index: 2;
+  border: 1px solid #2773f6;
+  background: rgba(39, 115, 246, 0.12);
   pointer-events: none;
 }
 
