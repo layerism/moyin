@@ -125,4 +125,4 @@ def _validate_confirmation_scan(
         if not isinstance(prompt, str) or not prompt.strip():
             raise FlowValidationError("请填写扫描审核标准")
         if not node.get("templateAsset"):
-            raise FlowValidationError("请上传 DOCX 承诺书模板")
+            raise FlowValidationError("请上传 DOCX 签署文件模板")

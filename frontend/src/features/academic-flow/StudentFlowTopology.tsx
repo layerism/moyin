@@ -168,7 +168,7 @@ export function StudentFlowTopology({
               );
             })}
           </svg>
-          {nodes.map((node, index) => {
+          {nodes.map((node) => {
             const runtime = runtimeByKey.get(node.id);
             if (!runtime) return null;
             const openable = openableStatuses.has(runtime.status);
@@ -187,7 +187,6 @@ export function StudentFlowTopology({
                 }}
                 type="button"
               >
-                <span className="student-topology-node-index">{index + 1}</span>
                 <strong>{node.title}</strong>
                 <span className="student-topology-node-meta">
                   <em>{getKindLabel(node)}</em>

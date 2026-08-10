@@ -76,7 +76,7 @@ export function getScanAuditConfigError(node: AcademicFlowNode): string | undefi
     return node.templateAsset ? `节点“${node.title}”已关闭扫描审核，请删除模板` : undefined;
   }
   if (!node.templateAsset?.originalName.toLowerCase().endsWith(".docx")) {
-    return `节点“${node.title}”需要上传 DOCX 承诺书模板`;
+    return `节点“${node.title}”需要上传 DOCX 签署文件模板`;
   }
   if (!node.scanAuditMode) return `节点“${node.title}”需要选择审核模式`;
   if (!node.scanAuditPrompt?.trim()) return `节点“${node.title}”需要填写审核标准`;
