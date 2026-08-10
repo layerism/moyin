@@ -71,38 +71,50 @@ export function RuntimeFormFields({
             ) : null}
 
             {field.type === "radio" ? (
-              <div className="runtime-form-field-select" onBlur={() => onBlur(field.id)}>
-                <select
-                  aria-describedby={error ? errorId : undefined}
-                  value={selectedRadio ?? ""}
-                  onChange={(event) => onUpdate(field.answerKey, {
-                    otherText: event.target.value === OTHER_OPTION_ID ? "" : null,
-                    selectedOptionId: event.target.value || null,
-                  }, field.id)}
-                >
-                  <option value="">请选择</option>
-                  {(field.options ?? []).map((option) => (
-                    <option key={option.id} value={option.id}>{option.label}</option>
-                  ))}
-                  {field.allowOther ? <option value={OTHER_OPTION_ID}>其他</option> : null}
-                </select>
-                {selectedRadio === OTHER_OPTION_ID ? (
-                  <input
-                    aria-label="其他内容"
-                    placeholder="请填写其他内容"
-                    type="text"
-                    value={typeof answer?.otherText === "string" ? answer.otherText : ""}
-                    onChange={(event) => onUpdate(field.answerKey, {
-                      otherText: event.target.value,
+              <div
+                className="runtime-form-field-options is-radio"
+                onBlur={() => onBlur(field.id)}
+              >
+                {(field.options ?? []).map((option) => (
+                  <label key={option.id}>
+                    <input
+                      aria-describedby={error ? errorId : undefined}
+                      checked={selectedRadio === option.id}
+                      name={`runtime-field-${field.id}`}
+                      type="radio"
+                      onChange={() => onUpdate(field.answerKey, {
+                        otherText: null,
+                        selectedOptionId: option.id,
+                      }, field.id)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+                {field.allowOther ? (
+                  <ChoiceOther
+                    checked={selectedRadio === OTHER_OPTION_ID}
+                    name={`runtime-field-${field.id}`}
+                    onCheck={() => onUpdate(field.answerKey, {
+                      otherText: "",
                       selectedOptionId: OTHER_OPTION_ID,
                     }, field.id)}
+                    onText={(otherText) => onUpdate(field.answerKey, {
+                      otherText,
+                      selectedOptionId: OTHER_OPTION_ID,
+                    }, field.id)}
+                    text={selectedRadio === OTHER_OPTION_ID
+                      && typeof answer?.otherText === "string" ? answer.otherText : ""}
+                    type="radio"
                   />
                 ) : null}
               </div>
             ) : null}
 
             {field.type === "checkbox" ? (
-              <div className="runtime-form-field-options" onBlur={() => onBlur(field.id)}>
+              <div
+                className="runtime-form-field-options is-checkbox"
+                onBlur={() => onBlur(field.id)}
+              >
                 {(field.options ?? []).map((option) => (
                   <label key={option.id}>
                     <input
@@ -136,6 +148,7 @@ export function RuntimeFormFields({
                     text={selectedCheckboxes.has(OTHER_OPTION_ID) && typeof answer?.otherText === "string"
                       ? answer.otherText
                       : ""}
+                    type="checkbox"
                   />
                 ) : null}
                 <small>
@@ -173,21 +186,26 @@ export function ReadonlyFormFields({
 
 function ChoiceOther({
   checked,
+  name,
   onCheck,
   onText,
   text,
+  type,
 }: {
   checked: boolean;
+  name?: string;
   onCheck: (checked: boolean) => void;
   onText: (value: string) => void;
   text: string;
+  type: "checkbox" | "radio";
 }) {
   return (
     <div className="runtime-form-field-other">
       <label>
         <input
           checked={checked}
-          type="checkbox"
+          name={name}
+          type={type}
           onChange={(event) => onCheck(event.target.checked)}
         />
         <span>其他</span>

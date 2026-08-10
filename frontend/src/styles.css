@@ -3300,18 +3300,6 @@ button {
   font-weight: 700;
 }
 
-.form-field-other-toggle {
-  display: flex !important;
-  align-items: center;
-  gap: 7px !important;
-}
-
-.form-field-other-toggle input {
-  width: 16px !important;
-  min-height: 16px !important;
-  margin: 0;
-}
-
 .form-field-type-settings,
 .form-field-option-list {
   display: grid;
@@ -3333,9 +3321,9 @@ button {
 .form-field-option-row {
   position: relative;
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr) auto;
+  grid-template-columns: 28px 18px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 
 .form-field-option-heading {
@@ -3345,21 +3333,31 @@ button {
   gap: 10px;
 }
 
-.form-field-option-heading span,
-.selection-option-index {
+.form-field-option-heading span {
   color: #8b99aa;
   font-size: 11px;
-}
-
-.selection-option-index {
-  min-width: 14px;
-  text-align: center;
 }
 
 .selection-option-order {
   display: flex;
   align-items: center;
-  gap: 3px;
+}
+
+.selection-option-kind {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  flex: 0 0 18px;
+  border: 2px solid #b8c1cd;
+  background: #fff;
+}
+
+.selection-option-kind.is-radio {
+  border-radius: 50%;
+}
+
+.selection-option-kind.is-checkbox {
+  border-radius: 3px;
 }
 
 .form-field-card .form-field-reorder-handle {
@@ -3436,13 +3434,45 @@ button {
   min-height: 34px;
 }
 
-.form-field-card .form-field-add-option {
-  width: 100%;
-  margin-top: 2px;
+.form-field-option-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0 36px;
+}
+
+.form-field-card .form-field-add-option,
+.form-field-card .form-field-other-action {
   border-style: dashed;
   border-color: #b9c9dd;
   background: #f8fbff;
   color: #245fbd;
+}
+
+.form-field-card .form-field-other-action {
+  border-style: solid;
+  background: #fff;
+}
+
+.selection-field-settings {
+  gap: 14px;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.selection-field-type-footer {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 2px -12px -12px;
+  padding: 13px 14px;
+  border-top: 1px solid #e5ebf2;
+  color: #334155;
+}
+
+.selection-field-type-footer strong {
+  font-size: 13px;
 }
 
 .form-field-action-menu-wrap {
@@ -5331,33 +5361,33 @@ button {
 
 .runtime-form-field-options {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .runtime-form-field-options > label,
 .runtime-form-field-other > label {
-  min-height: 38px;
+  min-height: 34px;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #f8fafc;
+  gap: 10px;
+  padding: 5px 4px;
+  border: 0;
+  background: transparent;
   cursor: pointer;
 }
 
 .runtime-form-field-options label > input {
-  width: 17px;
-  height: 17px;
-  flex: 0 0 17px;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
   margin: 0;
+  accent-color: #2b74ff;
 }
 
 .runtime-form-field-options label > span {
   margin: 0;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .runtime-form-field-options > small {
@@ -5367,7 +5397,7 @@ button {
 
 .runtime-form-field-other {
   display: grid;
-  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+  grid-template-columns: minmax(100px, auto) minmax(0, 1fr);
   gap: 8px;
 }
 
