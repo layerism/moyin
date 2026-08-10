@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent, PointerEvent } from "react";
 
 import type {
@@ -83,6 +83,10 @@ function snapCanvasPoint(position: { x: number; y: number }) {
 type ConnectionDraft = {
   nodeId: string;
   port: AcademicFlowPort;
+};
+
+type FlowNodeLayout = AcademicFlowNode & {
+  renderedHeight: number;
 };
 
 type PendingNavigation = {
@@ -815,6 +819,7 @@ function FlowNodeCanvas({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const canvasSurfaceRef = useRef<HTMLDivElement | null>(null);
   const connectingFromRef = useRef<ConnectionDraft | null>(null);
+  const nodeElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const [connectingFrom, setConnectingFrom] = useState<ConnectionDraft | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<{
     x: number;
@@ -833,6 +838,42 @@ function FlowNodeCanvas({
     offsetX: number;
     offsetY: number;
   } | null>(null);
+  const [nodeHeights, setNodeHeights] = useState<Record<string, number>>({});
+  const nodeIdKey = nodes.map((node) => node.id).join("|");
+  const registerNodeElement = useCallback((nodeId: string, element: HTMLButtonElement | null) => {
+    if (element) nodeElementsRef.current.set(nodeId, element);
+    else nodeElementsRef.current.delete(nodeId);
+  }, []);
+
+  useEffect(() => {
+    const activeNodeIds = new Set(nodeIdKey ? nodeIdKey.split("|") : []);
+    setNodeHeights((current) => {
+      const staleIds = Object.keys(current).filter((nodeId) => !activeNodeIds.has(nodeId));
+      if (staleIds.length === 0) return current;
+      return Object.fromEntries(
+        Object.entries(current).filter(([nodeId]) => activeNodeIds.has(nodeId)),
+      );
+    });
+
+    const observer = new ResizeObserver((entries) => {
+      setNodeHeights((current) => {
+        let next = current;
+        entries.forEach((entry) => {
+          const element = entry.target as HTMLButtonElement;
+          const nodeId = element.dataset.flowNodeId;
+          const height = Math.max(nodeSize.height, Math.ceil(element.offsetHeight));
+          if (!nodeId || current[nodeId] === height) return;
+          if (next === current) next = { ...current };
+          next[nodeId] = height;
+        });
+        return next;
+      });
+    });
+    nodeElementsRef.current.forEach((element, nodeId) => {
+      if (activeNodeIds.has(nodeId)) observer.observe(element);
+    });
+    return () => observer.disconnect();
+  }, [nodeIdKey]);
 
   useEffect(() => {
     if (!locked) return;
@@ -845,7 +886,14 @@ function FlowNodeCanvas({
     setSelectedEdgeId(null);
   }, [locked]);
 
-  const nodeById = useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes]);
+  const layoutNodes = useMemo<FlowNodeLayout[]>(() => nodes.map((node) => ({
+    ...node,
+    renderedHeight: nodeHeights[node.id] ?? nodeSize.height,
+  })), [nodeHeights, nodes]);
+  const nodeById = useMemo(
+    () => new Map(layoutNodes.map((node) => [node.id, node])),
+    [layoutNodes],
+  );
   const edgeLines = edges
     .map((edge) => {
       const source = nodeById.get(edge.source);
@@ -925,14 +973,14 @@ function FlowNodeCanvas({
 
   const findMagnetTarget = (point: { x: number; y: number }, sourceNodeId: string) => {
     const magnetPadding = 36;
-    const candidates = nodes
+    const candidates = layoutNodes
       .filter((node) => node.id !== sourceNodeId)
       .map((node) => {
         const inside =
           point.x >= node.x - magnetPadding &&
           point.x <= node.x + nodeSize.width + magnetPadding &&
           point.y >= node.y - magnetPadding &&
-          point.y <= node.y + nodeSize.height + magnetPadding;
+          point.y <= node.y + node.renderedHeight + magnetPadding;
         if (!inside) {
           return null;
         }
@@ -952,7 +1000,7 @@ function FlowNodeCanvas({
           candidate,
         ): candidate is {
           distance: number;
-          node: AcademicFlowNode;
+          node: FlowNodeLayout;
           point: { x: number; y: number };
           port: AcademicFlowPort;
         } => Boolean(candidate),
@@ -1153,10 +1201,14 @@ function FlowNodeCanvas({
               targetX: connectionPreviewPoint.x,
               targetY: connectionPreviewPoint.y,
             },
-            nodes,
+            layoutNodes,
           )
         : createPreviewPath(previewSourceNode, connectingFrom.port, connectionPreviewPoint)
       : "";
+  const canvasSurfaceHeight = Math.max(
+    1000,
+    ...layoutNodes.map((node) => node.y + node.renderedHeight + 80),
+  );
 
   return (
     <section className="flow-panel canvas-panel">
@@ -1197,7 +1249,7 @@ function FlowNodeCanvas({
           className="canvas-zoom-surface"
           ref={canvasSurfaceRef}
           style={{
-            height: 1000 * zoom,
+            height: canvasSurfaceHeight * zoom,
             transform: `translate(${viewportOffset.x}px, ${viewportOffset.y}px)`,
             width: 1200 * zoom,
           }}
@@ -1205,7 +1257,7 @@ function FlowNodeCanvas({
           <div className="canvas-zoom-content" style={{ transform: `scale(${zoom})` }}>
             <svg className="flow-edge-layer">
           {edgeLines.map((edge) => {
-            const path = createOrthogonalPath(edge, nodes);
+            const path = createOrthogonalPath(edge, layoutNodes);
             const deletable = !locked && canDeleteEdge(edge.id);
             return (
               <g
@@ -1269,7 +1321,7 @@ function FlowNodeCanvas({
             ×
           </button>
             )}
-            {nodes.map((node, index) => (
+            {layoutNodes.map((node, index) => (
           <div
             className="canvas-node-stack dag-node-stack"
             key={node.id}
@@ -1278,7 +1330,8 @@ function FlowNodeCanvas({
             <button
               className={`flow-node ${node.status} ${
                 canMoveNode(node.id) ? "movable" : "protected"
-              } ${node.id === activeNodeId ? "selected" : ""} flow-node-density-${getFlowNodeDensity(node)}`}
+              } ${node.id === activeNodeId ? "selected" : ""}`}
+              data-flow-node-id={node.id}
               onClick={() => onSelectNode(node.id)}
               onDoubleClick={(event) => {
                 if (locked || (event.target as HTMLElement).closest(".connection-port")) return;
@@ -1288,7 +1341,8 @@ function FlowNodeCanvas({
               onPointerMove={dragNode}
               onPointerUp={endNodeDrag}
               type="button"
-              style={{ height: nodeSize.height, width: nodeSize.width }}
+              ref={(element) => registerNodeElement(node.id, element)}
+              style={{ width: nodeSize.width }}
             >
               {!locked && connectionPorts.map((port) => (
                 <span
@@ -1948,13 +2002,6 @@ function formatTemplateType(filename: string) {
   return extension && extension.length <= 5 ? extension : "FILE";
 }
 
-function getFlowNodeDensity(node: AcademicFlowNode): "normal" | "compact" | "dense" {
-  const contentLength = Array.from(`${node.title.trim()}${node.requirement.trim()}`).length;
-  if (contentLength > 70) return "dense";
-  if (contentLength > 42) return "compact";
-  return "normal";
-}
-
 function getPortLabel(port: AcademicFlowPort) {
   if (port === "top") {
     return "上";
@@ -1968,24 +2015,24 @@ function getPortLabel(port: AcademicFlowPort) {
   return "右";
 }
 
-function getPortPoint(node: AcademicFlowNode, port: AcademicFlowPort) {
+function getPortPoint(node: FlowNodeLayout, port: AcademicFlowPort) {
   if (port === "top") {
     return { x: node.x + nodeSize.width / 2, y: node.y };
   }
   if (port === "bottom") {
-    return { x: node.x + nodeSize.width / 2, y: node.y + nodeSize.height };
+    return { x: node.x + nodeSize.width / 2, y: node.y + node.renderedHeight };
   }
   if (port === "left") {
-    return { x: node.x, y: node.y + nodeSize.height / 2 };
+    return { x: node.x, y: node.y + node.renderedHeight / 2 };
   }
-  return { x: node.x + nodeSize.width, y: node.y + nodeSize.height / 2 };
+  return { x: node.x + nodeSize.width, y: node.y + node.renderedHeight / 2 };
 }
 
-function getFallbackPorts(source: AcademicFlowNode, target: AcademicFlowNode) {
+function getFallbackPorts(source: FlowNodeLayout, target: FlowNodeLayout) {
   const sourceCenterX = source.x + nodeSize.width / 2;
-  const sourceCenterY = source.y + nodeSize.height / 2;
+  const sourceCenterY = source.y + source.renderedHeight / 2;
   const targetCenterX = target.x + nodeSize.width / 2;
-  const targetCenterY = target.y + nodeSize.height / 2;
+  const targetCenterY = target.y + target.renderedHeight / 2;
   const horizontalGap = Math.abs(targetCenterX - sourceCenterX);
   const verticalGap = Math.abs(targetCenterY - sourceCenterY);
 
@@ -2000,7 +2047,7 @@ function getFallbackPorts(source: AcademicFlowNode, target: AcademicFlowNode) {
     : ({ sourcePort: "left", targetPort: "right" } as const);
 }
 
-function resolveEdgePorts(edge: AcademicFlowEdge, source: AcademicFlowNode, target: AcademicFlowNode) {
+function resolveEdgePorts(edge: AcademicFlowEdge, source: FlowNodeLayout, target: FlowNodeLayout) {
   const fallback = getFallbackPorts(source, target);
   const sourcePort = edge.sourcePort ?? fallback.sourcePort;
   const targetPort = edge.targetPort ?? fallback.targetPort;
@@ -2026,7 +2073,7 @@ function createOrthogonalPath(edge: {
   targetPort: AcademicFlowPort;
   targetX: number;
   targetY: number;
-}, nodes: AcademicFlowNode[]) {
+}, nodes: FlowNodeLayout[]) {
   const sourceOffset = offsetPoint(edge.sourceX, edge.sourceY, edge.sourcePort, 22);
   const targetOffset = offsetPoint(edge.targetX, edge.targetY, edge.targetPort, 22);
   const sourceIsHorizontal = edge.sourcePort === "left" || edge.sourcePort === "right";
@@ -2034,10 +2081,10 @@ function createOrthogonalPath(edge: {
   const canvasLeft = Math.min(...nodes.map((node) => node.x)) - 80;
   const canvasRight = Math.max(...nodes.map((node) => node.x + nodeSize.width)) + 80;
   const canvasTop = Math.min(...nodes.map((node) => node.y)) - 80;
-  const canvasBottom = Math.max(...nodes.map((node) => node.y + nodeSize.height)) + 80;
+  const canvasBottom = Math.max(...nodes.map((node) => node.y + node.renderedHeight)) + 80;
   const targetNode = nodes.find((node) => node.id === edge.target);
   const bypassYs = targetNode
-    ? [targetNode.y - 40, targetNode.y + nodeSize.height + 40]
+    ? [targetNode.y - 40, targetNode.y + targetNode.renderedHeight + 40]
     : [(sourceOffset.y + targetOffset.y) / 2];
   const sideXs = edge.sourcePort === "left" ? [canvasLeft, canvasRight] : [canvasRight, canvasLeft];
   const candidates = [
@@ -2126,7 +2173,7 @@ function createOrthogonalPath(edge: {
 
 function getRouteCollisionCount(
   points: Array<{ x: number; y: number }>,
-  nodes: AcademicFlowNode[],
+  nodes: FlowNodeLayout[],
   sourceId: string,
   targetId: string,
 ) {
@@ -2151,13 +2198,13 @@ function getRouteCollisionCount(
 
 function segmentIntersectsNodeInterior(
   segment: { a: { x: number; y: number }; b: { x: number; y: number } },
-  node: AcademicFlowNode,
+  node: FlowNodeLayout,
 ) {
   const margin = 6;
   const left = node.x + margin;
   const right = node.x + nodeSize.width - margin;
   const top = node.y + margin;
-  const bottom = node.y + nodeSize.height - margin;
+  const bottom = node.y + node.renderedHeight - margin;
   const minX = Math.min(segment.a.x, segment.b.x);
   const maxX = Math.max(segment.a.x, segment.b.x);
   const minY = Math.min(segment.a.y, segment.b.y);
@@ -2180,7 +2227,7 @@ function getRouteLength(points: Array<{ x: number; y: number }>) {
 }
 
 function createPreviewPath(
-  sourceNode: AcademicFlowNode,
+  sourceNode: FlowNodeLayout,
   sourcePort: AcademicFlowPort,
   target: { x: number; y: number },
 ) {
