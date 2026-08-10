@@ -1431,14 +1431,17 @@ function NodeInspector({
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   publishedRevision: boolean;
 }) {
-  const [timeSettingsExpanded, setTimeSettingsExpanded] = useState(
-    () => Boolean(node?.startAt || node?.deadlineAt),
-  );
+  const [timeSettingsOpen, setTimeSettingsOpen] = useState(false);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key !== "Escape") return;
+      if (timeSettingsOpen) {
+        setTimeSettingsOpen(false);
+        return;
+      }
+      onClose();
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
@@ -1446,11 +1449,7 @@ function NodeInspector({
       window.removeEventListener("keydown", closeOnEscape);
       document.body.style.overflow = previousOverflow;
     };
-  }, [onClose]);
-
-  useEffect(() => {
-    setTimeSettingsExpanded(Boolean(node?.startAt || node?.deadlineAt));
-  }, [node?.id]);
+  }, [onClose, timeSettingsOpen]);
 
   if (!node) {
     return null;
@@ -1493,10 +1492,9 @@ function NodeInspector({
         </label>
         <div className="node-basic-actions">
           <button
-            aria-controls={`node-time-settings-${node.id}`}
-            aria-expanded={timeSettingsExpanded}
+            aria-haspopup="dialog"
             className="node-time-settings-toggle"
-            onClick={() => setTimeSettingsExpanded((expanded) => !expanded)}
+            onClick={() => setTimeSettingsOpen(true)}
             type="button"
           >
             <span aria-hidden="true">＋</span>
@@ -1506,49 +1504,6 @@ function NodeInspector({
             <small>{getTimeWindowStatus(node)}</small>
           ) : null}
         </div>
-        {timeSettingsExpanded ? (
-          <section
-            className="node-time-window-card"
-            id={`node-time-settings-${node.id}`}
-          >
-            <div className="node-time-window-fields">
-              <div className="node-time-window-field">
-                <span>起始时间</span>
-                <NodeDateTimePicker
-                  ariaLabel="起始时间"
-                  onConfirm={(startAt) => onUpdateNode(node.id, { startAt })}
-                  value={node.startAt}
-                />
-                {node.startAt ? (
-                  <button
-                    onClick={() => onUpdateNode(node.id, { startAt: null })}
-                    type="button"
-                  >
-                    清除
-                  </button>
-                ) : null}
-              </div>
-              <i aria-hidden="true" />
-              <div className="node-time-window-field">
-                <span>截止时间</span>
-                <NodeDateTimePicker
-                  ariaLabel="截止时间"
-                  onConfirm={(deadlineAt) => onUpdateNode(node.id, { deadlineAt })}
-                  value={node.deadlineAt}
-                />
-                {node.deadlineAt ? (
-                  <button
-                    onClick={() => onUpdateNode(node.id, { deadlineAt: null })}
-                    type="button"
-                  >
-                    清除
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            <small>{getTimeWindowSummary(node)}</small>
-          </section>
-        ) : null}
         {publishedRevision ? (
           <p className="node-inspector-revision-note">
             当前为发布后修订。旧节点仅可修改标题、说明、起始时间和截止时间；修改标题或说明后，该节点及下游需重新完成。
@@ -1703,6 +1658,95 @@ function NodeInspector({
           </button>
         </footer>
       </aside>
+      {timeSettingsOpen ? (
+        <NodeTimeSettingsDialog
+          node={node}
+          onCancel={() => setTimeSettingsOpen(false)}
+          onConfirm={(startAt, deadlineAt) => {
+            onUpdateNode(node.id, { deadlineAt, startAt });
+            setTimeSettingsOpen(false);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function NodeTimeSettingsDialog({
+  node,
+  onCancel,
+  onConfirm,
+}: {
+  node: AcademicFlowNode;
+  onCancel: () => void;
+  onConfirm: (startAt: string | null, deadlineAt: string | null) => void;
+}) {
+  const [startAt, setStartAt] = useState<string | null>(node.startAt ?? null);
+  const [deadlineAt, setDeadlineAt] = useState<string | null>(node.deadlineAt ?? null);
+  const invalid = Boolean(
+    startAt
+    && deadlineAt
+    && new Date(startAt).getTime() >= new Date(deadlineAt).getTime(),
+  );
+  const draftNode = { ...node, deadlineAt, startAt };
+
+  return (
+    <div
+      className="node-time-dialog-backdrop"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <section
+        aria-labelledby="node-time-dialog-title"
+        aria-modal="true"
+        className="node-time-dialog"
+        role="dialog"
+      >
+        <header>
+          <h2 id="node-time-dialog-title">定时设置</h2>
+          <button aria-label="关闭定时设置" autoFocus onClick={onCancel} type="button">×</button>
+        </header>
+        <div className="node-time-dialog-body">
+          <div className="node-time-window-fields">
+            <div className="node-time-window-field">
+              <span>起始时间</span>
+              <NodeDateTimePicker
+                ariaLabel="起始时间"
+                onConfirm={setStartAt}
+                value={startAt}
+              />
+              {startAt ? (
+                <button onClick={() => setStartAt(null)} type="button">清除</button>
+              ) : null}
+            </div>
+            <i aria-hidden="true" />
+            <div className="node-time-window-field">
+              <span>截止时间</span>
+              <NodeDateTimePicker
+                ariaLabel="截止时间"
+                onConfirm={setDeadlineAt}
+                value={deadlineAt}
+              />
+              {deadlineAt ? (
+                <button onClick={() => setDeadlineAt(null)} type="button">清除</button>
+              ) : null}
+            </div>
+          </div>
+          <p className={invalid ? "node-time-dialog-error" : "node-time-dialog-summary"}>
+            {getTimeWindowSummary(draftNode)}
+          </p>
+        </div>
+        <footer>
+          <button onClick={onCancel} type="button">取消</button>
+          <button
+            className="primary-action"
+            disabled={invalid}
+            onClick={() => onConfirm(startAt, deadlineAt)}
+            type="button"
+          >确定</button>
+        </footer>
+      </section>
     </div>
   );
 }
