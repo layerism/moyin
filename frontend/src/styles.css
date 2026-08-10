@@ -2202,12 +2202,11 @@ button {
 }
 
 .flow-node {
-  height: 126px;
+  min-height: 126px;
   position: relative;
   display: grid;
   grid-template-rows: minmax(0, auto) minmax(0, 1fr) auto;
   gap: 6px;
-  overflow: hidden;
   padding: 18px 28px 14px 48px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -2267,12 +2266,11 @@ button {
 }
 
 .flow-node strong {
-  display: -webkit-box;
-  overflow: hidden;
+  display: block;
   font-size: 17px;
   line-height: 1.25;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .flow-node small {
@@ -2285,16 +2283,6 @@ button {
   -webkit-line-clamp: 2;
 }
 
-.flow-node-density-compact strong {
-  font-size: 14px;
-  line-height: 1.2;
-}
-
-.flow-node-density-dense strong {
-  font-size: 12px;
-  line-height: 1.2;
-}
-
 .node-meta {
   min-width: 0;
   display: flex;
@@ -2302,11 +2290,6 @@ button {
   justify-content: space-between;
   gap: 10px;
   font-size: 12px;
-}
-
-.flow-node-density-compact .node-meta,
-.flow-node-density-dense .node-meta {
-  font-size: 11px;
 }
 
 .node-meta em,
