@@ -3386,6 +3386,17 @@ button {
   gap: 5px;
 }
 
+.runtime-node-dialog .runtime-scan-list li {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.runtime-node-dialog .runtime-scan-actions {
+  max-width: 100%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .runtime-scan-replace {
   position: relative;
   display: inline-flex !important;
@@ -4843,12 +4854,22 @@ button {
 
 .runtime-node-dialog {
   width: min(620px, 100%);
+  min-width: 0;
   max-height: calc(100vh - 48px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   border: 1px solid #d8dee8;
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+}
+
+.runtime-node-dialog .runtime-node-form,
+.runtime-node-dialog .runtime-template-steps,
+.runtime-node-dialog .runtime-template-download,
+.runtime-node-dialog .runtime-scan-workspace,
+.runtime-node-dialog .runtime-scan-list {
+  min-width: 0;
 }
 
 .runtime-warning-backdrop {
