@@ -2045,7 +2045,7 @@ function ConfirmationScanSettings({
           <small>{(node.scanAuditPrompt ?? "").length}/2000</small>
         </label>
       </> : null}
-      <p className="muted-line">学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB。支持 JPG、PNG、PDF。</p>
+      <p className="muted-line">学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB。支持 JPG、JPEG、PNG。</p>
     </section>
   );
 }

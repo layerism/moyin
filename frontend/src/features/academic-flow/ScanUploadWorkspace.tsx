@@ -111,13 +111,13 @@ export function ScanUploadWorkspace({
 
   return <section className="runtime-scan-workspace">
     <label className="runtime-scan-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={drop}>
-      <input accept=".jpg,.jpeg,.png,.pdf" disabled={disabled || uploading} multiple type="file" onChange={(event) => {
+      <input accept=".jpg,.jpeg,.png" disabled={disabled || uploading} multiple type="file" onChange={(event) => {
         const files = Array.from(event.currentTarget.files ?? []);
         event.currentTarget.value = "";
         if (files.length) void upload(files);
       }} />
       <strong>{uploading ? "正在逐个上传扫描件" : "选择或拖拽扫描件"}</strong>
-      <small>JPG、PNG、PDF；最多 10 个文件、20 页</small>
+      <small>JPG、JPEG、PNG；最多 10 个文件、20 页</small>
     </label>
     {scans.length ? <ol className="runtime-scan-list">
       {scans.map((scan, index) => <li key={scan.fileId}>
@@ -126,7 +126,7 @@ export function ScanUploadWorkspace({
           <button aria-label={`上移 ${scan.originalName}`} disabled={disabled || index === 0} onClick={() => void move(index, -1)} type="button">↑</button>
           <button aria-label={`下移 ${scan.originalName}`} disabled={disabled || index === scans.length - 1} onClick={() => void move(index, 1)} type="button">↓</button>
           <button onClick={() => onDownload(scan.fileId)} type="button">下载</button>
-          <label className="runtime-scan-replace">替换<input accept=".jpg,.jpeg,.png,.pdf" disabled={disabled} type="file" onChange={(event) => {
+          <label className="runtime-scan-replace">替换<input accept=".jpg,.jpeg,.png" disabled={disabled} type="file" onChange={(event) => {
             const file = event.target.files?.[0];
             event.currentTarget.value = "";
             if (file) void replace(scan, file);
