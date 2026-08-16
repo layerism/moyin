@@ -3306,6 +3306,10 @@ button {
   gap: 12px;
 }
 
+.runtime-scan-workspace {
+  gap: 8px;
+}
+
 .scan-audit-mode {
   display: flex;
   flex-wrap: wrap;
@@ -3333,11 +3337,11 @@ button {
 
 .runtime-scan-dropzone {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   justify-items: center;
-  padding: 22px;
+  padding: 14px 16px;
   border: 1px dashed #8fb3e8;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #f7faff;
   cursor: pointer;
 }
@@ -3358,6 +3362,10 @@ button {
   list-style: none;
 }
 
+.runtime-scan-list {
+  gap: 6px;
+}
+
 .runtime-scan-list li,
 .runtime-submitted-scan-list li {
   display: flex;
@@ -3370,7 +3378,17 @@ button {
 }
 
 .runtime-scan-list li > div:first-child {
+  display: grid;
   min-width: 0;
+  gap: 2px;
+}
+
+.runtime-scan-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
 }
 
 .runtime-scan-list li strong {
@@ -3380,30 +3398,36 @@ button {
   white-space: nowrap;
 }
 
+.runtime-scan-list li small {
+  color: #667085;
+  font-size: 12px;
+}
+
 .runtime-scan-actions {
   display: flex;
   flex: 0 0 auto;
-  gap: 5px;
-}
-
-.runtime-node-dialog .runtime-scan-list li {
-  align-items: stretch;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
 }
 
 .runtime-node-dialog .runtime-scan-actions {
   max-width: 100%;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+}
+
+.runtime-scan-actions button,
+.runtime-scan-replace {
+  min-height: 32px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .runtime-scan-replace {
   position: relative;
   display: inline-flex !important;
   align-items: center;
-  padding: 0 10px;
   border: 1px solid #cbd5e0;
-  border-radius: 6px;
   cursor: pointer;
 }
 
