@@ -112,9 +112,9 @@ export function ScanUploadWorkspace({
   return <section className="runtime-scan-workspace">
     <label className="runtime-scan-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={drop}>
       <input accept=".jpg,.jpeg,.png,.pdf" disabled={disabled || uploading} multiple type="file" onChange={(event) => {
-        const files = event.target.files;
+        const files = Array.from(event.currentTarget.files ?? []);
         event.currentTarget.value = "";
-        if (files?.length) void upload(files);
+        if (files.length) void upload(files);
       }} />
       <strong>{uploading ? "正在逐个上传扫描件" : "选择或拖拽扫描件"}</strong>
       <small>JPG、PNG、PDF；最多 10 个文件、20 页</small>
