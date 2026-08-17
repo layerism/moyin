@@ -7344,7 +7344,7 @@ button {
   margin: 0;
 }
 
-.audit-script-metadata-form label {
+.audit-script-basic-fields > label {
   display: grid;
   gap: 8px;
   color: #344054;
@@ -7352,8 +7352,8 @@ button {
   font-weight: 700;
 }
 
-.audit-script-metadata-form input,
-.audit-script-metadata-form textarea {
+.audit-script-basic-fields > label > input,
+.audit-script-basic-fields > label > textarea {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #d7dce5;
@@ -7364,18 +7364,18 @@ button {
   font-weight: 400;
 }
 
-.audit-script-metadata-form textarea {
+.audit-script-basic-fields > label > textarea {
   resize: vertical;
 }
 
-.audit-script-metadata-form input:focus,
-.audit-script-metadata-form textarea:focus {
+.audit-script-basic-fields > label > input:focus,
+.audit-script-basic-fields > label > textarea:focus {
   border-color: #2b74ff;
   box-shadow: 0 0 0 3px rgb(43 116 255 / 12%);
 }
 
-.audit-script-metadata-form input[aria-invalid="true"],
-.audit-script-metadata-form textarea[aria-invalid="true"] {
+.audit-script-basic-fields > label > input[aria-invalid="true"],
+.audit-script-basic-fields > label > textarea[aria-invalid="true"] {
   border-color: #f04438;
   box-shadow: 0 0 0 3px rgb(240 68 56 / 10%);
 }
