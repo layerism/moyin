@@ -53,6 +53,18 @@ export function createRuntimeSettingDraft(
   );
 }
 
+export function hasAuditScriptConfigChanges(
+  detail: AuditScriptConfigDetail,
+  parameterDefaults: Record<string, AuditScriptValue>,
+  runtimeSettings: Record<string, AuditScriptValue>,
+): boolean {
+  return detail.parameters.some(
+    (parameter) => parameterDefaults[parameter.key] !== parameter.default,
+  ) || detail.runtimeSettings.some(
+    (setting) => runtimeSettings[setting.key] !== setting.value,
+  );
+}
+
 export function getAuditScriptConfigErrors(
   detail: AuditScriptConfigDetail,
   parameterDefaults: Record<string, AuditScriptValue>,
