@@ -180,7 +180,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   const hasEditableContent = Boolean(detail?.metadataEditable || hasEditableConfig);
 
   return (
-    <div className="modal-backdrop audit-script-metadata-backdrop" onClick={saving ? undefined : onClose}>
+    <div className="modal-backdrop audit-script-metadata-backdrop">
       <section
         aria-labelledby="audit-script-metadata-title"
         aria-modal="true"
