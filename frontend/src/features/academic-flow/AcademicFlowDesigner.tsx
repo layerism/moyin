@@ -23,8 +23,10 @@ import {
   bindCtrlWheelListener,
   canvasRectsIntersect,
   constrainCanvasGroupDelta,
+  getCanvasArrowKeyDelta,
   getCanvasPanOffset,
   getCanvasViewportZoomState,
+  isCanvasKeyboardEditingTarget,
   normalizeCanvasRect,
   shouldStartCanvasPan,
   type CanvasPoint,
@@ -1009,6 +1011,43 @@ function FlowNodeCanvas({
     window.addEventListener("keydown", deleteSelectedEdge);
     return () => window.removeEventListener("keydown", deleteSelectedEdge);
   }, [canDeleteEdge, locked, onDeleteEdge, selectedEdgeId]);
+
+  useEffect(() => {
+    const moveSelectedNodes = (event: KeyboardEvent) => {
+      if (
+        locked
+        || event.altKey
+        || event.ctrlKey
+        || event.metaKey
+        || event.shiftKey
+        || isCanvasKeyboardEditingTarget(event.target)
+      ) {
+        return;
+      }
+      const desiredDelta = getCanvasArrowKeyDelta(event.key, canvasGridSize);
+      if (!desiredDelta) return;
+      const movableNodes = layoutNodes.filter(
+        (node) => selectedNodeIds.has(node.id) && canMoveNode(node.id),
+      );
+      if (movableNodes.length === 0) return;
+      event.preventDefault();
+      const delta = constrainCanvasGroupDelta(
+        movableNodes,
+        desiredDelta,
+        canvasGridSize,
+      );
+      if (delta.x === 0 && delta.y === 0) return;
+      onUpdateNodePositions(Object.fromEntries(
+        movableNodes.map((node) => [node.id, {
+          x: node.x + delta.x,
+          y: node.y + delta.y,
+        }]),
+      ));
+    };
+
+    window.addEventListener("keydown", moveSelectedNodes);
+    return () => window.removeEventListener("keydown", moveSelectedNodes);
+  }, [canMoveNode, layoutNodes, locked, onUpdateNodePositions, selectedNodeIds]);
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
     const rect = canvasSurfaceRef.current?.getBoundingClientRect();
