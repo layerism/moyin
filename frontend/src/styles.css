@@ -7212,17 +7212,16 @@ button {
   grid-column: 1 / -1;
 }
 
-.audit-script-config-field > small:not(.audit-script-config-error),
-.audit-script-config-boolean small {
+.audit-script-config-field > small:not(.audit-script-config-error) {
   color: #667085;
   font-size: 12px;
   font-weight: 400;
   line-height: 1.45;
 }
 
-.audit-script-config-field input,
-.audit-script-config-field select,
-.audit-script-config-field textarea {
+.audit-script-config-field > input,
+.audit-script-config-field > select,
+.audit-script-config-field > textarea {
   width: 100%;
   min-height: 42px;
   padding: 10px 12px;
@@ -7235,22 +7234,22 @@ button {
   font-weight: 400;
 }
 
-.audit-script-config-field textarea {
+.audit-script-config-field > textarea {
   min-height: 150px;
   resize: vertical;
   line-height: 1.6;
 }
 
-.audit-script-config-field input:focus,
-.audit-script-config-field select:focus,
-.audit-script-config-field textarea:focus {
+.audit-script-config-field > input:focus,
+.audit-script-config-field > select:focus,
+.audit-script-config-field > textarea:focus {
   border-color: #2b74ff;
   box-shadow: 0 0 0 3px rgb(43 116 255 / 12%);
 }
 
-.audit-script-config-field input[aria-invalid="true"],
-.audit-script-config-field select[aria-invalid="true"],
-.audit-script-config-field textarea[aria-invalid="true"] {
+.audit-script-config-field > input[aria-invalid="true"],
+.audit-script-config-field > select[aria-invalid="true"],
+.audit-script-config-field > textarea[aria-invalid="true"] {
   border-color: #f04438;
   box-shadow: 0 0 0 3px rgb(240 68 56 / 10%);
 }
@@ -7261,24 +7260,23 @@ button {
   font-weight: 600;
 }
 
-.audit-script-config-boolean {
+.audit-script-config-boolean-control {
   display: flex;
-  min-height: 62px;
+  width: 100%;
+  min-height: 42px;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 12px 14px;
+  margin-top: auto;
+  padding: 10px 12px;
   border: 1px solid #d7dce5;
   border-radius: 6px;
+  background: #ffffff;
   color: #344054;
+  font-weight: 400;
 }
 
-.audit-script-config-boolean > span {
-  display: grid;
-  gap: 4px;
-}
-
-.audit-script-config-boolean input {
+.audit-script-config-boolean-control input {
   width: 18px;
   height: 18px;
   flex: 0 0 18px;

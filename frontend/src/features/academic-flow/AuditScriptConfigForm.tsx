@@ -27,20 +27,21 @@ function ConfigInput({
 
   if (definition.type === "boolean") {
     return (
-      <label className="audit-script-config-boolean" htmlFor={inputId}>
-        <span>
-          <strong>{definition.label}</strong>
-          {definition.description ? <small id={descriptionId}>{definition.description}</small> : null}
-        </span>
-        <input
-          aria-describedby={describedBy}
-          checked={value === true}
-          disabled={disabled}
-          id={inputId}
-          onChange={(event) => onChange(event.target.checked)}
-          type="checkbox"
-        />
-      </label>
+      <div className="audit-script-config-field">
+        <span>{definition.label}</span>
+        {definition.description ? <small id={descriptionId}>{definition.description}</small> : null}
+        <label className="audit-script-config-boolean-control" htmlFor={inputId}>
+          <span>启用</span>
+          <input
+            aria-describedby={describedBy}
+            checked={value === true}
+            disabled={disabled}
+            id={inputId}
+            onChange={(event) => onChange(event.target.checked)}
+            type="checkbox"
+          />
+        </label>
+      </div>
     );
   }
 
