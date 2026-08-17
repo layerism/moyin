@@ -118,3 +118,15 @@ git add -- docs/superpowers/plans/2026-08-18-audit-script-config-field-alignment
   frontend/src/styles.css
 git commit -m "style: align audit script config fields"
 ```
+
+### Task 2: 修正弹窗通用样式覆盖
+
+用户复核截图显示，布尔控件和同一网格行的普通输入框仍被拉高。静态级联审计确认，后声明的 `.audit-script-metadata-form label/input` 覆盖了 Task 1 的布尔控件样式。
+
+- [x] **Step 1: 将基本信息规则限定到 `.audit-script-basic-fields`**
+
+把通用 `label`、`input`、`textarea`、焦点和错误选择器改为 `.audit-script-basic-fields > label` 作用域，避免覆盖 `AuditScriptConfigForm` 内部元素。
+
+- [x] **Step 2: 保留动态配置表单自身的字段规则**
+
+动态配置继续只由 `.audit-script-config-field` 和 `.audit-script-config-boolean-control` 控制；checkbox 保持 `18px × 18px`，布尔控件行保持 `42px`。
