@@ -3,6 +3,26 @@ export type CanvasPoint = {
   y: number;
 };
 
+const canvasArrowDirections: Record<string, CanvasPoint> = {
+  ArrowDown: { x: 0, y: 1 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: -1 },
+};
+
+export function getCanvasArrowKeyDelta(key: string, step: number): CanvasPoint | null {
+  const direction = canvasArrowDirections[key];
+  return direction
+    ? { x: direction.x * step, y: direction.y * step }
+    : null;
+}
+
+export function isCanvasKeyboardEditingTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest(
+    'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="dialog"]',
+  ));
+}
+
 export type CanvasRect = CanvasPoint & {
   height: number;
   width: number;
