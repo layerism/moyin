@@ -70,25 +70,22 @@ export function RuntimeFormFields({
             ) : null}
 
             {field.type === "radio" ? (
-              <div
-                className="runtime-form-field-options is-radio"
-                onBlur={() => onBlur(field.id)}
-              >
-                {(field.options ?? []).map((option) => (
-                  <label key={option.id}>
-                    <input
-                      aria-describedby={error ? errorId : undefined}
-                      checked={selectedRadio === option.id}
-                      name={`runtime-field-${field.id}`}
-                      type="radio"
-                      onChange={() => onUpdate(field.answerKey, {
-                        otherText: null,
-                        selectedOptionId: option.id,
-                      }, field.id)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
+              <div className="runtime-form-field-select">
+                <select
+                  aria-describedby={error ? errorId : undefined}
+                  aria-label={field.label}
+                  value={selectedRadio ?? ""}
+                  onBlur={() => onBlur(field.id)}
+                  onChange={(event) => onUpdate(field.answerKey, {
+                    otherText: null,
+                    selectedOptionId: event.target.value,
+                  }, field.id)}
+                >
+                  <option disabled value="">请选择</option>
+                  {(field.options ?? []).map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
+                </select>
               </div>
             ) : null}
 
