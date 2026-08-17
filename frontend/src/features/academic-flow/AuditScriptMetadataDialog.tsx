@@ -6,6 +6,7 @@ import {
   createParameterDefaultDraft,
   createRuntimeSettingDraft,
   getAuditScriptConfigErrors,
+  hasAuditScriptConfigChanges,
   type AuditScriptConfigDetail,
   type AuditScriptManagementSummary,
   type AuditScriptValue,
@@ -19,16 +20,15 @@ function formatUpdatedAt(value: string): string {
 export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) {
   const [scripts, setScripts] = useState<AuditScriptManagementSummary[] | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [editing, setEditing] = useState<AuditScriptManagementSummary | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [detail, setDetail] = useState<AuditScriptConfigDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [parameterDefaults, setParameterDefaults] = useState<Record<string, AuditScriptValue>>({});
   const [runtimeSettings, setRuntimeSettings] = useState<Record<string, AuditScriptValue>>({});
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState("");
   const [saveNotice, setSaveNotice] = useState("");
+  const [partialSaveNotice, setPartialSaveNotice] = useState("");
   const [saving, setSaving] = useState(false);
 
   const loadScripts = () => {
@@ -45,54 +45,22 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
 
   useEffect(loadScripts, []);
 
-  const startEditing = (script: AuditScriptManagementSummary) => {
-    setEditing(script);
-    setName(script.name);
-    setDescription(script.description);
+  const clearSaveMessages = () => {
     setSaveError("");
     setSaveNotice("");
+    setPartialSaveNotice("");
   };
 
-  const saveMetadata = async () => {
-    if (!editing) return;
-    const nextName = name.trim();
-    const nextDescription = description.trim();
-    if (!nextName || !nextDescription) {
-      setSaveError("名称和功能说明均不能为空");
-      return;
-    }
-    setSaving(true);
-    setSaveError("");
-    try {
-      const updated = await workflowApi.updateAuditScriptMetadata(editing.id, {
-        name: nextName,
-        description: nextDescription,
-      });
-      setScripts((current) =>
-        (current ?? [])
-          .map((script) => script.id === updated.id
-            ? { ...script, description: updated.description, name: updated.name, updatedAt: updated.updatedAt }
-            : script)
-          .sort((left, right) => left.name.localeCompare(right.name, "zh-CN")),
-      );
-      setEditing(null);
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "保存审核脚本元信息失败");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const startConfiguring = async (script: AuditScriptManagementSummary) => {
+  const openEditor = async (script: AuditScriptManagementSummary) => {
     setDetailLoading(true);
-    setSaveError("");
-    setSaveNotice("");
+    clearSaveMessages();
     try {
       const nextDetail = await workflowApi.getAuditScriptConfig(script.id);
       setDetail(nextDetail);
+      setName(nextDetail.name);
+      setDescription(nextDetail.description);
       setParameterDefaults(createParameterDefaultDraft(nextDetail));
       setRuntimeSettings(createRuntimeSettingDraft(nextDetail));
-      setFieldErrors({});
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "读取脚本配置失败");
     } finally {
@@ -110,47 +78,92 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     } else {
       setRuntimeSettings((current) => ({ ...current, [key]: value }));
     }
-    setFieldErrors((current) => {
-      const next = { ...current };
-      delete next[`${target}:${key}`];
-      return next;
-    });
-    setSaveError("");
-    setSaveNotice("");
+    clearSaveMessages();
   };
 
-  const saveConfig = async () => {
-    if (!detail) return;
-    const errors = getAuditScriptConfigErrors(detail, parameterDefaults, runtimeSettings);
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      setSaveError("请先修正标红的配置项");
-      return;
-    }
+  const metadataChanged = Boolean(
+    detail?.metadataEditable
+    && (name.trim() !== detail.name || description.trim() !== detail.description),
+  );
+  const configChanged = detail
+    ? hasAuditScriptConfigChanges(detail, parameterDefaults, runtimeSettings)
+    : false;
+  const configErrors = detail
+    ? getAuditScriptConfigErrors(detail, parameterDefaults, runtimeSettings)
+    : {};
+  const nameError = Boolean(detail?.metadataEditable && !name.trim());
+  const descriptionError = Boolean(detail?.metadataEditable && !description.trim());
+  const metadataValid = !nameError && !descriptionError;
+  const canSave = (metadataChanged || configChanged)
+    && metadataValid
+    && Object.keys(configErrors).length === 0
+    && !saving;
+
+  const saveChanges = async () => {
+    if (!detail || !canSave) return;
     setSaving(true);
-    setSaveError("");
-    setSaveNotice("");
+    clearSaveMessages();
+    let currentDetail = detail;
+    let configSaved = false;
     try {
-      const updated = await workflowApi.updateAuditScriptConfig(detail.id, {
-        expectedConfigSha256: detail.configSha256,
-        parameterDefaults,
-        runtimeSettings,
-      });
-      setDetail(updated);
-      setParameterDefaults(createParameterDefaultDraft(updated));
-      setRuntimeSettings(createRuntimeSettingDraft(updated));
-      setScripts((current) => (current ?? []).map((script) =>
-        script.id === updated.id ? { ...script, updatedAt: updated.updatedAt } : script
-      ));
-      setSaveNotice("配置已保存");
+      if (configChanged) {
+        const updatedConfig = await workflowApi.updateAuditScriptConfig(detail.id, {
+          expectedConfigSha256: detail.configSha256,
+          parameterDefaults,
+          runtimeSettings,
+        });
+        currentDetail = updatedConfig;
+        configSaved = true;
+        setDetail(updatedConfig);
+        setParameterDefaults(createParameterDefaultDraft(updatedConfig));
+        setRuntimeSettings(createRuntimeSettingDraft(updatedConfig));
+        setScripts((current) => (current ?? []).map((script) =>
+          script.id === updatedConfig.id
+            ? { ...script, updatedAt: updatedConfig.updatedAt }
+            : script
+        ));
+      }
+
+      if (metadataChanged) {
+        const updatedMetadata = await workflowApi.updateAuditScriptMetadata(detail.id, {
+          name: name.trim(),
+          description: description.trim(),
+        });
+        currentDetail = {
+          ...currentDetail,
+          name: updatedMetadata.name,
+          description: updatedMetadata.description,
+          updatedAt: updatedMetadata.updatedAt,
+        };
+        setDetail(currentDetail);
+        setName(updatedMetadata.name);
+        setDescription(updatedMetadata.description);
+        setScripts((current) =>
+          (current ?? [])
+            .map((script) => script.id === updatedMetadata.id
+              ? {
+                  ...script,
+                  description: updatedMetadata.description,
+                  name: updatedMetadata.name,
+                  updatedAt: updatedMetadata.updatedAt,
+                }
+              : script)
+            .sort((left, right) => left.name.localeCompare(right.name, "zh-CN")),
+        );
+      }
+
+      setSaveNotice("修改已保存");
     } catch (error) {
-      setSaveError(
-        error instanceof ApiError && error.status === 409
-          ? "配置已被其他管理员修改，请重新加载"
-          : error instanceof Error
-            ? error.message
-            : "保存审核脚本配置失败",
-      );
+      const message = error instanceof ApiError && error.status === 409 && configChanged && !configSaved
+        ? "配置已被其他管理员修改，请重新加载"
+        : error instanceof Error
+          ? error.message
+          : "保存审核脚本失败";
+      if (configSaved) {
+        setPartialSaveNotice(`运行配置已保存，但基本信息保存失败：${message}`);
+      } else {
+        setSaveError(message);
+      }
     } finally {
       setSaving(false);
     }
@@ -158,14 +171,13 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
 
   const closeDetail = () => {
     setDetail(null);
-    setSaveError("");
-    setSaveNotice("");
-    setFieldErrors({});
+    clearSaveMessages();
   };
 
   const hasEditableConfig = Boolean(
     detail && (detail.parameters.length > 0 || detail.runtimeSettings.length > 0),
   );
+  const hasEditableContent = Boolean(detail?.metadataEditable || hasEditableConfig);
 
   return (
     <div className="modal-backdrop audit-script-metadata-backdrop" onClick={saving ? undefined : onClose}>
@@ -180,70 +192,86 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
           <div>
             <span>预置脚本</span>
             <h2 id="audit-script-metadata-title">
-              {editing ? "编辑审核脚本" : detail ? "脚本配置" : "审核脚本管理"}
+              {detail ? (hasEditableContent ? "编辑审核脚本" : "查看审核脚本") : "审核脚本管理"}
             </h2>
           </div>
           <button aria-label="关闭审核脚本管理" disabled={saving} onClick={onClose} type="button">×</button>
         </header>
 
-        {editing ? (
-          <form
-            className="audit-script-metadata-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void saveMetadata();
-            }}
-          >
-            <p>{editing.language === "py" ? "Python" : "JavaScript"} · v1 · {editing.id}</p>
-            <label>
-              <span>功能名称</span>
-              <input autoFocus disabled={saving} maxLength={120} onChange={(event) => {
-                setName(event.target.value);
-                setSaveError("");
-              }} value={name} />
-            </label>
-            <label>
-              <span>功能说明</span>
-              <textarea disabled={saving} maxLength={500} onChange={(event) => {
-                setDescription(event.target.value);
-                setSaveError("");
-              }} rows={5} value={description} />
-            </label>
-            {saveError ? <p className="dialog-error" role="alert">{saveError}</p> : null}
-            <footer>
-              <button disabled={saving} onClick={() => setEditing(null)} type="button">取消</button>
-              <button className="primary-action" disabled={saving} type="submit">{saving ? "保存中…" : "保存"}</button>
-            </footer>
-          </form>
-        ) : detail ? (
+        {detail ? (
           <form className="audit-script-metadata-form audit-script-config-form" onSubmit={(event) => {
             event.preventDefault();
-            void saveConfig();
+            void saveChanges();
           }}>
             <div className="audit-script-config-heading">
-              <strong>{detail.name}</strong>
-              <p>{detail.description}</p>
               <small>{detail.language === "py" ? "Python" : "JavaScript"} · v1 · {detail.id}</small>
             </div>
-            <AuditScriptConfigForm
+
+            <section className="audit-script-basic-section">
+              <div>
+                <h3>基本信息</h3>
+                <p>{detail.metadataEditable ? "用于流程设计器中的脚本名称和功能说明。" : "内部脚本的基本信息由代码维护，仅供查看。"}</p>
+              </div>
+              {detail.metadataEditable ? (
+                <div className="audit-script-basic-fields">
+                  <label>
+                    <span>功能名称</span>
+                    <input
+                      aria-invalid={nameError}
+                      disabled={saving}
+                      maxLength={120}
+                      onChange={(event) => {
+                        setName(event.target.value);
+                        clearSaveMessages();
+                      }}
+                      value={name}
+                    />
+                    {nameError ? <small className="audit-script-config-error">功能名称不能为空</small> : null}
+                  </label>
+                  <label>
+                    <span>功能说明</span>
+                    <textarea
+                      aria-invalid={descriptionError}
+                      disabled={saving}
+                      maxLength={500}
+                      onChange={(event) => {
+                        setDescription(event.target.value);
+                        clearSaveMessages();
+                      }}
+                      rows={4}
+                      value={description}
+                    />
+                    {descriptionError ? <small className="audit-script-config-error">功能说明不能为空</small> : null}
+                  </label>
+                </div>
+              ) : (
+                <div className="audit-script-basic-readonly">
+                  <strong>{detail.name}</strong>
+                  <p>{detail.description}</p>
+                </div>
+              )}
+            </section>
+
+            {hasEditableConfig ? <AuditScriptConfigForm
               disabled={saving}
-              errors={fieldErrors}
+              errors={configErrors}
               onParameterChange={(key, value) => updateDraft("parameter", key, value)}
               onSettingChange={(key, value) => updateDraft("setting", key, value)}
               parameterDefaults={parameterDefaults}
               parameters={detail.parameters}
               runtimeSettings={detail.runtimeSettings}
               settingValues={runtimeSettings}
-            />
+            /> : null}
             {hasEditableConfig ? <p className="audit-script-config-warning">
               配置变更会更新脚本 v1 哈希；已有预览需重新打开，已发布流程需重新发布。
             </p> : null}
             {saveError ? <p className="dialog-error" role="alert">{saveError}</p> : null}
+            {partialSaveNotice ? <p className="audit-script-partial-save" role="alert">{partialSaveNotice}</p> : null}
             {saveNotice ? <p className="audit-script-config-success" role="status">{saveNotice}</p> : null}
             <footer>
               <button disabled={saving} onClick={closeDetail} type="button">返回</button>
-              {hasEditableConfig ? <button className="primary-action" disabled={saving} type="submit">
-                {saving ? "保存中…" : "保存配置"}
+              {hasEditableContent ? <button className="primary-action" disabled={!canSave} type="submit">
+                {saving ? "保存中…" : "保存修改"}
               </button> : null}
             </footer>
           </form>
@@ -273,9 +301,8 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
                     </small>
                   </div>
                   <div className="audit-script-metadata-actions">
-                    {script.metadataEditable ? <button onClick={() => startEditing(script)} type="button">编辑信息</button> : null}
-                    <button onClick={() => void startConfiguring(script)} type="button">
-                      {configurableCount > 0 ? "配置" : "查看"}
+                    <button onClick={() => void openEditor(script)} type="button">
+                      {script.metadataEditable || configurableCount > 0 ? "编辑" : "查看"}
                     </button>
                   </div>
                 </article>;
