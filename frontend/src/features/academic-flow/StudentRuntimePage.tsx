@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useState, type DragEvent as ReactDragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import Markdown from "react-markdown";
 
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
 import { validateFormAnswers } from "./formFields";
 import { ReadonlyFormFields, RuntimeFormFields } from "./RuntimeFormFields";
-import { getScanSubmitBlocker, ScanUploadWorkspace } from "./ScanUploadWorkspace";
+import {
+  getScanFilenameError,
+  getScanSubmitBlocker,
+  ScanUploadWorkspace,
+} from "./ScanUploadWorkspace";
 import type {
   RuntimeFlowInstance,
   RuntimeNodeInstance,
@@ -439,10 +443,19 @@ function RuntimeNodeDialog({
 }) {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
-  const [uploadWarning, setUploadWarning] = useState("");
+  const [fileWarning, setFileWarning] = useState<{
+    message: string;
+    title: string;
+  } | null>(null);
   const [uploadingFileName, setUploadingFileName] = useState("");
   const [clock, setClock] = useState(Date.now());
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [confirmationAttempted, setConfirmationAttempted] = useState(false);
+  const [templateDownloadAttention, setTemplateDownloadAttention] = useState(false);
+  const confirmationInputRef = useRef<HTMLInputElement>(null);
+  const templateDownloadButtonRef = useRef<HTMLButtonElement>(null);
+  const templateDownloadAttentionFrameRef = useRef<number | null>(null);
+  const templateDownloadAttentionTimerRef = useRef<number | null>(null);
   const [touchedFieldIds, setTouchedFieldIds] = useState<Set<string>>(() => new Set());
   const [scanState, setScanState] = useState<{ scans: RuntimeScanFile[]; uploading: boolean }>({ scans: [], uploading: false });
   const updateScanState = useCallback((value: { scans: RuntimeScanFile[]; uploading: boolean }) => setScanState(value), []);
@@ -478,6 +491,9 @@ function RuntimeNodeDialog({
   const templateRequired = Boolean(runtime.template);
   const uploadUnlocked = !templateRequired || runtime.templateDownloaded;
   const fileBusy = busy || isUploadingFile || !uploadUnlocked;
+  const confirmationRequired = node.kind === "confirmation" || node.kind === "announcement";
+  const confirmationMissing = confirmationRequired && draft.confirmed !== true;
+  const confirmationInvalid = confirmationAttempted && confirmationMissing;
   const scanBlocker = getScanSubmitBlocker({
     confirmed: draft.confirmed === true,
     scanRequired: Boolean(runtime.template),
@@ -485,9 +501,15 @@ function RuntimeNodeDialog({
     templateDownloaded: !runtime.template || runtime.templateDownloaded,
     uploading: scanState.uploading,
   });
+  const scanFilenameError = runtime.template
+    ? getScanFilenameError({
+        scans: scanState.scans,
+        templateFilename: runtime.template.originalName,
+      })
+    : null;
   const submitDisabled = busy
     || (node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile))
-    || Boolean(scanBlocker);
+    || Boolean(scanBlocker && !confirmationMissing);
   const clientFieldErrors = node.kind === "form"
     ? validateFormAnswers(node.infoFields, draft)
     : {};
@@ -506,14 +528,41 @@ function RuntimeNodeDialog({
     return () => window.clearInterval(timer);
   }, [approvedForm, runtime.effectiveDeadline, runtime.status]);
 
+  useEffect(() => {
+    if (!runtime.templateDownloaded) return;
+    if (templateDownloadAttentionFrameRef.current !== null) {
+      window.cancelAnimationFrame(templateDownloadAttentionFrameRef.current);
+      templateDownloadAttentionFrameRef.current = null;
+    }
+    if (templateDownloadAttentionTimerRef.current !== null) {
+      window.clearTimeout(templateDownloadAttentionTimerRef.current);
+      templateDownloadAttentionTimerRef.current = null;
+    }
+    setTemplateDownloadAttention(false);
+  }, [runtime.templateDownloaded]);
+
+  useEffect(() => () => {
+    if (templateDownloadAttentionFrameRef.current !== null) {
+      window.cancelAnimationFrame(templateDownloadAttentionFrameRef.current);
+      templateDownloadAttentionFrameRef.current = null;
+    }
+    if (templateDownloadAttentionTimerRef.current !== null) {
+      window.clearTimeout(templateDownloadAttentionTimerRef.current);
+      templateDownloadAttentionTimerRef.current = null;
+    }
+  }, []);
+
   const uploadSelectedFile = async (file: File) => {
-    setUploadWarning("");
+    setFileWarning(null);
     setUploadingFileName(file.name);
     setIsUploadingFile(true);
     try {
       await onUploadFile(file);
     } catch (reason) {
-      setUploadWarning(reason instanceof Error ? reason.message : "文件上传失败");
+      setFileWarning({
+        message: reason instanceof Error ? reason.message : "文件上传失败",
+        title: "文件上传未通过",
+      });
     } finally {
       setIsUploadingFile(false);
       setUploadingFileName("");
@@ -527,6 +576,27 @@ function RuntimeNodeDialog({
     if (file && !fileBusy) void uploadSelectedFile(file);
   };
 
+  const handleTemplateRequired = () => {
+    if (templateDownloadAttentionFrameRef.current !== null) {
+      window.cancelAnimationFrame(templateDownloadAttentionFrameRef.current);
+      templateDownloadAttentionFrameRef.current = null;
+    }
+    if (templateDownloadAttentionTimerRef.current !== null) {
+      window.clearTimeout(templateDownloadAttentionTimerRef.current);
+      templateDownloadAttentionTimerRef.current = null;
+    }
+    setTemplateDownloadAttention(false);
+    templateDownloadAttentionFrameRef.current = window.requestAnimationFrame(() => {
+      templateDownloadAttentionFrameRef.current = null;
+      setTemplateDownloadAttention(true);
+      templateDownloadButtonRef.current?.focus();
+      templateDownloadAttentionTimerRef.current = window.setTimeout(() => {
+        setTemplateDownloadAttention(false);
+        templateDownloadAttentionTimerRef.current = null;
+      }, 600);
+    });
+  };
+
   const handleSubmit = () => {
     if (node.kind === "form" && Object.keys(clientFieldErrors).length > 0) {
       setSubmitAttempted(true);
@@ -536,6 +606,15 @@ function RuntimeNodeDialog({
           `[data-form-field-id="${firstFieldId}"]`,
         )?.focus();
       });
+      return;
+    }
+    if (confirmationMissing) {
+      setConfirmationAttempted(true);
+      window.requestAnimationFrame(() => confirmationInputRef.current?.focus());
+      return;
+    }
+    if (scanFilenameError) {
+      setFileWarning({ message: scanFilenameError, title: "文件提交未通过" });
       return;
     }
     onSubmit();
@@ -684,23 +763,49 @@ function RuntimeNodeDialog({
             </div>
           ) : null}
           {node.kind === "confirmation" || node.kind === "announcement" ? (
-            <label className="runtime-confirmation">
-              <input
-                checked={Boolean(draft.confirmed)}
-                type="checkbox"
-                onChange={(event) => onUpdate("confirmed", event.target.checked)}
-              />
-              <span>我已阅读并确认以上内容</span>
-            </label>
+            <div className="runtime-confirmation-field">
+              <label className={`runtime-confirmation${confirmationInvalid ? " is-invalid" : ""}`}>
+                <input
+                  aria-describedby={confirmationInvalid ? "runtime-confirmation-error" : undefined}
+                  aria-invalid={confirmationInvalid || undefined}
+                  checked={Boolean(draft.confirmed)}
+                  ref={confirmationInputRef}
+                  type="checkbox"
+                  onChange={(event) => {
+                    if (event.target.checked) setConfirmationAttempted(false);
+                    onUpdate("confirmed", event.target.checked);
+                  }}
+                />
+                <span>我已阅读并确认以上内容</span>
+              </label>
+              {confirmationInvalid ? (
+                <p id="runtime-confirmation-error" role="alert">请先勾选确认</p>
+              ) : null}
+            </div>
           ) : null}
           {node.kind === "confirmation" && runtime.template ? (
             <div className="runtime-template-steps has-template">
-              <section className="runtime-template-download">
-                <span>1</span><div><strong>{runtime.templateDownloaded ? "模板已下载" : "下载签署文件模板"}</strong><small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small></div>
-                <button disabled={busy} onClick={onDownloadTemplate} type="button">{runtime.templateDownloaded ? "重新下载" : "下载模板"}</button>
+              <section
+                className={`runtime-template-download${templateDownloadAttention ? " needs-attention" : ""}`}
+              >
+                <span>1</span>
+                <div>
+                  <strong>{runtime.templateDownloaded ? "模板已下载" : "下载签署文件模板"}</strong>
+                  <small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small>
+                </div>
+                <button disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
+                  {runtime.templateDownloaded ? "重新下载" : "下载模板"}
+                </button>
               </section>
               <strong className="runtime-upload-step-title">2 上传签署后的扫描件</strong>
-              <ScanUploadWorkspace disabled={busy || !runtime.templateDownloaded} nodeInstanceId={runtime.id} onDownload={onDownloadFile} onStateChange={updateScanState} />
+              <ScanUploadWorkspace
+                disabled={busy}
+                nodeInstanceId={runtime.id}
+                onDownload={onDownloadFile}
+                onStateChange={updateScanState}
+                onTemplateRequired={handleTemplateRequired}
+                templateLocked={!runtime.templateDownloaded}
+              />
             </div>
           ) : null}
           <div className="runtime-node-actions">
@@ -720,7 +825,6 @@ function RuntimeNodeDialog({
               {node.kind === "file" && !fileReady ? (
                 <small>{needsFileReplacement ? "请重新上传文件" : "请先上传文件"}</small>
               ) : null}
-              {scanBlocker ? <small>{scanBlocker}</small> : null}
             </div>
           </div>
           </div>
@@ -733,13 +837,13 @@ function RuntimeNodeDialog({
           </div>
         ) : <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>}
       </section>
-      {uploadWarning ? (
+      {fileWarning ? (
         <RuntimeWarningDialog
           category="文件校验"
-          idPrefix="runtime-upload-warning"
-          message={uploadWarning}
-          onClose={() => setUploadWarning("")}
-          title="文件上传未通过"
+          idPrefix="runtime-file-warning"
+          message={fileWarning.message}
+          onClose={() => setFileWarning(null)}
+          title={fileWarning.title}
         />
       ) : null}
     </div>

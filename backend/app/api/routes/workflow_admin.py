@@ -9,12 +9,17 @@ from app.repositories.flow_instances import (
 )
 from app.services.audit_script_catalog import (
     AuditScriptCatalogError,
+    AuditScriptConfigConflictError,
     AuditScriptNameConflictError,
     AuditScriptNotFoundError,
     AuditScriptWriteError,
+    get_audit_script_config,
     list_audit_scripts,
+    list_manageable_audit_scripts,
+    update_audit_script_config,
     update_audit_script_metadata,
 )
+from app.services.audit_script_parameters import AuditScriptParameterError
 from app.services.security import get_current_super_admin, get_current_teacher
 from app.services.object_storage import ObjectStorageNotConfigured, get_object_storage
 
@@ -31,9 +36,57 @@ class AuditScriptMetadataRequest(BaseModel):
     description: str = Field(min_length=1, max_length=500)
 
 
+class AuditScriptConfigRequest(BaseModel):
+    expectedConfigSha256: str = Field(min_length=64, max_length=64)
+    parameterDefaults: dict[str, str | int | float | bool]
+    runtimeSettings: dict[str, str | int | float | bool]
+
+
 @router.get("/audit-scripts")
 def get_audit_scripts() -> list[dict[str, object]]:
     return list_audit_scripts()
+
+
+@router.get("/audit-scripts/manage")
+def get_manageable_audit_scripts(
+    _teacher: dict[str, object] = Depends(get_current_super_admin),
+) -> list[dict[str, object]]:
+    return list_manageable_audit_scripts()
+
+
+@router.get("/audit-scripts/{script_id}/versions/1/config")
+def get_managed_audit_script_config(
+    script_id: str,
+    _teacher: dict[str, object] = Depends(get_current_super_admin),
+) -> dict[str, object]:
+    try:
+        return get_audit_script_config(script_id, 1)
+    except AuditScriptCatalogError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.put("/audit-scripts/{script_id}/versions/1/config")
+def put_managed_audit_script_config(
+    script_id: str,
+    payload: AuditScriptConfigRequest,
+    _teacher: dict[str, object] = Depends(get_current_super_admin),
+) -> dict[str, object]:
+    try:
+        return update_audit_script_config(
+            script_id,
+            1,
+            payload.expectedConfigSha256,
+            dict(payload.parameterDefaults),
+            dict(payload.runtimeSettings),
+        )
+    except AuditScriptConfigConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AuditScriptParameterError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AuditScriptWriteError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except AuditScriptCatalogError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.patch("/audit-scripts/{script_id}/metadata")

@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import tempfile
+import threading
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -15,6 +16,9 @@ from app.services.audit_script_parameters import (
     AuditScriptParameterError,
     AuditScriptVersionConfig,
     load_audit_script_version_config,
+    normalize_script_version_config,
+    validate_script_params,
+    validate_script_settings,
 )
 
 
@@ -22,6 +26,7 @@ logger = logging.getLogger(__name__)
 SCRIPT_ID_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 ENTRY_SUFFIXES: dict[str, str] = {"js": ".js", "py": ".py"}
 CONFIRMATION_VISUAL_AUDIT_ID = "confirmation-visual-audit"
+_CONFIG_WRITE_LOCK = threading.Lock()
 
 
 class AuditScriptCatalogError(ValueError):
@@ -40,6 +45,10 @@ class AuditScriptWriteError(AuditScriptCatalogError):
     pass
 
 
+class AuditScriptConfigConflictError(AuditScriptCatalogError):
+    pass
+
+
 @dataclass(frozen=True)
 class AuditScriptRecord:
     id: str
@@ -52,6 +61,7 @@ class AuditScriptRecord:
     config_sha256: str
     accepted_extensions: tuple[str, ...]
     parameters: tuple[dict[str, object], ...]
+    runtime_settings: tuple[dict[str, object], ...]
     version_config: AuditScriptVersionConfig
     updated_at: str
     visibility: Literal["public", "internal"]
@@ -85,10 +95,108 @@ def list_audit_scripts() -> list[dict[str, object]]:
             "configSha256": record.config_sha256,
             "acceptedExtensions": list(record.accepted_extensions),
             "parameters": list(record.parameters),
+            "runtimeSettings": list(record.runtime_settings),
             "updatedAt": record.updated_at,
         }
         for record in records
     ]
+
+
+def list_manageable_audit_scripts() -> list[dict[str, object]]:
+    records = _current_records()
+    records.sort(key=lambda record: (record.name.casefold(), record.id))
+    return [
+        {
+            "id": record.id,
+            "name": record.name,
+            "description": record.description,
+            "language": record.language,
+            "version": record.version,
+            "parameterCount": len(record.parameters),
+            "runtimeSettingCount": len(record.runtime_settings),
+            "metadataEditable": record.visibility == "public",
+            "updatedAt": record.updated_at,
+        }
+        for record in records
+    ]
+
+
+def get_audit_script_config(script_id: str, version: int) -> dict[str, object]:
+    return _config_response(find_audit_script_version(script_id, version))
+
+
+def update_audit_script_config(
+    script_id: str,
+    version: int,
+    expected_config_sha256: str,
+    parameter_defaults: dict[str, object],
+    runtime_settings: dict[str, object],
+) -> dict[str, object]:
+    with _CONFIG_WRITE_LOCK:
+        return _update_audit_script_config_locked(
+            script_id,
+            version,
+            expected_config_sha256,
+            parameter_defaults,
+            runtime_settings,
+        )
+
+
+def _update_audit_script_config_locked(
+    script_id: str,
+    version: int,
+    expected_config_sha256: str,
+    parameter_defaults: dict[str, object],
+    runtime_settings: dict[str, object],
+) -> dict[str, object]:
+    record = find_audit_script_version(script_id, version)
+    if record.config_sha256 != expected_config_sha256:
+        raise AuditScriptConfigConflictError("配置已被其他管理员修改，请重新加载")
+    parameter_keys = {str(item["key"]) for item in record.parameters}
+    setting_keys = {str(item["key"]) for item in record.runtime_settings}
+    if set(parameter_defaults) != parameter_keys or set(runtime_settings) != setting_keys:
+        raise AuditScriptParameterError("审核脚本配置项不完整")
+    validate_script_params(record.version_config, parameter_defaults)
+    validate_script_settings(record.version_config, runtime_settings)
+
+    config_path = record.entry_path.parent / "config.json"
+    try:
+        if config_path.is_symlink():
+            raise AuditScriptParameterError("审核脚本版本配置路径无效")
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise AuditScriptParameterError("审核脚本版本配置格式无效")
+        next_payload = dict(payload)
+        next_payload["parameters"] = [
+            {**item, "default": parameter_defaults[str(item["key"])]}
+            for item in payload.get("parameters", [])
+        ]
+        next_payload["runtimeSettings"] = [
+            {**item, "value": runtime_settings[str(item["key"])]}
+            for item in payload.get("runtimeSettings", [])
+        ]
+        normalize_script_version_config(next_payload)
+        _atomic_write_json(config_path, next_payload)
+        return _config_response(find_audit_script_version(script_id, version))
+    except AuditScriptParameterError:
+        raise
+    except (json.JSONDecodeError, OSError, UnicodeError, KeyError, TypeError) as exc:
+        raise AuditScriptWriteError("审核脚本配置保存失败") from exc
+
+
+def _config_response(record: AuditScriptRecord) -> dict[str, object]:
+    return {
+        "id": record.id,
+        "name": record.name,
+        "description": record.description,
+        "language": record.language,
+        "version": record.version,
+        "configSha256": record.config_sha256,
+        "parameters": list(record.parameters),
+        "runtimeSettings": list(record.runtime_settings),
+        "metadataEditable": record.visibility == "public",
+        "updatedAt": record.updated_at,
+    }
 
 
 def find_audit_script_version(script_id: str, version: int) -> AuditScriptRecord:
@@ -137,32 +245,10 @@ def update_audit_script_metadata(
         return next(item for item in list_audit_scripts() if item["id"] == script_id)
 
     payload = {**manifest.data, "name": name, "description": description}
-    temporary_path: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            "w",
-            dir=manifest.script_dir,
-            encoding="utf-8",
-            prefix=".manifest-",
-            suffix=".tmp",
-            delete=False,
-        ) as target:
-            temporary_path = Path(target.name)
-            os.fchmod(target.fileno(), manifest.manifest_path.stat().st_mode & 0o777)
-            json.dump(payload, target, ensure_ascii=False, indent=2)
-            target.write("\n")
-            target.flush()
-            os.fsync(target.fileno())
-        os.replace(temporary_path, manifest.manifest_path)
-        temporary_path = None
+        _atomic_write_json(manifest.manifest_path, payload)
     except OSError as exc:
         raise AuditScriptWriteError("审核脚本元信息保存失败") from exc
-    finally:
-        if temporary_path is not None:
-            try:
-                temporary_path.unlink(missing_ok=True)
-            except OSError:
-                logger.warning("清理审核脚本元信息临时文件失败")
 
     for item in list_audit_scripts():
         if item["id"] == script_id:
@@ -309,6 +395,7 @@ def _record_for_version(
         config_sha256=version_config.sha256,
         accepted_extensions=version_config.accepted_extensions,
         parameters=version_config.parameters,
+        runtime_settings=version_config.runtime_settings,
         version_config=version_config,
         updated_at=datetime.fromtimestamp(
             max(
@@ -337,3 +424,30 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: source.read(65_536), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _atomic_write_json(path: Path, payload: dict[str, object]) -> None:
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            dir=path.parent,
+            encoding="utf-8",
+            prefix=f".{path.stem}-",
+            suffix=".tmp",
+            delete=False,
+        ) as target:
+            temporary_path = Path(target.name)
+            os.fchmod(target.fileno(), path.stat().st_mode & 0o777)
+            json.dump(payload, target, ensure_ascii=False, indent=2)
+            target.write("\n")
+            target.flush()
+            os.fsync(target.fileno())
+        os.replace(temporary_path, path)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                logger.warning("清理审核脚本临时文件失败")

@@ -34,6 +34,7 @@ class ClaimedAuditJob:
     snapshot_script_sha256: object
     script_config_sha256: str | None
     script_params: object
+    script_settings: object
     materials: list[AuditMaterial]
     context: dict[str, object]
 
@@ -166,6 +167,7 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             snapshot_script_sha256=config_node.get("auditScriptHash"),
             script_config_sha256=config_node.get("auditScriptConfigHash"),
             script_params=config_node.get("auditScriptParams", {}),
+            script_settings=config_node.get("auditScriptSettings", {}),
             materials=materials,
             context={
                 "flowId": job["flow_id"],

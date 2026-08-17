@@ -50,6 +50,12 @@ import {
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { FormFieldEditor } from "./FormFieldEditor";
 import { validateFormFieldConfig } from "./formFields";
+import {
+  createCurveGeometry,
+  createCurvedEdgeGeometries,
+  getOppositePort,
+  type CurvedEdgeGeometry,
+} from "./edgeCurveGeometry";
 import { NodeDateTimePicker } from "./NodeDateTimePicker";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
@@ -365,10 +371,6 @@ export function AcademicFlowDesigner({
   };
 
   const openPreview = async () => {
-    if (revisionDirty) {
-      setActionNotice("请先暂存当前修改后再预览");
-      return;
-    }
     const previewWindow = window.open("", "_blank");
     if (!previewWindow) {
       setActionNotice("请允许本站打开新标签页");
@@ -377,6 +379,11 @@ export function AcademicFlowDesigner({
     setPreviewCreating(true);
     setActionNotice("");
     try {
+      const saved = await saveWorkingDraft(workingProcess, "");
+      if (!saved) {
+        previewWindow.close();
+        return;
+      }
       const preview = await workflowApi.createPreview(serverFlowId);
       previewWindow.sessionStorage.setItem(FLOW_PREVIEW_TOKEN_KEY, preview.previewToken);
       previewWindow.opener = null;
@@ -889,7 +896,6 @@ function FlowNodeCanvas({
   const [connectionPreviewPort, setConnectionPreviewPort] = useState<AcademicFlowPort | null>(
     null,
   );
-  const [connectionPreviewTargetId, setConnectionPreviewTargetId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
@@ -946,7 +952,6 @@ function FlowNodeCanvas({
     setConnectingFrom(null);
     setConnectionPreviewPoint(null);
     setConnectionPreviewPort(null);
-    setConnectionPreviewTargetId(null);
     setDraggingNodes(null);
     setSelectionDraft(null);
     setSelectedNodeIds(new Set());
@@ -961,6 +966,20 @@ function FlowNodeCanvas({
     () => new Map(layoutNodes.map((node) => [node.id, node])),
     [layoutNodes],
   );
+  const curveNodes = useMemo(
+    () => layoutNodes.map((node) => ({
+      height: node.renderedHeight,
+      id: node.id,
+      width: nodeSize.width,
+      x: node.x,
+      y: node.y,
+    })),
+    [layoutNodes],
+  );
+  const edgeGeometries = useMemo(
+    () => createCurvedEdgeGeometries(edges, curveNodes),
+    [curveNodes, edges],
+  );
   const selectionRect = useMemo<CanvasRect | null>(
     () => selectionDraft
       ? normalizeCanvasRect(selectionDraft.start, selectionDraft.current)
@@ -969,22 +988,10 @@ function FlowNodeCanvas({
   );
   const edgeLines = edges
     .map((edge) => {
-      const source = nodeById.get(edge.source);
-      const target = nodeById.get(edge.target);
-      if (!source || !target) {
-        return null;
-      }
-      const ports = resolveEdgePorts(edge, source, target);
-      return { ...edge, ...ports };
+      const geometry = edgeGeometries.get(edge.id);
+      return geometry ? { ...edge, ...geometry } : null;
     })
-    .filter((edge): edge is AcademicFlowEdge & {
-      sourceX: number;
-      sourceY: number;
-      targetX: number;
-      targetY: number;
-      sourcePort: AcademicFlowPort;
-      targetPort: AcademicFlowPort;
-    } => Boolean(edge));
+    .filter((edge): edge is AcademicFlowEdge & CurvedEdgeGeometry => Boolean(edge));
   const selectedEdge = edgeLines.find((edge) => edge.id === selectedEdgeId) ?? null;
 
   useEffect(() => {
@@ -1240,13 +1247,11 @@ function FlowNodeCanvas({
     if (!source) {
       setConnectionPreviewPoint(null);
       setConnectionPreviewPort(null);
-      setConnectionPreviewTargetId(null);
       return;
     }
     const sourceNode = nodeById.get(source.nodeId);
     setConnectionPreviewPoint(sourceNode ? getPortPoint(sourceNode, source.port) : null);
     setConnectionPreviewPort(null);
-    setConnectionPreviewTargetId(null);
   };
 
   const completeConnection = (targetId: string, targetPort: AcademicFlowPort) => {
@@ -1273,7 +1278,6 @@ function FlowNodeCanvas({
     const magnetTarget = findMagnetTarget(point, source.nodeId);
     setConnectionPreviewPoint(magnetTarget?.point ?? point);
     setConnectionPreviewPort(magnetTarget?.port ?? null);
-    setConnectionPreviewTargetId(magnetTarget?.node.id ?? null);
   };
 
   const finishConnectionAt = (clientX: number, clientY: number) => {
@@ -1393,24 +1397,16 @@ function FlowNodeCanvas({
   const previewSourceNode = connectingFrom ? nodeById.get(connectingFrom.nodeId) ?? null : null;
   const previewSourcePoint =
     previewSourceNode && connectingFrom ? getPortPoint(previewSourceNode, connectingFrom.port) : null;
-  const previewPath =
+  const previewGeometry =
     previewSourceNode && previewSourcePoint && connectingFrom && connectionPreviewPoint
-      ? connectionPreviewPort && connectionPreviewTargetId
-        ? createOrthogonalPath(
-            {
-              source: previewSourceNode.id,
-              sourcePort: connectingFrom.port,
-              sourceX: previewSourcePoint.x,
-              sourceY: previewSourcePoint.y,
-              target: connectionPreviewTargetId,
-              targetPort: connectionPreviewPort,
-              targetX: connectionPreviewPoint.x,
-              targetY: connectionPreviewPoint.y,
-            },
-            layoutNodes,
-          )
-        : createPreviewPath(previewSourceNode, connectingFrom.port, connectionPreviewPoint)
-      : "";
+      ? createCurveGeometry({
+          source: previewSourcePoint,
+          sourcePort: connectingFrom.port,
+          target: connectionPreviewPoint,
+          targetPort: connectionPreviewPort ?? getOppositePort(connectingFrom.port),
+        })
+      : null;
+  const previewPath = previewGeometry?.path ?? "";
   const canvasSurfaceHeight = Math.max(
     1000,
     ...layoutNodes.map((node) => node.y + node.renderedHeight + 80),
@@ -1463,7 +1459,7 @@ function FlowNodeCanvas({
           >
             <svg className="flow-edge-layer" style={{ height: canvasSurfaceHeight }}>
           {edgeLines.map((edge) => {
-            const path = createOrthogonalPath(edge, layoutNodes);
+            const path = edge.path;
             const deletable = !locked && canDeleteEdge(edge.id);
             return (
               <g
@@ -2226,220 +2222,6 @@ function getPortPoint(node: FlowNodeLayout, port: AcademicFlowPort) {
   return { x: node.x + nodeSize.width, y: node.y + node.renderedHeight / 2 };
 }
 
-function getFallbackPorts(source: FlowNodeLayout, target: FlowNodeLayout) {
-  const sourceCenterX = source.x + nodeSize.width / 2;
-  const sourceCenterY = source.y + source.renderedHeight / 2;
-  const targetCenterX = target.x + nodeSize.width / 2;
-  const targetCenterY = target.y + target.renderedHeight / 2;
-  const horizontalGap = Math.abs(targetCenterX - sourceCenterX);
-  const verticalGap = Math.abs(targetCenterY - sourceCenterY);
-
-  if (verticalGap >= horizontalGap) {
-    return targetCenterY >= sourceCenterY
-      ? ({ sourcePort: "bottom", targetPort: "top" } as const)
-      : ({ sourcePort: "top", targetPort: "bottom" } as const);
-  }
-
-  return targetCenterX >= sourceCenterX
-    ? ({ sourcePort: "right", targetPort: "left" } as const)
-    : ({ sourcePort: "left", targetPort: "right" } as const);
-}
-
-function resolveEdgePorts(edge: AcademicFlowEdge, source: FlowNodeLayout, target: FlowNodeLayout) {
-  const fallback = getFallbackPorts(source, target);
-  const sourcePort = edge.sourcePort ?? fallback.sourcePort;
-  const targetPort = edge.targetPort ?? fallback.targetPort;
-  const sourcePoint = getPortPoint(source, sourcePort);
-  const targetPoint = getPortPoint(target, targetPort);
-
-  return {
-    sourcePort,
-    sourceX: sourcePoint.x,
-    sourceY: sourcePoint.y,
-    targetPort,
-    targetX: targetPoint.x,
-    targetY: targetPoint.y,
-  };
-}
-
-function createOrthogonalPath(edge: {
-  source: string;
-  sourcePort: AcademicFlowPort;
-  sourceX: number;
-  sourceY: number;
-  target: string;
-  targetPort: AcademicFlowPort;
-  targetX: number;
-  targetY: number;
-}, nodes: FlowNodeLayout[]) {
-  const sourceOffset = offsetPoint(edge.sourceX, edge.sourceY, edge.sourcePort, 22);
-  const targetOffset = offsetPoint(edge.targetX, edge.targetY, edge.targetPort, 22);
-  const sourceIsHorizontal = edge.sourcePort === "left" || edge.sourcePort === "right";
-  const targetIsHorizontal = edge.targetPort === "left" || edge.targetPort === "right";
-  const canvasLeft = Math.min(...nodes.map((node) => node.x)) - 80;
-  const canvasRight = Math.max(...nodes.map((node) => node.x + nodeSize.width)) + 80;
-  const canvasTop = Math.min(...nodes.map((node) => node.y)) - 80;
-  const canvasBottom = Math.max(...nodes.map((node) => node.y + node.renderedHeight)) + 80;
-  const targetNode = nodes.find((node) => node.id === edge.target);
-  const bypassYs = targetNode
-    ? [targetNode.y - 40, targetNode.y + targetNode.renderedHeight + 40]
-    : [(sourceOffset.y + targetOffset.y) / 2];
-  const sideXs = edge.sourcePort === "left" ? [canvasLeft, canvasRight] : [canvasRight, canvasLeft];
-  const candidates = [
-    [
-      { x: edge.sourceX, y: edge.sourceY },
-      sourceOffset,
-      ...getOrthogonalMidpoints(sourceOffset, targetOffset, edge.sourcePort, edge.targetPort),
-      targetOffset,
-      { x: edge.targetX, y: edge.targetY },
-    ],
-  ];
-
-  if (sourceIsHorizontal && targetIsHorizontal) {
-    sideXs.forEach((sideX) => {
-      bypassYs.forEach((bypassY) => {
-        candidates.push([
-          { x: edge.sourceX, y: edge.sourceY },
-          sourceOffset,
-          { x: sideX, y: sourceOffset.y },
-          { x: sideX, y: bypassY },
-          { x: targetOffset.x, y: bypassY },
-          targetOffset,
-          { x: edge.targetX, y: edge.targetY },
-        ]);
-      });
-    });
-  }
-
-  if (!sourceIsHorizontal && !targetIsHorizontal) {
-    sideXs.forEach((sideX) => {
-      candidates.push([
-        { x: edge.sourceX, y: edge.sourceY },
-        sourceOffset,
-        { x: sideX, y: sourceOffset.y },
-        { x: sideX, y: targetOffset.y },
-        targetOffset,
-        { x: edge.targetX, y: edge.targetY },
-      ]);
-    });
-  }
-
-  if (!sourceIsHorizontal && targetIsHorizontal) {
-    const targetSideXs =
-      edge.targetPort === "left" ? [canvasLeft, canvasRight] : [canvasRight, canvasLeft];
-    targetSideXs.forEach((sideX) => {
-      candidates.push([
-        { x: edge.sourceX, y: edge.sourceY },
-        sourceOffset,
-        { x: sideX, y: sourceOffset.y },
-        { x: sideX, y: targetOffset.y },
-        targetOffset,
-        { x: edge.targetX, y: edge.targetY },
-      ]);
-    });
-  }
-
-  if (sourceIsHorizontal && !targetIsHorizontal) {
-    const targetSideYs =
-      edge.targetPort === "top" ? [canvasTop, canvasBottom] : [canvasBottom, canvasTop];
-    targetSideYs.forEach((sideY) => {
-      candidates.push([
-        { x: edge.sourceX, y: edge.sourceY },
-        sourceOffset,
-        { x: sourceOffset.x, y: sideY },
-        { x: targetOffset.x, y: sideY },
-        targetOffset,
-        { x: edge.targetX, y: edge.targetY },
-      ]);
-    });
-  }
-
-  const points = candidates
-    .map((candidate) => dedupePoints(candidate))
-    .sort((left, right) => {
-      const leftScore = getRouteCollisionCount(left, nodes, edge.source, edge.target);
-      const rightScore = getRouteCollisionCount(right, nodes, edge.source, edge.target);
-      if (leftScore !== rightScore) {
-        return leftScore - rightScore;
-      }
-      return getRouteLength(left) - getRouteLength(right);
-    })[0];
-  const [first, ...rest] = dedupePoints(points);
-
-  return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
-}
-
-function getRouteCollisionCount(
-  points: Array<{ x: number; y: number }>,
-  nodes: FlowNodeLayout[],
-  sourceId: string,
-  targetId: string,
-) {
-  return points.slice(1).reduce((count, point, index) => {
-    const segment = { a: points[index], b: point };
-    const isFirstSegment = index === 0;
-    const isLastSegment = index === points.length - 2;
-    return (
-      count +
-      nodes.filter((node) => {
-        if (node.id === sourceId && isFirstSegment) {
-          return false;
-        }
-        if (node.id === targetId && isLastSegment) {
-          return false;
-        }
-        return segmentIntersectsNodeInterior(segment, node);
-      }).length
-    );
-  }, 0);
-}
-
-function segmentIntersectsNodeInterior(
-  segment: { a: { x: number; y: number }; b: { x: number; y: number } },
-  node: FlowNodeLayout,
-) {
-  const margin = 6;
-  const left = node.x + margin;
-  const right = node.x + nodeSize.width - margin;
-  const top = node.y + margin;
-  const bottom = node.y + node.renderedHeight - margin;
-  const minX = Math.min(segment.a.x, segment.b.x);
-  const maxX = Math.max(segment.a.x, segment.b.x);
-  const minY = Math.min(segment.a.y, segment.b.y);
-  const maxY = Math.max(segment.a.y, segment.b.y);
-
-  if (segment.a.y === segment.b.y) {
-    return segment.a.y > top && segment.a.y < bottom && maxX > left && minX < right;
-  }
-  if (segment.a.x === segment.b.x) {
-    return segment.a.x > left && segment.a.x < right && maxY > top && minY < bottom;
-  }
-  return false;
-}
-
-function getRouteLength(points: Array<{ x: number; y: number }>) {
-  return points.slice(1).reduce((length, point, index) => {
-    const previous = points[index];
-    return length + Math.abs(point.x - previous.x) + Math.abs(point.y - previous.y);
-  }, 0);
-}
-
-function createPreviewPath(
-  sourceNode: FlowNodeLayout,
-  sourcePort: AcademicFlowPort,
-  target: { x: number; y: number },
-) {
-  const source = getPortPoint(sourceNode, sourcePort);
-  const sourceOffset = offsetPoint(source.x, source.y, sourcePort, 22);
-  const points =
-    sourcePort === "top" || sourcePort === "bottom"
-      ? [source, sourceOffset, { x: sourceOffset.x, y: target.y }, target]
-      : [source, sourceOffset, { x: target.x, y: sourceOffset.y }, target];
-  const [first, ...rest] = dedupePoints(points);
-
-  return `M ${first.x} ${first.y} ${rest.map((point) => `L ${point.x} ${point.y}`).join(" ")}`;
-}
-
 function createArrowPolygon(x: number, y: number, targetPort: AcademicFlowPort) {
   const size = 9;
   const half = 5;
@@ -2456,78 +2238,13 @@ function createArrowPolygon(x: number, y: number, targetPort: AcademicFlowPort) 
 }
 
 function getEdgeDeleteButtonStyle(edge: {
-  sourceX: number;
-  sourceY: number;
-  targetX: number;
-  targetY: number;
+  midX: number;
+  midY: number;
 }) {
   return {
-    left: (edge.sourceX + edge.targetX) / 2,
-    top: (edge.sourceY + edge.targetY) / 2,
+    left: edge.midX,
+    top: edge.midY,
   };
-}
-
-function getOrthogonalMidpoints(
-  source: { x: number; y: number },
-  target: { x: number; y: number },
-  sourcePort: AcademicFlowPort,
-  targetPort: AcademicFlowPort,
-) {
-  if (source.x === target.x || source.y === target.y) {
-    return [];
-  }
-
-  const sourceIsHorizontal = sourcePort === "left" || sourcePort === "right";
-  const targetIsHorizontal = targetPort === "left" || targetPort === "right";
-  if (sourceIsHorizontal && targetIsHorizontal) {
-    const movingRight = sourcePort === "right";
-    const targetFacesSource =
-      (sourcePort === "right" && targetPort === "left" && source.x < target.x) ||
-      (sourcePort === "left" && targetPort === "right" && source.x > target.x);
-    const midX = targetFacesSource
-      ? (source.x + target.x) / 2
-      : movingRight
-        ? Math.max(source.x, target.x) + 80
-        : Math.min(source.x, target.x) - 80;
-    return [
-      { x: midX, y: source.y },
-      { x: midX, y: target.y },
-    ];
-  }
-
-  if (sourceIsHorizontal && !targetIsHorizontal) {
-    return [{ x: target.x, y: source.y }];
-  }
-
-  if (!sourceIsHorizontal && targetIsHorizontal) {
-    return [{ x: source.x, y: target.y }];
-  }
-
-  const midY = (source.y + target.y) / 2;
-  return [
-    { x: source.x, y: midY },
-    { x: target.x, y: midY },
-  ];
-}
-
-function offsetPoint(x: number, y: number, port: AcademicFlowPort, distance: number) {
-  if (port === "top") {
-    return { x, y: y - distance };
-  }
-  if (port === "bottom") {
-    return { x, y: y + distance };
-  }
-  if (port === "left") {
-    return { x: x - distance, y };
-  }
-  return { x: x + distance, y };
-}
-
-function dedupePoints(points: Array<{ x: number; y: number }>) {
-  return points.filter((point, index) => {
-    const previous = points[index - 1];
-    return !previous || previous.x !== point.x || previous.y !== point.y;
-  });
 }
 
 function hasCycle(nodeIds: string[], edges: AcademicFlowEdge[]) {

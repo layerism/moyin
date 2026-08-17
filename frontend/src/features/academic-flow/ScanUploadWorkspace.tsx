@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 
 import { workflowApi } from "./api";
 import type { RuntimeScanFile } from "./runtimeTypes";
@@ -19,20 +19,74 @@ export function getScanSubmitBlocker(input: {
   return null;
 }
 
+export function getScanFilenameError(input: {
+  scans: RuntimeScanFile[];
+  templateFilename: string | null;
+}): string | null {
+  const template = getFilenameIdentity(input.templateFilename ?? "");
+  if (!template.stem || template.suffix !== ".docx") {
+    return "当前节点模板配置异常，请联系教师";
+  }
+  const invalidScan = input.scans.find(({ originalName }) => {
+    const scan = getFilenameIdentity(originalName);
+    return ![".jpg", ".jpeg", ".png"].includes(scan.suffix)
+      || !scan.stem.startsWith(template.stem);
+  });
+  if (invalidScan) {
+    return `文件“${normalizeFilename(invalidScan.originalName)}”名称不符合要求，`
+      + `请改为以“${template.stem}”开头后重新上传。`;
+  }
+  return null;
+}
+
+export function shouldPromptTemplateDownload(input: {
+  disabled: boolean;
+  templateLocked: boolean;
+}) {
+  return !input.disabled && input.templateLocked;
+}
+
+function normalizeFilename(value: string) {
+  const parts = value.replace(/\\/g, "/").split("/");
+  return (parts[parts.length - 1] ?? "").trim().normalize("NFC");
+}
+
+function getFilenameIdentity(value: string) {
+  const filename = normalizeFilename(value);
+  const extensionIndex = filename.lastIndexOf(".");
+  return extensionIndex > 0
+    ? {
+        stem: filename.slice(0, extensionIndex),
+        suffix: filename.slice(extensionIndex).toLowerCase(),
+      }
+    : { stem: filename, suffix: "" };
+}
+
 export function ScanUploadWorkspace({
   disabled,
   nodeInstanceId,
   onDownload,
   onStateChange,
+  onTemplateRequired,
+  templateLocked,
 }: {
   disabled: boolean;
   nodeInstanceId: string;
   onDownload: (fileId: string) => void;
   onStateChange: (state: { scans: RuntimeScanFile[]; uploading: boolean }) => void;
+  onTemplateRequired: () => void;
+  templateLocked: boolean;
 }) {
   const [scans, setScans] = useState<RuntimeScanFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [templateReminderVisible, setTemplateReminderVisible] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (templateLocked) return;
+    setTemplateReminderVisible(false);
+  }, [templateLocked]);
 
   useEffect(() => {
     if (disabled) return;
@@ -104,14 +158,39 @@ export function ScanUploadWorkspace({
     }
   };
 
+  const promptTemplateDownload = () => {
+    if (!shouldPromptTemplateDownload({ disabled, templateLocked })) return false;
+    setTemplateReminderVisible(true);
+    onTemplateRequired();
+    return true;
+  };
+
   const drop = (event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
+    if (promptTemplateDownload()) return;
     if (!disabled && event.dataTransfer.files.length) void upload(event.dataTransfer.files);
   };
 
+  const activateWithKeyboard = (event: KeyboardEvent<HTMLLabelElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    if (!promptTemplateDownload() && !disabled) fileInputRef.current?.click();
+  };
+
   return <section className="runtime-scan-workspace">
-    <label className="runtime-scan-dropzone" onDragOver={(event) => event.preventDefault()} onDrop={drop}>
-      <input accept=".jpg,.jpeg,.png" disabled={disabled || uploading} multiple type="file" onChange={(event) => {
+    <label
+      aria-disabled={disabled || templateLocked || undefined}
+      className={`runtime-scan-dropzone${templateLocked ? " is-locked" : ""}`}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
+      onClick={(event) => {
+        if (promptTemplateDownload()) event.preventDefault();
+      }}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={drop}
+      onKeyDown={activateWithKeyboard}
+    >
+      <input accept=".jpg,.jpeg,.png" disabled={disabled || templateLocked || uploading} multiple ref={fileInputRef} type="file" onChange={(event) => {
         const files = Array.from(event.currentTarget.files ?? []);
         event.currentTarget.value = "";
         if (files.length) void upload(files);
@@ -119,6 +198,11 @@ export function ScanUploadWorkspace({
       <strong>{uploading ? "正在逐个上传扫描件" : "选择或拖拽扫描件"}</strong>
       <small>JPG、JPEG、PNG；最多 10 个文件、20 页</small>
     </label>
+    {templateReminderVisible ? (
+      <p className="runtime-scan-prerequisite-error" role="alert">
+        请先下载并填写模板，再上传签署后的扫描件。
+      </p>
+    ) : null}
     {scans.length ? <ol className="runtime-scan-list">
       {scans.map((scan, index) => <li key={scan.fileId}>
         <div><strong title={scan.originalName}>{scan.originalName}</strong><small>{scan.pageCount} 页 · {formatSize(scan.sizeBytes)}</small></div>

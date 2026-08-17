@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-EMPTY_CONFIG = {"acceptedExtensions": [], "parameters": []}
+EMPTY_CONFIG = {"acceptedExtensions": [], "parameters": [], "runtimeSettings": []}
 PARAMETER_KEY_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
 EXTENSION_PATTERN = re.compile(r"\.[a-z0-9]{1,15}")
 PARAMETER_TYPES = {"integer", "number", "string", "boolean", "select"}
@@ -22,6 +22,7 @@ class AuditScriptParameterError(ValueError):
 class AuditScriptVersionConfig:
     accepted_extensions: tuple[str, ...]
     parameters: tuple[dict[str, object], ...]
+    runtime_settings: tuple[dict[str, object], ...]
     sha256: str
 
 
@@ -37,44 +38,75 @@ def load_audit_script_version_config(version_dir: Path) -> AuditScriptVersionCon
         if not resolved.is_relative_to(version_dir):
             raise AuditScriptParameterError("审核脚本版本配置路径无效")
         data = json.loads(resolved.read_text(encoding="utf-8"))
-    normalized = _normalize_config(data)
+    normalized = normalize_script_version_config(data)
     canonical = json.dumps(
         normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
     return AuditScriptVersionConfig(
         accepted_extensions=tuple(normalized["acceptedExtensions"]),
         parameters=tuple(normalized["parameters"]),
+        runtime_settings=tuple(normalized["runtimeSettings"]),
         sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
     )
+
+
+def normalize_script_version_config(data: object) -> dict[str, list[object]]:
+    return _normalize_config(data)
 
 
 def validate_script_params(
     config: AuditScriptVersionConfig, params: object
 ) -> dict[str, Scalar]:
-    if not isinstance(params, dict):
-        raise AuditScriptParameterError("审核脚本参数必须是对象")
-    if len(json.dumps(params, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > 16384:
-        raise AuditScriptParameterError("审核脚本参数超限")
-    definitions = {str(item["key"]): item for item in config.parameters}
-    extra = set(params) - set(definitions)
+    return _validate_values(config.parameters, params, "参数")
+
+
+def validate_script_settings(
+    config: AuditScriptVersionConfig, settings: object
+) -> dict[str, Scalar]:
+    return _validate_values(config.runtime_settings, settings, "运行配置")
+
+
+def default_script_settings(config: AuditScriptVersionConfig) -> dict[str, Scalar]:
+    return {
+        str(definition["key"]): definition["value"]  # type: ignore[misc]
+        for definition in config.runtime_settings
+    }
+
+
+def _validate_values(
+    definitions_value: tuple[dict[str, object], ...], values: object, label: str
+) -> dict[str, Scalar]:
+    if not isinstance(values, dict):
+        raise AuditScriptParameterError(f"审核脚本{label}必须是对象")
+    if len(json.dumps(values, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > 16384:
+        raise AuditScriptParameterError(f"审核脚本{label}超限")
+    definitions = {str(item["key"]): item for item in definitions_value}
+    extra = set(values) - set(definitions)
     if extra:
-        raise AuditScriptParameterError("审核脚本包含未知参数")
+        raise AuditScriptParameterError(f"审核脚本包含未知{label}")
     result: dict[str, Scalar] = {}
     for key, definition in definitions.items():
-        if key not in params:
+        if key not in values:
             if definition["required"]:
-                raise AuditScriptParameterError(f"审核脚本参数 {key} 缺失")
+                raise AuditScriptParameterError(f"审核脚本{label} {key} 缺失")
             continue
-        result[key] = _validate_value(params[key], definition)
+        result[key] = _validate_value(values[key], definition)
     return result
 
 
 def _normalize_config(data: object) -> dict[str, list[object]]:
-    if not isinstance(data, dict) or set(data) - {"acceptedExtensions", "parameters"}:
+    if not isinstance(data, dict) or set(data) - {
+        "acceptedExtensions", "parameters", "runtimeSettings"
+    }:
         raise AuditScriptParameterError("审核脚本版本配置格式无效")
     extensions = data.get("acceptedExtensions", [])
     parameters = data.get("parameters", [])
-    if not isinstance(extensions, list) or not isinstance(parameters, list):
+    runtime_settings = data.get("runtimeSettings", [])
+    if (
+        not isinstance(extensions, list)
+        or not isinstance(parameters, list)
+        or not isinstance(runtime_settings, list)
+    ):
         raise AuditScriptParameterError("审核脚本版本配置格式无效")
     normalized_extensions: list[str] = []
     for value in extensions:
@@ -93,10 +125,38 @@ def _normalize_config(data: object) -> dict[str, list[object]]:
             raise AuditScriptParameterError("审核脚本参数键重复")
         seen_keys.add(key)
         normalized_parameters.append(normalized)
+    if len(runtime_settings) > 20:
+        raise AuditScriptParameterError("审核脚本运行配置数量超限")
+    normalized_runtime_settings: list[dict[str, object]] = []
+    seen_setting_keys: set[str] = set()
+    for item in runtime_settings:
+        normalized = _normalize_runtime_setting(item)
+        key = str(normalized["key"])
+        if key in seen_setting_keys:
+            raise AuditScriptParameterError("审核脚本运行配置键重复")
+        seen_setting_keys.add(key)
+        normalized_runtime_settings.append(normalized)
     return {
         "acceptedExtensions": normalized_extensions,
         "parameters": normalized_parameters,
+        "runtimeSettings": normalized_runtime_settings,
     }
+
+
+def _normalize_runtime_setting(item: object) -> dict[str, object]:
+    if not isinstance(item, dict) or "value" not in item:
+        raise AuditScriptParameterError("审核脚本运行配置定义无效")
+    multiline = item.get("multiline", False)
+    if not isinstance(multiline, bool) or (multiline and item.get("type") != "string"):
+        raise AuditScriptParameterError("审核脚本运行配置定义无效")
+    parameter = {key: value for key, value in item.items() if key not in {"value", "multiline"}}
+    parameter["default"] = item["value"]
+    parameter["required"] = True
+    normalized = _normalize_parameter(parameter)
+    normalized["value"] = normalized.pop("default")
+    if multiline:
+        normalized["multiline"] = True
+    return normalized
 
 
 def _normalize_parameter(item: object) -> dict[str, object]:
@@ -161,7 +221,7 @@ def _validate_definition_constraints(definition: dict[str, object]) -> None:
             or isinstance(maximum, bool)
             or minimum < 0
             or maximum < minimum
-            or maximum > 2000
+            or maximum > 4000
         ):
             raise AuditScriptParameterError("审核脚本字符串长度范围无效")
         definition["minimumLength"] = minimum
@@ -203,7 +263,10 @@ def _validate_value(value: object, definition: dict[str, object]) -> Scalar:
         if not isinstance(value, str):
             raise AuditScriptParameterError("审核脚本文本参数无效")
         length = len(value)
-        if length < int(definition["minimumLength"]) or length > int(definition["maximumLength"]):
+        if (
+            len(value.strip()) < int(definition["minimumLength"])
+            or length > int(definition["maximumLength"])
+        ):
             raise AuditScriptParameterError("审核脚本文本参数长度无效")
     elif kind == "boolean":
         if not isinstance(value, bool):

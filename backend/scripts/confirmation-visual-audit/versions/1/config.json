@@ -21,5 +21,85 @@
       "minimumLength": 1,
       "maximumLength": 2000
     }
+  ],
+  "runtimeSettings": [
+    {
+      "key": "systemPrompt",
+      "label": "系统提示词",
+      "type": "string",
+      "value": "你是材料视觉审核器。请只依据教师给定的审核标准判断材料是否符合要求。",
+      "description": "定义模型的业务审核角色和指导规则",
+      "minimumLength": 1,
+      "maximumLength": 4000,
+      "multiline": true
+    },
+    {
+      "key": "modelName",
+      "label": "模型名称",
+      "type": "string",
+      "value": "doubao-seed-2-1-turbo-260628",
+      "description": "视觉审核使用的模型标识",
+      "minimumLength": 1,
+      "maximumLength": 200
+    },
+    {
+      "key": "thinkingEnabled",
+      "label": "模型思考",
+      "type": "boolean",
+      "value": false,
+      "description": "是否启用模型深度思考"
+    },
+    {
+      "key": "temperature",
+      "label": "模型温度",
+      "type": "number",
+      "value": 0,
+      "description": "数值越低，审核结果越稳定",
+      "minimum": 0,
+      "maximum": 1
+    },
+    {
+      "key": "maximumPages",
+      "label": "最大审核页数",
+      "type": "integer",
+      "value": 20,
+      "minimum": 1,
+      "maximum": 20
+    },
+    {
+      "key": "imageMaximumSide",
+      "label": "图片最长边",
+      "type": "integer",
+      "value": 2000,
+      "description": "发送给模型前缩放后的最大像素尺寸",
+      "minimum": 512,
+      "maximum": 4096
+    },
+    {
+      "key": "jpegQuality",
+      "label": "JPEG 质量",
+      "type": "integer",
+      "value": 85,
+      "minimum": 40,
+      "maximum": 100
+    },
+    {
+      "key": "pdfRenderScale",
+      "label": "PDF 清晰度",
+      "type": "number",
+      "value": 2,
+      "description": "PDF 页面转换为图片时的渲染倍率",
+      "minimum": 1,
+      "maximum": 4
+    },
+    {
+      "key": "requestTimeoutSeconds",
+      "label": "请求超时",
+      "type": "number",
+      "value": 60,
+      "description": "等待视觉模型响应的最长秒数",
+      "minimum": 5,
+      "maximum": 300
+    }
   ]
 }
