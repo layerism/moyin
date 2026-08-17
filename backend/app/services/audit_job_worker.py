@@ -15,6 +15,7 @@ from app.services.audit_script_runtime import (
 from app.services.audit_script_parameters import (
     AuditScriptParameterError,
     validate_script_params,
+    validate_script_settings,
 )
 
 
@@ -61,7 +62,10 @@ async def _worker_loop(stop_event: asyncio.Event) -> None:
             )
             if (
                 job.script_config_sha256 is None
-                and descriptor.version_config.parameters
+                and (
+                    descriptor.version_config.parameters
+                    or descriptor.version_config.runtime_settings
+                )
             ) or (
                 job.script_config_sha256 is not None
                 and job.script_config_sha256 != descriptor.version_config.sha256
@@ -70,11 +74,18 @@ async def _worker_loop(stop_event: asyncio.Event) -> None:
             script_params = validate_script_params(
                 descriptor.version_config, job.script_params
             )
+            script_settings = validate_script_settings(
+                descriptor.version_config, job.script_settings
+            )
             result = await asyncio.to_thread(
                 execute_audit_script,
                 descriptor,
                 job.materials,
-                {**job.context, "scriptParams": script_params},
+                {
+                    **job.context,
+                    "scriptParams": script_params,
+                    "scriptSettings": script_settings,
+                },
             )
             await asyncio.to_thread(complete_audit_job, job.id, result)
         except (AuditScriptResolutionError, AuditScriptParameterError):

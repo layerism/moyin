@@ -7,7 +7,10 @@ import pytest
 
 from app.core.config import settings
 from app.core.database import get_connection
-from app.domain.workflow_runtime import validate_submission
+from app.domain.workflow_runtime import (
+    validate_confirmation_scan_filenames,
+    validate_submission,
+)
 from app.main import app
 
 
@@ -72,6 +75,34 @@ def register(client: TestClient, number: str, name: str) -> None:
         json={"name": name, "studentNo": number, "password": "Pass1234"},
     )
     assert response.status_code == 201
+
+
+@pytest.mark.parametrize(
+    "uploaded_filename",
+    ["安全责任书.jpg", "安全责任书第1页.png", "安全责任书(1).jpeg"],
+)
+def test_confirmation_scan_filename_accepts_template_prefix(
+    uploaded_filename: str,
+) -> None:
+    validate_confirmation_scan_filenames([uploaded_filename], "安全责任书.docx")
+
+
+@pytest.mark.parametrize("uploaded_filename", ["我的安全责任书.jpg", "安全责任.jpg"])
+def test_confirmation_scan_filename_rejects_wrong_prefix(
+    uploaded_filename: str,
+) -> None:
+    with pytest.raises(ValueError, match="请改为以“安全责任书”开头"):
+        validate_confirmation_scan_filenames([uploaded_filename], "安全责任书.docx")
+
+
+def test_confirmation_scan_filename_checks_every_file_and_normalizes_unicode() -> None:
+    validate_confirmation_scan_filenames(["A\u030A承诺书第1页.PNG"], "Å承诺书.docx")
+
+    with pytest.raises(ValueError, match="第2页扫描.jpg"):
+        validate_confirmation_scan_filenames(
+            ["安全责任书第1页.jpg", "第2页扫描.jpg"],
+            "安全责任书.docx",
+        )
 
 
 def test_students_share_definition_but_have_independent_progress(client: TestClient) -> None:

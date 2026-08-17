@@ -36,6 +36,7 @@ BUSINESS_NODE_FIELDS = (
     "auditScriptConfigHash",
     "auditScriptAcceptedExtensions",
     "auditScriptParams",
+    "auditScriptSettings",
     "auditScriptType",
     "auditScriptName",
     "autoApprove",

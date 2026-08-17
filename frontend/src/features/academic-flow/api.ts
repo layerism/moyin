@@ -2,6 +2,11 @@ import type { AcademicFlowConfig, AcademicProcess } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
 import type { AuditScriptSummary } from "./auditScripts";
 import type {
+  AuditScriptConfigDetail,
+  AuditScriptConfigUpdate,
+  AuditScriptManagementSummary,
+} from "./auditScriptConfig";
+import type {
   PublishedFlow,
   RevisionImpact,
   RuntimeFlowInstance,
@@ -301,6 +306,22 @@ export const workflowApi = {
   },
   listAuditScripts() {
     return request<AuditScriptSummary[]>("/api/workflow-admin/audit-scripts");
+  },
+  listManageableAuditScripts() {
+    return request<AuditScriptManagementSummary[]>(
+      "/api/workflow-admin/audit-scripts/manage",
+    );
+  },
+  getAuditScriptConfig(scriptId: string) {
+    return request<AuditScriptConfigDetail>(
+      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}/versions/1/config`,
+    );
+  },
+  updateAuditScriptConfig(scriptId: string, payload: AuditScriptConfigUpdate) {
+    return request<AuditScriptConfigDetail>(
+      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}/versions/1/config`,
+      { method: "PUT", body: JSON.stringify(payload) },
+    );
   },
   updateAuditScriptMetadata(
     scriptId: string,

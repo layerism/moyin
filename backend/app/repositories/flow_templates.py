@@ -215,6 +215,21 @@ def validate_version_templates(connection: Any, flow_id: str, config: dict[str, 
     return result
 
 
+def get_version_template_original_name(
+    connection: Any, flow_version_id: str, node_key: str
+) -> str | None:
+    row = connection.execute(
+        """
+        SELECT a.original_name
+        FROM flow_version_templates t
+        JOIN flow_template_assets a ON a.id = t.template_asset_id
+        WHERE t.flow_version_id = ? AND t.node_key = ?
+        """,
+        (flow_version_id, node_key),
+    ).fetchone()
+    return str(row["original_name"]) if row else None
+
+
 def get_student_template(node_instance_id: str, student_id: int) -> dict[str, object]:
     with get_connection() as connection:
         connection.execute("BEGIN")

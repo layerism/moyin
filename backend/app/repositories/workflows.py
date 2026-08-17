@@ -23,7 +23,9 @@ from app.services.audit_script_catalog import (
 )
 from app.services.audit_script_parameters import (
     AuditScriptParameterError,
+    default_script_settings,
     validate_script_params,
+    validate_script_settings,
 )
 from app.services.security import utc_now_iso
 from app.services.object_storage import get_object_storage, object_key, timestamped_object_name
@@ -40,16 +42,23 @@ def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
             for key in (
                 "auditScriptId", "auditScriptVersion", "auditScriptHash",
                 "auditScriptConfigHash", "auditScriptAcceptedExtensions", "auditScriptParams",
+                "auditScriptSettings",
             ):
                 node.pop(key, None)
             continue
         try:
             record = find_audit_script_version(CONFIRMATION_VISUAL_AUDIT_ID, 1)
             params = {
+                str(definition["key"]): definition["default"]
+                for definition in record.parameters
+            }
+            params.update({
                 "scanAuditMode": node.get("scanAuditMode"),
                 "scanAuditPrompt": str(node.get("scanAuditPrompt", "")).strip(),
-            }
+            })
+            script_settings = default_script_settings(record.version_config)
             validate_script_params(record.version_config, params)
+            validate_script_settings(record.version_config, script_settings)
         except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
             raise FlowValidationError(str(exc)) from exc
         node.update({
@@ -59,6 +68,7 @@ def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
             "auditScriptConfigHash": record.config_sha256,
             "auditScriptAcceptedExtensions": list(record.accepted_extensions),
             "auditScriptParams": params,
+            "auditScriptSettings": script_settings,
             "auditScriptType": record.language,
             "auditScriptName": record.name,
         })
@@ -87,11 +97,14 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
         script_hash = node.get("auditScriptHash")
         config_hash = node.get("auditScriptConfigHash")
         params = node.get("auditScriptParams")
+        script_settings = node.get("auditScriptSettings")
         accepted = node.get("auditScriptAcceptedExtensions")
         if not script_id:
             if any(
                 value is not None
-                for value in (version, script_hash, config_hash, params, accepted)
+                for value in (
+                    version, script_hash, config_hash, params, script_settings, accepted
+                )
             ):
                 raise FlowValidationError("未启用审核脚本的节点不能保留脚本参数")
             continue
@@ -109,17 +122,26 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
             if record.sha256 != script_hash:
                 raise FlowValidationError("审核脚本固定版本已变更，请重新选择")
             if config_hash is None:
-                if record.parameters or record.accepted_extensions or params not in (None, {}):
+                if (
+                    record.parameters
+                    or record.runtime_settings
+                    or record.accepted_extensions
+                    or params not in (None, {})
+                    or script_settings not in (None, {})
+                ):
                     raise FlowValidationError("审核脚本配置不完整，请重新选择")
                 params = {}
+                script_settings = {}
             else:
                 if (
                     not isinstance(config_hash, str)
                     or config_hash != record.config_sha256
                     or accepted != list(record.accepted_extensions)
+                    or not isinstance(script_settings, dict)
                 ):
                     raise FlowValidationError("审核脚本固定配置已变更，请重新选择")
             validate_script_params(record.version_config, params)
+            validate_script_settings(record.version_config, script_settings)
         except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
             raise FlowValidationError(str(exc)) from exc
         if record.accepted_extensions and node.get("kind") == "file":

@@ -1,3 +1,4 @@
+import base64
 import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
@@ -7,7 +8,12 @@ import pytest
 
 from app.core.config import settings
 from app.main import app
-from app.api.routes import student_flows
+from app.api.routes import student_flows, workflows
+
+
+ONE_PIXEL_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
 
 
 class FakeObjectStorage:
@@ -33,6 +39,7 @@ def client(tmp_path: Path, monkeypatch) -> Iterator[tuple[TestClient, FakeObject
     settings.database_path = str(tmp_path / "test.db")
     storage = FakeObjectStorage()
     monkeypatch.setattr(student_flows, "get_object_storage", lambda: storage, raising=False)
+    monkeypatch.setattr(workflows, "get_object_storage", lambda: storage, raising=False)
     with TestClient(app) as test_client:
         registered = test_client.post(
             "/api/auth/teacher/register",
@@ -64,6 +71,49 @@ def publish_file_flow(client: TestClient) -> dict:
     roster = client.post(
         f"/api/workflows/{flow['id']}/roster/import",
         json={"entries": [{"studentNo": "20260071", "name": "上传学生"}, {"studentNo": "20260072", "name": "另一位学生"}], "sourceFileName": "名单.xlsx"},
+    )
+    assert roster.status_code == 200
+    published = client.post(f"/api/workflows/{flow['id']}/publish")
+    assert published.status_code == 201
+    return published.json()
+
+
+def publish_confirmation_flow(client: TestClient) -> dict:
+    flow = client.post("/api/workflows", json={"name": "签署流程"}).json()
+    config = {
+        "nodes": [
+            {
+                "id": "confirmation-node",
+                "kind": "confirmation",
+                "title": "签署安全责任书",
+                "requirement": "下载、签署并上传扫描件",
+                "infoFields": [],
+                "scanAuditEnabled": True,
+                "scanAuditMode": "pass_fail",
+                "scanAuditPrompt": "检查签名和日期是否完整",
+            }
+        ],
+        "edges": [],
+    }
+    draft = client.put(f"/api/workflows/{flow['id']}/draft", json={"config": config})
+    assert draft.status_code == 200
+    template = client.post(
+        f"/api/workflows/{flow['id']}/nodes/confirmation-node/template",
+        files={
+            "file": (
+                "安全责任书.docx",
+                b"template-content",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+    )
+    assert template.status_code == 200
+    roster = client.post(
+        f"/api/workflows/{flow['id']}/roster/import",
+        json={
+            "entries": [{"studentNo": "20260081", "name": "签署学生"}],
+            "sourceFileName": "签署名单.xlsx",
+        },
     )
     assert roster.status_code == 200
     published = client.post(f"/api/workflows/{flow['id']}/publish")
@@ -148,3 +198,64 @@ def test_storage_failure_does_not_leave_metadata(client):
 
     assert response.status_code == 502
     assert storage.objects == {}
+
+
+def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
+    test_client, _ = client
+    published = publish_confirmation_flow(test_client)
+    register_student(test_client, "20260081", "签署学生")
+    instance = test_client.post(f"/api/student/shared/{published['token']}/enter").json()
+    node_id = instance["nodeInstances"][0]["id"]
+    downloaded = test_client.post(f"/api/student/node-instances/{node_id}/template/download")
+    assert downloaded.status_code == 200
+    invalid_scan = test_client.post(
+        f"/api/student/node-instances/{node_id}/scans",
+        files={"file": ("扫描件1.png", ONE_PIXEL_PNG, "image/png")},
+    )
+    assert invalid_scan.status_code == 200
+
+    rejected = test_client.post(
+        f"/api/student/node-instances/{node_id}/submit",
+        json={"payload": {"confirmed": True}, "idempotencyKey": "invalid-name"},
+    )
+
+    assert rejected.status_code == 409
+    assert "请改为以“安全责任书”开头" in rejected.json()["detail"]
+    with sqlite3.connect(settings.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM submissions WHERE node_instance_id = ?", (node_id,)
+        ).fetchone()[0] == 0
+        assert connection.execute(
+            "SELECT COUNT(*) FROM audit_jobs WHERE node_instance_id = ?", (node_id,)
+        ).fetchone()[0] == 0
+        assert connection.execute(
+            "SELECT submission_id FROM uploaded_files WHERE id = ?",
+            (invalid_scan.json()["fileId"],),
+        ).fetchone()[0] is None
+
+    deleted = test_client.delete(
+        f"/api/student/node-instances/{node_id}/scans/{invalid_scan.json()['fileId']}"
+    )
+    assert deleted.status_code == 200
+    valid_scan = test_client.post(
+        f"/api/student/node-instances/{node_id}/scans",
+        files={"file": ("安全责任书第1页.png", ONE_PIXEL_PNG, "image/png")},
+    )
+    assert valid_scan.status_code == 200
+    accepted = test_client.post(
+        f"/api/student/node-instances/{node_id}/submit",
+        json={"payload": {"confirmed": True}, "idempotencyKey": "valid-name"},
+    )
+
+    assert accepted.status_code == 200
+    with sqlite3.connect(settings.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM submissions WHERE node_instance_id = ?", (node_id,)
+        ).fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT COUNT(*) FROM audit_jobs WHERE node_instance_id = ?", (node_id,)
+        ).fetchone()[0] == 1
+        assert connection.execute(
+            "SELECT submission_id FROM uploaded_files WHERE id = ?",
+            (valid_scan.json()["fileId"],),
+        ).fetchone()[0] is not None

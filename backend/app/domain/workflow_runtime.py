@@ -102,6 +102,25 @@ def validate_file_metadata(node: dict[str, Any], file_name: str, file_size: obje
             raise ValueError(f"文件大小不能超过 {raw_limit} MB")
 
 
+def validate_confirmation_scan_filenames(
+    uploaded_filenames: list[str], template_filename: str
+) -> None:
+    template_stem, template_suffix = _filename_identity(template_filename)
+    if not template_stem or template_suffix != ".docx":
+        raise ValueError("当前节点模板配置异常，请联系教师")
+    for uploaded_filename in uploaded_filenames:
+        uploaded_stem, uploaded_suffix = _filename_identity(uploaded_filename)
+        if (
+            uploaded_suffix not in {".jpg", ".jpeg", ".png"}
+            or not uploaded_stem.startswith(template_stem)
+        ):
+            normalized = _normalized_filename(uploaded_filename)
+            raise ValueError(
+                f"文件“{normalized}”名称不符合要求，"
+                f"请改为以“{template_stem}”开头后重新上传。"
+            )
+
+
 def validate_template_filename(uploaded_filename: str, template_filename: str) -> str:
     uploaded_stem, uploaded_suffix = _filename_identity(uploaded_filename)
     template_stem, template_suffix = _filename_identity(template_filename)

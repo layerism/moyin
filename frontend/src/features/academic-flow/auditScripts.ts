@@ -10,26 +10,35 @@ export type AuditScriptSummary = {
   language: "js" | "py";
   name: string;
   parameters: AuditScriptParameter[];
+  runtimeSettings: AuditScriptRuntimeSetting[];
   sha256: string;
   updatedAt: string;
   version: number;
 };
 
-type AuditScriptParameterBase = {
-  default: string | number | boolean;
+type AuditScriptValueDefinitionBase = {
   description?: string;
   key: string;
   label: string;
   required: boolean;
 };
 
-export type AuditScriptParameter = AuditScriptParameterBase &
+export type AuditScriptValueDefinition = AuditScriptValueDefinitionBase &
   (
     | { maximum?: number; minimum?: number; type: "integer" | "number" }
     | { maximumLength: number; minimumLength: number; type: "string" }
     | { type: "boolean" }
     | { options: Array<{ label: string; value: string }>; type: "select" }
   );
+
+export type AuditScriptParameter = AuditScriptValueDefinition & {
+  default: string | number | boolean;
+};
+
+export type AuditScriptRuntimeSetting = AuditScriptValueDefinition & {
+  multiline?: boolean;
+  value: string | number | boolean;
+};
 
 export type AuditScriptOption = {
   label: string;
@@ -83,6 +92,7 @@ export function toNodeAuditScriptSelection(
       auditScriptConfigHash: undefined,
       auditScriptAcceptedExtensions: undefined,
       auditScriptParams: undefined,
+      auditScriptSettings: undefined,
       auditScriptId: undefined,
       auditScriptName: "",
       auditScriptType: "none",
@@ -100,6 +110,9 @@ export function toNodeAuditScriptSelection(
     auditScriptParams: Object.fromEntries(
       script.parameters.map((parameter) => [parameter.key, parameter.default]),
     ),
+    auditScriptSettings: Object.fromEntries(
+      script.runtimeSettings.map((setting) => [setting.key, setting.value]),
+    ),
     ...(script.acceptedExtensions.length
       ? { fileExtensions: script.acceptedExtensions.map((value) => value.slice(1)).join(", ") }
       : {}),
@@ -107,7 +120,7 @@ export function toNodeAuditScriptSelection(
 }
 
 export function getAuditScriptParameterError(
-  definition: AuditScriptParameter,
+  definition: AuditScriptValueDefinition,
   value: unknown,
 ): string {
   if (definition.type === "integer" || definition.type === "number") {
@@ -122,7 +135,7 @@ export function getAuditScriptParameterError(
   }
   if (definition.type === "string") {
     if (typeof value !== "string") return "请输入文本";
-    if (value.length < definition.minimumLength) return `至少 ${definition.minimumLength} 个字符`;
+    if (value.trim().length < definition.minimumLength) return `至少 ${definition.minimumLength} 个有效字符`;
     if (value.length > definition.maximumLength) return `最多 ${definition.maximumLength} 个字符`;
   }
   if (definition.type === "boolean" && typeof value !== "boolean") return "请选择是否启用";

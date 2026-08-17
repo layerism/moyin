@@ -3,9 +3,8 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import type { AcademicFlowEdge, AcademicFlowNode, AcademicFlowPort } from "../../types";
 import type { RuntimeNodeInstance, RuntimeNodeStatus } from "./runtimeTypes";
 import {
-  createStudentEdgePath,
+  createStudentEdgeGeometries,
   getStudentCanvasBounds,
-  getStudentEdgeTarget,
   studentNodeSize,
 } from "./studentTopologyGeometry";
 import {
@@ -59,6 +58,10 @@ export function StudentFlowTopology({
     [runtimeNodes],
   );
   const bounds = getStudentCanvasBounds(nodes);
+  const edgeGeometries = useMemo(
+    () => createStudentEdgeGeometries(edges, nodes),
+    [edges, nodes],
+  );
   const approvedCount = runtimeNodes.filter((runtime) => runtime.status === "approved").length;
   const zoomCanvas = (event: WheelEvent) => {
     if (!viewportRef.current) return;
@@ -155,15 +158,20 @@ export function StudentFlowTopology({
             width={bounds.width}
           >
             {edges.map((edge) => {
-              const path = createStudentEdgePath(edge, nodes);
-              const target = getStudentEdgeTarget(edge, nodes);
-              if (!path || !target) return null;
+              const geometry = edgeGeometries.get(edge.id);
+              if (!geometry) return null;
               const targetRuntime = runtimeByKey.get(edge.target);
               const edgeState = targetRuntime?.status === "approved" ? "approved" : "default";
               return (
                 <g className={edgeState} key={edge.id}>
-                  <path d={path} />
-                  <polygon points={createArrowPolygon(target.x, target.y, target.port)} />
+                  <path d={geometry.path} />
+                  <polygon
+                    points={createArrowPolygon(
+                      geometry.targetX,
+                      geometry.targetY,
+                      geometry.targetPort,
+                    )}
+                  />
                 </g>
               );
             })}

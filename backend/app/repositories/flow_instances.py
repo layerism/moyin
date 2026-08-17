@@ -13,6 +13,7 @@ from app.domain.workflow_runtime import (
     node_by_key,
     parse_datetime,
     pending_node_status,
+    validate_confirmation_scan_filenames,
     validate_submission,
 )
 from app.repositories.audit_jobs import create_audit_job
@@ -24,6 +25,7 @@ from app.repositories.flow_files import (
     get_uploaded_file_for_node,
 )
 from app.repositories.flow_roster import assert_student_roster_access
+from app.repositories.flow_templates import get_version_template_original_name
 from app.repositories.flow_runtime_state import (
     advance_downstream,
     complete_flow_if_ready,
@@ -290,12 +292,16 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     key: value
                     for key, value in node.items()
                     if not (
-                        node.get("kind") == "confirmation"
-                        and key in {
-                            "scanAuditMode", "scanAuditPrompt", "auditScriptId",
-                            "auditScriptVersion", "auditScriptHash", "auditScriptConfigHash",
-                            "auditScriptAcceptedExtensions", "auditScriptParams",
-                        }
+                        key == "auditScriptSettings"
+                        or (
+                            node.get("kind") == "confirmation"
+                            and key in {
+                                "scanAuditMode", "scanAuditPrompt", "auditScriptId",
+                                "auditScriptVersion", "auditScriptHash",
+                                "auditScriptConfigHash", "auditScriptAcceptedExtensions",
+                                "auditScriptParams",
+                            }
+                        )
                     )
                 }
                 for node in config["nodes"]
@@ -536,6 +542,7 @@ def submit_node(
                     and not isinstance(node.get("auditScriptConfigHash"), str)
                 )
                 or not isinstance(node.get("auditScriptParams", {}), dict)
+                or not isinstance(node.get("auditScriptSettings", {}), dict)
             ):
                 raise RuntimeConflictError("审核脚本配置无效，请联系教师")
             submission_payload = payload
@@ -568,6 +575,20 @@ def submit_node(
                 )
                 if not uploaded_scans:
                     raise RuntimeConflictError("请先上传扫描件")
+                template_filename = get_version_template_original_name(
+                    connection,
+                    str(row["flow_version_id"]),
+                    str(row["node_key"]),
+                )
+                if template_filename is None:
+                    raise RuntimeConflictError("当前节点模板配置异常，请联系教师")
+                try:
+                    validate_confirmation_scan_filenames(
+                        [str(item["original_name"]) for item in uploaded_scans],
+                        template_filename,
+                    )
+                except ValueError as exc:
+                    raise RuntimeConflictError(str(exc)) from exc
                 submission_payload = {
                     "confirmed": True,
                     "scans": [

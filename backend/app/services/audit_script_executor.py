@@ -219,8 +219,7 @@ def _script_environment(descriptor: AuditScriptRuntimeDescriptor) -> dict[str, s
             names.append(name)
     if descriptor.script_id == CONFIRMATION_VISUAL_AUDIT_ID:
         names.extend([
-            "VISION_API_BASE_URL", "VISION_API_KEY", "VISION_MODEL",
-            "VISION_API_TIMEOUT_SECONDS",
+            "VISION_API_BASE_URL", "VISION_API_KEY",
         ])
     for name in names:
         value = os.environ.get(name)
