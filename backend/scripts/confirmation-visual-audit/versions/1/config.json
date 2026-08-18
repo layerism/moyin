@@ -63,6 +63,7 @@
       "label": "最大审核页数",
       "type": "integer",
       "value": 20,
+      "description": "单次审核最多处理的文件页数",
       "minimum": 1,
       "maximum": 20
     },
@@ -80,6 +81,7 @@
       "label": "JPEG 质量",
       "type": "integer",
       "value": 85,
+      "description": "数值越高，图片越清晰但传输数据越大",
       "minimum": 40,
       "maximum": 100
     },

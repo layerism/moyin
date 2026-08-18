@@ -7202,6 +7202,7 @@ button {
 .audit-script-config-field {
   display: grid;
   min-width: 0;
+  align-content: start;
   gap: 7px;
   color: #344054;
   font-size: 14px;
