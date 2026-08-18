@@ -694,6 +694,7 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
             raise ArchivedFlowError("已归档流程不可编辑")
         _assert_valid_published_revision(connection, flow_id, config)
         validate_flow_config(config)
+        _bind_confirmation_visual_audits(config)
         _validate_audit_script_nodes(config)
         validate_version_templates(connection, flow_id, config)
         cursor = connection.execute(

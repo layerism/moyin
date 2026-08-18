@@ -7286,24 +7286,6 @@ button {
   accent-color: #2773f6;
 }
 
-.audit-script-config-warning {
-  margin: 0;
-  padding: 11px 13px;
-  border: 1px solid #fedf89;
-  border-radius: 6px;
-  background: #fffaeb;
-  color: #93370d;
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.audit-script-config-success {
-  margin: 0;
-  color: #067647;
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .audit-script-partial-save {
   margin: 0;
   padding: 11px 13px;

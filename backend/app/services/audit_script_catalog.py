@@ -113,6 +113,7 @@ def list_manageable_audit_scripts() -> list[dict[str, object]]:
             "language": record.language,
             "version": record.version,
             "parameterCount": len(record.parameters),
+            "parameterDefaultsEditable": record.visibility == "public",
             "runtimeSettingCount": len(record.runtime_settings),
             "metadataEditable": record.visibility == "public",
             "updatedAt": record.updated_at,
@@ -195,6 +196,7 @@ def _config_response(record: AuditScriptRecord) -> dict[str, object]:
         "parameters": list(record.parameters),
         "runtimeSettings": list(record.runtime_settings),
         "metadataEditable": record.visibility == "public",
+        "parameterDefaultsEditable": record.visibility == "public",
         "updatedAt": record.updated_at,
     }
 

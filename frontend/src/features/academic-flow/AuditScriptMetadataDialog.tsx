@@ -27,7 +27,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   const [parameterDefaults, setParameterDefaults] = useState<Record<string, AuditScriptValue>>({});
   const [runtimeSettings, setRuntimeSettings] = useState<Record<string, AuditScriptValue>>({});
   const [saveError, setSaveError] = useState("");
-  const [saveNotice, setSaveNotice] = useState("");
   const [partialSaveNotice, setPartialSaveNotice] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -47,7 +46,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
 
   const clearSaveMessages = () => {
     setSaveError("");
-    setSaveNotice("");
     setPartialSaveNotice("");
   };
 
@@ -152,7 +150,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
         );
       }
 
-      setSaveNotice("修改已保存");
     } catch (error) {
       const message = error instanceof ApiError && error.status === 409 && configChanged && !configSaved
         ? "配置已被其他管理员修改，请重新加载"
@@ -175,7 +172,10 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   };
 
   const hasEditableConfig = Boolean(
-    detail && (detail.parameters.length > 0 || detail.runtimeSettings.length > 0),
+    detail && (
+      (detail.parameterDefaultsEditable && detail.parameters.length > 0)
+      || detail.runtimeSettings.length > 0
+    ),
   );
   const hasEditableContent = Boolean(detail?.metadataEditable || hasEditableConfig);
 
@@ -258,16 +258,12 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
               onParameterChange={(key, value) => updateDraft("parameter", key, value)}
               onSettingChange={(key, value) => updateDraft("setting", key, value)}
               parameterDefaults={parameterDefaults}
-              parameters={detail.parameters}
+              parameters={detail.parameterDefaultsEditable ? detail.parameters : []}
               runtimeSettings={detail.runtimeSettings}
               settingValues={runtimeSettings}
             /> : null}
-            {hasEditableConfig ? <p className="audit-script-config-warning">
-              配置变更会更新脚本 v1 哈希；已有预览需重新打开，已发布流程需重新发布。
-            </p> : null}
             {saveError ? <p className="dialog-error" role="alert">{saveError}</p> : null}
             {partialSaveNotice ? <p className="audit-script-partial-save" role="alert">{partialSaveNotice}</p> : null}
-            {saveNotice ? <p className="audit-script-config-success" role="status">{saveNotice}</p> : null}
             <footer>
               <button disabled={saving} onClick={closeDetail} type="button">返回</button>
               {hasEditableContent ? <button className="primary-action" disabled={!canSave} type="submit">
@@ -289,7 +285,8 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
             ) : null}
             {!detailLoading && scripts && scripts.length > 0 ? <div className="audit-script-metadata-list">
               {scripts.map((script) => {
-                const configurableCount = script.parameterCount + script.runtimeSettingCount;
+                const configurableCount = (script.parameterDefaultsEditable ? script.parameterCount : 0)
+                  + script.runtimeSettingCount;
                 return <article key={script.id}>
                   <div>
                     <strong>{script.name}</strong>

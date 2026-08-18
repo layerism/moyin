@@ -13,6 +13,7 @@ export type AuditScriptManagementSummary = {
   metadataEditable: boolean;
   name: string;
   parameterCount: number;
+  parameterDefaultsEditable: boolean;
   runtimeSettingCount: number;
   updatedAt: string;
   version: 1;
@@ -26,6 +27,7 @@ export type AuditScriptConfigDetail = {
   metadataEditable: boolean;
   name: string;
   parameters: AuditScriptParameter[];
+  parameterDefaultsEditable: boolean;
   runtimeSettings: AuditScriptRuntimeSetting[];
   updatedAt: string;
   version: 1;
