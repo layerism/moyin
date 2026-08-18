@@ -74,6 +74,34 @@ def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
         })
 
 
+def _refresh_file_audit_script_configs(config: dict[str, Any]) -> None:
+    for node in config.get("nodes", []):
+        if node.get("kind") != "file":
+            continue
+        script_id = node.get("auditScriptId")
+        version = node.get("auditScriptVersion")
+        if not isinstance(script_id, str) or not isinstance(version, int):
+            continue
+        try:
+            record = find_audit_script_version(script_id, version)
+        except AuditScriptCatalogError:
+            continue
+        if (
+            node.get("auditScriptHash") != record.sha256
+            or node.get("auditScriptConfigHash") == record.config_sha256
+        ):
+            continue
+        node.update({
+            "auditScriptConfigHash": record.config_sha256,
+            "auditScriptAcceptedExtensions": list(record.accepted_extensions),
+            "auditScriptSettings": default_script_settings(record.version_config),
+        })
+        if record.accepted_extensions:
+            node["fileExtensions"] = ", ".join(
+                extension.removeprefix(".") for extension in record.accepted_extensions
+            )
+
+
 class ArchivedFlowError(ValueError):
     pass
 
@@ -695,6 +723,7 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
         _assert_valid_published_revision(connection, flow_id, config)
         validate_flow_config(config)
         _bind_confirmation_visual_audits(config)
+        _refresh_file_audit_script_configs(config)
         _validate_audit_script_nodes(config)
         validate_version_templates(connection, flow_id, config)
         cursor = connection.execute(
