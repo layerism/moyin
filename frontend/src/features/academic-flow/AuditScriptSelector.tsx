@@ -7,6 +7,7 @@ import {
   getAuditScriptParameterError,
   getSelectedAuditScriptValue,
   resolveAuditScriptSelection,
+  type AuditScriptParameter,
   type AuditScriptSummary,
 } from "./auditScripts";
 
@@ -14,10 +15,14 @@ export function AuditScriptSelector({
   disabled = false,
   node,
   onChange,
+  parameterDisabled = disabled,
+  parameters,
 }: {
   disabled?: boolean;
   node: AcademicFlowNode;
   onChange: (patch: Partial<AcademicFlowNode>) => void;
+  parameterDisabled?: boolean;
+  parameters?: AuditScriptParameter[];
 }) {
   const [scripts, setScripts] = useState<AuditScriptSummary[]>([]);
   const [error, setError] = useState("");
@@ -42,6 +47,7 @@ export function AuditScriptSelector({
   const selectedScript = scripts.find(
     (script) => `uploaded:${script.id}` === selectedValue,
   );
+  const parameterDefinitions = parameters ?? selectedScript?.parameters ?? [];
   const updateParameter = (key: string, value: string | number | boolean) => {
     onChange({
       auditScriptParams: { ...(node.auditScriptParams ?? {}), [key]: value },
@@ -66,7 +72,7 @@ export function AuditScriptSelector({
           ))}
         </select>
       </label>
-      {selectedScript?.parameters.map((parameter) => {
+      {parameterDefinitions.map((parameter) => {
         const value = node.auditScriptParams?.[parameter.key] ?? parameter.default;
         const parameterError = getAuditScriptParameterError(parameter, value);
         return (
@@ -75,13 +81,13 @@ export function AuditScriptSelector({
             {parameter.type === "boolean" ? (
               <input
                 checked={value === true}
-                disabled={disabled}
+                disabled={parameterDisabled}
                 type="checkbox"
                 onChange={(event) => updateParameter(parameter.key, event.target.checked)}
               />
             ) : parameter.type === "select" ? (
               <select
-                disabled={disabled}
+                disabled={parameterDisabled}
                 value={String(value)}
                 onChange={(event) => updateParameter(parameter.key, event.target.value)}
               >
@@ -91,7 +97,7 @@ export function AuditScriptSelector({
               </select>
             ) : (
               <input
-                disabled={disabled}
+                disabled={parameterDisabled}
                 max={parameter.type === "integer" || parameter.type === "number" ? parameter.maximum : undefined}
                 maxLength={parameter.type === "string" ? parameter.maximumLength : undefined}
                 min={parameter.type === "integer" || parameter.type === "number" ? parameter.minimum : undefined}
