@@ -64,7 +64,7 @@
 - 草稿可以编辑；发布时生成不可变的 `flow_versions.config_snapshot`，运行实例只引用发布快照。
 - 发布节点以稳定节点 ID/`node_key` 关联运行数据，不能用标题或坐标代替标识。
 - 已发布节点不可删除；旧连线不可删除或改向。
-- 发布后修订中，旧节点只允许修改 `title`、`requirement`、`startAt`、`deadlineAt`。
+- 发布后修订中，旧节点只允许修改 `title`、`requirement`、`scanAuditPrompt`、`startAt`、`deadlineAt`；提示词变化与标题、说明变化一样，会使该节点及可达下游节点失效并重新完成。
 - 新增连线必须至少连接一个新增节点，不能在两个既有节点间增加新连线。
 - `workflow_revision.analyze_revision()` 将新增、业务字段变化和前驱变化作为初始影响，并使所有可达下游节点失效/重锁；历史填写内容不清空。
 - 若修订内容与已发布版本无实质差异，前端本地退出修订，不创建无意义的新版本。

@@ -5,9 +5,11 @@ import pytest
 from app.domain.workflow_revision import (
     PublishedEdgeDeletionError,
     PublishedNodeDeletionError,
+    PublishedNodeMutationError,
     analyze_revision,
     assert_published_edges_present,
     assert_published_nodes_present,
+    assert_valid_revision,
 )
 
 
@@ -134,3 +136,56 @@ def test_audit_script_version_change_invalidates_the_published_file_node():
 
     assert impact["changedNodeIds"] == ["file"]
     assert impact["invalidatedNodeIds"] == ["file"]
+
+
+def confirmation_config() -> dict:
+    return {
+        "nodes": [
+            {
+                "id": "confirmation-1",
+                "kind": "confirmation",
+                "title": "确认承诺",
+                "requirement": "签署后上传扫描件",
+                "infoFields": [],
+                "scanAuditEnabled": True,
+                "scanAuditMode": "score",
+                "scanAuditPrompt": "检查签名和日期",
+            },
+            {
+                "id": "archive-1",
+                "kind": "form",
+                "title": "归档信息",
+                "requirement": "填写归档信息",
+                "infoFields": [],
+            },
+        ],
+        "edges": [
+            {
+                "id": "confirmation-archive",
+                "source": "confirmation-1",
+                "target": "archive-1",
+            }
+        ],
+    }
+
+
+def test_published_scan_audit_prompt_can_be_revised() -> None:
+    previous = confirmation_config()
+    current = deepcopy(previous)
+    current["nodes"][0]["scanAuditPrompt"] = "检查签名、日期和印章"
+
+    assert_valid_revision(previous, current)
+
+    impact = analyze_revision(previous, current)
+
+    assert impact["changedNodeIds"] == ["confirmation-1"]
+    assert impact["invalidatedNodeIds"] == ["confirmation-1", "archive-1"]
+
+
+def test_published_scan_audit_mode_remains_locked() -> None:
+    previous = confirmation_config()
+    current = deepcopy(previous)
+    current["nodes"][0]["scanAuditMode"] = "pass_fail"
+
+    with pytest.raises(PublishedNodeMutationError):
+        assert_valid_revision(previous, current)
