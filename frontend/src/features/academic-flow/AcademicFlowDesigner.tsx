@@ -21,7 +21,6 @@ import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
 import { AuditScriptSelector } from "./AuditScriptSelector";
 import {
   getAuditScriptParameterError,
-  type AuditScriptParameter,
   type NodeAuditPolicy,
 } from "./auditScripts";
 import {
@@ -1729,6 +1728,83 @@ function NodeInspector({
   publishedRevision: boolean;
 }) {
   const [timeSettingsOpen, setTimeSettingsOpen] = useState(false);
+  const [auditPolicy, setAuditPolicy] = useState<NodeAuditPolicy | null>(null);
+  const [auditPolicyParams, setAuditPolicyParams] = useState<Record<string, string | number | boolean>>({});
+  const [auditPolicyError, setAuditPolicyError] = useState("");
+  const [auditPolicySaving, setAuditPolicySaving] = useState(false);
+  const nodeKey = node?.id ?? "";
+  const hasPublishedAuditPolicy = Boolean(
+    publishedAuditPolicy && node && (node.auditScriptId || node.scanAuditEnabled),
+  );
+
+  useEffect(() => {
+    setAuditPolicy(null);
+    setAuditPolicyParams({});
+    setAuditPolicyError("");
+    setAuditPolicySaving(false);
+    if (!hasPublishedAuditPolicy) return;
+    let cancelled = false;
+    workflowApi.getNodeAuditPolicy(flowId, nodeKey).then((value) => {
+      if (cancelled) return;
+      setAuditPolicy(value);
+      setAuditPolicyParams(value.params);
+    }).catch((reason) => {
+      if (!cancelled) {
+        setAuditPolicyError(reason instanceof Error ? reason.message : "读取审核规则失败");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [flowId, hasPublishedAuditPolicy, nodeKey]);
+
+  const auditPolicyFieldErrors = auditPolicy ? Object.fromEntries(
+    auditPolicy.parameters.map((parameter) => [
+      parameter.key,
+      getAuditScriptParameterError(parameter, auditPolicyParams[parameter.key]),
+    ]).filter(([, value]) => value),
+  ) as Record<string, string> : {};
+  const auditPolicyChanged = Boolean(auditPolicy?.parameters.some(
+    (parameter) => auditPolicyParams[parameter.key] !== auditPolicy.params[parameter.key],
+  ));
+
+  const closeInspector = useCallback(async () => {
+    if (auditPolicySaving) return;
+    if (!hasPublishedAuditPolicy || !auditPolicy || !auditPolicyChanged) {
+      onClose();
+      return;
+    }
+    const validationError = Object.values(auditPolicyFieldErrors)[0];
+    if (validationError) {
+      setAuditPolicyError(`请先修正审核规则：${validationError}`);
+      return;
+    }
+    setAuditPolicySaving(true);
+    setAuditPolicyError("");
+    try {
+      const updated = await workflowApi.updateNodeAuditPolicy(flowId, nodeKey, {
+        expectedGeneration: auditPolicy.generation,
+        params: auditPolicyParams,
+      });
+      onAuditPolicySaved(updated.params);
+      onClose();
+    } catch (reason) {
+      setAuditPolicyError(reason instanceof Error ? reason.message : "保存审核规则失败");
+    } finally {
+      setAuditPolicySaving(false);
+    }
+  }, [
+    auditPolicy,
+    auditPolicyChanged,
+    auditPolicyFieldErrors,
+    auditPolicyParams,
+    auditPolicySaving,
+    flowId,
+    hasPublishedAuditPolicy,
+    nodeKey,
+    onAuditPolicySaved,
+    onClose,
+  ]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -1738,7 +1814,7 @@ function NodeInspector({
         setTimeSettingsOpen(false);
         return;
       }
-      onClose();
+      void closeInspector();
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", closeOnEscape);
@@ -1746,12 +1822,25 @@ function NodeInspector({
       window.removeEventListener("keydown", closeOnEscape);
       document.body.style.overflow = previousOverflow;
     };
-  }, [onClose, timeSettingsOpen]);
+  }, [closeInspector, timeSettingsOpen]);
 
   if (!node) {
     return null;
   }
 
+  const coreSettingsDisabled = editingLocked || nodeCoreLocked;
+  const auditControlsNode: AcademicFlowNode = auditPolicy ? {
+    ...node,
+    auditScriptParams: auditPolicyParams,
+    scanAuditMode: auditPolicyParams.scanAuditMode as "pass_fail" | "score" | undefined,
+    scanAuditPrompt: typeof auditPolicyParams.scanAuditPrompt === "string"
+      ? auditPolicyParams.scanAuditPrompt
+      : node.scanAuditPrompt,
+  } : node;
+  const updateAuditPolicyParameter = (key: string, value: string | number | boolean) => {
+    setAuditPolicyError("");
+    setAuditPolicyParams((current) => ({ ...current, [key]: value }));
+  };
   const settingCapabilities = getNodeSettingCapabilities(node.kind);
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
@@ -1765,14 +1854,20 @@ function NodeInspector({
         role="dialog"
       >
         <header className="node-inspector-toolbar">
-          <button aria-label="关闭节点设置" onClick={onClose} type="button">
+          <button
+            aria-label="关闭节点设置"
+            disabled={auditPolicySaving}
+            onClick={() => void closeInspector()}
+            type="button"
+          >
             ×
           </button>
         </header>
-        <fieldset className="node-inspector-fields" disabled={editingLocked}>
+        <div className="node-inspector-fields">
         <label className="node-basic-title-field">
           <input
             aria-label="节点标题"
+            disabled={editingLocked}
             maxLength={50}
             placeholder="请添加标题"
             value={node.title}
@@ -1782,6 +1877,7 @@ function NodeInspector({
         <label className="node-basic-description-field">
           <textarea
             aria-label="节点说明"
+            disabled={editingLocked}
             placeholder="添加描述"
             value={node.requirement}
             onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
@@ -1791,6 +1887,7 @@ function NodeInspector({
           <button
             aria-haspopup="dialog"
             className="node-time-settings-toggle"
+            disabled={editingLocked}
             onClick={() => setTimeSettingsOpen(true)}
             type="button"
           >
@@ -1803,13 +1900,13 @@ function NodeInspector({
         </div>
         {publishedRevision ? (
           <p className="node-inspector-revision-note">
-            当前为发布后修订。旧节点仅可修改标题、说明、起始时间和截止时间；审核提示词请在下方“已发布审核规则”中独立保存。
+            当前为发布后修订。标题、说明和起止时间重新发布后生效；审核提示词与脚本参数在原位置修改，完成时立即更新未完成审核。
           </p>
         ) : null}
         {settingCapabilities.collectsInformation ? (
-          <section className="inspector-section" aria-disabled={nodeCoreLocked}>
+          <section className="inspector-section" aria-disabled={coreSettingsDisabled}>
             <FormFieldEditor
-              disabled={nodeCoreLocked}
+              disabled={coreSettingsDisabled}
               fields={node.infoFields}
               onChange={(infoFields) => onUpdateNode(node.id, { infoFields })}
             />
@@ -1818,11 +1915,24 @@ function NodeInspector({
 
         {settingCapabilities.configuresConfirmationScan ? (
           <ConfirmationScanSettings
-            disabled={nodeCoreLocked}
-            node={node}
+            disabled={coreSettingsDisabled}
+            node={auditControlsNode}
             onDeleteTemplate={onDeleteTemplate}
-            onUpdate={(patch) => onUpdateNode(node.id, patch)}
+            onUpdate={(patch) => {
+              if (
+                hasPublishedAuditPolicy &&
+                typeof patch.scanAuditPrompt === "string"
+              ) {
+                updateAuditPolicyParameter("scanAuditPrompt", patch.scanAuditPrompt);
+                return;
+              }
+              onUpdateNode(node.id, patch);
+            }}
             onUploadTemplate={onUploadTemplate}
+            promptDisabled={hasPublishedAuditPolicy
+              ? !auditPolicy || auditPolicySaving
+              : coreSettingsDisabled}
+            promptError={auditPolicyFieldErrors.scanAuditPrompt}
           />
         ) : null}
 
@@ -1837,7 +1947,7 @@ function NodeInspector({
                     aria-checked={hasFileTypeRestriction}
                     aria-label="启用文件类型限制"
                     className={`restriction-switch ${hasFileTypeRestriction ? "is-enabled" : ""}`}
-                    disabled={nodeCoreLocked || scriptLocksFileTypes}
+                    disabled={coreSettingsDisabled || scriptLocksFileTypes}
                     onClick={() =>
                       onUpdateNode(node.id, {
                         fileExtensions: hasFileTypeRestriction
@@ -1854,7 +1964,7 @@ function NodeInspector({
                 {hasFileTypeRestriction ? (
                   <select
                     aria-label="文件类型预设"
-                    disabled={nodeCoreLocked || scriptLocksFileTypes}
+                    disabled={coreSettingsDisabled || scriptLocksFileTypes}
                     value={fileTypeRestrictionPreset}
                     onChange={(event) =>
                       onUpdateNode(node.id, {
@@ -1887,9 +1997,9 @@ function NodeInspector({
                     placeholder="请输入 0.1–300 的数值"
                     step="0.1"
                     type="number"
-                  disabled={nodeCoreLocked}
-                  value={node.fileLimitMb}
-                  onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
+                    disabled={coreSettingsDisabled}
+                    value={node.fileLimitMb}
+                    onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
                   />
                   <strong>MB</strong>
                 </span>
@@ -1907,7 +2017,7 @@ function NodeInspector({
                     <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
                     <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
                   </div>
-                  {nodeCoreLocked ? <span>已随发布版本固化</span> : <div className="node-template-actions">
+                  {coreSettingsDisabled ? <span>已随发布版本固化</span> : <div className="node-template-actions">
                     <label>
                       替换模板
                       <input
@@ -1923,8 +2033,8 @@ function NodeInspector({
                     <button onClick={onDeleteTemplate} type="button">删除模板</button>
                   </div>}
                 </div>
-              ) : nodeCoreLocked ? (
-                <p className="muted-line">该节点发布时未配置模板，修订中不可新增。</p>
+              ) : coreSettingsDisabled ? (
+                <p className="muted-line">该节点发布时未配置模板，当前不可新增。</p>
               ) : (
                 <label className="node-template-upload">
                   <input
@@ -1943,28 +2053,50 @@ function NodeInspector({
             </section>
 
             <AuditScriptSelector
-              disabled={nodeCoreLocked}
-              node={node}
-              onChange={(patch) => onUpdateNode(node.id, patch)}
+              disabled={coreSettingsDisabled}
+              node={auditControlsNode}
+              onChange={(patch) => {
+                if (hasPublishedAuditPolicy && patch.auditScriptParams) {
+                  setAuditPolicyError("");
+                  setAuditPolicyParams(patch.auditScriptParams);
+                  return;
+                }
+                onUpdateNode(node.id, patch);
+              }}
+              parameterDisabled={hasPublishedAuditPolicy
+                ? !auditPolicy || auditPolicySaving
+                : coreSettingsDisabled}
+              parameters={hasPublishedAuditPolicy ? auditPolicy?.parameters : undefined}
             />
           </>
         ) : null}
-        </fieldset>
-        {publishedAuditPolicy && (node.auditScriptId || node.scanAuditEnabled) ? (
-          <PublishedAuditPolicyEditor
-            flowId={flowId}
-            nodeKey={node.id}
-            onSaved={onAuditPolicySaved}
-          />
-        ) : null}
+        </div>
         <footer className="node-inspector-footer">
-          <span>
-            {publishedRevision
-              ? "修改仅保存在当前页面，重新发布后写入新版本。"
-              : "修改仅保存在当前页面，提交发布后写入流程版本。"}
+          <span
+            className={auditPolicyError ? "node-inspector-footer-error" : undefined}
+            role={auditPolicyError ? "alert" : undefined}
+          >
+            {auditPolicyError
+              ? auditPolicyError
+              : hasPublishedAuditPolicy && !auditPolicy
+                ? "正在读取已发布审核规则…"
+                : auditPolicySaving
+                  ? "正在保存审核规则…"
+                  : hasPublishedAuditPolicy && auditPolicyChanged
+                    ? "点击完成后，审核规则立即更新未完成审核。"
+                    : publishedRevision
+                      ? "标题、说明和时间重新发布后生效；审核规则在完成时立即保存。"
+                      : hasPublishedAuditPolicy
+                        ? "审核提示词和脚本参数可在原位置修改，完成时立即保存。"
+                        : "修改仅保存在当前页面，提交发布后写入流程版本。"}
           </span>
-          <button className="primary-action" onClick={onClose} type="button">
-            完成
+          <button
+            className="primary-action"
+            disabled={auditPolicySaving}
+            onClick={() => void closeInspector()}
+            type="button"
+          >
+            {auditPolicySaving ? "保存中…" : "完成"}
           </button>
         </footer>
       </aside>
@@ -2067,12 +2199,16 @@ function ConfirmationScanSettings({
   onDeleteTemplate,
   onUpdate,
   onUploadTemplate,
+  promptDisabled,
+  promptError,
 }: {
   disabled: boolean;
   node: AcademicFlowNode;
   onDeleteTemplate: () => void;
   onUpdate: (patch: Partial<AcademicFlowNode>) => void;
   onUploadTemplate: (file: File) => void;
+  promptDisabled: boolean;
+  promptError?: string;
 }) {
   const enabled = Boolean(node.scanAuditEnabled);
   const selectTemplate = (file: File | undefined, input: HTMLInputElement) => {
@@ -2110,122 +2246,15 @@ function ConfirmationScanSettings({
       {enabled ? <>
         <label>
           <span>{node.scanAuditMode === "score" ? "评分标准" : "形式审核标准"}</span>
-          <textarea maxLength={2000} placeholder="请说明 AI 应检查的项目和判定标准" value={node.scanAuditPrompt ?? ""} onChange={(event) => onUpdate({ scanAuditPrompt: event.target.value })} />
-          <small>{(node.scanAuditPrompt ?? "").length}/2000</small>
+          <textarea disabled={promptDisabled} maxLength={2000} placeholder="请说明 AI 应检查的项目和判定标准" value={node.scanAuditPrompt ?? ""} onChange={(event) => onUpdate({ scanAuditPrompt: event.target.value })} />
+          <small className={promptError ? "audit-script-error" : undefined}>
+            {promptError || `${(node.scanAuditPrompt ?? "").length}/2000`}
+          </small>
         </label>
       </> : null}
       <p className="muted-line">学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB。支持 JPG、JPEG、PNG。</p>
     </section>
   );
-}
-
-function PublishedAuditPolicyEditor({
-  flowId,
-  nodeKey,
-  onSaved,
-}: {
-  flowId: string;
-  nodeKey: string;
-  onSaved: (params: Record<string, string | number | boolean>) => void;
-}) {
-  const [policy, setPolicy] = useState<NodeAuditPolicy | null>(null);
-  const [params, setParams] = useState<Record<string, string | number | boolean>>({});
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setPolicy(null);
-    setError("");
-    workflowApi.getNodeAuditPolicy(flowId, nodeKey).then((value) => {
-      if (cancelled) return;
-      setPolicy(value);
-      setParams(value.params);
-    }).catch((reason) => {
-      if (!cancelled) setError(reason instanceof Error ? reason.message : "读取审核规则失败");
-    });
-    return () => { cancelled = true; };
-  }, [flowId, nodeKey]);
-
-  if (!policy) {
-    return <section className="inspector-section published-audit-policy">
-      <h3>已发布审核规则</h3>
-      <p className={error ? "audit-script-error" : "muted-line"}>{error || "正在读取审核规则…"}</p>
-    </section>;
-  }
-  const fieldErrors = Object.fromEntries(policy.parameters.map((parameter) => [
-    parameter.key,
-    getAuditScriptParameterError(parameter, params[parameter.key]),
-  ]).filter(([, value]) => value));
-  const changed = policy.parameters.some(
-    (parameter) => params[parameter.key] !== policy.params[parameter.key],
-  );
-  const save = async () => {
-    if (!changed || Object.keys(fieldErrors).length > 0) return;
-    setSaving(true);
-    setError("");
-    try {
-      const updated = await workflowApi.updateNodeAuditPolicy(flowId, nodeKey, {
-        expectedGeneration: policy.generation,
-        params,
-      });
-      setPolicy(updated);
-      setParams(updated.params);
-      onSaved(updated.params);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "保存审核规则失败");
-    } finally {
-      setSaving(false);
-    }
-  };
-  return <section className="inspector-section published-audit-policy">
-    <div><h3>已发布审核规则</h3><small>独立热更新；只取消本节点尚未完成的审核。</small></div>
-    {policy.parameters.map((parameter) => (
-      <PublishedAuditPolicyField
-        disabled={saving}
-        error={fieldErrors[parameter.key]}
-        key={parameter.key}
-        onChange={(value) => setParams((current) => ({ ...current, [parameter.key]: value }))}
-        parameter={parameter}
-        value={params[parameter.key]}
-      />
-    ))}
-    {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
-    <button className="primary-action" disabled={!changed || saving || Object.keys(fieldErrors).length > 0} onClick={() => void save()} type="button">
-      {saving ? "保存中…" : "保存审核规则"}
-    </button>
-  </section>;
-}
-
-function PublishedAuditPolicyField({
-  disabled,
-  error,
-  onChange,
-  parameter,
-  value,
-}: {
-  disabled: boolean;
-  error?: string;
-  onChange: (value: string | number | boolean) => void;
-  parameter: AuditScriptParameter;
-  value: string | number | boolean | undefined;
-}) {
-  return <label className="audit-script-parameter">
-    <span>{parameter.label}</span>
-    {parameter.type === "boolean" ? (
-      <input checked={value === true} disabled={disabled} onChange={(event) => onChange(event.target.checked)} type="checkbox" />
-    ) : parameter.type === "select" ? (
-      <select disabled={disabled} onChange={(event) => onChange(event.target.value)} value={String(value ?? "")}>
-        {parameter.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-    ) : parameter.type === "string" ? (
-      <textarea disabled={disabled} maxLength={parameter.maximumLength} onChange={(event) => onChange(event.target.value)} value={String(value ?? "")} />
-    ) : (
-      <input disabled={disabled} max={parameter.maximum} min={parameter.minimum} onChange={(event) => onChange(Number(event.target.value))} step={parameter.type === "integer" ? 1 : "any"} type="number" value={String(value ?? "")} />
-    )}
-    {parameter.description ? <small>{parameter.description}</small> : null}
-    {error ? <small className="audit-script-error">{error}</small> : null}
-  </label>;
 }
 
 function StudentFlowPreview({

@@ -2483,10 +2483,6 @@ button {
   border: 0;
 }
 
-.node-inspector-fields:disabled {
-  opacity: 0.7;
-}
-
 .node-inspector-backdrop {
   position: fixed;
   inset: 0;
@@ -3816,6 +3812,11 @@ button {
 .node-inspector-footer span {
   color: #667085;
   font-size: 12px;
+}
+
+.node-inspector-footer .node-inspector-footer-error {
+  color: #b42318;
+  font-weight: 700;
 }
 
 .node-inspector-footer button {
@@ -7298,28 +7299,6 @@ button {
   margin: 5px 0 0;
   color: #667085;
   font-size: 13px;
-}
-
-.published-audit-policy {
-  margin: 0 22px 20px;
-  padding: 16px;
-  border: 1px solid #cfe0fb;
-  border-radius: 10px;
-  background: #f8fbff;
-}
-
-.published-audit-policy > div:first-child {
-  display: grid;
-  gap: 4px;
-}
-
-.published-audit-policy > div:first-child h3,
-.published-audit-policy > div:first-child small {
-  margin: 0;
-}
-
-.published-audit-policy > .primary-action {
-  justify-self: end;
 }
 
 .audit-script-basic-readonly {
