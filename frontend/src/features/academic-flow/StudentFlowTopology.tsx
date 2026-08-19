@@ -50,7 +50,7 @@ export function StudentFlowTopology({
   runtimeNodes: RuntimeNodeInstance[];
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.5);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
   const runtimeByKey = useMemo(
