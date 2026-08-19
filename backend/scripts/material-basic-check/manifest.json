@@ -3,6 +3,5 @@
   "name": "材料基础校验",
   "description": "校验审核输入结构及文件数量，作为后台预置脚本示例",
   "language": "py",
-  "version": 1,
   "entry": "handler.py"
 }

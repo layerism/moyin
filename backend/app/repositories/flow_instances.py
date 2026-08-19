@@ -17,6 +17,10 @@ from app.domain.workflow_runtime import (
     validate_submission,
 )
 from app.repositories.audit_jobs import create_audit_job
+from app.repositories.audit_policies import (
+    AuditPolicyConflictError,
+    resolve_effective_audit_policy,
+)
 from app.repositories.flow_files import (
     FileContextError,
     attach_uploaded_file,
@@ -34,6 +38,13 @@ from app.repositories.flow_runtime_state import (
     version_config,
 )
 from app.repositories.workflows import canonical_json
+from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script
+from app.services.audit_script_parameters import (
+    AuditScriptParameterError,
+    default_script_settings,
+    validate_script_params,
+    validate_script_settings,
+)
 from app.services.security import utc_now_iso
 
 
@@ -215,7 +226,9 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             """
             SELECT n.*, d.payload AS draft_payload, s.payload_snapshot AS submission_payload,
                    j.status AS audit_job_status, j.attempt_count AS audit_attempt_count,
-                   j.result_json AS audit_result_json
+                   j.result_json AS audit_result_json,
+                   j.effective_params_json AS audit_effective_params_json,
+                   j.cancellation_reason AS audit_cancellation_reason
             FROM node_instances n
             LEFT JOIN node_drafts d ON d.node_instance_id = n.id
             LEFT JOIN submissions s
@@ -292,13 +305,17 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     key: value
                     for key, value in node.items()
                     if not (
-                        key == "auditScriptSettings"
+                        key in {
+                            "auditScriptVersion",
+                            "auditScriptHash",
+                            "auditScriptConfigHash",
+                            "auditScriptSettings",
+                        }
                         or (
                             node.get("kind") == "confirmation"
                             and key in {
                                 "scanAuditMode", "scanAuditPrompt", "auditScriptId",
-                                "auditScriptVersion", "auditScriptHash",
-                                "auditScriptConfigHash", "auditScriptAcceptedExtensions",
+                                "auditScriptAcceptedExtensions",
                                 "auditScriptParams",
                             }
                         )
@@ -521,30 +538,46 @@ def submit_node(
                 )
             ):
                 raise RuntimeConflictError("当前节点不可提交")
-            script_values = (
-                node.get("auditScriptId"),
-                node.get("auditScriptVersion"),
-                node.get("auditScriptHash"),
-            )
-            configured_count = sum(value not in (None, "") for value in script_values)
-            has_audit_script = configured_count == 3
-            if configured_count not in {0, 3}:
-                raise RuntimeConflictError("审核脚本配置无效，请联系教师")
-            if has_audit_script and (
-                node.get("kind") not in {"file", "confirmation"}
-                or not isinstance(script_values[0], str)
-                or not isinstance(script_values[1], int)
-                or isinstance(script_values[1], bool)
-                or script_values[1] <= 0
-                or not isinstance(script_values[2], str)
-                or (
-                    node.get("auditScriptConfigHash") is not None
-                    and not isinstance(node.get("auditScriptConfigHash"), str)
-                )
-                or not isinstance(node.get("auditScriptParams", {}), dict)
-                or not isinstance(node.get("auditScriptSettings", {}), dict)
-            ):
-                raise RuntimeConflictError("审核脚本配置无效，请联系教师")
+            script_id = node.get("auditScriptId")
+            has_audit_script = isinstance(script_id, str) and bool(script_id)
+            audit_binding: dict[str, object] | None = None
+            if has_audit_script:
+                try:
+                    policy = resolve_effective_audit_policy(
+                        connection, str(row["flow_id"]), str(row["node_key"])
+                    )
+                    if policy["scriptId"] != script_id:
+                        raise AuditPolicyConflictError("当前节点审核脚本不一致")
+                    record = find_audit_script(str(script_id))
+                    state = connection.execute(
+                        "SELECT * FROM audit_script_runtime_states WHERE script_id = ?",
+                        (script_id,),
+                    ).fetchone()
+                    if (
+                        state is None
+                        or state["status"] != "ready"
+                        or state["content_hash"] != record.content_hash
+                    ):
+                        raise AuditPolicyConflictError("审核程序正在更新，请稍后重新提交")
+                    params = validate_script_params(record.config, policy["params"])
+                    settings = validate_script_settings(
+                        record.config, default_script_settings(record.config)
+                    )
+                    audit_binding = {
+                        "scriptId": script_id,
+                        "scriptGeneration": int(state["generation"]),
+                        "scriptContentHash": state["content_hash"],
+                        "policyGeneration": int(policy["generation"]),
+                        "policyHash": policy["policyHash"],
+                        "params": params,
+                        "settings": settings,
+                    }
+                except (
+                    AuditPolicyConflictError,
+                    AuditScriptCatalogError,
+                    AuditScriptParameterError,
+                ) as exc:
+                    raise RuntimeConflictError(str(exc)) from exc
             submission_payload = payload
             uploaded_file = None
             uploaded_scans: list[dict[str, object]] = []
@@ -650,14 +683,20 @@ def submit_node(
                     )
                 except FileContextError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
-            if has_audit_script:
+            if audit_binding is not None:
                 create_audit_job(
                     connection,
                     submission_id=submission_id,
                     node_instance_id=node_instance_id,
-                    script_id=str(script_values[0]),
-                    script_version=int(script_values[1]),
-                    script_sha256=str(script_values[2]),
+                    flow_id=str(row["flow_id"]),
+                    node_key=str(row["node_key"]),
+                    script_id=str(audit_binding["scriptId"]),
+                    script_generation=int(audit_binding["scriptGeneration"]),
+                    script_content_hash=str(audit_binding["scriptContentHash"]),
+                    policy_generation=int(audit_binding["policyGeneration"]),
+                    policy_hash=str(audit_binding["policyHash"]),
+                    script_params=dict(audit_binding["params"]),
+                    script_settings=dict(audit_binding["settings"]),
                     now=now,
                 )
             connection.execute(
@@ -704,12 +743,20 @@ def _audit_summary(
             result = {}
     reason = result.get("reason") if isinstance(result.get("reason"), str) else None
     details = result.get("details") if isinstance(result.get("details"), dict) else None
+    effective_params = _json_object(row["audit_effective_params_json"])
+    audit_mode = effective_params.get("scanAuditMode", config_node.get("scanAuditMode"))
     if status == "audit_error":
         reason = "自动审核暂时失败，请重新审核"
         details = None
+    elif row["audit_job_status"] == "cancelled":
+        reason = {
+            "script_updated": "审核程序已更新，请重新提交材料。",
+            "policy_updated": "审核要求已更新，请重新提交材料。",
+        }.get(row["audit_cancellation_reason"], "审核任务已取消，请重新提交材料。")
+        details = None
     elif (
         config_node.get("kind") == "confirmation"
-        and config_node.get("scanAuditMode") == "score"
+        and audit_mode == "score"
     ):
         reason = None
         details = None
@@ -932,7 +979,8 @@ def get_teacher_submission_detail(
             """
             SELECT n.id, n.node_key, n.status, i.student_account_id,
                    a.student_no, a.name AS student_name, v.config_snapshot,
-                   s.id AS submission_id, j.result_json, j.status AS audit_job_status
+                   s.id AS submission_id, j.result_json, j.status AS audit_job_status,
+                   j.effective_params_json
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN student_accounts a ON a.id = i.student_account_id
@@ -951,7 +999,8 @@ def get_teacher_submission_detail(
         node = node_by_key(config, row["node_key"])
         result = _json_object(row["result_json"])
         details = result.get("details") if isinstance(result.get("details"), dict) else {}
-        mode = node.get("scanAuditMode") if node.get("scanAuditEnabled") is True else None
+        effective_params = _json_object(row["effective_params_json"])
+        mode = effective_params.get("scanAuditMode")
         score_value = details.get("score")
         score = (
             float(score_value)

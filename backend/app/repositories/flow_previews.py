@@ -7,6 +7,7 @@ from typing import Any
 
 from app.core.database import get_connection
 from app.domain.workflow_runtime import incoming_nodes
+from app.repositories.audit_policies import sync_preview_audit_policies
 from app.repositories.flow_instances import get_instance
 from app.repositories.workflows import canonical_json, prepare_runtime_config
 from app.services.security import hash_password, utc_now_iso
@@ -156,6 +157,7 @@ def create_preview(flow_id: str, teacher_id: int) -> tuple[dict[str, object], st
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         version_templates = prepare_runtime_config(connection, flow_id, config)
+        sync_preview_audit_policies(connection, flow_id, config, teacher_id, now)
         snapshot = canonical_json(config)
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         preview_student = _preview_student(connection, teacher_id, now)

@@ -11,7 +11,7 @@ import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from zipfile import BadZipFile, ZipFile
 
 from dotenv import dotenv_values
@@ -29,6 +29,10 @@ class AuditScriptExecutionError(RuntimeError):
     pass
 
 
+class AuditScriptExecutionCancelled(AuditScriptExecutionError):
+    pass
+
+
 @dataclass(frozen=True)
 class AuditMaterial:
     id: str
@@ -41,13 +45,15 @@ class AuditMaterial:
 
 
 def stage_audit_materials(
-    materials: list[AuditMaterial], destination: Path, storage: Any
+    materials: list[AuditMaterial], destination: Path, storage: Any,
+    cancelled: Callable[[], bool] | None = None,
 ) -> list[dict[str, object]]:
     destination = destination.resolve()
     destination.mkdir(parents=True, exist_ok=True)
     staged: list[dict[str, object]] = []
     seen_ids: set[str] = set()
     for material in materials:
+        _raise_if_cancelled(cancelled)
         extension = Path(material.name).suffix.lower()
         if (
             extension not in ALLOWED_EXTENSIONS
@@ -62,6 +68,7 @@ def stage_audit_materials(
         try:
             storage.download_to_file(material.storage_key, path)
             _validate_download(path, extension, material)
+            _raise_if_cancelled(cancelled)
         except AuditScriptExecutionError:
             raise
         except Exception:
@@ -87,7 +94,9 @@ def execute_audit_script(
     context: dict[str, object],
     *,
     storage: Any | None = None,
+    cancelled: Callable[[], bool] | None = None,
 ) -> dict[str, object]:
+    _raise_if_cancelled(cancelled)
     if not materials:
         raise AuditScriptExecutionError("审核材料不能为空")
     temp_root = Path(settings.audit_temp_root).resolve() if settings.audit_temp_root else None
@@ -96,10 +105,11 @@ def execute_audit_script(
     with tempfile.TemporaryDirectory(prefix="audit-", dir=temp_root) as temporary:
         execution_root = Path(temporary).resolve()
         staged = stage_audit_materials(
-            materials, execution_root / "files", storage or get_object_storage()
+            materials, execution_root / "files", storage or get_object_storage(), cancelled
         )
+        _raise_if_cancelled(cancelled)
         payload = _build_payload(str(uuid.uuid4()), staged, context, execution_root / "files")
-        output = _run_process(descriptor, payload, execution_root)
+        output = _run_process(descriptor, payload, execution_root, cancelled)
         return _validate_result(output, materials)
 
 
@@ -128,7 +138,9 @@ def _run_process(
     descriptor: AuditScriptRuntimeDescriptor,
     payload: dict[str, object],
     execution_root: Path,
+    cancelled: Callable[[], bool] | None,
 ) -> bytes:
+    _raise_if_cancelled(cancelled)
     command = _command_for(descriptor)
     try:
         stdin = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -173,6 +185,8 @@ def _run_process(
             (stderr, "标准错误", settings.audit_script_stderr_max_bytes),
         )
         while selector.get_map():
+            if cancelled is not None and cancelled():
+                raise AuditScriptExecutionCancelled("审核任务已取消")
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise AuditScriptExecutionError("审核脚本执行超时")
@@ -201,6 +215,11 @@ def _run_process(
             process.stdout.close()
         if process.stderr:
             process.stderr.close()
+
+
+def _raise_if_cancelled(cancelled: Callable[[], bool] | None) -> None:
+    if cancelled is not None and cancelled():
+        raise AuditScriptExecutionCancelled("审核任务已取消")
 
 
 def _script_environment(descriptor: AuditScriptRuntimeDescriptor) -> dict[str, str]:

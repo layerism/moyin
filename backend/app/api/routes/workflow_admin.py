@@ -11,13 +11,11 @@ from app.services.audit_script_catalog import (
     AuditScriptCatalogError,
     AuditScriptConfigConflictError,
     AuditScriptNameConflictError,
-    AuditScriptNotFoundError,
     AuditScriptWriteError,
-    get_audit_script_config,
+    get_audit_script_editor,
     list_audit_scripts,
     list_manageable_audit_scripts,
-    update_audit_script_config,
-    update_audit_script_metadata,
+    update_audit_script_editor,
 )
 from app.services.audit_script_parameters import AuditScriptParameterError
 from app.services.security import get_current_super_admin, get_current_teacher
@@ -31,15 +29,14 @@ class DeadlineRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
-class AuditScriptMetadataRequest(BaseModel):
+class AuditScriptEditorRequest(BaseModel):
+    expectedEditorHash: str = Field(min_length=64, max_length=64)
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1, max_length=500)
-
-
-class AuditScriptConfigRequest(BaseModel):
-    expectedConfigSha256: str = Field(min_length=64, max_length=64)
+    source: str = Field(min_length=1, max_length=1_048_576)
     parameterDefaults: dict[str, str | int | float | bool]
     runtimeSettings: dict[str, str | int | float | bool]
+    maxConcurrency: int = Field(ge=1, le=32)
 
 
 @router.get("/audit-scripts")
@@ -54,32 +51,38 @@ def get_manageable_audit_scripts(
     return list_manageable_audit_scripts()
 
 
-@router.get("/audit-scripts/{script_id}/versions/1/config")
-def get_managed_audit_script_config(
+@router.get("/audit-scripts/{script_id}")
+def get_managed_audit_script_editor(
     script_id: str,
     _teacher: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
     try:
-        return get_audit_script_config(script_id, 1)
+        return get_audit_script_editor(script_id)
     except AuditScriptCatalogError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.put("/audit-scripts/{script_id}/versions/1/config")
-def put_managed_audit_script_config(
+@router.put("/audit-scripts/{script_id}")
+def put_managed_audit_script_editor(
     script_id: str,
-    payload: AuditScriptConfigRequest,
-    _teacher: dict[str, object] = Depends(get_current_super_admin),
+    payload: AuditScriptEditorRequest,
+    teacher: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
     try:
-        return update_audit_script_config(
+        return update_audit_script_editor(
             script_id,
-            1,
-            payload.expectedConfigSha256,
-            dict(payload.parameterDefaults),
-            dict(payload.runtimeSettings),
+            expected_editor_hash=payload.expectedEditorHash,
+            name=payload.name,
+            description=payload.description,
+            source=payload.source,
+            parameter_defaults=dict(payload.parameterDefaults),
+            runtime_settings=dict(payload.runtimeSettings),
+            max_concurrency=payload.maxConcurrency,
+            actor_id=int(teacher["id"]),
         )
     except AuditScriptConfigConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AuditScriptNameConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AuditScriptParameterError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -87,24 +90,6 @@ def put_managed_audit_script_config(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except AuditScriptCatalogError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.patch("/audit-scripts/{script_id}/metadata")
-def patch_audit_script_metadata(
-    script_id: str,
-    payload: AuditScriptMetadataRequest,
-    _teacher: dict[str, object] = Depends(get_current_super_admin),
-) -> dict[str, object]:
-    try:
-        return update_audit_script_metadata(script_id, payload.name, payload.description)
-    except AuditScriptNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except AuditScriptNameConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except AuditScriptWriteError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except AuditScriptCatalogError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.put("/instances/{instance_id}/nodes/{node_key}/deadline")

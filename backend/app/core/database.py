@@ -235,14 +235,21 @@ CREATE TABLE IF NOT EXISTS audit_jobs (
     id TEXT PRIMARY KEY,
     submission_id TEXT NOT NULL UNIQUE REFERENCES submissions(id) ON DELETE CASCADE,
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
     script_id TEXT NOT NULL,
-    script_version INTEGER NOT NULL CHECK (script_version > 0),
-    script_sha256 TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'succeeded', 'failed')),
+    script_generation INTEGER NOT NULL CHECK (script_generation > 0),
+    script_content_hash TEXT NOT NULL,
+    policy_generation INTEGER NOT NULL CHECK (policy_generation > 0),
+    policy_hash TEXT NOT NULL,
+    effective_params_json TEXT NOT NULL,
+    effective_settings_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'succeeded', 'failed', 'cancelled')),
     attempt_count INTEGER NOT NULL DEFAULT 0,
     next_attempt_at TEXT NOT NULL,
     result_json TEXT,
     error_message TEXT,
+    cancellation_reason TEXT,
     claimed_at TEXT,
     finished_at TEXT,
     created_at TEXT NOT NULL,
@@ -255,28 +262,34 @@ CREATE INDEX IF NOT EXISTS idx_audit_jobs_claim
 CREATE INDEX IF NOT EXISTS idx_audit_jobs_node
     ON audit_jobs(node_instance_id);
 
-CREATE TABLE IF NOT EXISTS audit_scripts (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    description TEXT NOT NULL DEFAULT '',
-    language TEXT NOT NULL CHECK (language IN ('py', 'js')),
-    current_version INTEGER NOT NULL,
-    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    archived_at TEXT
+CREATE INDEX IF NOT EXISTS idx_audit_jobs_script_status
+    ON audit_jobs(script_id, status);
+
+CREATE TABLE IF NOT EXISTS audit_script_runtime_states (
+    script_id TEXT PRIMARY KEY,
+    generation INTEGER NOT NULL CHECK (generation > 0),
+    content_hash TEXT NOT NULL,
+    source_hash TEXT NOT NULL,
+    config_hash TEXT NOT NULL,
+    max_concurrency INTEGER NOT NULL CHECK (max_concurrency BETWEEN 1 AND 32),
+    status TEXT NOT NULL CHECK (status IN ('ready', 'updating', 'error')),
+    error_message TEXT,
+    updated_by INTEGER REFERENCES teacher_accounts(id),
+    updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS audit_script_versions (
-    script_id TEXT NOT NULL REFERENCES audit_scripts(id) ON DELETE CASCADE,
-    version_no INTEGER NOT NULL,
-    entry_filename TEXT NOT NULL,
-    directory_path TEXT NOT NULL UNIQUE,
-    sha256 TEXT NOT NULL,
-    size_bytes INTEGER NOT NULL CHECK (size_bytes > 0),
-    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    created_at TEXT NOT NULL,
-    PRIMARY KEY (script_id, version_no)
+CREATE TABLE IF NOT EXISTS node_audit_policies (
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    script_id TEXT NOT NULL,
+    mode TEXT,
+    prompt TEXT NOT NULL DEFAULT '',
+    params_json TEXT NOT NULL,
+    generation INTEGER NOT NULL CHECK (generation > 0),
+    policy_hash TEXT NOT NULL,
+    updated_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(flow_id, node_key)
 );
 
 CREATE TABLE IF NOT EXISTS student_deadline_overrides (
@@ -307,9 +320,9 @@ def initialize_database() -> None:
         _apply_super_admin_role_migration(connection)
         _apply_flow_owner_migration(connection)
         _apply_share_token_value_migration(connection)
-        _apply_audit_script_metadata_migration(connection)
         _apply_scan_file_metadata_migration(connection)
         _apply_flow_preview_migration(connection)
+        _apply_audit_hot_reload_migration(connection)
 
 
 def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
@@ -393,33 +406,6 @@ def _apply_share_token_value_migration(connection: sqlite3.Connection) -> None:
     )
 
 
-def _apply_audit_script_metadata_migration(connection: sqlite3.Connection) -> None:
-    migration_id = "20260717_add_audit_script_metadata"
-    columns = {
-        row["name"] for row in connection.execute("PRAGMA table_info(audit_scripts)").fetchall()
-    }
-    if "description" not in columns:
-        connection.execute(
-            "ALTER TABLE audit_scripts ADD COLUMN description TEXT NOT NULL DEFAULT ''"
-        )
-    if "updated_at" not in columns:
-        connection.execute(
-            "ALTER TABLE audit_scripts ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''"
-        )
-    connection.execute(
-        "UPDATE audit_scripts SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = ''"
-    )
-
-    applied = connection.execute(
-        "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)
-    ).fetchone()
-    if applied is None:
-        connection.execute(
-            "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
-            (migration_id, datetime.now(UTC).isoformat()),
-        )
-
-
 def _apply_scan_file_metadata_migration(connection: sqlite3.Connection) -> None:
     migration_id = "20260810_add_scan_file_metadata"
     columns = {
@@ -481,6 +467,91 @@ def _apply_flow_preview_migration(connection: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL
         )
         """
+    )
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )
+
+
+def _apply_audit_hot_reload_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260819_audit_script_hot_reload"
+    columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(audit_jobs)").fetchall()
+    }
+    if columns and "script_generation" not in columns:
+        connection.execute("ALTER TABLE audit_jobs RENAME TO audit_jobs_legacy")
+        connection.executescript(
+            """
+            CREATE TABLE audit_jobs (
+                id TEXT PRIMARY KEY,
+                submission_id TEXT NOT NULL UNIQUE REFERENCES submissions(id) ON DELETE CASCADE,
+                node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
+                flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+                node_key TEXT NOT NULL,
+                script_id TEXT NOT NULL,
+                script_generation INTEGER NOT NULL CHECK (script_generation > 0),
+                script_content_hash TEXT NOT NULL,
+                policy_generation INTEGER NOT NULL CHECK (policy_generation > 0),
+                policy_hash TEXT NOT NULL,
+                effective_params_json TEXT NOT NULL,
+                effective_settings_json TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'succeeded', 'failed', 'cancelled')),
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                next_attempt_at TEXT NOT NULL,
+                result_json TEXT,
+                error_message TEXT,
+                cancellation_reason TEXT,
+                claimed_at TEXT,
+                finished_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            INSERT INTO audit_jobs
+                (id, submission_id, node_instance_id, flow_id, node_key, script_id,
+                 script_generation, script_content_hash, policy_generation, policy_hash,
+                 effective_params_json, effective_settings_json, status, attempt_count,
+                 next_attempt_at, result_json, error_message, cancellation_reason,
+                 claimed_at, finished_at, created_at, updated_at)
+            SELECT j.id, j.submission_id, j.node_instance_id, v.flow_id, n.node_key,
+                   j.script_id, 1, j.script_sha256, 1, '', '{}', '{}',
+                   CASE WHEN j.status IN ('pending', 'running') THEN 'cancelled' ELSE j.status END,
+                   j.attempt_count, j.next_attempt_at, j.result_json, j.error_message,
+                   CASE WHEN j.status IN ('pending', 'running') THEN 'script_updated' END,
+                   j.claimed_at,
+                   CASE WHEN j.status IN ('pending', 'running') THEN j.updated_at ELSE j.finished_at END,
+                   j.created_at, j.updated_at
+            FROM audit_jobs_legacy j
+            JOIN node_instances n ON n.id = j.node_instance_id
+            JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN flow_versions v ON v.id = i.flow_version_id;
+            DROP TABLE audit_jobs_legacy;
+            CREATE INDEX idx_audit_jobs_claim ON audit_jobs(status, next_attempt_at, created_at);
+            CREATE INDEX idx_audit_jobs_node ON audit_jobs(node_instance_id);
+            CREATE INDEX idx_audit_jobs_script_status ON audit_jobs(script_id, status);
+            CREATE INDEX idx_audit_jobs_policy_status ON audit_jobs(flow_id, node_key, status);
+            """
+        )
+        connection.execute(
+            """
+            UPDATE submissions SET status = 'cancelled'
+            WHERE id IN (SELECT submission_id FROM audit_jobs WHERE status = 'cancelled')
+            """
+        )
+        connection.execute(
+            """
+            UPDATE node_instances SET status = 'available', approved_at = NULL
+            WHERE status = 'reviewing'
+              AND id IN (SELECT node_instance_id FROM audit_jobs WHERE status = 'cancelled')
+            """
+        )
+    connection.execute("DROP TABLE IF EXISTS audit_script_versions")
+    connection.execute("DROP TABLE IF EXISTS audit_scripts")
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_audit_jobs_script_status ON audit_jobs(script_id, status)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_audit_jobs_policy_status ON audit_jobs(flow_id, node_key, status)"
     )
     connection.execute(
         "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",

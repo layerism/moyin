@@ -4,16 +4,16 @@ const noAuditScript = { label: "不启用材料审核", value: "" };
 
 export type AuditScriptSummary = {
   acceptedExtensions: string[];
-  configSha256: string;
+  configHash: string;
+  contentHash: string;
   description: string;
   id: string;
   language: "js" | "py";
   name: string;
   parameters: AuditScriptParameter[];
   runtimeSettings: AuditScriptRuntimeSetting[];
-  sha256: string;
+  maxConcurrency: number;
   updatedAt: string;
-  version: number;
 };
 
 type AuditScriptValueDefinitionBase = {
@@ -45,6 +45,20 @@ export type AuditScriptOption = {
   value: string;
 };
 
+export type NodeAuditPolicy = {
+  flowId: string;
+  generation: number;
+  mode?: "pass_fail" | "score" | null;
+  nodeKey: string;
+  parameters: AuditScriptParameter[];
+  params: Record<string, string | number | boolean>;
+  policyHash: string;
+  prompt: string;
+  scriptId: string;
+  scriptName: string;
+  updatedAt: string;
+};
+
 export function getAuditScriptOptions(
   scripts: AuditScriptSummary[],
   node?: AcademicFlowNode,
@@ -52,15 +66,15 @@ export function getAuditScriptOptions(
   const options = [
     noAuditScript,
     ...scripts.map((script) => ({
-      label: `${script.name}（${getLanguageLabel(script.language)}，v${script.version}）`,
+      label: `${script.name}（${getLanguageLabel(script.language)}）`,
       value: getUploadedScriptValue(script),
     })),
   ];
   const selectedValue = node ? getSelectedAuditScriptValue(node) : "";
-  const isFixedVersion = selectedValue.startsWith("uploaded:");
-  if (isFixedVersion && !options.some((option) => option.value === selectedValue)) {
+  const isConfiguredScript = selectedValue.startsWith("uploaded:");
+  if (isConfiguredScript && !options.some((option) => option.value === selectedValue)) {
     options.push({
-      label: `${node?.auditScriptName ?? "审核脚本"}（固定 v${node?.auditScriptVersion}）`,
+      label: node?.auditScriptName ?? "审核脚本",
       value: selectedValue,
     });
   }
@@ -68,8 +82,8 @@ export function getAuditScriptOptions(
 }
 
 export function getSelectedAuditScriptValue(node: AcademicFlowNode): string {
-  if (node.auditScriptId && node.auditScriptVersion !== undefined) {
-    return `uploaded:${node.auditScriptId}:${node.auditScriptVersion}`;
+  if (node.auditScriptId) {
+    return `uploaded:${node.auditScriptId}`;
   }
   return node.auditScriptName;
 }
@@ -88,30 +102,20 @@ export function toNodeAuditScriptSelection(
 ): Partial<AcademicFlowNode> {
   if (!script) {
     return {
-      auditScriptHash: undefined,
-      auditScriptConfigHash: undefined,
       auditScriptAcceptedExtensions: undefined,
       auditScriptParams: undefined,
-      auditScriptSettings: undefined,
       auditScriptId: undefined,
       auditScriptName: "",
       auditScriptType: "none",
-      auditScriptVersion: undefined,
     };
   }
   return {
     auditScriptAcceptedExtensions: script.acceptedExtensions,
-    auditScriptConfigHash: script.configSha256,
-    auditScriptHash: script.sha256,
     auditScriptId: script.id,
     auditScriptName: script.name,
     auditScriptType: script.language,
-    auditScriptVersion: script.version,
     auditScriptParams: Object.fromEntries(
       script.parameters.map((parameter) => [parameter.key, parameter.default]),
-    ),
-    auditScriptSettings: Object.fromEntries(
-      script.runtimeSettings.map((setting) => [setting.key, setting.value]),
     ),
     ...(script.acceptedExtensions.length
       ? { fileExtensions: script.acceptedExtensions.map((value) => value.slice(1)).join(", ") }
@@ -149,7 +153,7 @@ export function getAuditScriptParameterError(
 }
 
 export function getUploadedScriptValue(script: AuditScriptSummary): string {
-  return `uploaded:${script.id}:${script.version}`;
+  return `uploaded:${script.id}`;
 }
 
 function getLanguageLabel(language: "js" | "py"): string {

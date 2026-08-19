@@ -1,6 +1,6 @@
 import type { AcademicFlowConfig, AcademicProcess } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
-import type { AuditScriptSummary } from "./auditScripts";
+import type { AuditScriptSummary, NodeAuditPolicy } from "./auditScripts";
 import type {
   AuditScriptConfigDetail,
   AuditScriptConfigUpdate,
@@ -307,6 +307,21 @@ export const workflowApi = {
   listAuditScripts() {
     return request<AuditScriptSummary[]>("/api/workflow-admin/audit-scripts");
   },
+  getNodeAuditPolicy(flowId: string, nodeKey: string) {
+    return request<NodeAuditPolicy>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
+    );
+  },
+  updateNodeAuditPolicy(
+    flowId: string,
+    nodeKey: string,
+    payload: { expectedGeneration: number; params: Record<string, string | number | boolean> },
+  ) {
+    return request<NodeAuditPolicy>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
+      { method: "PUT", body: JSON.stringify(payload) },
+    );
+  },
   listManageableAuditScripts() {
     return request<AuditScriptManagementSummary[]>(
       "/api/workflow-admin/audit-scripts/manage",
@@ -314,22 +329,13 @@ export const workflowApi = {
   },
   getAuditScriptConfig(scriptId: string) {
     return request<AuditScriptConfigDetail>(
-      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}/versions/1/config`,
+      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}`,
     );
   },
   updateAuditScriptConfig(scriptId: string, payload: AuditScriptConfigUpdate) {
     return request<AuditScriptConfigDetail>(
-      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}/versions/1/config`,
+      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}`,
       { method: "PUT", body: JSON.stringify(payload) },
-    );
-  },
-  updateAuditScriptMetadata(
-    scriptId: string,
-    payload: { description: string; name: string },
-  ) {
-    return request<AuditScriptSummary>(
-      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}/metadata`,
-      { method: "PATCH", body: JSON.stringify(payload) },
     );
   },
   getProgress(versionId: string) {

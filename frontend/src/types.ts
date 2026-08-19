@@ -103,14 +103,10 @@ export type NodeTemplateAsset = {
 
 export type AcademicFlowNode = {
   auditScriptAcceptedExtensions?: string[];
-  auditScriptConfigHash?: string;
-  auditScriptHash?: string;
   auditScriptId?: string;
   auditScriptName: string;
   auditScriptType: AuditScriptType;
-  auditScriptVersion?: number;
   auditScriptParams?: Record<string, string | number | boolean>;
-  auditScriptSettings?: Record<string, string | number | boolean>;
   deadlineAt?: string | null;
   fileExtensions: string;
   fileLimitMb: string;

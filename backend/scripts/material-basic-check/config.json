@@ -1,0 +1,8 @@
+{
+  "acceptedExtensions": [],
+  "parameters": [],
+  "runtimeSettings": [],
+  "execution": {
+    "maxConcurrency": 4
+  }
+}

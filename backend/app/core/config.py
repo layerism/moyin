@@ -22,6 +22,7 @@ class Settings(BaseSettings):
         Path(__file__).resolve().parents[2] / "runtime" / "javascript" / "node_modules"
     )
     audit_script_timeout_seconds: int = 60
+    audit_worker_count: int = 4
     audit_script_stdout_max_bytes: int = 1_048_576
     audit_script_stderr_max_bytes: int = 262_144
     audit_temp_root: str = ""

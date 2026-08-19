@@ -21,7 +21,6 @@ class PublishedEdgeMutationError(ValueError):
 REVISION_EDITABLE_NODE_FIELDS = {
     "title",
     "requirement",
-    "scanAuditPrompt",
     "startAt",
     "deadlineAt",
 }
@@ -37,18 +36,12 @@ BUSINESS_NODE_FIELDS = (
     "fileExtensions",
     "fileLimitMb",
     "auditScriptId",
-    "auditScriptVersion",
-    "auditScriptHash",
-    "auditScriptConfigHash",
     "auditScriptAcceptedExtensions",
-    "auditScriptParams",
-    "auditScriptSettings",
     "auditScriptType",
     "auditScriptName",
     "autoApprove",
     "scanAuditEnabled",
     "scanAuditMode",
-    "scanAuditPrompt",
 )
 
 
@@ -79,7 +72,7 @@ def assert_valid_revision(previous: dict[str, Any] | None, current: dict[str, An
     for node_id, previous_node in previous_nodes.items():
         if _locked_node_snapshot(previous_node) != _locked_node_snapshot(current_nodes[node_id]):
             raise PublishedNodeMutationError(
-                f"已发布节点只能修改标题、描述、AI 审核提示词和起止时间：{node_id}"
+                f"已发布节点只能修改标题、描述和起止时间：{node_id}"
             )
 
     previous_edges = {edge_key(edge) for edge in previous.get("edges", [])}

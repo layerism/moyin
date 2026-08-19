@@ -1,5 +1,10 @@
 {
-  "acceptedExtensions": [".jpg", ".jpeg", ".png", ".pdf"],
+  "acceptedExtensions": [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".pdf"
+  ],
   "parameters": [
     {
       "key": "scanAuditMode",
@@ -8,8 +13,14 @@
       "required": true,
       "default": "pass_fail",
       "options": [
-        {"label": "通过/不通过", "value": "pass_fail"},
-        {"label": "评分", "value": "score"}
+        {
+          "label": "通过/不通过",
+          "value": "pass_fail"
+        },
+        {
+          "label": "评分",
+          "value": "score"
+        }
       ]
     },
     {
@@ -62,7 +73,7 @@
       "key": "maximumPages",
       "label": "最大审核页数",
       "type": "integer",
-      "value": 20,
+      "value": 10,
       "description": "单次审核最多处理的文件页数",
       "minimum": 1,
       "maximum": 20
@@ -103,5 +114,8 @@
       "minimum": 5,
       "maximum": 300
     }
-  ]
+  ],
+  "execution": {
+    "maxConcurrency": 4
+  }
 }

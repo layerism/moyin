@@ -5,7 +5,6 @@ type IdentifiedNode = { id: string };
 const PUBLISHED_NODE_REVISION_FIELDS = new Set<keyof AcademicFlowNode>([
   "deadlineAt",
   "requirement",
-  "scanAuditPrompt",
   "startAt",
   "title",
 ]);
