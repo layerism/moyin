@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Any
 
 
-EMPTY_CONFIG = {"acceptedExtensions": [], "parameters": [], "runtimeSettings": []}
+EMPTY_CONFIG = {
+    "acceptedExtensions": [],
+    "parameters": [],
+    "runtimeSettings": [],
+    "execution": {"maxConcurrency": 4},
+}
 PARAMETER_KEY_PATTERN = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
 EXTENSION_PATTERN = re.compile(r"\.[a-z0-9]{1,15}")
 PARAMETER_TYPES = {"integer", "number", "string", "boolean", "select"}
@@ -19,54 +24,56 @@ class AuditScriptParameterError(ValueError):
 
 
 @dataclass(frozen=True)
-class AuditScriptVersionConfig:
+class AuditScriptConfig:
     accepted_extensions: tuple[str, ...]
     parameters: tuple[dict[str, object], ...]
     runtime_settings: tuple[dict[str, object], ...]
+    max_concurrency: int
     sha256: str
 
 
-def load_audit_script_version_config(version_dir: Path) -> AuditScriptVersionConfig:
-    version_dir = version_dir.resolve()
-    config_path = version_dir / "config.json"
+def load_audit_script_config(script_dir: Path) -> AuditScriptConfig:
+    script_dir = script_dir.resolve()
+    config_path = script_dir / "config.json"
     if config_path.is_symlink():
-        raise AuditScriptParameterError("审核脚本版本配置路径无效")
+        raise AuditScriptParameterError("审核脚本配置路径无效")
     if not config_path.exists():
         data: object = EMPTY_CONFIG
     else:
         resolved = config_path.resolve()
-        if not resolved.is_relative_to(version_dir):
-            raise AuditScriptParameterError("审核脚本版本配置路径无效")
+        if not resolved.is_relative_to(script_dir):
+            raise AuditScriptParameterError("审核脚本配置路径无效")
         data = json.loads(resolved.read_text(encoding="utf-8"))
-    normalized = normalize_script_version_config(data)
+    normalized = normalize_script_config(data)
     canonical = json.dumps(
         normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     )
-    return AuditScriptVersionConfig(
+    return AuditScriptConfig(
         accepted_extensions=tuple(normalized["acceptedExtensions"]),
         parameters=tuple(normalized["parameters"]),
         runtime_settings=tuple(normalized["runtimeSettings"]),
+        max_concurrency=int(normalized["execution"]["maxConcurrency"]),
         sha256=hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
     )
 
 
-def normalize_script_version_config(data: object) -> dict[str, list[object]]:
+def normalize_script_config(data: object) -> dict[str, Any]:
     return _normalize_config(data)
 
 
 def validate_script_params(
-    config: AuditScriptVersionConfig, params: object
+    config: AuditScriptConfig, params: object
 ) -> dict[str, Scalar]:
     return _validate_values(config.parameters, params, "参数")
 
 
 def validate_script_settings(
-    config: AuditScriptVersionConfig, settings: object
+    config: AuditScriptConfig, settings: object
 ) -> dict[str, Scalar]:
     return _validate_values(config.runtime_settings, settings, "运行配置")
 
 
-def default_script_settings(config: AuditScriptVersionConfig) -> dict[str, Scalar]:
+def default_script_settings(config: AuditScriptConfig) -> dict[str, Scalar]:
     return {
         str(definition["key"]): definition["value"]  # type: ignore[misc]
         for definition in config.runtime_settings
@@ -94,20 +101,30 @@ def _validate_values(
     return result
 
 
-def _normalize_config(data: object) -> dict[str, list[object]]:
+def _normalize_config(data: object) -> dict[str, Any]:
     if not isinstance(data, dict) or set(data) - {
-        "acceptedExtensions", "parameters", "runtimeSettings"
+        "acceptedExtensions", "parameters", "runtimeSettings", "execution"
     }:
-        raise AuditScriptParameterError("审核脚本版本配置格式无效")
+        raise AuditScriptParameterError("审核脚本配置格式无效")
     extensions = data.get("acceptedExtensions", [])
     parameters = data.get("parameters", [])
     runtime_settings = data.get("runtimeSettings", [])
+    execution = data.get("execution", {"maxConcurrency": 4})
     if (
         not isinstance(extensions, list)
         or not isinstance(parameters, list)
         or not isinstance(runtime_settings, list)
+        or not isinstance(execution, dict)
+        or set(execution) != {"maxConcurrency"}
     ):
-        raise AuditScriptParameterError("审核脚本版本配置格式无效")
+        raise AuditScriptParameterError("审核脚本配置格式无效")
+    max_concurrency = execution.get("maxConcurrency")
+    if (
+        not isinstance(max_concurrency, int)
+        or isinstance(max_concurrency, bool)
+        or not 1 <= max_concurrency <= 32
+    ):
+        raise AuditScriptParameterError("审核脚本最大并发数无效")
     normalized_extensions: list[str] = []
     for value in extensions:
         extension = value.strip().lower() if isinstance(value, str) else ""
@@ -140,6 +157,7 @@ def _normalize_config(data: object) -> dict[str, list[object]]:
         "acceptedExtensions": normalized_extensions,
         "parameters": normalized_parameters,
         "runtimeSettings": normalized_runtime_settings,
+        "execution": {"maxConcurrency": max_concurrency},
     }
 
 

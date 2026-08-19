@@ -10,33 +10,35 @@ export type AuditScriptManagementSummary = {
   description: string;
   id: string;
   language: "js" | "py";
-  metadataEditable: boolean;
+  generation: number;
+  maxConcurrency: number;
   name: string;
+  pendingJobCount: number;
   parameterCount: number;
-  parameterDefaultsEditable: boolean;
+  runningJobCount: number;
   runtimeSettingCount: number;
+  status: "error" | "ready" | "updating";
   updatedAt: string;
-  version: 1;
 };
 
-export type AuditScriptConfigDetail = {
-  configSha256: string;
-  description: string;
-  id: string;
-  language: "js" | "py";
-  metadataEditable: boolean;
-  name: string;
+export type AuditScriptConfigDetail = AuditScriptManagementSummary & {
+  configHash: string;
+  contentHash: string;
+  editorHash: string;
+  errorMessage?: string | null;
   parameters: AuditScriptParameter[];
-  parameterDefaultsEditable: boolean;
   runtimeSettings: AuditScriptRuntimeSetting[];
-  updatedAt: string;
-  version: 1;
+  source: string;
 };
 
 export type AuditScriptConfigUpdate = {
-  expectedConfigSha256: string;
+  description: string;
+  expectedEditorHash: string;
+  maxConcurrency: number;
+  name: string;
   parameterDefaults: Record<string, AuditScriptValue>;
   runtimeSettings: Record<string, AuditScriptValue>;
+  source: string;
 };
 
 export function createParameterDefaultDraft(
@@ -59,8 +61,10 @@ export function hasAuditScriptConfigChanges(
   detail: AuditScriptConfigDetail,
   parameterDefaults: Record<string, AuditScriptValue>,
   runtimeSettings: Record<string, AuditScriptValue>,
+  source = detail.source,
+  maxConcurrency = detail.maxConcurrency,
 ): boolean {
-  return detail.parameters.some(
+  return source !== detail.source || maxConcurrency !== detail.maxConcurrency || detail.parameters.some(
     (parameter) => parameterDefaults[parameter.key] !== parameter.default,
   ) || detail.runtimeSettings.some(
     (setting) => runtimeSettings[setting.key] !== setting.value,

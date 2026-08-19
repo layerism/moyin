@@ -6,17 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import initialize_database
-from app.services.audit_job_worker import start_audit_job_worker, stop_audit_job_worker
+from app.services.audit_job_worker import start_audit_worker_pool, stop_audit_worker_pool
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     initialize_database()
-    worker = start_audit_job_worker()
+    worker_pool = await start_audit_worker_pool(settings.audit_worker_count)
     try:
         yield
     finally:
-        await stop_audit_job_worker(worker)
+        await stop_audit_worker_pool(worker_pool)
 
 
 def create_app() -> FastAPI:

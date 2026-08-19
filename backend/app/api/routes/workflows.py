@@ -27,6 +27,11 @@ from app.repositories.workflows import (
     resolve_share_token,
     save_draft,
 )
+from app.repositories.audit_policies import (
+    AuditPolicyConflictError,
+    get_node_audit_policy,
+    update_node_audit_policy,
+)
 from app.repositories.flow_previews import (
     PreviewConflictError,
     create_preview,
@@ -79,8 +84,48 @@ class PublishFlowRequest(BaseModel):
     expectedCurrentVersionId: str | None = None
 
 
+class AuditPolicyRequest(BaseModel):
+    expectedGeneration: int = Field(ge=1)
+    params: dict[str, str | int | float | bool]
+
+
 def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="流程不存在")
+
+
+@router.get("/{flow_id}/nodes/{node_key}/audit-policy")
+def get_audit_policy_route(
+    flow_id: str,
+    node_key: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return get_node_audit_policy(flow_id, node_key, int(teacher["id"]))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="节点审核规则不存在") from exc
+
+
+@router.put("/{flow_id}/nodes/{node_key}/audit-policy")
+def put_audit_policy_route(
+    flow_id: str,
+    node_key: str,
+    payload: AuditPolicyRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return update_node_audit_policy(
+            flow_id,
+            node_key,
+            int(teacher["id"]),
+            payload.expectedGeneration,
+            dict(payload.params),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="节点审核规则不存在") from exc
+    except AuditPolicyConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/{flow_id}/nodes/{node_key}/template")

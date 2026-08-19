@@ -40,7 +40,7 @@ export function AuditScriptSelector({
   const options = getAuditScriptOptions(scripts, node);
   const selectedValue = getSelectedAuditScriptValue(node);
   const selectedScript = scripts.find(
-    (script) => `uploaded:${script.id}:${script.version}` === selectedValue,
+    (script) => `uploaded:${script.id}` === selectedValue,
   );
   const updateParameter = (key: string, value: string | number | boolean) => {
     onChange({

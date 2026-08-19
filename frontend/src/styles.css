@@ -7210,6 +7210,41 @@ button {
   gap: 14px;
 }
 
+.audit-script-source-section > label {
+  display: grid;
+  gap: 7px;
+}
+
+.audit-script-source-section textarea {
+  min-height: 320px;
+  resize: vertical;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.published-audit-policy {
+  margin: 0 22px 20px;
+  padding: 16px;
+  border: 1px solid #cfe0fb;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.published-audit-policy > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.published-audit-policy > div:first-child h3,
+.published-audit-policy > div:first-child small {
+  margin: 0;
+}
+
+.published-audit-policy > .primary-action {
+  justify-self: end;
+}
+
 .audit-script-basic-readonly {
   padding: 13px 14px;
   border: 1px solid #e4e9f1;

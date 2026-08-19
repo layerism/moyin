@@ -16,16 +16,15 @@ from app.domain.workflow_revision import (
 )
 from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_node_status
 from app.repositories.flow_templates import TemplateMutationError, validate_version_templates
+from app.repositories.audit_policies import sync_published_audit_policies
 from app.services.audit_script_catalog import (
     CONFIRMATION_VISUAL_AUDIT_ID,
     AuditScriptCatalogError,
-    find_audit_script_version,
+    find_audit_script,
 )
 from app.services.audit_script_parameters import (
     AuditScriptParameterError,
-    default_script_settings,
     validate_script_params,
-    validate_script_settings,
 )
 from app.services.security import utc_now_iso
 from app.services.object_storage import get_object_storage, object_key, timestamped_object_name
@@ -33,21 +32,32 @@ from app.services.object_storage import get_object_storage, object_key, timestam
 
 logger = logging.getLogger(__name__)
 
+LEGACY_AUDIT_SCRIPT_SNAPSHOT_KEYS = (
+    "auditScriptVersion",
+    "auditScriptHash",
+    "auditScriptConfigHash",
+    "auditScriptSettings",
+)
+
+
+def _strip_legacy_audit_script_snapshot(node: dict[str, Any]) -> None:
+    for key in LEGACY_AUDIT_SCRIPT_SNAPSHOT_KEYS:
+        node.pop(key, None)
+
 
 def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
     for node in config.get("nodes", []):
         if node.get("kind") != "confirmation":
             continue
+        _strip_legacy_audit_script_snapshot(node)
         if node.get("scanAuditEnabled") is not True:
             for key in (
-                "auditScriptId", "auditScriptVersion", "auditScriptHash",
-                "auditScriptConfigHash", "auditScriptAcceptedExtensions", "auditScriptParams",
-                "auditScriptSettings",
+                "auditScriptId", "auditScriptAcceptedExtensions", "auditScriptParams",
             ):
                 node.pop(key, None)
             continue
         try:
-            record = find_audit_script_version(CONFIRMATION_VISUAL_AUDIT_ID, 1)
+            record = find_audit_script(CONFIRMATION_VISUAL_AUDIT_ID)
             params = {
                 str(definition["key"]): definition["default"]
                 for definition in record.parameters
@@ -56,19 +66,13 @@ def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
                 "scanAuditMode": node.get("scanAuditMode"),
                 "scanAuditPrompt": str(node.get("scanAuditPrompt", "")).strip(),
             })
-            script_settings = default_script_settings(record.version_config)
-            validate_script_params(record.version_config, params)
-            validate_script_settings(record.version_config, script_settings)
+            validate_script_params(record.config, params)
         except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
             raise FlowValidationError(str(exc)) from exc
         node.update({
             "auditScriptId": record.id,
-            "auditScriptVersion": record.version,
-            "auditScriptHash": record.sha256,
-            "auditScriptConfigHash": record.config_sha256,
             "auditScriptAcceptedExtensions": list(record.accepted_extensions),
             "auditScriptParams": params,
-            "auditScriptSettings": script_settings,
             "auditScriptType": record.language,
             "auditScriptName": record.name,
         })
@@ -78,24 +82,21 @@ def _refresh_file_audit_script_configs(config: dict[str, Any]) -> None:
     for node in config.get("nodes", []):
         if node.get("kind") != "file":
             continue
+        _strip_legacy_audit_script_snapshot(node)
         script_id = node.get("auditScriptId")
-        version = node.get("auditScriptVersion")
-        if not isinstance(script_id, str) or not isinstance(version, int):
+        if not isinstance(script_id, str):
             continue
         try:
-            record = find_audit_script_version(script_id, version)
+            record = find_audit_script(script_id)
         except AuditScriptCatalogError:
             continue
-        if (
-            node.get("auditScriptHash") != record.sha256
-            or node.get("auditScriptConfigHash") == record.config_sha256
-        ):
-            continue
         node.update({
-            "auditScriptConfigHash": record.config_sha256,
             "auditScriptAcceptedExtensions": list(record.accepted_extensions),
-            "auditScriptSettings": default_script_settings(record.version_config),
         })
+        params = dict(node.get("auditScriptParams") or {})
+        for definition in record.parameters:
+            params.setdefault(str(definition["key"]), definition["default"])
+        node["auditScriptParams"] = params
         if record.accepted_extensions:
             node["fileExtensions"] = ", ".join(
                 extension.removeprefix(".") for extension in record.accepted_extensions
@@ -121,55 +122,23 @@ def canonical_json(value: object) -> str:
 def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
     for node in config["nodes"]:
         script_id = node.get("auditScriptId")
-        version = node.get("auditScriptVersion")
-        script_hash = node.get("auditScriptHash")
-        config_hash = node.get("auditScriptConfigHash")
         params = node.get("auditScriptParams")
-        script_settings = node.get("auditScriptSettings")
         accepted = node.get("auditScriptAcceptedExtensions")
         if not script_id:
-            if any(
-                value is not None
-                for value in (
-                    version, script_hash, config_hash, params, script_settings, accepted
-                )
-            ):
+            if any(value is not None for value in (params, accepted)):
                 raise FlowValidationError("未启用审核脚本的节点不能保留脚本参数")
             continue
         if (
             node.get("kind") not in {"file", "confirmation"}
             or not isinstance(script_id, str)
-            or not isinstance(version, int)
-            or isinstance(version, bool)
-            or version < 1
-            or not isinstance(script_hash, str)
+            or not isinstance(params, dict)
         ):
             raise FlowValidationError("审核脚本配置无效")
         try:
-            record = find_audit_script_version(script_id, version)
-            if record.sha256 != script_hash:
-                raise FlowValidationError("审核脚本固定版本已变更，请重新选择")
-            if config_hash is None:
-                if (
-                    record.parameters
-                    or record.runtime_settings
-                    or record.accepted_extensions
-                    or params not in (None, {})
-                    or script_settings not in (None, {})
-                ):
-                    raise FlowValidationError("审核脚本配置不完整，请重新选择")
-                params = {}
-                script_settings = {}
-            else:
-                if (
-                    not isinstance(config_hash, str)
-                    or config_hash != record.config_sha256
-                    or accepted != list(record.accepted_extensions)
-                    or not isinstance(script_settings, dict)
-                ):
-                    raise FlowValidationError("审核脚本固定配置已变更，请重新选择")
-            validate_script_params(record.version_config, params)
-            validate_script_settings(record.version_config, script_settings)
+            record = find_audit_script(script_id)
+            if accepted != list(record.accepted_extensions):
+                raise FlowValidationError("审核脚本文件类型配置无效")
+            validate_script_params(record.config, params)
         except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
             raise FlowValidationError(str(exc)) from exc
         if record.accepted_extensions and node.get("kind") == "file":
@@ -1136,6 +1105,10 @@ def publish_flow(
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         published_versions = _published_versions(connection, flow_id, teacher_id)
         published = published_versions[-1] if published_versions else None
+        published_node_keys = {
+            str(node["id"])
+            for node in (json.loads(published["config_snapshot"]).get("nodes", []) if published else [])
+        }
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
         baseline = (
             published
@@ -1197,6 +1170,14 @@ def publish_flow(
                     now,
                 ),
             )
+        sync_published_audit_policies(
+            connection,
+            flow_id,
+            config,
+            teacher_id,
+            now,
+            published_node_keys,
+        )
         for node_key, asset_id in version_templates.items():
             connection.execute(
                 """

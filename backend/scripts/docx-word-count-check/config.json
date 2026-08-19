@@ -14,5 +14,8 @@
       "maximum": 1000000
     }
   ],
-  "runtimeSettings": []
+  "runtimeSettings": [],
+  "execution": {
+    "maxConcurrency": 4
+  }
 }

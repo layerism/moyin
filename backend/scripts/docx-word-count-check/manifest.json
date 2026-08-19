@@ -3,6 +3,5 @@
   "name": "DOCX 字数审核",
   "description": "统计 DOCX 正文段落和表格内容，检查是否达到节点配置的最低字数",
   "language": "py",
-  "version": 1,
   "entry": "handler.py"
 }
