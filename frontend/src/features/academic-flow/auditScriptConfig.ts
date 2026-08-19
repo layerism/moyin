@@ -28,17 +28,13 @@ export type AuditScriptConfigDetail = AuditScriptManagementSummary & {
   errorMessage?: string | null;
   parameters: AuditScriptParameter[];
   runtimeSettings: AuditScriptRuntimeSetting[];
-  source: string;
 };
 
 export type AuditScriptConfigUpdate = {
-  description: string;
   expectedEditorHash: string;
   maxConcurrency: number;
-  name: string;
   parameterDefaults: Record<string, AuditScriptValue>;
   runtimeSettings: Record<string, AuditScriptValue>;
-  source: string;
 };
 
 export function createParameterDefaultDraft(
@@ -61,10 +57,9 @@ export function hasAuditScriptConfigChanges(
   detail: AuditScriptConfigDetail,
   parameterDefaults: Record<string, AuditScriptValue>,
   runtimeSettings: Record<string, AuditScriptValue>,
-  source = detail.source,
   maxConcurrency = detail.maxConcurrency,
 ): boolean {
-  return source !== detail.source || maxConcurrency !== detail.maxConcurrency || detail.parameters.some(
+  return maxConcurrency !== detail.maxConcurrency || detail.parameters.some(
     (parameter) => parameterDefaults[parameter.key] !== parameter.default,
   ) || detail.runtimeSettings.some(
     (setting) => runtimeSettings[setting.key] !== setting.value,

@@ -134,7 +134,6 @@ function createDraftWorkingProcess(process: AcademicProcess): AcademicProcess {
 
 export function AcademicFlowDesigner({
   onBack,
-  onHome,
   onOpenStudent,
   onPublishProcess,
   onProcessChange,
@@ -142,7 +141,6 @@ export function AcademicFlowDesigner({
   process,
 }: {
   onBack: () => void;
-  onHome: () => void;
   onOpenStudent: (shareUrl: string) => void;
   onPublishProcess: (
     process: AcademicProcess,
@@ -566,10 +564,7 @@ export function AcademicFlowDesigner({
 
   return (
     <main className="academic-standalone-page">
-      <AcademicStandaloneHeader
-        onBack={() => requestNavigation("教务流程列表", onBack)}
-        onHome={() => requestNavigation("首页", onHome)}
-      />
+      <AcademicStandaloneHeader onBack={() => requestNavigation("教务流程列表", onBack)} />
       <section className="academic-workspace-main">
         <header className="academic-topbar">
           <div>
@@ -757,16 +752,14 @@ export function AcademicFlowDesigner({
 
 export function StudentFlowPage({
   onBack,
-  onHome,
   process,
 }: {
   onBack: () => void;
-  onHome: () => void;
   process: AcademicProcess;
 }) {
   return (
     <main className="academic-standalone-page">
-      <AcademicStandaloneHeader onBack={onBack} onHome={onHome} />
+      <AcademicStandaloneHeader onBack={onBack} />
       <section className="academic-workspace-main">
         <header className="academic-topbar">
           <div>
@@ -794,17 +787,24 @@ export function StudentFlowPage({
   );
 }
 
-function AcademicStandaloneHeader({ onBack, onHome }: { onBack: () => void; onHome: () => void }) {
+function AcademicStandaloneHeader({ onBack }: { onBack: () => void }) {
   return (
     <header className="academic-standalone-header">
+      <button
+        aria-label="返回教务流程"
+        className="academic-standalone-back"
+        onClick={onBack}
+        title="返回教务流程"
+        type="button"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+      </button>
       <div className="academic-product-mark">
         <span className="logo-mark">OA</span>
         <strong>教务流程采集设计器</strong>
       </div>
-      <nav aria-label="流程页面导航">
-        <button onClick={onBack}>返回教务流程</button>
-        <button onClick={onHome}>返回首页</button>
-      </nav>
     </header>
   );
 }

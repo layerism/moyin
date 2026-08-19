@@ -654,7 +654,6 @@ export function App() {
       <AcademicFlowDesigner
         process={activeProcess}
         onBack={openAcademicFlow}
-        onHome={openHome}
         onOpenStudent={openStudentFlow}
         onPublishProcess={publishAcademicProcess}
         onProcessChange={updateAcademicProcess}
@@ -672,7 +671,6 @@ export function App() {
       <StudentFlowPage
         process={activeProcess}
         onBack={() => openAcademicProcess(activeProcess.id)}
-        onHome={openHome}
       />
     );
   }
