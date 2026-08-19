@@ -9,6 +9,7 @@ import pytest
 from app.core.config import settings
 from app.main import app
 from app.api.routes import student_flows, workflows
+from app.repositories.flow_files import add_pending_scan
 
 
 ONE_PIXEL_PNG = base64.b64decode(
@@ -200,6 +201,29 @@ def test_storage_failure_does_not_leave_metadata(client):
     assert storage.objects == {}
 
 
+def test_confirmation_scan_upload_rejects_wrong_filename_before_storage(client):
+    test_client, storage = client
+    published = publish_confirmation_flow(test_client)
+    register_student(test_client, "20260081", "签署学生")
+    instance = test_client.post(f"/api/student/shared/{published['token']}/enter").json()
+    node_id = instance["nodeInstances"][0]["id"]
+    downloaded = test_client.post(f"/api/student/node-instances/{node_id}/template/download")
+    assert downloaded.status_code == 200
+
+    invalid_scan = test_client.post(
+        f"/api/student/node-instances/{node_id}/scans",
+        files={"file": ("扫描件1.png", ONE_PIXEL_PNG, "image/png")},
+    )
+
+    assert invalid_scan.status_code == 422
+    assert "请改为以“安全责任书”开头" in invalid_scan.json()["detail"]
+    assert storage.objects == {}
+    with sqlite3.connect(settings.database_path) as connection:
+        assert connection.execute(
+            "SELECT COUNT(*) FROM uploaded_files WHERE node_instance_id = ?", (node_id,)
+        ).fetchone()[0] == 0
+
+
 def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
     test_client, _ = client
     published = publish_confirmation_flow(test_client)
@@ -208,11 +232,27 @@ def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
     node_id = instance["nodeInstances"][0]["id"]
     downloaded = test_client.post(f"/api/student/node-instances/{node_id}/template/download")
     assert downloaded.status_code == 200
-    invalid_scan = test_client.post(
-        f"/api/student/node-instances/{node_id}/scans",
-        files={"file": ("扫描件1.png", ONE_PIXEL_PNG, "image/png")},
+    with sqlite3.connect(settings.database_path) as connection:
+        student_id = connection.execute(
+            """
+            SELECT i.student_account_id
+            FROM node_instances n
+            JOIN flow_instances i ON i.id = n.flow_instance_id
+            WHERE n.id = ?
+            """,
+            (node_id,),
+        ).fetchone()[0]
+    invalid_scan = add_pending_scan(
+        node_id,
+        student_id,
+        "test/invalid-scan.png",
+        "扫描件1.png",
+        "image/png",
+        len(ONE_PIXEL_PNG),
+        "invalid-scan-sha256",
+        "invalid-scan-etag",
+        1,
     )
-    assert invalid_scan.status_code == 200
 
     rejected = test_client.post(
         f"/api/student/node-instances/{node_id}/submit",
@@ -230,11 +270,11 @@ def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
         ).fetchone()[0] == 0
         assert connection.execute(
             "SELECT submission_id FROM uploaded_files WHERE id = ?",
-            (invalid_scan.json()["fileId"],),
+            (invalid_scan["fileId"],),
         ).fetchone()[0] is None
 
     deleted = test_client.delete(
-        f"/api/student/node-instances/{node_id}/scans/{invalid_scan.json()['fileId']}"
+        f"/api/student/node-instances/{node_id}/scans/{invalid_scan['fileId']}"
     )
     assert deleted.status_code == 200
     valid_scan = test_client.post(

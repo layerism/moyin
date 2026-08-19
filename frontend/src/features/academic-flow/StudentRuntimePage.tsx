@@ -503,7 +503,7 @@ function RuntimeNodeDialog({
   });
   const scanFilenameError = runtime.template
     ? getScanFilenameError({
-        scans: scanState.scans,
+        filenames: scanState.scans.map((scan) => scan.originalName),
         templateFilename: runtime.template.originalName,
       })
     : null;
@@ -804,6 +804,7 @@ function RuntimeNodeDialog({
                 onDownload={onDownloadFile}
                 onStateChange={updateScanState}
                 onTemplateRequired={handleTemplateRequired}
+                templateFilename={runtime.template.originalName}
                 templateLocked={!runtime.templateDownloaded}
               />
             </div>

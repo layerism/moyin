@@ -7,7 +7,11 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.domain.form_fields import FormAnswerValidationError
-from app.domain.workflow_runtime import validate_file_metadata, validate_template_filename
+from app.domain.workflow_runtime import (
+    validate_confirmation_scan_filenames,
+    validate_file_metadata,
+    validate_template_filename,
+)
 from app.repositories.flow_files import (
     FileContextError,
     add_pending_scan,
@@ -198,6 +202,12 @@ def upload_node_scan(
     filename = PurePosixPath(str(file.filename or "").replace("\\", "/")).name
     if not filename:
         raise HTTPException(status_code=422, detail="请选择扫描件")
+    try:
+        validate_confirmation_scan_filenames(
+            [filename], context.template_original_name or ""
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     digest = hashlib.sha256()
     size_bytes = 0
     file.file.seek(0)
