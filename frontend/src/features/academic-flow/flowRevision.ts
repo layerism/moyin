@@ -1,6 +1,24 @@
-import type { AcademicFlowEdge, AcademicProcess } from "../../types";
+import type { AcademicFlowEdge, AcademicFlowNode, AcademicProcess } from "../../types";
 
 type IdentifiedNode = { id: string };
+
+const PUBLISHED_NODE_REVISION_FIELDS = new Set<keyof AcademicFlowNode>([
+  "deadlineAt",
+  "requirement",
+  "scanAuditPrompt",
+  "startAt",
+  "title",
+]);
+
+export function filterPublishedNodeRevisionPatch(
+  value: Partial<AcademicFlowNode>,
+): Partial<AcademicFlowNode> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) =>
+      PUBLISHED_NODE_REVISION_FIELDS.has(key as keyof AcademicFlowNode),
+    ),
+  ) as Partial<AcademicFlowNode>;
+}
 
 export function createFlowConfig(process: AcademicProcess) {
   return { edges: process.edges, nodes: process.nodes };

@@ -39,6 +39,7 @@ import {
   canDeleteRevisionNode,
   canEditRevisionNodeCore,
   canMoveRevisionNode,
+  filterPublishedNodeRevisionPatch,
   filterPublishedRuntimeNodes,
   preservePublishedEdges,
   shouldReloadRevisionAfterConflict,
@@ -415,10 +416,7 @@ export function AcademicFlowDesigner({
     if (editorLocked) return;
     let nextValue = { ...value };
     if (workingProcess.published && protectedNodeIds.includes(nodeId)) {
-      const allowed = new Set<keyof AcademicFlowNode>(["title", "requirement", "startAt", "deadlineAt"]);
-      nextValue = Object.fromEntries(
-        Object.entries(nextValue).filter(([key]) => allowed.has(key as keyof AcademicFlowNode)),
-      ) as Partial<AcademicFlowNode>;
+      nextValue = filterPublishedNodeRevisionPatch(nextValue);
     }
     if (Object.keys(nextValue).length === 0) {
       return;
@@ -1776,7 +1774,7 @@ function NodeInspector({
         </div>
         {publishedRevision ? (
           <p className="node-inspector-revision-note">
-            当前为发布后修订。旧节点仅可修改标题、说明、起始时间和截止时间；修改标题或说明后，该节点及下游需重新完成。
+            当前为发布后修订。旧节点仅可修改标题、说明、AI 审核提示词、起始时间和截止时间；修改标题、说明或提示词后，该节点及下游需重新完成。
           </p>
         ) : null}
         {settingCapabilities.collectsInformation ? (
@@ -2046,7 +2044,7 @@ function ConfirmationScanSettings({
     if (file) onUploadTemplate(file);
   };
   return (
-    <section className="inspector-section confirmation-scan-settings" aria-disabled={disabled}>
+    <section className="inspector-section confirmation-scan-settings">
       <div className="file-type-restriction-heading">
         <div><h3>扫描件提交与审核</h3><small>学生下载模板并上传签署扫描件，教师可选择直接通过或 AI 审核。</small></div>
       </div>
