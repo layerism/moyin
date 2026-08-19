@@ -1311,7 +1311,7 @@ button {
   height: 64px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 20px;
   padding: 0 max(20px, calc((100vw - 1220px) / 2 + 20px));
   border-bottom: 1px solid #e0e7f0;
@@ -1333,20 +1333,32 @@ button {
   font-size: 13px;
 }
 
-.academic-standalone-header nav {
-  display: flex;
-  gap: 10px;
-}
-
-.academic-standalone-header nav button {
-  min-height: 34px;
-  padding: 0 13px;
+.academic-standalone-back {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 0;
   border: 1px solid #dce3ee;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #ffffff;
   color: #334155;
-  font-size: 14px;
-  font-weight: 700;
+}
+
+.academic-standalone-back:hover {
+  border-color: #b9c7da;
+  background: #f8fafc;
+}
+
+.academic-standalone-back svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .academic-topbar {
@@ -4005,12 +4017,8 @@ button {
 @media (max-width: 900px) {
   .academic-standalone-header {
     height: auto;
-    display: grid;
+    display: flex;
     padding: 14px 16px;
-  }
-
-  .academic-standalone-header nav {
-    flex-wrap: wrap;
   }
 
   .academic-workspace-main {
@@ -7205,24 +7213,6 @@ button {
   font-size: 13px;
 }
 
-.audit-script-basic-fields {
-  display: grid;
-  gap: 14px;
-}
-
-.audit-script-source-section > label {
-  display: grid;
-  gap: 7px;
-}
-
-.audit-script-source-section textarea {
-  min-height: 320px;
-  resize: vertical;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 13px;
-  line-height: 1.55;
-}
-
 .published-audit-policy {
   margin: 0 22px 20px;
   padding: 16px;
@@ -7417,42 +7407,6 @@ button {
 
 .audit-script-metadata-form > p {
   margin: 0;
-}
-
-.audit-script-basic-fields > label {
-  display: grid;
-  gap: 8px;
-  color: #344054;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.audit-script-basic-fields > label > input,
-.audit-script-basic-fields > label > textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #d7dce5;
-  border-radius: 6px;
-  outline: none;
-  color: #202733;
-  font: inherit;
-  font-weight: 400;
-}
-
-.audit-script-basic-fields > label > textarea {
-  resize: vertical;
-}
-
-.audit-script-basic-fields > label > input:focus,
-.audit-script-basic-fields > label > textarea:focus {
-  border-color: #2b74ff;
-  box-shadow: 0 0 0 3px rgb(43 116 255 / 12%);
-}
-
-.audit-script-basic-fields > label > input[aria-invalid="true"],
-.audit-script-basic-fields > label > textarea[aria-invalid="true"] {
-  border-color: #f04438;
-  box-shadow: 0 0 0 3px rgb(240 68 56 / 10%);
 }
 
 .audit-script-metadata-form footer {

@@ -3,8 +3,6 @@ import json
 import logging
 import os
 import re
-import shutil
-import subprocess
 import tempfile
 import threading
 from collections import Counter
@@ -38,10 +36,6 @@ class AuditScriptCatalogError(ValueError):
 
 
 class AuditScriptNotFoundError(AuditScriptCatalogError):
-    pass
-
-
-class AuditScriptNameConflictError(AuditScriptCatalogError):
     pass
 
 
@@ -101,12 +95,11 @@ def list_manageable_audit_scripts() -> list[dict[str, object]]:
     return [_management_summary(record) for record in records]
 
 
-def get_audit_script_editor(script_id: str) -> dict[str, object]:
+def get_audit_script_config(script_id: str) -> dict[str, object]:
     record = find_audit_script(script_id)
     state = _ensure_runtime_state(record)
     return {
         **_designer_response(record),
-        "source": record.source,
         "editorHash": record.editor_hash,
         "generation": int(state["generation"]),
         "status": state["status"],
@@ -115,13 +108,10 @@ def get_audit_script_editor(script_id: str) -> dict[str, object]:
     }
 
 
-def update_audit_script_editor(
+def update_audit_script_config(
     script_id: str,
     *,
     expected_editor_hash: str,
-    name: str,
-    description: str,
-    source: str,
     parameter_defaults: dict[str, object],
     runtime_settings: dict[str, object],
     max_concurrency: int,
@@ -131,18 +121,6 @@ def update_audit_script_editor(
         record = find_audit_script(script_id)
         if record.editor_hash != expected_editor_hash:
             raise AuditScriptConfigConflictError("审核脚本已被其他管理员修改，请重新加载")
-        name = _bounded_text(name, "name", 120)
-        description = _bounded_text(description, "description", 500)
-        if any(
-            other.id != script_id and other.name.casefold() == name.casefold()
-            for other in _current_records()
-        ):
-            raise AuditScriptNameConflictError("已存在同名审核脚本")
-        if not isinstance(source, str) or not source.strip():
-            raise AuditScriptParameterError("审核脚本源码不能为空")
-        if len(source.encode("utf-8")) > settings.audit_script_max_bytes:
-            raise AuditScriptParameterError("审核脚本源码超限")
-        _validate_source(record.language, source)
         parameter_keys = {str(item["key"]) for item in record.parameters}
         setting_keys = {str(item["key"]) for item in record.runtime_settings}
         if set(parameter_defaults) != parameter_keys or set(runtime_settings) != setting_keys:
@@ -170,14 +148,8 @@ def update_audit_script_editor(
         ]
         next_config["execution"] = {"maxConcurrency": max_concurrency}
         normalize_script_config(next_config)
-        next_manifest = {**record.manifest_data, "name": name, "description": description}
-        runtime_changed = source != record.source or _canonical_json(next_config) != _canonical_json(config_payload)
-        metadata_changed = name != record.name or description != record.description
-        if not runtime_changed and not metadata_changed:
-            return get_audit_script_editor(script_id)
-        if not runtime_changed:
-            _atomic_write_json(record.manifest_path, next_manifest)
-            return get_audit_script_editor(script_id)
+        if _canonical_json(next_config) == _canonical_json(config_payload):
+            return get_audit_script_config(script_id)
 
         now = utc_now_iso()
         with get_connection() as connection:
@@ -202,10 +174,7 @@ def update_audit_script_editor(
 
         signal_audit_job_cancellations(cancel_audit_jobs_for_script(script_id, "script_updated"))
         try:
-            _atomic_write_text(record.entry_path, source)
             _atomic_write_json(config_path, next_config)
-            if metadata_changed:
-                _atomic_write_json(record.manifest_path, next_manifest)
             activated = find_audit_script(script_id)
             with get_connection() as connection:
                 connection.execute("BEGIN IMMEDIATE")
@@ -228,12 +197,12 @@ def update_audit_script_editor(
                     SET status = 'error', error_message = ?, updated_by = ?, updated_at = ?
                     WHERE script_id = ?
                     """,
-                    ("审核脚本激活失败", actor_id, utc_now_iso(), script_id),
+                    ("审核脚本配置激活失败", actor_id, utc_now_iso(), script_id),
                 )
             if isinstance(exc, (AuditScriptCatalogError, AuditScriptParameterError)):
                 raise
-            raise AuditScriptWriteError("审核脚本激活失败") from exc
-        return get_audit_script_editor(script_id)
+            raise AuditScriptWriteError("审核脚本配置激活失败") from exc
+        return get_audit_script_config(script_id)
 
 
 def synchronize_audit_script_states() -> None:
@@ -453,31 +422,6 @@ def _job_counts(script_id: str) -> dict[str, int]:
         ).fetchall()
     counts = {row["status"]: int(row["count"]) for row in rows}
     return {"pendingJobCount": counts.get("pending", 0), "runningJobCount": counts.get("running", 0)}
-
-
-def _validate_source(language: str, source: str) -> None:
-    if language == "py":
-        try:
-            compile(source, "<audit-script>", "exec")
-        except SyntaxError as exc:
-            raise AuditScriptParameterError(f"Python 源码语法错误：第 {exc.lineno or 1} 行") from exc
-        return
-    node = shutil.which(settings.audit_node_executable, path=os.environ.get("PATH"))
-    if node is None:
-        raise AuditScriptParameterError("JavaScript 运行环境不可用")
-    temporary: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile("w", suffix=".js", encoding="utf-8", delete=False) as target:
-            target.write(source)
-            temporary = Path(target.name)
-        result = subprocess.run([node, "--check", str(temporary)], capture_output=True, timeout=10, check=False)
-        if result.returncode != 0:
-            raise AuditScriptParameterError("JavaScript 源码语法错误")
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise AuditScriptParameterError("JavaScript 源码检查失败") from exc
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
 
 
 def _bounded_text(value: object, field: str, maximum: int) -> str:

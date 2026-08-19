@@ -22,11 +22,8 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   const [loadError, setLoadError] = useState("");
   const [detail, setDetail] = useState<AuditScriptConfigDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [parameterDefaults, setParameterDefaults] = useState<Record<string, AuditScriptValue>>({});
   const [runtimeSettings, setRuntimeSettings] = useState<Record<string, AuditScriptValue>>({});
-  const [source, setSource] = useState("");
   const [maxConcurrency, setMaxConcurrency] = useState(4);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -55,11 +52,8 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     try {
       const nextDetail = await workflowApi.getAuditScriptConfig(script.id);
       setDetail(nextDetail);
-      setName(nextDetail.name);
-      setDescription(nextDetail.description);
       setParameterDefaults(createParameterDefaultDraft(nextDetail));
       setRuntimeSettings(createRuntimeSettingDraft(nextDetail));
-      setSource(nextDetail.source);
       setMaxConcurrency(nextDetail.maxConcurrency);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "读取脚本配置失败");
@@ -81,25 +75,16 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     clearSaveMessages();
   };
 
-  const metadataChanged = Boolean(
-    detail && (name.trim() !== detail.name || description.trim() !== detail.description),
-  );
   const configChanged = detail
-    ? hasAuditScriptConfigChanges(detail, parameterDefaults, runtimeSettings, source, maxConcurrency)
+    ? hasAuditScriptConfigChanges(detail, parameterDefaults, runtimeSettings, maxConcurrency)
     : false;
   const configErrors = detail
     ? getAuditScriptConfigErrors(detail, parameterDefaults, runtimeSettings)
     : {};
-  const nameError = Boolean(detail && !name.trim());
-  const descriptionError = Boolean(detail && !description.trim());
-  const sourceError = Boolean(detail && !source.trim());
   const concurrencyError = !Number.isInteger(maxConcurrency)
     || maxConcurrency < 1
     || maxConcurrency > 32;
-  const metadataValid = !nameError && !descriptionError;
-  const canSave = (metadataChanged || configChanged)
-    && metadataValid
-    && !sourceError
+  const canSave = configChanged
     && !concurrencyError
     && Object.keys(configErrors).length === 0
     && !saving;
@@ -110,18 +95,12 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     clearSaveMessages();
     try {
       const updated = await workflowApi.updateAuditScriptConfig(detail.id, {
-        description: description.trim(),
         expectedEditorHash: detail.editorHash,
         maxConcurrency,
-        name: name.trim(),
         parameterDefaults,
         runtimeSettings,
-        source,
       });
       setDetail(updated);
-      setName(updated.name);
-      setDescription(updated.description);
-      setSource(updated.source);
       setMaxConcurrency(updated.maxConcurrency);
       setParameterDefaults(createParameterDefaultDraft(updated));
       setRuntimeSettings(createRuntimeSettingDraft(updated));
@@ -166,7 +145,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
           <div>
             <span>预置脚本</span>
             <h2 id="audit-script-metadata-title">
-              {detail ? "编辑审核脚本" : "审核脚本管理"}
+              {detail ? "配置审核脚本" : "审核脚本管理"}
             </h2>
           </div>
           <button aria-label="关闭审核脚本管理" disabled={saving} onClick={onClose} type="button">×</button>
@@ -184,47 +163,16 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
             <section className="audit-script-basic-section">
               <div>
                 <h3>基本信息</h3>
-                <p>用于流程设计器中的脚本名称和功能说明。</p>
+                <p>脚本基本信息由服务器代码维护，管理端仅提供配置修改。</p>
               </div>
-              <div className="audit-script-basic-fields">
-                  <label>
-                    <span>功能名称</span>
-                    <input
-                      aria-invalid={nameError}
-                      disabled={saving}
-                      maxLength={120}
-                      onChange={(event) => {
-                        setName(event.target.value);
-                        clearSaveMessages();
-                      }}
-                      value={name}
-                    />
-                    {nameError ? <small className="audit-script-config-error">功能名称不能为空</small> : null}
-                  </label>
-                  <label>
-                    <span>功能说明</span>
-                    <textarea
-                      aria-invalid={descriptionError}
-                      disabled={saving}
-                      maxLength={500}
-                      onChange={(event) => {
-                        setDescription(event.target.value);
-                        clearSaveMessages();
-                      }}
-                      rows={4}
-                      value={description}
-                    />
-                    {descriptionError ? <small className="audit-script-config-error">功能说明不能为空</small> : null}
-                  </label>
-                </div>
+              <div className="audit-script-basic-readonly">
+                <strong>{detail.name}</strong>
+                <p>{detail.description}</p>
+              </div>
             </section>
 
-            <section className="audit-script-basic-section audit-script-source-section">
-              <div><h3>脚本源码</h3><p>保存后立即热激活，未完成审核将要求学生重新提交。</p></div>
-              <label><span>{detail.language === "py" ? "Python" : "JavaScript"}</span>
-                <textarea disabled={saving} onChange={(event) => { setSource(event.target.value); clearSaveMessages(); }} rows={18} spellCheck={false} value={source} />
-                {sourceError ? <small className="audit-script-config-error">脚本源码不能为空</small> : null}
-              </label>
+            <section className="audit-script-basic-section">
+              <div><h3>并发配置</h3><p>配置保存后立即生效；未完成审核将要求学生重新提交。</p></div>
               <label><span>单脚本最大并发数</span>
                 <input aria-invalid={concurrencyError} disabled={saving} max={32} min={1} onChange={(event) => { setMaxConcurrency(Number(event.target.value)); clearSaveMessages(); }} type="number" value={maxConcurrency} />
                 {concurrencyError ? <small className="audit-script-config-error">请输入 1–32 的整数</small> : null}
@@ -276,7 +224,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
                   </div>
                   <div className="audit-script-metadata-actions">
                     <button onClick={() => void openEditor(script)} type="button">
-                      编辑
+                      配置
                     </button>
                   </div>
                 </article>;

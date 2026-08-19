@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.repositories.flow_instances import (
     StudentDeadlineValidationError,
@@ -10,12 +10,11 @@ from app.repositories.flow_instances import (
 from app.services.audit_script_catalog import (
     AuditScriptCatalogError,
     AuditScriptConfigConflictError,
-    AuditScriptNameConflictError,
     AuditScriptWriteError,
-    get_audit_script_editor,
+    get_audit_script_config,
     list_audit_scripts,
     list_manageable_audit_scripts,
-    update_audit_script_editor,
+    update_audit_script_config,
 )
 from app.services.audit_script_parameters import AuditScriptParameterError
 from app.services.security import get_current_super_admin, get_current_teacher
@@ -29,11 +28,10 @@ class DeadlineRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
-class AuditScriptEditorRequest(BaseModel):
+class AuditScriptConfigRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     expectedEditorHash: str = Field(min_length=64, max_length=64)
-    name: str = Field(min_length=1, max_length=120)
-    description: str = Field(min_length=1, max_length=500)
-    source: str = Field(min_length=1, max_length=1_048_576)
     parameterDefaults: dict[str, str | int | float | bool]
     runtimeSettings: dict[str, str | int | float | bool]
     maxConcurrency: int = Field(ge=1, le=32)
@@ -52,37 +50,32 @@ def get_manageable_audit_scripts(
 
 
 @router.get("/audit-scripts/{script_id}")
-def get_managed_audit_script_editor(
+def get_managed_audit_script_config(
     script_id: str,
     _teacher: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
     try:
-        return get_audit_script_editor(script_id)
+        return get_audit_script_config(script_id)
     except AuditScriptCatalogError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.put("/audit-scripts/{script_id}")
-def put_managed_audit_script_editor(
+def put_managed_audit_script_config(
     script_id: str,
-    payload: AuditScriptEditorRequest,
+    payload: AuditScriptConfigRequest,
     teacher: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
     try:
-        return update_audit_script_editor(
+        return update_audit_script_config(
             script_id,
             expected_editor_hash=payload.expectedEditorHash,
-            name=payload.name,
-            description=payload.description,
-            source=payload.source,
             parameter_defaults=dict(payload.parameterDefaults),
             runtime_settings=dict(payload.runtimeSettings),
             max_concurrency=payload.maxConcurrency,
             actor_id=int(teacher["id"]),
         )
     except AuditScriptConfigConflictError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except AuditScriptNameConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AuditScriptParameterError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
