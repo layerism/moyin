@@ -33,20 +33,20 @@ test("scan filename error identifies the first file that does not match the temp
     templateFilename: "安全责任书.docx",
   };
 
-  assert.equal(getScanFilenameError({ ...base, scans: [scan("1", "安全责任书.jpg")] }), null);
-  assert.equal(getScanFilenameError({ ...base, scans: [scan("1", "安全责任书第1页.png")] }), null);
+  assert.equal(getScanFilenameError({ ...base, filenames: ["安全责任书.jpg"] }), null);
+  assert.equal(getScanFilenameError({ ...base, filenames: ["安全责任书第1页.png"] }), null);
   assert.equal(getScanFilenameError({
     ...base,
-    scans: [scan("1", "安全责任书第1页.jpg"), scan("2", "安全责任书(2).jpeg")],
+    filenames: ["安全责任书第1页.jpg", "安全责任书(2).jpeg"],
   }), null);
   assert.equal(getScanFilenameError({
     ...base,
-    scans: [scan("1", "A\u030A承诺书第1页.PNG")],
+    filenames: ["A\u030A承诺书第1页.PNG"],
     templateFilename: "Å承诺书.docx",
   }), null);
   assert.match(getScanFilenameError({
     ...base,
-    scans: [scan("1", "安全责任书第1页.jpg"), scan("2", "扫描件2.jpg")],
+    filenames: ["安全责任书第1页.jpg", "扫描件2.jpg"],
   }) ?? "", /文件“扫描件2\.jpg”.*安全责任书/);
   assert.equal(getScanSubmitBlocker({
     confirmed: true,
@@ -55,6 +55,13 @@ test("scan filename error identifies the first file that does not match the temp
     templateDownloaded: true,
     uploading: false,
   }), null);
+});
+
+test("scan filename validation rejects a mixed selected batch before upload", () => {
+  assert.match(getScanFilenameError({
+    filenames: ["安全责任书第1页.jpg", "其他材料.png", "安全责任书第3页.jpeg"],
+    templateFilename: "安全责任书.docx",
+  }) ?? "", /文件“其他材料\.png”.*安全责任书/);
 });
 
 test("confirmation without a signing template does not require scans", () => {

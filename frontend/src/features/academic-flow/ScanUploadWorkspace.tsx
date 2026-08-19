@@ -20,20 +20,20 @@ export function getScanSubmitBlocker(input: {
 }
 
 export function getScanFilenameError(input: {
-  scans: RuntimeScanFile[];
+  filenames: string[];
   templateFilename: string | null;
 }): string | null {
   const template = getFilenameIdentity(input.templateFilename ?? "");
   if (!template.stem || template.suffix !== ".docx") {
     return "当前节点模板配置异常，请联系教师";
   }
-  const invalidScan = input.scans.find(({ originalName }) => {
-    const scan = getFilenameIdentity(originalName);
+  const invalidFilename = input.filenames.find((filename) => {
+    const scan = getFilenameIdentity(filename);
     return ![".jpg", ".jpeg", ".png"].includes(scan.suffix)
       || !scan.stem.startsWith(template.stem);
   });
-  if (invalidScan) {
-    return `文件“${normalizeFilename(invalidScan.originalName)}”名称不符合要求，`
+  if (invalidFilename) {
+    return `文件“${normalizeFilename(invalidFilename)}”名称不符合要求，`
       + `请改为以“${template.stem}”开头后重新上传。`;
   }
   return null;
@@ -68,6 +68,7 @@ export function ScanUploadWorkspace({
   onDownload,
   onStateChange,
   onTemplateRequired,
+  templateFilename,
   templateLocked,
 }: {
   disabled: boolean;
@@ -75,6 +76,7 @@ export function ScanUploadWorkspace({
   onDownload: (fileId: string) => void;
   onStateChange: (state: { scans: RuntimeScanFile[]; uploading: boolean }) => void;
   onTemplateRequired: () => void;
+  templateFilename: string;
   templateLocked: boolean;
 }) {
   const [scans, setScans] = useState<RuntimeScanFile[]>([]);
@@ -100,11 +102,20 @@ export function ScanUploadWorkspace({
   useEffect(() => onStateChange({ scans, uploading }), [onStateChange, scans, uploading]);
 
   const upload = async (files: FileList | File[]) => {
+    const selectedFiles = Array.from(files);
+    const filenameError = getScanFilenameError({
+      filenames: selectedFiles.map((file) => file.name),
+      templateFilename,
+    });
+    if (filenameError) {
+      setMessage(filenameError);
+      return;
+    }
     setUploading(true);
     setMessage("");
     try {
       let next = scans;
-      for (const file of Array.from(files)) {
+      for (const file of selectedFiles) {
         const uploaded = await workflowApi.uploadScan(nodeInstanceId, file);
         next = [...next, uploaded];
         setScans(next);
@@ -127,6 +138,14 @@ export function ScanUploadWorkspace({
   };
 
   const replace = async (scan: RuntimeScanFile, file: File) => {
+    const filenameError = getScanFilenameError({
+      filenames: [file.name],
+      templateFilename,
+    });
+    if (filenameError) {
+      setMessage(filenameError);
+      return;
+    }
     setUploading(true);
     setMessage("");
     try {
