@@ -496,7 +496,7 @@ function RuntimeNodeDialog({
   const confirmationInvalid = confirmationAttempted && confirmationMissing;
   const scanBlocker = getScanSubmitBlocker({
     confirmed: draft.confirmed === true,
-    scanRequired: Boolean(runtime.template),
+    scanRequired: node.kind === "confirmation" && Boolean(runtime.template),
     scans: scanState.scans,
     templateDownloaded: !runtime.template || runtime.templateDownloaded,
     uploading: scanState.uploading,
