@@ -18,6 +18,10 @@ class AuditJobConflictError(ValueError):
     pass
 
 
+class ManualApprovalValidationError(ValueError):
+    pass
+
+
 @dataclass(frozen=True)
 class ClaimedAuditJob:
     id: str
@@ -194,6 +198,113 @@ def complete_audit_job(job_id: str, result: dict[str, object]) -> None:
             config = version_config(connection, job["flow_version_id"])
             advance_downstream(connection, job["flow_instance_id"], job["flow_version_id"], config)
             complete_flow_if_ready(connection, job["flow_instance_id"], now)
+
+
+def manual_approve_audit_job(
+    node_instance_id: str,
+    submission_id: str,
+    teacher_id: int,
+    reason: str,
+) -> list[str]:
+    clean_reason = reason.strip()
+    if not clean_reason or len(clean_reason) > 500:
+        raise ManualApprovalValidationError("人工审核备注长度必须为 1–500 个字符")
+    now = utc_now_iso()
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            """
+            SELECT n.id AS node_instance_id, n.node_key, n.status AS node_status,
+                   n.attempt_no AS node_attempt, n.flow_instance_id,
+                   s.id AS submission_id, s.attempt_no AS submission_attempt,
+                   s.status AS submission_status,
+                   j.id AS job_id, j.status AS job_status,
+                   i.flow_version_id, v.flow_id
+            FROM node_instances n
+            JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN flow_versions v ON v.id = i.flow_version_id
+            JOIN flows f ON f.id = v.flow_id
+            LEFT JOIN submissions s
+              ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
+            LEFT JOIN audit_jobs j ON j.submission_id = s.id
+            WHERE n.id = ? AND f.owner_id = ? AND v.status = 'published'
+            """,
+            (node_instance_id, str(teacher_id)),
+        ).fetchone()
+        if row is None:
+            raise KeyError(node_instance_id)
+        if row["submission_id"] != submission_id:
+            raise AuditJobConflictError("学生提交已变化，请刷新后重新审核")
+        if row["job_id"] is None:
+            raise AuditJobConflictError("当前提交不需要人工审核")
+        if row["node_status"] not in {"reviewing", "rejected", "audit_error"}:
+            raise AuditJobConflictError("当前节点状态不可人工通过")
+        if row["submission_status"] not in {"reviewing", "rejected", "audit_error"}:
+            raise AuditJobConflictError("当前提交状态不可人工通过")
+        if int(row["submission_attempt"]) != int(row["node_attempt"]):
+            raise AuditJobConflictError("学生提交已变化，请刷新后重新审核")
+        file_count = connection.execute(
+            "SELECT COUNT(*) AS count FROM uploaded_files WHERE submission_id = ?",
+            (submission_id,),
+        ).fetchone()["count"]
+        if int(file_count) == 0:
+            raise AuditJobConflictError("当前提交没有可审核材料")
+
+        result = {
+            "schemaVersion": "1.0",
+            "passed": True,
+            "reason": "经由人工审核通过",
+            "details": {
+                "reviewSource": "manual",
+                "reviewerId": teacher_id,
+                "reviewedAt": now,
+            },
+        }
+        running_job_ids = [str(row["job_id"])] if row["job_status"] == "running" else []
+        connection.execute(
+            """
+            UPDATE audit_jobs
+            SET status = 'succeeded', result_json = ?, error_message = NULL,
+                cancellation_reason = NULL, finished_at = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (canonical_json(result), now, now, row["job_id"]),
+        )
+        connection.execute(
+            "UPDATE submissions SET status = 'approved' WHERE id = ?",
+            (submission_id,),
+        )
+        connection.execute(
+            """
+            UPDATE node_instances
+            SET status = 'approved', approved_at = ?
+            WHERE id = ?
+            """,
+            (now, node_instance_id),
+        )
+        config = version_config(connection, str(row["flow_version_id"]))
+        advance_downstream(
+            connection,
+            str(row["flow_instance_id"]),
+            str(row["flow_version_id"]),
+            config,
+        )
+        complete_flow_if_ready(connection, str(row["flow_instance_id"]), now)
+        connection.execute(
+            """
+            INSERT INTO audit_logs
+                (actor_id, action, entity_type, entity_id, after_data, reason, created_at)
+            VALUES (?, 'manual_audit_approved', 'node_instance', ?, ?, ?, ?)
+            """,
+            (
+                str(teacher_id),
+                node_instance_id,
+                canonical_json({"submissionId": submission_id, "result": result}),
+                clean_reason,
+                now,
+            ),
+        )
+        return running_job_ids
 
 
 def fail_audit_job(job_id: str, message: str) -> None:

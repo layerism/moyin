@@ -338,11 +338,15 @@ POST /api/workflow-admin/node-instances/{node_instance_id}/manual-approve
   - 增加批量下载、单节点下载和人工通过路由。
 - `flow_instances.py`
   - 提交详情返回当前 `submissionId`；
-  - 增加当前有效材料查询和人工通过事务。
+  - 提交详情返回人工审核资格和审核来源。
+- `teacher_materials.py`
+  - 查询教师可访问的当前有效材料，并解析发布版本节点顺序。
 - `audit_jobs.py`
   - 提供人工通过时覆盖任务结果的事务逻辑。
 - `audit_job_worker.py`
-  - 人工通过后通知正在运行的审核子进程停止。
+  - 复用现有取消信号，人工通过后通知正在运行的审核子进程停止，无需修改 Worker 生命周期。
+- `material_archive.py`
+  - 在独立临时目录下载 OSS 对象、生成分层 ZIP 并负责清理。
 - `object_storage.py`
   - 复用现有下载能力，不改变 OSS 配置。
 

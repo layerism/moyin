@@ -979,7 +979,8 @@ def get_teacher_submission_detail(
             """
             SELECT n.id, n.node_key, n.status, i.student_account_id,
                    a.student_no, a.name AS student_name, v.config_snapshot,
-                   s.id AS submission_id, j.result_json, j.status AS audit_job_status,
+                   s.id AS submission_id, s.status AS submission_status,
+                   j.result_json, j.status AS audit_job_status,
                    j.effective_params_json
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
@@ -1019,6 +1020,7 @@ def get_teacher_submission_detail(
         ).fetchall() if row["submission_id"] else []
     return {
         "nodeInstanceId": row["id"],
+        "submissionId": row["submission_id"],
         "nodeTitle": node.get("title") or row["node_key"],
         "student": {"studentNo": row["student_no"], "name": row["student_name"]},
         "mode": mode,
@@ -1027,5 +1029,17 @@ def get_teacher_submission_detail(
         "passed": result.get("passed") if isinstance(result.get("passed"), bool) else None,
         "score": score,
         "reason": result.get("reason") if isinstance(result.get("reason"), str) else None,
+        "reviewSource": (
+            details.get("reviewSource")
+            if details.get("reviewSource") in {"ai", "manual"}
+            else "ai" if result else None
+        ),
+        "canManualApprove": bool(
+            row["submission_id"]
+            and row["audit_job_status"]
+            and scans
+            and row["status"] in {"reviewing", "rejected", "audit_error"}
+            and row["submission_status"] in {"reviewing", "rejected", "audit_error"}
+        ),
         "scans": [dict(scan) for scan in scans],
     }

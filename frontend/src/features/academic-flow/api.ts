@@ -105,6 +105,39 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function downloadRequest(path: string): Promise<{ blob: Blob; filename: string }> {
+  const headers = new Headers();
+  const previewToken = window.sessionStorage.getItem(FLOW_PREVIEW_TOKEN_KEY);
+  if (previewToken) {
+    headers.set("X-Flow-Preview-Token", previewToken);
+  }
+  const response = await fetch(path, { credentials: "include", headers });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { detail?: ErrorDetail } | null;
+    const detail = body?.detail;
+    if (detail && typeof detail === "object") {
+      throw new ApiError(
+        response.status,
+        detail.message ?? "下载失败",
+        detail.fieldErrors ?? {},
+      );
+    }
+    throw new ApiError(response.status, detail ?? "下载失败");
+  }
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const encodedFilename = disposition.match(/filename\*=utf-8''([^;]+)/i)?.[1];
+  const quotedFilename = disposition.match(/filename="([^"]+)"/i)?.[1];
+  let filename = quotedFilename ?? "材料.zip";
+  if (encodedFilename) {
+    try {
+      filename = decodeURIComponent(encodedFilename);
+    } catch {
+      filename = "材料.zip";
+    }
+  }
+  return { blob: await response.blob(), filename };
+}
+
 export const workflowApi = {
   listFlows() {
     return request<ServerFlow[]>("/api/workflows");
@@ -346,6 +379,23 @@ export const workflowApi = {
   getSubmissionDetail(nodeInstanceId: string) {
     return request<TeacherSubmissionDetail>(
       `/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/submission-detail`,
+    );
+  },
+  downloadTeacherMaterials(versionId: string, nodeKey: string | null) {
+    const query = nodeKey ? `?nodeKey=${encodeURIComponent(nodeKey)}` : "";
+    return downloadRequest(
+      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/materials/download${query}`,
+    );
+  },
+  downloadTeacherNodeMaterials(nodeInstanceId: string) {
+    return downloadRequest(
+      `/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/materials/download`,
+    );
+  },
+  manualApproveSubmission(nodeInstanceId: string, submissionId: string, reason: string) {
+    return request<{ status: "approved" }>(
+      `/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-approve`,
+      { method: "POST", body: JSON.stringify({ submissionId, reason }) },
     );
   },
   setStudentDeadline(instanceId: string, nodeKey: string, deadlineAt: string, reason: string) {

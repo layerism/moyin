@@ -132,15 +132,18 @@ export type WorkflowProgressNode = {
 
 export type TeacherSubmissionDetail = {
   auditJobStatus: "failed" | "pending" | "running" | "succeeded" | null;
+  canManualApprove: boolean;
   mode: "pass_fail" | "score" | null;
   nodeInstanceId: string;
   nodeTitle: string;
   passed: boolean | null;
   reason: string | null;
+  reviewSource: "ai" | "manual" | null;
   scans: Array<RuntimeScanFile & { url: string }>;
   score: number | null;
   status: RuntimeNodeStatus;
   student: { name: string; studentNo: string };
+  submissionId: string | null;
 };
 
 export type WorkflowProgress = {
