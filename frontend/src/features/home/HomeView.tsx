@@ -12,6 +12,7 @@ import type {
 import type { AuthIdentity } from "../auth/authApi";
 import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
 import { AuditScriptMetadataDialog } from "../academic-flow/AuditScriptMetadataDialog";
+import { getAcademicFlowStatus } from "../academic-flow/academicFlowStatus";
 import { createFlowCloneName, getFlowCloneNameError } from "../academic-flow/flowClone";
 import { FlowCloneDialog, type FlowCloneResult } from "./FlowCloneDialog";
 import {
@@ -661,67 +662,76 @@ export function AcademicFlowView({
             ) : null}
           </div>
           <div className="academic-flow-list" role="list" aria-label="采集流程列表">
-            {processes.map((process) => (
-              <div
-                className={`academic-flow-item${
-                  highlightedProcessId === process.id ? " cloned-highlight" : ""
-                }`}
-                key={process.id}
-                role="listitem"
-              >
-                <button className="academic-flow-open" onClick={() => onOpenProcess(process.id)}>
-                  <span className="academic-flow-icon">流</span>
-                  <span>
-                    <strong>{process.name}</strong>
-                    <small>创建时间：{process.createdAt}</small>
-                  </span>
-                  <em>进入</em>
-                </button>
-                <div className="academic-flow-actions">
-                  <button
-                    aria-label={`复制流程 ${process.name}`}
-                    className="academic-flow-clone"
-                    onClick={(event) => {
-                      cloneTriggerRef.current = event.currentTarget;
-                      setCloneSource(process);
-                      setCloneName(createFlowCloneName(process.name));
-                      setCloneError("");
-                      setCloneResult(null);
-                    }}
-                    type="button"
-                  >
-                    <span aria-hidden="true" className="clone-stack-icon"><i /></span>
-                    <span>复制</span>
+            {processes.map((process) => {
+              const status = getAcademicFlowStatus(process);
+
+              return (
+                <div
+                  className={`academic-flow-item status-${status.tone}${
+                    highlightedProcessId === process.id ? " cloned-highlight" : ""
+                  }`}
+                  key={process.id}
+                  role="listitem"
+                >
+                  <button className="academic-flow-open" onClick={() => onOpenProcess(process.id)}>
+                    <span className="academic-flow-icon">流</span>
+                    <span className="academic-flow-copy">
+                      <span className="academic-flow-title">
+                        <strong>{process.name}</strong>
+                        <span className={`academic-flow-status ${status.tone}`}>
+                          {status.label}
+                        </span>
+                      </span>
+                      <small>创建时间：{process.createdAt}</small>
+                    </span>
+                    <em>进入</em>
                   </button>
-                  <button
-                    aria-label={`重命名流程 ${process.name}`}
-                    className="academic-flow-rename"
-                    onClick={() => {
-                      setRenameProcess(process);
-                      setRenameName(process.name);
-                      setRenameError("");
-                    }}
-                    title="重命名流程"
-                    type="button"
-                  >
-                    <svg aria-hidden="true" viewBox="0 0 24 24">
-                      <path d="M4 20h4L19 9l-4-4L4 16v4Zm10-13 4 4" />
-                    </svg>
-                  </button>
-                  <button
-                    aria-label={`删除流程 ${process.name}`}
-                    className="academic-flow-delete"
-                    onClick={() => {
-                      setDeleteError("");
-                      setDeleteProcess(process);
-                    }}
-                    title="删除流程"
-                  >
-                    ×
-                  </button>
+                  <div className="academic-flow-actions">
+                    <button
+                      aria-label={`复制流程 ${process.name}`}
+                      className="academic-flow-clone"
+                      onClick={(event) => {
+                        cloneTriggerRef.current = event.currentTarget;
+                        setCloneSource(process);
+                        setCloneName(createFlowCloneName(process.name));
+                        setCloneError("");
+                        setCloneResult(null);
+                      }}
+                      type="button"
+                    >
+                      <span aria-hidden="true" className="clone-stack-icon"><i /></span>
+                      <span>复制</span>
+                    </button>
+                    <button
+                      aria-label={`重命名流程 ${process.name}`}
+                      className="academic-flow-rename"
+                      onClick={() => {
+                        setRenameProcess(process);
+                        setRenameName(process.name);
+                        setRenameError("");
+                      }}
+                      title="重命名流程"
+                      type="button"
+                    >
+                      <svg aria-hidden="true" viewBox="0 0 24 24">
+                        <path d="M4 20h4L19 9l-4-4L4 16v4Zm10-13 4 4" />
+                      </svg>
+                    </button>
+                    <button
+                      aria-label={`删除流程 ${process.name}`}
+                      className="academic-flow-delete"
+                      onClick={() => {
+                        setDeleteError("");
+                        setDeleteProcess(process);
+                      }}
+                      title="删除流程"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {processes.length === 0 && (
               <div className="empty-folder">
                 暂无采集流程。点击“创建流程”后输入名称，可新增一条采集流程。

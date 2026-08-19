@@ -467,10 +467,67 @@ button {
   font-weight: 800;
 }
 
+.academic-flow-item.status-published .academic-flow-icon {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.academic-flow-item.status-changed .academic-flow-icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.academic-flow-item.status-draft .academic-flow-icon {
+  background: #f2f4f7;
+  color: #475467;
+}
+
+.academic-flow-copy {
+  min-width: 0;
+}
+
+.academic-flow-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
 .academic-flow-item strong {
   display: block;
-  margin-bottom: 4px;
   font-size: 17px;
+}
+
+.academic-flow-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.academic-flow-status.published {
+  border-color: #abefc6;
+  background: #ecfdf3;
+  color: #067647;
+}
+
+.academic-flow-status.changed {
+  border-color: #fedf89;
+  background: #fffaeb;
+  color: #b54708;
+}
+
+.academic-flow-status.draft {
+  border-color: #d0d5dd;
+  background: #f2f4f7;
+  color: #475467;
 }
 
 .academic-flow-item small {
