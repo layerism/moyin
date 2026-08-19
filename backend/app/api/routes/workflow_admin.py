@@ -1,12 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.background import BackgroundTask
 
+from app.repositories.audit_jobs import (
+    AuditJobConflictError,
+    ManualApprovalValidationError,
+    manual_approve_audit_job,
+)
 from app.repositories.flow_instances import (
     StudentDeadlineValidationError,
     get_teacher_submission_detail,
     get_version_progress,
     set_student_deadline,
 )
+from app.repositories.teacher_materials import (
+    TeacherMaterialSelectionError,
+    get_node_instance_materials,
+    get_version_materials,
+)
+from app.services.audit_job_worker import signal_audit_job_cancellations
 from app.services.audit_script_catalog import (
     AuditScriptCatalogError,
     AuditScriptConfigConflictError,
@@ -18,13 +31,29 @@ from app.services.audit_script_catalog import (
 )
 from app.services.audit_script_parameters import AuditScriptParameterError
 from app.services.security import get_current_super_admin, get_current_teacher
-from app.services.object_storage import ObjectStorageNotConfigured, get_object_storage
+from app.services.material_archive import (
+    MaterialArchiveEmptyError,
+    build_material_archive,
+    cleanup_material_archive,
+)
+from app.services.object_storage import (
+    ObjectStorageError,
+    ObjectStorageNotConfigured,
+    get_object_storage,
+)
 
 router = APIRouter(dependencies=[Depends(get_current_teacher)])
 
 
 class DeadlineRequest(BaseModel):
     deadlineAt: str
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class ManualApprovalRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    submissionId: str = Field(min_length=1)
     reason: str = Field(min_length=1, max_length=500)
 
 
@@ -143,3 +172,77 @@ def submission_detail(
         raise HTTPException(status_code=404, detail="提交记录不存在") from exc
     except ObjectStorageNotConfigured as exc:
         raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail="材料下载链接生成失败") from exc
+
+
+@router.get("/versions/{version_id}/materials/download")
+def download_version_materials(
+    version_id: str,
+    node_key: str | None = Query(default=None, alias="nodeKey"),
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> FileResponse:
+    try:
+        selection = get_version_materials(version_id, int(teacher["id"]), node_key)
+        archive = build_material_archive(selection)
+        return FileResponse(
+            archive.path,
+            filename=archive.filename,
+            media_type="application/zip",
+            background=BackgroundTask(cleanup_material_archive, archive),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程版本不存在") from exc
+    except (TeacherMaterialSelectionError, MaterialArchiveEmptyError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail="材料下载失败") from exc
+
+
+@router.get("/node-instances/{node_instance_id}/materials/download")
+def download_node_instance_materials(
+    node_instance_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> FileResponse:
+    try:
+        selection = get_node_instance_materials(node_instance_id, int(teacher["id"]))
+        archive = build_material_archive(selection)
+        return FileResponse(
+            archive.path,
+            filename=archive.filename,
+            media_type="application/zip",
+            background=BackgroundTask(cleanup_material_archive, archive),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="学生节点不存在") from exc
+    except (TeacherMaterialSelectionError, MaterialArchiveEmptyError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail="材料下载失败") from exc
+
+
+@router.post("/node-instances/{node_instance_id}/manual-approve")
+def manual_approve_submission(
+    node_instance_id: str,
+    payload: ManualApprovalRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, str]:
+    try:
+        running_job_ids = manual_approve_audit_job(
+            node_instance_id,
+            payload.submissionId,
+            int(teacher["id"]),
+            payload.reason,
+        )
+        signal_audit_job_cancellations(running_job_ids)
+        return {"status": "approved"}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="学生节点不存在") from exc
+    except AuditJobConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ManualApprovalValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
