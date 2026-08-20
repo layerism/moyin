@@ -563,24 +563,15 @@ export function AcademicFlowDesigner({
 
   return (
     <main className="academic-standalone-page">
-      <AcademicStandaloneHeader onBack={() => requestNavigation("教务流程列表", onBack)} />
-      <section className="academic-workspace-main">
-        <header className="academic-topbar">
-          <div>
-            <div className="drive-breadcrumb academic-breadcrumb">
-              <span>首页</span>
-              <span>›</span>
-              <button
-                className="breadcrumb-button"
-                onClick={() => requestNavigation("教务流程列表", onBack)}
-              >
-                教务流程
-              </button>
-              <span>›</span>
-              <strong>{workingProcess.name}</strong>
-            </div>
+      <AcademicStandaloneHeader
+        currentLabel={workingProcess.name}
+        onBack={() => requestNavigation("教务流程列表", onBack)}
+      />
+      <section className="academic-workspace-main designer-workspace-main">
+        <header className="academic-topbar designer-topbar">
+          <div className="designer-flow-summary">
             <div className="academic-title-row">
-              <h1>{workingProcess.name}</h1>
+              <h1 title={workingProcess.name}>{workingProcess.name}</h1>
               <span
                 className={
                   workingProcess.published
@@ -597,7 +588,9 @@ export function AcademicFlowDesigner({
                   : "草稿"}
               </span>
             </div>
-            <p>流程说明：{workingProcess.description}</p>
+            <p title={`流程说明：${workingProcess.description}`}>
+              流程说明：{workingProcess.description}
+            </p>
           </div>
           <div className="academic-actions">
             <button onClick={() => setShowRoster(true)}>
@@ -608,11 +601,11 @@ export function AcademicFlowDesigner({
             </button>
             {workingProcess.published ? (
               <button onClick={() => setShowStudentLinks(true)}>
-                打开学生链接
+                学生链接
               </button>
             ) : null}
             {workingProcess.publishedVersionId ? (
-              <button onClick={() => setShowProgress(true)}>填写进度</button>
+              <button onClick={() => setShowProgress(true)}>进度</button>
             ) : null}
             <button
               disabled={editorLocked || !revisionDirty}
@@ -786,9 +779,17 @@ export function StudentFlowPage({
   );
 }
 
-function AcademicStandaloneHeader({ onBack }: { onBack: () => void }) {
+function AcademicStandaloneHeader({
+  currentLabel,
+  onBack,
+}: {
+  currentLabel?: string;
+  onBack: () => void;
+}) {
   return (
-    <header className="academic-standalone-header">
+    <header
+      className={`academic-standalone-header${currentLabel ? " designer-header" : ""}`}
+    >
       <button
         aria-label="返回教务流程"
         className="academic-standalone-back"
@@ -804,6 +805,17 @@ function AcademicStandaloneHeader({ onBack }: { onBack: () => void }) {
         <span className="logo-mark">OA</span>
         <strong>教务流程采集设计器</strong>
       </div>
+      {currentLabel ? (
+        <nav aria-label="当前位置" className="academic-header-breadcrumb">
+          <span>首页</span>
+          <span>›</span>
+          <button onClick={onBack} type="button">
+            教务流程
+          </button>
+          <span>›</span>
+          <strong title={currentLabel}>{currentLabel}</strong>
+        </nav>
+      ) : null}
     </header>
   );
 }
