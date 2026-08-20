@@ -43,6 +43,7 @@ export function TeacherProgressPanel({
   const [savingExtension, setSavingExtension] = useState(false);
   const [submissionDetail, setSubmissionDetail] = useState<TeacherSubmissionDetail | null>(null);
   const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null);
+  const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const [downloadScope, setDownloadScope] = useState("");
   const [downloadingScope, setDownloadingScope] = useState(false);
   const [downloadingNodeId, setDownloadingNodeId] = useState<string | null>(null);
@@ -112,6 +113,27 @@ export function TeacherProgressPanel({
     };
   }, [manualApprovalOpen, submissionDetail]);
 
+  useEffect(() => {
+    if (!openActionMenuId) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-progress-action-menu]")) return;
+      setOpenActionMenuId(null);
+    };
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const trigger = triggerRefs.current.get(openActionMenuId);
+      setOpenActionMenuId(null);
+      window.requestAnimationFrame(() => trigger?.focus());
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openActionMenuId]);
+
   const clearExtension = () => {
     const trigger = editingInstanceId
       ? triggerRefs.current.get(editingInstanceId)
@@ -125,6 +147,7 @@ export function TeacherProgressPanel({
 
   const openExtension = (student: WorkflowProgressStudent) => {
     const eligibleNodes = student.nodes.filter(canExtendNode);
+    setOpenActionMenuId(null);
     setEditingInstanceId(student.instanceId);
     setExtension({
       deadline: "",
@@ -134,6 +157,7 @@ export function TeacherProgressPanel({
   };
 
   const openSubmissionDetail = async (nodeInstanceId: string) => {
+    setOpenActionMenuId(null);
     setLoadingDetailId(nodeInstanceId);
     setNotice("");
     setDetailNotice("");
@@ -354,37 +378,75 @@ export function TeacherProgressPanel({
                 <tr><th>学生</th><th>状态</th><th>完成</th><th>逾期</th><th>最后活动</th><th>操作</th></tr>
               </thead>
               <tbody>
-                {progress?.students.map((student) => (
-                  <tr key={student.instanceId}>
-                    <td><strong>{student.name}</strong><small>{student.studentNo}</small></td>
-                    <td>{student.status === "completed" ? "已完成" : "进行中"}</td>
-                    <td>{student.approvedCount}/{student.totalCount}</td>
-                    <td>{student.expiredCount}</td>
-                    <td>{new Date(student.lastActiveAt).toLocaleString("zh-CN")}</td>
-                    <td><div className="progress-row-actions">
-                      <button
-                        aria-haspopup="dialog"
-                        className="progress-extension-trigger"
-                        onClick={() => openExtension(student)}
-                        ref={(element) => {
-                          if (element) {
-                            triggerRefs.current.set(student.instanceId, element);
-                          } else {
-                            triggerRefs.current.delete(student.instanceId);
-                          }
-                        }}
-                        type="button"
-                      >
-                        设置延期
-                      </button>
-                      {student.nodes.filter((node) => materialNodeKeys.has(node.nodeKey) && ["reviewing", "approved", "rejected", "audit_error"].includes(node.status)).map((node) => (
-                        <button className="progress-extension-trigger" disabled={loadingDetailId === node.nodeInstanceId} key={node.nodeInstanceId} onClick={() => void openSubmissionDetail(node.nodeInstanceId)} type="button">
-                          {loadingDetailId === node.nodeInstanceId ? "读取中" : `查看材料 · ${node.title}`}
-                        </button>
-                      ))}
-                    </div></td>
-                  </tr>
-                ))}
+                {progress?.students.map((student) => {
+                  const availableMaterialNodes = student.nodes.filter(
+                    (node) => materialNodeKeys.has(node.nodeKey)
+                      && ["reviewing", "approved", "rejected", "audit_error"].includes(node.status),
+                  );
+                  const menuOpen = openActionMenuId === student.instanceId;
+                  return (
+                    <tr key={student.instanceId}>
+                      <td><strong>{student.name}</strong><small>{student.studentNo}</small></td>
+                      <td>{student.status === "completed" ? "已完成" : "进行中"}</td>
+                      <td>{student.approvedCount}/{student.totalCount}</td>
+                      <td>{student.expiredCount}</td>
+                      <td>{new Date(student.lastActiveAt).toLocaleString("zh-CN")}</td>
+                      <td className="progress-actions-cell">
+                        <div className="progress-row-actions" data-progress-action-menu>
+                          <button
+                            aria-expanded={menuOpen}
+                            aria-haspopup="menu"
+                            aria-label={`${student.name}的操作`}
+                            className="progress-action-menu-trigger"
+                            onClick={() => setOpenActionMenuId((current) => (
+                              current === student.instanceId ? null : student.instanceId
+                            ))}
+                            ref={(element) => {
+                              if (element) {
+                                triggerRefs.current.set(student.instanceId, element);
+                              } else {
+                                triggerRefs.current.delete(student.instanceId);
+                              }
+                            }}
+                            title="更多操作"
+                            type="button"
+                          >
+                            <svg aria-hidden="true" viewBox="0 0 16 16">
+                              <path d="M2 4h12M2 8h12M2 12h12" />
+                            </svg>
+                          </button>
+                          {menuOpen ? (
+                            <div
+                              aria-label={`${student.name}的操作`}
+                              className="progress-row-action-menu"
+                              role="menu"
+                            >
+                              <button onClick={() => openExtension(student)} role="menuitem" type="button">
+                                设置延期
+                              </button>
+                              {availableMaterialNodes.map((node) => {
+                                const loading = loadingDetailId === node.nodeInstanceId;
+                                const label = `查看材料 · ${node.title}`;
+                                return (
+                                  <button
+                                    disabled={loading}
+                                    key={node.nodeInstanceId}
+                                    onClick={() => void openSubmissionDetail(node.nodeInstanceId)}
+                                    role="menuitem"
+                                    title={label}
+                                    type="button"
+                                  >
+                                    {loading ? "读取中" : label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {progress?.students.length === 0 ? <tr><td colSpan={6}>尚无学生进入该流程</td></tr> : null}
               </tbody>
             </table>
