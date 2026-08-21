@@ -18,6 +18,7 @@ class TeacherNodeExportFile:
     original_name: str
     page_count: int
     size_bytes: int
+    storage_key: str
 
 
 @dataclass(frozen=True)
@@ -117,7 +118,8 @@ def get_node_submission_export(
             placeholders = ", ".join("?" for _ in submission_ids)
             file_rows = connection.execute(
                 f"""
-                SELECT submission_id, original_name, content_type, size_bytes, page_count
+                SELECT submission_id, original_name, content_type, size_bytes,
+                       page_count, storage_key
                 FROM uploaded_files
                 WHERE submission_id IN ({placeholders})
                 ORDER BY submission_id, display_order, created_at, id
@@ -131,6 +133,7 @@ def get_node_submission_export(
                         original_name=str(file_row["original_name"]),
                         page_count=int(file_row["page_count"]),
                         size_bytes=int(file_row["size_bytes"]),
+                        storage_key=str(file_row["storage_key"]),
                     )
                 )
 

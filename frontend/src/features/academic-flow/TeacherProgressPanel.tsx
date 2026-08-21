@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import type { AcademicFlowNode } from "../../types";
 import { workflowApi } from "./api";
+import { saveDownload } from "./download";
 import type { TeacherSubmissionDetail, WorkflowProgress, WorkflowProgressNode, WorkflowProgressStudent } from "./runtimeTypes";
 
 function toLocalDateTimeInput(timestamp: number) {
@@ -15,17 +16,6 @@ function minimumExtensionValue(effectiveDeadline: string) {
   const floor = Math.max(Date.now(), new Date(effectiveDeadline).getTime());
   const nextMinute = Math.floor(floor / 60_000) * 60_000 + 60_000;
   return toLocalDateTimeInput(nextMinute);
-}
-
-function saveDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 export function TeacherProgressPanel({
