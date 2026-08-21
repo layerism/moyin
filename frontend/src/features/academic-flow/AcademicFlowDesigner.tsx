@@ -674,7 +674,6 @@ export function AcademicFlowDesigner({
             onOpenInspector={setInspectorNodeId}
             onSelectNode={setActiveNodeId}
             onUpdateNodePositions={updateNodePositions}
-            packageDownloadEnabled={Boolean(workingProcess.publishedVersionId)}
             publishedNodeIds={protectedNodeIds}
           />
         </section>
@@ -913,7 +912,6 @@ function FlowNodeCanvas({
   onOpenInspector,
   onSelectNode,
   onUpdateNodePositions,
-  packageDownloadEnabled,
   publishedNodeIds,
 }: {
   activeNodeId: string;
@@ -942,13 +940,11 @@ function FlowNodeCanvas({
   onOpenInspector: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onUpdateNodePositions: (positions: Record<string, CanvasPoint>) => void;
-  packageDownloadEnabled: boolean;
   publishedNodeIds: string[];
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const canvasSurfaceRef = useRef<HTMLDivElement | null>(null);
   const connectingFromRef = useRef<ConnectionDraft | null>(null);
-  const nodeContextMenuActionRef = useRef<HTMLButtonElement | null>(null);
   const nodeElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const [connectingFrom, setConnectingFrom] = useState<ConnectionDraft | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<{
@@ -968,11 +964,6 @@ function FlowNodeCanvas({
   const [selectionDraft, setSelectionDraft] = useState<CanvasSelectionDraft | null>(null);
   const [draggingNodes, setDraggingNodes] = useState<NodeGroupDrag | null>(null);
   const [nodeHeights, setNodeHeights] = useState<Record<string, number>>({});
-  const [nodeContextMenu, setNodeContextMenu] = useState<{
-    left: number;
-    nodeId: string;
-    top: number;
-  } | null>(null);
   const nodeIdKey = nodes.map((node) => node.id).join("|");
   const publishedNodeIdSet = useMemo(() => new Set(publishedNodeIds), [publishedNodeIds]);
   const registerNodeElement = useCallback((nodeId: string, element: HTMLButtonElement | null) => {
@@ -1067,38 +1058,6 @@ function FlowNodeCanvas({
       setSelectedEdgeId(null);
     }
   }, [canDeleteEdge, selectedEdgeId]);
-
-  useEffect(() => {
-    if (!nodeContextMenu) return;
-    const focusFrame = window.requestAnimationFrame(() => nodeContextMenuActionRef.current?.focus());
-    const closeOnPointerDown = (event: globalThis.PointerEvent) => {
-      const target = event.target;
-      if (target instanceof Element && target.closest("[data-node-package-menu]")) return;
-      setNodeContextMenu(null);
-    };
-    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      const trigger = nodeElementsRef.current.get(nodeContextMenu.nodeId);
-      setNodeContextMenu(null);
-      window.requestAnimationFrame(() => trigger?.focus());
-    };
-    document.addEventListener("pointerdown", closeOnPointerDown);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      document.removeEventListener("pointerdown", closeOnPointerDown);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [nodeContextMenu]);
-
-  useEffect(() => {
-    if (
-      nodeContextMenu
-      && (!packageDownloadEnabled || !nodeById.has(nodeContextMenu.nodeId))
-    ) {
-      setNodeContextMenu(null);
-    }
-  }, [nodeById, nodeContextMenu, packageDownloadEnabled]);
 
   useEffect(() => {
     const deleteSelectedEdge = (event: KeyboardEvent) => {
@@ -1494,18 +1453,6 @@ function FlowNodeCanvas({
     setSelectionDraft(null);
     setConnectionSource(null);
   };
-  const openNodeContextMenu = (nodeId: string, clientX: number, clientY: number) => {
-    if (!packageDownloadEnabled) return;
-    const menuWidth = 280;
-    const menuHeight = 116;
-    setSelectedNodeIds(new Set([nodeId]));
-    onSelectNode(nodeId);
-    setNodeContextMenu({
-      left: Math.max(8, Math.min(clientX, window.innerWidth - menuWidth - 8)),
-      nodeId,
-      top: Math.max(8, Math.min(clientY, window.innerHeight - menuHeight - 8)),
-    });
-  };
   const previewSourceNode = connectingFrom ? nodeById.get(connectingFrom.nodeId) ?? null : null;
   const previewSourcePoint =
     previewSourceNode && connectingFrom ? getPortPoint(previewSourceNode, connectingFrom.port) : null;
@@ -1536,12 +1483,7 @@ function FlowNodeCanvas({
         className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""} ${
           selectionDraft ? "is-selecting" : ""
         }`}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          if (!(event.target as HTMLElement).closest(".flow-node")) {
-            setNodeContextMenu(null);
-          }
-        }}
+        onContextMenu={(event) => event.preventDefault()}
         onDragOver={(event) => {
           if (locked) {
             return;
@@ -1677,19 +1619,6 @@ function FlowNodeCanvas({
                 if (locked || (event.target as HTMLElement).closest(".connection-port")) return;
                 onOpenInspector(node.id);
               }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                openNodeContextMenu(node.id, event.clientX, event.clientY);
-              }}
-              onKeyDown={(event) => {
-                if (!(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) {
-                  return;
-                }
-                event.preventDefault();
-                const rect = event.currentTarget.getBoundingClientRect();
-                openNodeContextMenu(node.id, rect.left + 24, rect.top + 24);
-              }}
               onPointerDown={(event) => startNodeDrag(event, node)}
               onPointerMove={dragNode}
               onPointerCancel={endNodeDrag}
@@ -1775,37 +1704,64 @@ function FlowNodeCanvas({
                 <i>{statusLabels[node.status]}</i>
               </span>
             </button>
-            {!locked && selectedNodeIds.has(node.id) && node.id === activeNodeId && (
+            {selectedNodeIds.has(node.id)
+              && node.id === activeNodeId
+              && (!locked || publishedNodeIdSet.has(node.id)) ? (
               <div className="node-quick-actions" aria-label="节点操作">
-                <button
-                  className="node-config-action"
-                  onClick={() => onOpenInspector(node.id)}
-                  title="配置节点"
-                  type="button"
-                >
-                  ⚙
-                </button>
-                {canDeleteNode(node.id) ? (
+                {!locked ? (
                   <button
-                    aria-label="删除节点"
-                    onClick={() => onDeleteNode(node.id)}
-                    title="删除节点"
+                    className="node-config-action"
+                    onClick={() => onOpenInspector(node.id)}
+                    title="配置节点"
                     type="button"
                   >
-                    ×
+                    ⚙
                   </button>
-                ) : (
-                  <span
-                    aria-label="已发布节点不可删除"
-                    className="node-delete-lock"
-                    role="img"
-                    title="已发布节点不可删除"
+                ) : null}
+                {publishedNodeIdSet.has(node.id) ? (
+                  <button
+                    aria-label={`下载${node.title}节点资料包`}
+                    className="node-package-action"
+                    disabled={downloadingNodePackageId !== null}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDownloadNodePackage(node.id);
+                    }}
+                    title="下载节点资料包"
+                    type="button"
                   >
-                    锁
-                  </span>
-                )}
+                    {downloadingNodePackageId === node.id ? (
+                      <span aria-hidden="true" className="node-package-action-spinner" />
+                    ) : (
+                      <svg aria-hidden="true" viewBox="0 0 20 20">
+                        <path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" />
+                      </svg>
+                    )}
+                  </button>
+                ) : null}
+                {!locked ? (
+                  canDeleteNode(node.id) ? (
+                    <button
+                      aria-label="删除节点"
+                      onClick={() => onDeleteNode(node.id)}
+                      title="删除节点"
+                      type="button"
+                    >
+                      ×
+                    </button>
+                  ) : (
+                    <span
+                      aria-label="已发布节点不可删除"
+                      className="node-delete-lock"
+                      role="img"
+                      title="已发布节点不可删除"
+                    >
+                      锁
+                    </span>
+                  )
+                ) : null}
               </div>
-            )}
+            ) : null}
           </div>
             ))}
             {nodes.length === 0 && (
@@ -1814,51 +1770,6 @@ function FlowNodeCanvas({
           </div>
         </div>
       </div>
-      {nodeContextMenu ? (() => {
-        const node = nodeById.get(nodeContextMenu.nodeId);
-        if (!node) return null;
-        const published = publishedNodeIdSet.has(node.id);
-        const downloading = downloadingNodePackageId !== null;
-        const downloadingThisNode = downloadingNodePackageId === node.id;
-        const actionLabel = !published
-          ? "重新发布后可下载"
-          : downloadingThisNode
-            ? "正在打包…"
-            : downloading
-              ? "其他节点正在打包"
-              : "下载节点资料包";
-        return (
-          <div
-            className="node-package-menu"
-            data-node-package-menu
-            role="menu"
-            style={{ left: nodeContextMenu.left, top: nodeContextMenu.top }}
-          >
-            <strong title={node.title}>{node.title}</strong>
-            <button
-              aria-disabled={!published || downloading}
-              onClick={() => {
-                if (!published || downloading) return;
-                setNodeContextMenu(null);
-                onDownloadNodePackage(node.id);
-              }}
-              ref={nodeContextMenuActionRef}
-              role="menuitem"
-              type="button"
-            >
-              <svg aria-hidden="true" viewBox="0 0 20 20">
-                <path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" />
-              </svg>
-              <span>
-                <b>{actionLabel}</b>
-                <small>
-                  {published ? "Excel + 全部学生文件" : "当前节点尚未进入发布版本"}
-                </small>
-              </span>
-            </button>
-          </div>
-        );
-      })() : null}
     </section>
   );
 }
