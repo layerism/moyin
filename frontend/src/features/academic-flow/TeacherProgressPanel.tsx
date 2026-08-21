@@ -331,6 +331,27 @@ export function TeacherProgressPanel({
   ) ?? null;
   const eligibleNodes = editingStudent?.nodes.filter(canExtendNode) ?? [];
   const currentNode = eligibleNodes.find((node) => node.nodeKey === extension.nodeKey);
+  const progressStudents = progress?.students ?? [];
+  const completedStudentCount = progressStudents.filter(
+    (student) => student.status === "completed",
+  ).length;
+  const overdueStudentCount = progressStudents.filter(
+    (student) => student.expiredCount > 0,
+  ).length;
+  const progressSummary = [
+    { label: "学生总数", tone: "neutral", value: progress ? progressStudents.length : "—" },
+    { label: "已完成", tone: "success", value: progress ? completedStudentCount : "—" },
+    {
+      label: "进行中",
+      tone: "accent",
+      value: progress ? progressStudents.length - completedStudentCount : "—",
+    },
+    {
+      label: "有逾期",
+      tone: overdueStudentCount > 0 ? "danger" : "neutral",
+      value: progress ? overdueStudentCount : "—",
+    },
+  ];
 
   const handleExtensionDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Tab") {
@@ -365,62 +386,95 @@ export function TeacherProgressPanel({
           aria-modal="true"
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <header>
-            <div>
+          <header className="progress-panel-header">
+            <div className="progress-panel-heading">
               <span>流程运行管理</span>
               <h2>学生填写进度</h2>
             </div>
-            <button aria-label="关闭进度面板" onClick={onClose}>×</button>
+            <button
+              aria-label="关闭进度面板"
+              className="progress-panel-close"
+              onClick={onClose}
+              type="button"
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <path d="M4 4l12 12M16 4L4 16" />
+              </svg>
+            </button>
           </header>
-          <p className="progress-notice">{notice}</p>
-          {nodes.length > 0 ? (
-            <div className="progress-toolbar-stack">
-              <section className="progress-download-toolbar" aria-label="导出节点填写数据">
-                <label>
-                  <span>节点填写数据</span>
-                  <select
-                    value={selectedExportNodeKey}
-                    onChange={(event) => setExportNodeKey(event.target.value)}
-                  >
-                    {nodes.map((node) => (
-                      <option key={node.id} value={node.id}>{node.title}</option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  className="primary-action"
-                  disabled={exportingNodeKey !== null}
-                  onClick={() => void exportNodeSubmissions()}
-                  type="button"
-                >
-                  {exportingNodeKey ? "正在导出…" : "导出 Excel"}
-                </button>
+          <div className="progress-panel-content">
+            {notice ? (
+              <div className="progress-notice" role="alert">
+                <svg aria-hidden="true" viewBox="0 0 20 20">
+                  <circle cx="10" cy="10" r="8" />
+                  <path d="M10 5.8v5.1M10 14.1v.1" />
+                </svg>
+                <span>{notice}</span>
+              </div>
+            ) : null}
+
+            <section className="progress-summary" aria-label="学生进度概览">
+              {progressSummary.map((item) => (
+                <div className={`progress-summary-item is-${item.tone}`} key={item.label}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </div>
+              ))}
+            </section>
+
+            {nodes.length > 0 ? (
+              <section className="progress-operations" aria-labelledby="progress-operations-title">
+                <header>
+                  <h3 id="progress-operations-title">数据操作</h3>
+                </header>
+                <div className={`progress-operation-grid${materialNodes.length > 0 ? "" : " is-single"}`}>
+                  <div className="progress-operation-group">
+                    <label>
+                      <span>节点填写数据</span>
+                      <select
+                        value={selectedExportNodeKey}
+                        onChange={(event) => setExportNodeKey(event.target.value)}
+                      >
+                        {nodes.map((node) => (
+                          <option key={node.id} value={node.id}>{node.title}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      className="primary-action progress-operation-button"
+                      disabled={exportingNodeKey !== null}
+                      onClick={() => void exportNodeSubmissions()}
+                      type="button"
+                    >
+                      {exportingNodeKey ? "正在导出…" : "导出 Excel"}
+                    </button>
+                  </div>
+                  {materialNodes.length > 0 ? (
+                    <div className="progress-operation-group">
+                      <label>
+                        <span>下载范围</span>
+                        <select value={downloadScope} onChange={(event) => setDownloadScope(event.target.value)}>
+                          <option value="">全部节点（按层级整理）</option>
+                          {materialNodes.map((node) => (
+                            <option key={node.id} value={node.id}>{node.title}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        className="primary-action progress-operation-button"
+                        disabled={downloadingScope}
+                        onClick={() => void downloadVersionMaterials()}
+                        type="button"
+                      >
+                        {downloadingScope ? "正在打包…" : "下载材料"}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </section>
-              {materialNodes.length > 0 ? (
-                <section className="progress-download-toolbar" aria-label="批量下载学生材料">
-                  <label>
-                    <span>下载范围</span>
-                    <select value={downloadScope} onChange={(event) => setDownloadScope(event.target.value)}>
-                      <option value="">全部节点（按层级整理）</option>
-                      {materialNodes.map((node) => (
-                        <option key={node.id} value={node.id}>{node.title}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    className="primary-action"
-                    disabled={downloadingScope}
-                    onClick={() => void downloadVersionMaterials()}
-                    type="button"
-                  >
-                    {downloadingScope ? "正在打包…" : "下载材料"}
-                  </button>
-                </section>
-              ) : null}
-            </div>
-          ) : null}
-          <section className="progress-table-wrap">
-            <table className="progress-table">
+            ) : null}
+            <section className="progress-table-wrap">
+              <table className="progress-table">
               <thead>
                 <tr><th>学生</th><th>状态</th><th>完成</th><th>逾期</th><th>最后活动</th><th>操作</th></tr>
               </thead>
@@ -431,13 +485,46 @@ export function TeacherProgressPanel({
                       && ["reviewing", "approved", "rejected", "audit_error"].includes(node.status),
                   );
                   const menuOpen = openActionMenuId === student.instanceId;
+                  const completionPercent = student.totalCount > 0
+                    ? Math.min(100, Math.round((student.approvedCount / student.totalCount) * 100))
+                    : 0;
+                  const completed = student.status === "completed";
                   return (
                     <tr key={student.instanceId}>
-                      <td><strong>{student.name}</strong><small>{student.studentNo}</small></td>
-                      <td>{student.status === "completed" ? "已完成" : "进行中"}</td>
-                      <td>{student.approvedCount}/{student.totalCount}</td>
-                      <td>{student.expiredCount}</td>
-                      <td>{new Date(student.lastActiveAt).toLocaleString("zh-CN")}</td>
+                      <td className="progress-student-cell">
+                        <strong>{student.name}</strong>
+                        <small>{student.studentNo}</small>
+                      </td>
+                      <td>
+                        <span className={`progress-status-tag ${completed ? "is-completed" : "is-active"}`}>
+                          {completed ? "已完成" : "进行中"}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="progress-completion">
+                          <strong>{student.approvedCount}/{student.totalCount}</strong>
+                          <span
+                            aria-label={`完成度 ${completionPercent}%`}
+                            aria-valuemax={100}
+                            aria-valuemin={0}
+                            aria-valuenow={completionPercent}
+                            className="progress-completion-track"
+                            role="progressbar"
+                          >
+                            <span style={{ width: `${completionPercent}%` }} />
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`progress-overdue-count${student.expiredCount > 0 ? " is-overdue" : ""}`}>
+                          {student.expiredCount}
+                        </span>
+                      </td>
+                      <td>
+                        <time className="progress-last-active" dateTime={student.lastActiveAt}>
+                          {new Date(student.lastActiveAt).toLocaleString("zh-CN")}
+                        </time>
+                      </td>
                       <td className="progress-actions-cell">
                         <div className="progress-row-actions" data-progress-action-menu>
                           <button
@@ -494,10 +581,13 @@ export function TeacherProgressPanel({
                     </tr>
                   );
                 })}
-                {progress?.students.length === 0 ? <tr><td colSpan={6}>尚无学生进入该流程</td></tr> : null}
+                {progress?.students.length === 0 ? (
+                  <tr className="progress-table-empty"><td colSpan={6}>尚无学生进入该流程</td></tr>
+                ) : null}
               </tbody>
-            </table>
-          </section>
+              </table>
+            </section>
+          </div>
         </aside>
       </div>
       {editingStudent ? (
