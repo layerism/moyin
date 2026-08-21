@@ -39,6 +39,7 @@ from app.services.audit_script_parameters import AuditScriptParameterError
 from app.services.material_archive import (
     MaterialArchiveEmptyError,
     build_material_archive,
+    build_node_submission_archive,
     cleanup_material_archive,
 )
 from app.services.node_submission_workbook import build_node_submission_workbook
@@ -236,6 +237,32 @@ def export_node_submissions(
         raise HTTPException(status_code=404, detail="流程版本不存在") from exc
     except TeacherNodeExportError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/versions/{version_id}/nodes/{node_key}/package/download")
+def download_node_submission_package(
+    version_id: str,
+    node_key: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> FileResponse:
+    try:
+        teacher_id = int(teacher["id"])
+        selection = get_node_submission_export(version_id, node_key, teacher_id)
+        archive = build_node_submission_archive(selection)
+        return FileResponse(
+            archive.path,
+            filename=archive.filename,
+            media_type="application/zip",
+            background=BackgroundTask(cleanup_material_archive, archive),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程版本不存在") from exc
+    except TeacherNodeExportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail="节点资料包生成失败") from exc
 
 
 @router.get("/node-instances/{node_instance_id}/materials/download")

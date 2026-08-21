@@ -396,6 +396,12 @@ export const workflowApi = {
       "节点填写数据.xlsx",
     );
   },
+  downloadTeacherNodePackage(versionId: string, nodeKey: string) {
+    return downloadRequest(
+      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/nodes/${encodeURIComponent(nodeKey)}/package/download`,
+      "节点资料包.zip",
+    );
+  },
   downloadTeacherNodeMaterials(nodeInstanceId: string) {
     return downloadRequest(
       `/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/materials/download`,

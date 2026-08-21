@@ -61,6 +61,7 @@ import {
   getOppositePort,
   type CurvedEdgeGeometry,
 } from "./edgeCurveGeometry";
+import { saveDownload } from "./download";
 import { NodeDateTimePicker } from "./NodeDateTimePicker";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
@@ -165,6 +166,7 @@ export function AcademicFlowDesigner({
   const [saving, setSaving] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false);
   const [previewCreating, setPreviewCreating] = useState(false);
+  const [downloadingNodePackageId, setDownloadingNodePackageId] = useState<string | null>(null);
   const [revisionEditingRequested, setRevisionEditingRequested] = useState(false);
   const [revisionDirty, setRevisionDirty] = useState(false);
   const revisionEditing = getRevisionEditing(
@@ -537,6 +539,21 @@ export function AcademicFlowDesigner({
     }
   };
 
+  const downloadNodePackage = async (nodeId: string) => {
+    const versionId = workingProcess.publishedVersionId;
+    if (!versionId || downloadingNodePackageId) return;
+    setActionNotice("");
+    setDownloadingNodePackageId(nodeId);
+    try {
+      const result = await workflowApi.downloadTeacherNodePackage(versionId, nodeId);
+      saveDownload(result.blob, result.filename);
+    } catch (reason) {
+      setActionNotice(reason instanceof Error ? reason.message : "节点资料包下载失败");
+    } finally {
+      setDownloadingNodePackageId(null);
+    }
+  };
+
   const deleteEdge = (edgeId: string) => {
     if (editorLocked || !canDeleteRevisionEdge(edgeId, protectedEdgeIds)) return;
     commitDesignChange({
@@ -648,13 +665,17 @@ export function AcademicFlowDesigner({
             locked={editorLocked}
             nodeMovementLocked={workingProcess.published}
             nodes={workingProcess.nodes}
+            downloadingNodePackageId={downloadingNodePackageId}
             onAddNode={addNode}
             onConnectNodes={connectNodes}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
+            onDownloadNodePackage={(nodeId) => void downloadNodePackage(nodeId)}
             onOpenInspector={setInspectorNodeId}
             onSelectNode={setActiveNodeId}
             onUpdateNodePositions={updateNodePositions}
+            packageDownloadEnabled={Boolean(workingProcess.publishedVersionId)}
+            publishedNodeIds={protectedNodeIds}
           />
         </section>
         {inspectorNode && (
@@ -879,6 +900,7 @@ function FlowNodeCanvas({
   canDeleteEdge,
   canDeleteNode,
   canMoveNode,
+  downloadingNodePackageId,
   edges,
   locked,
   nodeMovementLocked,
@@ -887,14 +909,18 @@ function FlowNodeCanvas({
   onConnectNodes,
   onDeleteEdge,
   onDeleteNode,
+  onDownloadNodePackage,
   onOpenInspector,
   onSelectNode,
   onUpdateNodePositions,
+  packageDownloadEnabled,
+  publishedNodeIds,
 }: {
   activeNodeId: string;
   canDeleteEdge: (edgeId: string) => boolean;
   canDeleteNode: (nodeId: string) => boolean;
   canMoveNode: (nodeId: string) => boolean;
+  downloadingNodePackageId: string | null;
   edges: AcademicFlowEdge[];
   locked: boolean;
   nodeMovementLocked: boolean;
@@ -912,13 +938,17 @@ function FlowNodeCanvas({
   ) => void;
   onDeleteEdge: (edgeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
+  onDownloadNodePackage: (nodeId: string) => void;
   onOpenInspector: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onUpdateNodePositions: (positions: Record<string, CanvasPoint>) => void;
+  packageDownloadEnabled: boolean;
+  publishedNodeIds: string[];
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const canvasSurfaceRef = useRef<HTMLDivElement | null>(null);
   const connectingFromRef = useRef<ConnectionDraft | null>(null);
+  const nodeContextMenuActionRef = useRef<HTMLButtonElement | null>(null);
   const nodeElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const [connectingFrom, setConnectingFrom] = useState<ConnectionDraft | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<{
@@ -938,7 +968,13 @@ function FlowNodeCanvas({
   const [selectionDraft, setSelectionDraft] = useState<CanvasSelectionDraft | null>(null);
   const [draggingNodes, setDraggingNodes] = useState<NodeGroupDrag | null>(null);
   const [nodeHeights, setNodeHeights] = useState<Record<string, number>>({});
+  const [nodeContextMenu, setNodeContextMenu] = useState<{
+    left: number;
+    nodeId: string;
+    top: number;
+  } | null>(null);
   const nodeIdKey = nodes.map((node) => node.id).join("|");
+  const publishedNodeIdSet = useMemo(() => new Set(publishedNodeIds), [publishedNodeIds]);
   const registerNodeElement = useCallback((nodeId: string, element: HTMLButtonElement | null) => {
     if (element) nodeElementsRef.current.set(nodeId, element);
     else nodeElementsRef.current.delete(nodeId);
@@ -1031,6 +1067,38 @@ function FlowNodeCanvas({
       setSelectedEdgeId(null);
     }
   }, [canDeleteEdge, selectedEdgeId]);
+
+  useEffect(() => {
+    if (!nodeContextMenu) return;
+    const focusFrame = window.requestAnimationFrame(() => nodeContextMenuActionRef.current?.focus());
+    const closeOnPointerDown = (event: globalThis.PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-node-package-menu]")) return;
+      setNodeContextMenu(null);
+    };
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const trigger = nodeElementsRef.current.get(nodeContextMenu.nodeId);
+      setNodeContextMenu(null);
+      window.requestAnimationFrame(() => trigger?.focus());
+    };
+    document.addEventListener("pointerdown", closeOnPointerDown);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("pointerdown", closeOnPointerDown);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [nodeContextMenu]);
+
+  useEffect(() => {
+    if (
+      nodeContextMenu
+      && (!packageDownloadEnabled || !nodeById.has(nodeContextMenu.nodeId))
+    ) {
+      setNodeContextMenu(null);
+    }
+  }, [nodeById, nodeContextMenu, packageDownloadEnabled]);
 
   useEffect(() => {
     const deleteSelectedEdge = (event: KeyboardEvent) => {
@@ -1426,6 +1494,18 @@ function FlowNodeCanvas({
     setSelectionDraft(null);
     setConnectionSource(null);
   };
+  const openNodeContextMenu = (nodeId: string, clientX: number, clientY: number) => {
+    if (!packageDownloadEnabled) return;
+    const menuWidth = 280;
+    const menuHeight = 116;
+    setSelectedNodeIds(new Set([nodeId]));
+    onSelectNode(nodeId);
+    setNodeContextMenu({
+      left: Math.max(8, Math.min(clientX, window.innerWidth - menuWidth - 8)),
+      nodeId,
+      top: Math.max(8, Math.min(clientY, window.innerHeight - menuHeight - 8)),
+    });
+  };
   const previewSourceNode = connectingFrom ? nodeById.get(connectingFrom.nodeId) ?? null : null;
   const previewSourcePoint =
     previewSourceNode && connectingFrom ? getPortPoint(previewSourceNode, connectingFrom.port) : null;
@@ -1456,7 +1536,12 @@ function FlowNodeCanvas({
         className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""} ${
           selectionDraft ? "is-selecting" : ""
         }`}
-        onContextMenu={(event) => event.preventDefault()}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          if (!(event.target as HTMLElement).closest(".flow-node")) {
+            setNodeContextMenu(null);
+          }
+        }}
         onDragOver={(event) => {
           if (locked) {
             return;
@@ -1476,6 +1561,12 @@ function FlowNodeCanvas({
           backgroundSize: `${16 * zoom}px ${16 * zoom}px`,
         }}
       >
+        {downloadingNodePackageId ? (
+          <div className="canvas-download-status" role="status">
+            <span aria-hidden="true" />
+            正在打包 · {nodeById.get(downloadingNodePackageId)?.title ?? "节点"}
+          </div>
+        ) : null}
         <div
           className="canvas-zoom-surface"
           ref={canvasSurfaceRef}
@@ -1585,6 +1676,19 @@ function FlowNodeCanvas({
               onDoubleClick={(event) => {
                 if (locked || (event.target as HTMLElement).closest(".connection-port")) return;
                 onOpenInspector(node.id);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openNodeContextMenu(node.id, event.clientX, event.clientY);
+              }}
+              onKeyDown={(event) => {
+                if (!(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) {
+                  return;
+                }
+                event.preventDefault();
+                const rect = event.currentTarget.getBoundingClientRect();
+                openNodeContextMenu(node.id, rect.left + 24, rect.top + 24);
               }}
               onPointerDown={(event) => startNodeDrag(event, node)}
               onPointerMove={dragNode}
@@ -1710,6 +1814,51 @@ function FlowNodeCanvas({
           </div>
         </div>
       </div>
+      {nodeContextMenu ? (() => {
+        const node = nodeById.get(nodeContextMenu.nodeId);
+        if (!node) return null;
+        const published = publishedNodeIdSet.has(node.id);
+        const downloading = downloadingNodePackageId !== null;
+        const downloadingThisNode = downloadingNodePackageId === node.id;
+        const actionLabel = !published
+          ? "重新发布后可下载"
+          : downloadingThisNode
+            ? "正在打包…"
+            : downloading
+              ? "其他节点正在打包"
+              : "下载节点资料包";
+        return (
+          <div
+            className="node-package-menu"
+            data-node-package-menu
+            role="menu"
+            style={{ left: nodeContextMenu.left, top: nodeContextMenu.top }}
+          >
+            <strong title={node.title}>{node.title}</strong>
+            <button
+              aria-disabled={!published || downloading}
+              onClick={() => {
+                if (!published || downloading) return;
+                setNodeContextMenu(null);
+                onDownloadNodePackage(node.id);
+              }}
+              ref={nodeContextMenuActionRef}
+              role="menuitem"
+              type="button"
+            >
+              <svg aria-hidden="true" viewBox="0 0 20 20">
+                <path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" />
+              </svg>
+              <span>
+                <b>{actionLabel}</b>
+                <small>
+                  {published ? "Excel + 全部学生文件" : "当前节点尚未进入发布版本"}
+                </small>
+              </span>
+            </button>
+          </div>
+        );
+      })() : null}
     </section>
   );
 }

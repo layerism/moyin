@@ -6,6 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 from app.repositories.teacher_materials import TeacherMaterial, TeacherMaterialSelection
+from app.repositories.teacher_node_exports import (
+    TeacherNodeExportFile,
+    TeacherNodeExportSelection,
+    TeacherNodeExportStudent,
+)
+from app.services.node_submission_workbook import build_node_submission_workbook
 from app.services.object_storage import get_object_storage
 
 
@@ -92,6 +98,59 @@ def build_material_archive(selection: TeacherMaterialSelection) -> MaterialArchi
                     arcname=str(_unique_path(_archive_path(selection, material), used_paths)),
                 )
         return MaterialArchive(directory, _archive_name(selection), archive_path)
+    except Exception:
+        shutil.rmtree(directory, ignore_errors=True)
+        raise
+
+
+def _node_package_material_path(
+    student: TeacherNodeExportStudent,
+    material: TeacherNodeExportFile,
+) -> PurePosixPath:
+    return PurePosixPath(
+        "学生文件",
+        f"{_safe_component(student.student_no)}-{_safe_component(student.name)}",
+        _safe_component(material.original_name),
+    )
+
+
+def build_node_submission_archive(
+    selection: TeacherNodeExportSelection,
+) -> MaterialArchive:
+    workbook_content, workbook_filename = build_node_submission_workbook(selection)
+    node_title = str(selection.node.get("title") or selection.node.get("id") or "节点")
+    materials = tuple(
+        (student, material)
+        for student in selection.students
+        for material in student.files
+    )
+    directory = Path(tempfile.mkdtemp(prefix="moyin-node-package-"))
+    archive_path = directory / "node-package.zip"
+    object_directory = directory / "objects"
+    used_paths = {workbook_filename}
+    try:
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr(workbook_filename, workbook_content)
+            if materials:
+                object_directory.mkdir()
+                storage = get_object_storage()
+                for index, (student, material) in enumerate(materials):
+                    local_path = object_directory / str(index)
+                    storage.download_to_file(material.storage_key, local_path)
+                    archive.write(
+                        local_path,
+                        arcname=str(
+                            _unique_path(
+                                _node_package_material_path(student, material),
+                                used_paths,
+                            )
+                        ),
+                    )
+        filename = (
+            f"{_safe_component(selection.flow_name)}-"
+            f"{_safe_component(node_title)}-节点资料包.zip"
+        )
+        return MaterialArchive(directory, filename, archive_path)
     except Exception:
         shutil.rmtree(directory, ignore_errors=True)
         raise
