@@ -2277,98 +2277,6 @@ button {
   animation: runtime-reviewing-spin 900ms linear infinite;
 }
 
-.node-package-menu {
-  position: fixed;
-  z-index: 80;
-  width: 280px;
-  padding: 7px;
-  border: 1px solid #d7dee8;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 18px 42px rgb(16 24 40 / 18%);
-}
-
-.node-package-menu > strong {
-  display: block;
-  overflow: hidden;
-  padding: 7px 10px 8px;
-  color: #667085;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.node-package-menu button {
-  width: 100%;
-  min-height: 58px;
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  color: #175cd3;
-  text-align: left;
-}
-
-.node-package-menu button:hover:not([aria-disabled="true"]) {
-  background: #eff6ff;
-}
-
-.node-package-menu button:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 1px;
-}
-
-.node-package-menu button[aria-disabled="true"] {
-  color: #98a2b3;
-  cursor: not-allowed;
-}
-
-.node-package-menu svg {
-  width: 21px;
-  height: 21px;
-  justify-self: center;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
-}
-
-.node-package-menu button > span {
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.node-package-menu b,
-.node-package-menu small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.node-package-menu b {
-  color: currentColor;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.node-package-menu small {
-  color: #667085;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.node-package-menu button[aria-disabled="true"] small {
-  color: #98a2b3;
-}
-
 .canvas-zoom-surface,
 .student-topology-zoom-surface {
   position: relative;
@@ -2665,6 +2573,31 @@ button {
   background: #ffffff;
   color: #475569;
   font-weight: 800;
+}
+
+.node-quick-actions .node-package-action {
+  display: grid;
+  place-items: center;
+  color: #175cd3;
+}
+
+.node-package-action svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.node-package-action-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #bfdbfe;
+  border-top-color: #175cd3;
+  border-radius: 50%;
+  animation: runtime-reviewing-spin 900ms linear infinite;
 }
 
 .node-quick-actions .node-delete-lock {
@@ -5464,7 +5397,8 @@ button {
 
 @media (prefers-reduced-motion: reduce) {
   .runtime-reviewing-spinner::before,
-  .canvas-download-status > span {
+  .canvas-download-status > span,
+  .node-package-action-spinner {
     animation: none;
   }
 }
