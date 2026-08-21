@@ -6080,6 +6080,11 @@ button {
   color: #b42318;
 }
 
+.progress-toolbar-stack {
+  display: grid;
+  gap: 10px;
+}
+
 .progress-download-toolbar {
   display: flex;
   align-items: end;

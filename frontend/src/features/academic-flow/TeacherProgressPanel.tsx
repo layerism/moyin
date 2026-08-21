@@ -46,6 +46,8 @@ export function TeacherProgressPanel({
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
   const [downloadScope, setDownloadScope] = useState("");
   const [downloadingScope, setDownloadingScope] = useState(false);
+  const [exportNodeKey, setExportNodeKey] = useState(nodes[0]?.id ?? "");
+  const [exportingNodeKey, setExportingNodeKey] = useState<string | null>(null);
   const [downloadingNodeId, setDownloadingNodeId] = useState<string | null>(null);
   const [manualApprovalOpen, setManualApprovalOpen] = useState(false);
   const [manualReason, setManualReason] = useState("");
@@ -66,6 +68,9 @@ export function TeacherProgressPanel({
     (node) => node.kind === "file" || (node.kind === "confirmation" && Boolean(node.templateAsset)),
   );
   const materialNodeKeys = new Set(materialNodes.map((node) => node.id));
+  const selectedExportNodeKey = nodes.some((node) => node.id === exportNodeKey)
+    ? exportNodeKey
+    : nodes[0]?.id ?? "";
   const canExtendNode = (node: WorkflowProgressNode) => Boolean(
     node.effectiveDeadline
       && (node.status !== "approved" || formNodeKeys.has(node.nodeKey)),
@@ -204,6 +209,23 @@ export function TeacherProgressPanel({
       setDetailNotice(reason instanceof Error ? reason.message : "材料下载失败");
     } finally {
       setDownloadingNodeId(null);
+    }
+  };
+
+  const exportNodeSubmissions = async () => {
+    if (!selectedExportNodeKey) return;
+    setExportingNodeKey(selectedExportNodeKey);
+    setNotice("");
+    try {
+      const download = await workflowApi.exportTeacherNodeSubmissions(
+        versionId,
+        selectedExportNodeKey,
+      );
+      saveDownload(download.blob, download.filename);
+    } catch (reason) {
+      setNotice(reason instanceof Error ? reason.message : "节点填写数据导出失败");
+    } finally {
+      setExportingNodeKey(null);
     }
   };
 
@@ -351,26 +373,51 @@ export function TeacherProgressPanel({
             <button aria-label="关闭进度面板" onClick={onClose}>×</button>
           </header>
           <p className="progress-notice">{notice}</p>
-          {materialNodes.length > 0 ? (
-            <section className="progress-download-toolbar" aria-label="批量下载学生材料">
-              <label>
-                <span>下载范围</span>
-                <select value={downloadScope} onChange={(event) => setDownloadScope(event.target.value)}>
-                  <option value="">全部节点（按层级整理）</option>
-                  {materialNodes.map((node) => (
-                    <option key={node.id} value={node.id}>{node.title}</option>
-                  ))}
-                </select>
-              </label>
-              <button
-                className="primary-action"
-                disabled={downloadingScope}
-                onClick={() => void downloadVersionMaterials()}
-                type="button"
-              >
-                {downloadingScope ? "正在打包…" : "下载材料"}
-              </button>
-            </section>
+          {nodes.length > 0 ? (
+            <div className="progress-toolbar-stack">
+              <section className="progress-download-toolbar" aria-label="导出节点填写数据">
+                <label>
+                  <span>节点填写数据</span>
+                  <select
+                    value={selectedExportNodeKey}
+                    onChange={(event) => setExportNodeKey(event.target.value)}
+                  >
+                    {nodes.map((node) => (
+                      <option key={node.id} value={node.id}>{node.title}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="primary-action"
+                  disabled={exportingNodeKey !== null}
+                  onClick={() => void exportNodeSubmissions()}
+                  type="button"
+                >
+                  {exportingNodeKey ? "正在导出…" : "导出 Excel"}
+                </button>
+              </section>
+              {materialNodes.length > 0 ? (
+                <section className="progress-download-toolbar" aria-label="批量下载学生材料">
+                  <label>
+                    <span>下载范围</span>
+                    <select value={downloadScope} onChange={(event) => setDownloadScope(event.target.value)}>
+                      <option value="">全部节点（按层级整理）</option>
+                      {materialNodes.map((node) => (
+                        <option key={node.id} value={node.id}>{node.title}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    className="primary-action"
+                    disabled={downloadingScope}
+                    onClick={() => void downloadVersionMaterials()}
+                    type="button"
+                  >
+                    {downloadingScope ? "正在打包…" : "下载材料"}
+                  </button>
+                </section>
+              ) : null}
+            </div>
           ) : null}
           <section className="progress-table-wrap">
             <table className="progress-table">

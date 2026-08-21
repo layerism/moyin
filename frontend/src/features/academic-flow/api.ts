@@ -105,7 +105,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function downloadRequest(path: string): Promise<{ blob: Blob; filename: string }> {
+async function downloadRequest(
+  path: string,
+  fallbackFilename = "材料.zip",
+): Promise<{ blob: Blob; filename: string }> {
   const headers = new Headers();
   const previewToken = window.sessionStorage.getItem(FLOW_PREVIEW_TOKEN_KEY);
   if (previewToken) {
@@ -127,12 +130,12 @@ async function downloadRequest(path: string): Promise<{ blob: Blob; filename: st
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const encodedFilename = disposition.match(/filename\*=utf-8''([^;]+)/i)?.[1];
   const quotedFilename = disposition.match(/filename="([^"]+)"/i)?.[1];
-  let filename = quotedFilename ?? "材料.zip";
+  let filename = quotedFilename ?? fallbackFilename;
   if (encodedFilename) {
     try {
       filename = decodeURIComponent(encodedFilename);
     } catch {
-      filename = "材料.zip";
+      filename = fallbackFilename;
     }
   }
   return { blob: await response.blob(), filename };
@@ -385,6 +388,12 @@ export const workflowApi = {
     const query = nodeKey ? `?nodeKey=${encodeURIComponent(nodeKey)}` : "";
     return downloadRequest(
       `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/materials/download${query}`,
+    );
+  },
+  exportTeacherNodeSubmissions(versionId: string, nodeKey: string) {
+    return downloadRequest(
+      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/nodes/${encodeURIComponent(nodeKey)}/submissions/export`,
+      "节点填写数据.xlsx",
     );
   },
   downloadTeacherNodeMaterials(nodeInstanceId: string) {

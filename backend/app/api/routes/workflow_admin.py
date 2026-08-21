@@ -1,5 +1,7 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.background import BackgroundTask
 
@@ -19,6 +21,10 @@ from app.repositories.teacher_materials import (
     get_node_instance_materials,
     get_version_materials,
 )
+from app.repositories.teacher_node_exports import (
+    TeacherNodeExportError,
+    get_node_submission_export,
+)
 from app.services.audit_job_worker import signal_audit_job_cancellations
 from app.services.audit_script_catalog import (
     AuditScriptCatalogError,
@@ -30,17 +36,18 @@ from app.services.audit_script_catalog import (
     update_audit_script_config,
 )
 from app.services.audit_script_parameters import AuditScriptParameterError
-from app.services.security import get_current_super_admin, get_current_teacher
 from app.services.material_archive import (
     MaterialArchiveEmptyError,
     build_material_archive,
     cleanup_material_archive,
 )
+from app.services.node_submission_workbook import build_node_submission_workbook
 from app.services.object_storage import (
     ObjectStorageError,
     ObjectStorageNotConfigured,
     get_object_storage,
 )
+from app.services.security import get_current_super_admin, get_current_teacher
 
 router = APIRouter(dependencies=[Depends(get_current_teacher)])
 
@@ -199,6 +206,36 @@ def download_version_materials(
         raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
     except ObjectStorageError as exc:
         raise HTTPException(status_code=503, detail="材料下载失败") from exc
+
+
+@router.get("/versions/{version_id}/nodes/{node_key}/submissions/export")
+def export_node_submissions(
+    version_id: str,
+    node_key: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> Response:
+    try:
+        selection = get_node_submission_export(
+            version_id,
+            node_key,
+            int(teacher["id"]),
+        )
+        content, filename = build_node_submission_workbook(selection)
+        encoded_filename = quote(filename, safe="")
+        return Response(
+            content=content,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": (
+                    "attachment; filename=\"node-submissions.xlsx\"; "
+                    f"filename*=UTF-8''{encoded_filename}"
+                )
+            },
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程版本不存在") from exc
+    except TeacherNodeExportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/node-instances/{node_instance_id}/materials/download")
