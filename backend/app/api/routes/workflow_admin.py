@@ -1,3 +1,4 @@
+from typing import Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -5,6 +6,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.background import BackgroundTask
 
+from app.domain.workflow import confirmation_requires_scans
 from app.repositories.audit_jobs import (
     AuditJobConflictError,
     ManualApprovalValidationError,
@@ -22,6 +24,7 @@ from app.repositories.teacher_materials import (
     get_version_materials,
 )
 from app.repositories.teacher_node_exports import (
+    TeacherNodeExportConflictError,
     TeacherNodeExportError,
     get_node_submission_export,
 )
@@ -72,6 +75,15 @@ class AuditScriptConfigRequest(BaseModel):
     parameterDefaults: dict[str, str | int | float | bool]
     runtimeSettings: dict[str, str | int | float | bool]
     maxConcurrency: int = Field(ge=1, le=32)
+
+
+class NodePackageDownloadRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    includeWorkbook: bool = True
+    includeFiles: bool = True
+    studentScope: Literal["all", "selected"] = "all"
+    rosterEntryIds: list[int] = Field(default_factory=list)
 
 
 @router.get("/audit-scripts")
@@ -258,6 +270,104 @@ def download_node_submission_package(
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="流程版本不存在") from exc
     except TeacherNodeExportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail="节点资料包生成失败") from exc
+
+
+@router.get("/versions/{version_id}/nodes/{node_key}/package/options")
+def get_node_submission_package_options(
+    version_id: str,
+    node_key: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        selection = get_node_submission_export(version_id, node_key, int(teacher["id"]))
+        kind = selection.node.get("kind")
+        supports_files = kind == "file" or (
+            kind == "confirmation" and confirmation_requires_scans(selection.node)
+        )
+        return {
+            "flowName": selection.flow_name,
+            "nodeKey": node_key,
+            "nodeTitle": str(selection.node.get("title") or node_key),
+            "supportsFiles": supports_files,
+            "students": [
+                {
+                    "rosterEntryId": student.roster_entry_id,
+                    "studentNo": student.student_no,
+                    "name": student.name,
+                    "status": student.submission_status or "unsubmitted",
+                    "submittedAt": student.submitted_at,
+                    "fileCount": len(student.files),
+                    "fileSizeBytes": sum(file.size_bytes for file in student.files),
+                }
+                for student in selection.students
+            ],
+        }
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程版本不存在") from exc
+    except TeacherNodeExportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/versions/{version_id}/nodes/{node_key}/package/download")
+def download_filtered_node_submission_package(
+    version_id: str,
+    node_key: str,
+    payload: NodePackageDownloadRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> Response:
+    if not payload.includeWorkbook and not payload.includeFiles:
+        raise HTTPException(status_code=422, detail="请至少选择一种下载内容")
+    if payload.studentScope == "selected" and not payload.rosterEntryIds:
+        raise HTTPException(status_code=422, detail="请至少选择一名学生")
+    if payload.studentScope == "all" and payload.rosterEntryIds:
+        raise HTTPException(status_code=422, detail="全部学生范围不能同时指定学生名单")
+
+    roster_entry_ids = (
+        tuple(dict.fromkeys(payload.rosterEntryIds))
+        if payload.studentScope == "selected"
+        else None
+    )
+    try:
+        selection = get_node_submission_export(
+            version_id,
+            node_key,
+            int(teacher["id"]),
+            roster_entry_ids=roster_entry_ids,
+        )
+        if payload.includeWorkbook and not payload.includeFiles:
+            content, filename = build_node_submission_workbook(selection)
+            encoded_filename = quote(filename, safe="")
+            return Response(
+                content=content,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={
+                    "Content-Disposition": (
+                        "attachment; filename=\"node-submissions.xlsx\"; "
+                        f"filename*=UTF-8''{encoded_filename}"
+                    )
+                },
+            )
+
+        archive = build_node_submission_archive(
+            selection,
+            include_workbook=payload.includeWorkbook,
+        )
+        return FileResponse(
+            archive.path,
+            filename=archive.filename,
+            media_type="application/zip",
+            background=BackgroundTask(cleanup_material_archive, archive),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程版本不存在") from exc
+    except TeacherNodeExportConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (TeacherNodeExportError, MaterialArchiveEmptyError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ObjectStorageNotConfigured as exc:
         raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc

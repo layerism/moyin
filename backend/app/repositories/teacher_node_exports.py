@@ -12,6 +12,10 @@ class TeacherNodeExportError(ValueError):
     pass
 
 
+class TeacherNodeExportConflictError(TeacherNodeExportError):
+    pass
+
+
 @dataclass(frozen=True)
 class TeacherNodeExportFile:
     content_type: str
@@ -29,6 +33,7 @@ class TeacherNodeExportStudent:
     files: tuple[TeacherNodeExportFile, ...]
     name: str
     payload: dict[str, Any]
+    roster_entry_id: int
     student_no: str
     submission_status: str | None
     submitted_at: str | None
@@ -53,6 +58,7 @@ def get_node_submission_export(
     version_id: str,
     node_key: str,
     teacher_id: int,
+    roster_entry_ids: tuple[int, ...] | None = None,
 ) -> TeacherNodeExportSelection:
     with get_connection() as connection:
         version = connection.execute(
@@ -73,9 +79,18 @@ def get_node_submission_export(
         except KeyError as exc:
             raise TeacherNodeExportError("所选节点不属于当前发布版本") from exc
 
+        roster_filter = ""
+        roster_params: tuple[int, ...] = ()
+        if roster_entry_ids is not None:
+            if not roster_entry_ids:
+                raise TeacherNodeExportError("请至少选择一名学生")
+            placeholders = ", ".join("?" for _ in roster_entry_ids)
+            roster_filter = f" AND r.id IN ({placeholders})"
+            roster_params = roster_entry_ids
+
         rows = connection.execute(
-            """
-            SELECT r.student_no, r.name,
+            f"""
+            SELECT r.id AS roster_entry_id, r.student_no, r.name,
                    s.id AS submission_id, s.status AS submission_status,
                    s.submitted_at, s.payload_snapshot,
                    j.status AS audit_job_status, j.result_json,
@@ -99,7 +114,7 @@ def get_node_submission_export(
               ON e.node_instance_id = n.id
              AND e.template_asset_id = vt.template_asset_id
              AND e.student_account_id = a.id
-            WHERE r.flow_id = ? AND r.status = 'active'
+            WHERE r.flow_id = ? AND r.status = 'active'{roster_filter}
             ORDER BY r.student_no
             """,
             (
@@ -109,8 +124,15 @@ def get_node_submission_export(
                 version_id,
                 node_key,
                 version["flow_id"],
+                *roster_params,
             ),
         ).fetchall()
+
+        if roster_entry_ids is not None:
+            requested_ids = set(roster_entry_ids)
+            selected_ids = {int(row["roster_entry_id"]) for row in rows}
+            if selected_ids != requested_ids:
+                raise TeacherNodeExportConflictError("学生名单已发生变化，请刷新后重新选择")
 
         submission_ids = [str(row["submission_id"]) for row in rows if row["submission_id"]]
         files_by_submission: dict[str, list[TeacherNodeExportFile]] = {}
@@ -145,6 +167,7 @@ def get_node_submission_export(
             files=tuple(files_by_submission.get(str(row["submission_id"]), [])),
             name=str(row["name"]),
             payload=_json_object(row["payload_snapshot"]),
+            roster_entry_id=int(row["roster_entry_id"]),
             student_no=str(row["student_no"]),
             submission_status=(
                 str(row["submission_status"]) if row["submission_status"] else None

@@ -51,6 +51,36 @@ export type FlowRoster = {
   revokedCount: number;
 };
 
+export type NodePackageStudentStatus =
+  | "unsubmitted"
+  | "reviewing"
+  | "approved"
+  | "rejected"
+  | "audit_error";
+
+export type NodePackageOptions = {
+  flowName: string;
+  nodeKey: string;
+  nodeTitle: string;
+  students: Array<{
+    fileCount: number;
+    fileSizeBytes: number;
+    name: string;
+    rosterEntryId: number;
+    status: NodePackageStudentStatus;
+    studentNo: string;
+    submittedAt: string | null;
+  }>;
+  supportsFiles: boolean;
+};
+
+export type NodePackageDownloadRequest = {
+  includeFiles: boolean;
+  includeWorkbook: boolean;
+  rosterEntryIds: number[];
+  studentScope: "all" | "selected";
+};
+
 export class ApiError extends Error {
   public fieldErrors: Record<string, string>;
   public status: number;
@@ -108,13 +138,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 async function downloadRequest(
   path: string,
   fallbackFilename = "材料.zip",
+  init: RequestInit = {},
 ): Promise<{ blob: Blob; filename: string }> {
-  const headers = new Headers();
+  const headers = new Headers(init.headers);
   const previewToken = window.sessionStorage.getItem(FLOW_PREVIEW_TOKEN_KEY);
   if (previewToken) {
     headers.set("X-Flow-Preview-Token", previewToken);
   }
-  const response = await fetch(path, { credentials: "include", headers });
+  const response = await fetch(path, { ...init, credentials: "include", headers });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { detail?: ErrorDetail } | null;
     const detail = body?.detail;
@@ -396,10 +427,24 @@ export const workflowApi = {
       "节点填写数据.xlsx",
     );
   },
-  downloadTeacherNodePackage(versionId: string, nodeKey: string) {
+  getTeacherNodePackageOptions(versionId: string, nodeKey: string) {
+    return request<NodePackageOptions>(
+      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/nodes/${encodeURIComponent(nodeKey)}/package/options`,
+    );
+  },
+  downloadTeacherNodePackage(
+    versionId: string,
+    nodeKey: string,
+    payload: NodePackageDownloadRequest,
+  ) {
     return downloadRequest(
       `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/nodes/${encodeURIComponent(nodeKey)}/package/download`,
       "节点资料包.zip",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+      },
     );
   },
   downloadTeacherNodeMaterials(nodeInstanceId: string) {
