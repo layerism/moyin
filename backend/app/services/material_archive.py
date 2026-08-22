@@ -116,8 +116,13 @@ def _node_package_material_path(
 
 def build_node_submission_archive(
     selection: TeacherNodeExportSelection,
+    *,
+    include_workbook: bool = True,
 ) -> MaterialArchive:
-    workbook_content, workbook_filename = build_node_submission_workbook(selection)
+    workbook_content: bytes | None = None
+    workbook_filename: str | None = None
+    if include_workbook:
+        workbook_content, workbook_filename = build_node_submission_workbook(selection)
     node_title = str(selection.node.get("title") or selection.node.get("id") or "节点")
     materials = tuple(
         (student, material)
@@ -127,10 +132,14 @@ def build_node_submission_archive(
     directory = Path(tempfile.mkdtemp(prefix="moyin-node-package-"))
     archive_path = directory / "node-package.zip"
     object_directory = directory / "objects"
-    used_paths = {workbook_filename}
+    if not include_workbook and not materials:
+        shutil.rmtree(directory, ignore_errors=True)
+        raise MaterialArchiveEmptyError("所选学生暂无可下载文件")
+    used_paths = {workbook_filename} if workbook_filename else set()
     try:
         with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            archive.writestr(workbook_filename, workbook_content)
+            if workbook_filename and workbook_content is not None:
+                archive.writestr(workbook_filename, workbook_content)
             if materials:
                 object_directory.mkdir()
                 storage = get_object_storage()
@@ -146,10 +155,8 @@ def build_node_submission_archive(
                             )
                         ),
                     )
-        filename = (
-            f"{_safe_component(selection.flow_name)}-"
-            f"{_safe_component(node_title)}-节点资料包.zip"
-        )
+        suffix = "节点资料包" if include_workbook else "学生文件"
+        filename = f"{_safe_component(selection.flow_name)}-{_safe_component(node_title)}-{suffix}.zip"
         return MaterialArchive(directory, filename, archive_path)
     except Exception:
         shutil.rmtree(directory, ignore_errors=True)

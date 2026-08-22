@@ -61,8 +61,8 @@ import {
   getOppositePort,
   type CurvedEdgeGeometry,
 } from "./edgeCurveGeometry";
-import { saveDownload } from "./download";
 import { NodeDateTimePicker } from "./NodeDateTimePicker";
+import { NodePackageDownloadDialog } from "./NodePackageDownloadDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
 import { getAbsoluteShareUrl } from "./shareUrl";
@@ -113,6 +113,12 @@ type NodeGroupDrag = {
   anchorId: string;
   pointerStart: CanvasPoint;
   startPositions: Record<string, CanvasPoint>;
+};
+
+type NodeContextMenuState = {
+  left: number;
+  nodeId: string;
+  top: number;
 };
 
 type FlowNodeLayout = AcademicFlowNode & {
@@ -166,7 +172,7 @@ export function AcademicFlowDesigner({
   const [saving, setSaving] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false);
   const [previewCreating, setPreviewCreating] = useState(false);
-  const [downloadingNodePackageId, setDownloadingNodePackageId] = useState<string | null>(null);
+  const [nodePackageDialogNodeId, setNodePackageDialogNodeId] = useState<string | null>(null);
   const [revisionEditingRequested, setRevisionEditingRequested] = useState(false);
   const [revisionDirty, setRevisionDirty] = useState(false);
   const revisionEditing = getRevisionEditing(
@@ -183,6 +189,9 @@ export function AcademicFlowDesigner({
     null;
   const inspectorNode =
     workingProcess.nodes.find((node) => node.id === inspectorNodeId) ?? null;
+  const nodePackageDialogNode = workingProcess.nodes.find(
+    (node) => node.id === nodePackageDialogNodeId,
+  ) ?? null;
   const serverFlowId = workingProcess.serverId ?? workingProcess.id;
   const existingNodeIds = workingProcess.nodes.map((node) => node.id);
   const protectedNodeIds = workingProcess.published ? workingProcess.publishedNodeIds : [];
@@ -226,6 +235,7 @@ export function AcademicFlowDesigner({
     setRevisionDirty(false);
     setRevisionImpact(null);
     setPendingPublishProcess(null);
+    setNodePackageDialogNodeId(null);
   }, [process.id, process.publishedVersionId]);
 
   useEffect(() => {
@@ -539,21 +549,6 @@ export function AcademicFlowDesigner({
     }
   };
 
-  const downloadNodePackage = async (nodeId: string) => {
-    const versionId = workingProcess.publishedVersionId;
-    if (!versionId || downloadingNodePackageId) return;
-    setActionNotice("");
-    setDownloadingNodePackageId(nodeId);
-    try {
-      const result = await workflowApi.downloadTeacherNodePackage(versionId, nodeId);
-      saveDownload(result.blob, result.filename);
-    } catch (reason) {
-      setActionNotice(reason instanceof Error ? reason.message : "节点资料包下载失败");
-    } finally {
-      setDownloadingNodePackageId(null);
-    }
-  };
-
   const deleteEdge = (edgeId: string) => {
     if (editorLocked || !canDeleteRevisionEdge(edgeId, protectedEdgeIds)) return;
     commitDesignChange({
@@ -665,12 +660,11 @@ export function AcademicFlowDesigner({
             locked={editorLocked}
             nodeMovementLocked={workingProcess.published}
             nodes={workingProcess.nodes}
-            downloadingNodePackageId={downloadingNodePackageId}
             onAddNode={addNode}
             onConnectNodes={connectNodes}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
-            onDownloadNodePackage={(nodeId) => void downloadNodePackage(nodeId)}
+            onDownloadNodePackage={setNodePackageDialogNodeId}
             onOpenInspector={setInspectorNodeId}
             onSelectNode={setActiveNodeId}
             onUpdateNodePositions={updateNodePositions}
@@ -716,6 +710,13 @@ export function AcademicFlowDesigner({
               )
             }
             shareUrl={workingProcess.shareUrl}
+          />
+        ) : null}
+        {nodePackageDialogNode && workingProcess.publishedVersionId ? (
+          <NodePackageDownloadDialog
+            nodeKey={nodePackageDialogNode.id}
+            onClose={() => setNodePackageDialogNodeId(null)}
+            versionId={workingProcess.publishedVersionId}
           />
         ) : null}
         {revisionImpact ? (
@@ -899,7 +900,6 @@ function FlowNodeCanvas({
   canDeleteEdge,
   canDeleteNode,
   canMoveNode,
-  downloadingNodePackageId,
   edges,
   locked,
   nodeMovementLocked,
@@ -918,7 +918,6 @@ function FlowNodeCanvas({
   canDeleteEdge: (edgeId: string) => boolean;
   canDeleteNode: (nodeId: string) => boolean;
   canMoveNode: (nodeId: string) => boolean;
-  downloadingNodePackageId: string | null;
   edges: AcademicFlowEdge[];
   locked: boolean;
   nodeMovementLocked: boolean;
@@ -944,6 +943,8 @@ function FlowNodeCanvas({
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const canvasSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const nodeMenuRef = useRef<HTMLDivElement | null>(null);
+  const suppressContextMenuUntilRef = useRef(0);
   const connectingFromRef = useRef<ConnectionDraft | null>(null);
   const nodeElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const [connectingFrom, setConnectingFrom] = useState<ConnectionDraft | null>(null);
@@ -956,6 +957,8 @@ function FlowNodeCanvas({
   );
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
+  const [ctrlPressed, setCtrlPressed] = useState(false);
+  const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.5);
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
@@ -970,6 +973,36 @@ function FlowNodeCanvas({
     if (element) nodeElementsRef.current.set(nodeId, element);
     else nodeElementsRef.current.delete(nodeId);
   }, []);
+
+  useEffect(() => {
+    const updateCtrlState = (event: KeyboardEvent) => {
+      if (event.key === "Control") setCtrlPressed(event.type === "keydown");
+      if (event.key === "Escape") setNodeContextMenu(null);
+    };
+    const resetCtrlState = () => {
+      setCtrlPressed(false);
+      setNodeContextMenu(null);
+    };
+    window.addEventListener("keydown", updateCtrlState);
+    window.addEventListener("keyup", updateCtrlState);
+    window.addEventListener("blur", resetCtrlState);
+    return () => {
+      window.removeEventListener("keydown", updateCtrlState);
+      window.removeEventListener("keyup", updateCtrlState);
+      window.removeEventListener("blur", resetCtrlState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!nodeContextMenu) return;
+    const closeOutside = (event: globalThis.PointerEvent) => {
+      if (!nodeMenuRef.current?.contains(event.target as Node)) {
+        setNodeContextMenu(null);
+      }
+    };
+    window.addEventListener("pointerdown", closeOutside);
+    return () => window.removeEventListener("pointerdown", closeOutside);
+  }, [nodeContextMenu]);
 
   useEffect(() => {
     const activeNodeIds = new Set(nodeIdKey ? nodeIdKey.split("|") : []);
@@ -1015,6 +1048,7 @@ function FlowNodeCanvas({
     setSelectionDraft(null);
     setSelectedNodeIds(new Set());
     setSelectedEdgeId(null);
+    setNodeContextMenu(null);
   }, [locked]);
 
   const layoutNodes = useMemo<FlowNodeLayout[]>(() => nodes.map((node) => ({
@@ -1025,6 +1059,18 @@ function FlowNodeCanvas({
     () => new Map(layoutNodes.map((node) => [node.id, node])),
     [layoutNodes],
   );
+  const openNodeContextMenu = (nodeId: string, clientX: number, clientY: number) => {
+    const menuWidth = 190;
+    const menuHeight = 132;
+    setSelectedNodeIds(new Set([nodeId]));
+    setSelectedEdgeId(null);
+    onSelectNode(nodeId);
+    setNodeContextMenu({
+      left: Math.max(12, Math.min(clientX, window.innerWidth - menuWidth - 12)),
+      nodeId,
+      top: Math.max(12, Math.min(clientY, window.innerHeight - menuHeight - 12)),
+    });
+  };
   const curveNodes = useMemo(
     () => layoutNodes.map((node) => ({
       height: node.renderedHeight,
@@ -1128,6 +1174,7 @@ function FlowNodeCanvas({
 
   const zoomCanvas = (event: WheelEvent) => {
     if (!canvasSurfaceRef.current) return;
+    setNodeContextMenu(null);
     const surfaceRect = canvasSurfaceRef.current.getBoundingClientRect();
     const next = getCanvasViewportZoomState({
       deltaY: event.deltaY,
@@ -1230,6 +1277,7 @@ function FlowNodeCanvas({
     ) {
       return;
     }
+    setNodeContextMenu(null);
     event.stopPropagation();
     if (event.ctrlKey) {
       event.preventDefault();
@@ -1369,8 +1417,10 @@ function FlowNodeCanvas({
 
   const startCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (!canvasRef.current) return;
-    if (shouldStartCanvasPan({ button: event.button })) {
+    if (event.ctrlKey && shouldStartCanvasPan({ button: event.button })) {
       event.preventDefault();
+      suppressContextMenuUntilRef.current = Date.now() + 1000;
+      setNodeContextMenu(null);
       setSelectedEdgeId(null);
       setPanStart({
         clientX: event.clientX,
@@ -1381,13 +1431,14 @@ function FlowNodeCanvas({
       event.currentTarget.setPointerCapture(event.pointerId);
       return;
     }
+    if (event.button === 2) return;
     const target = event.target as HTMLElement;
     if (
       event.button !== 0 ||
       locked ||
       connectingFromRef.current ||
       target.closest(
-        ".flow-node, .flow-edge-hitbox, .flow-edge-delete, .node-quick-actions",
+        ".flow-node, .flow-edge-hitbox, .flow-edge-delete",
       )
     ) {
       return;
@@ -1480,10 +1531,24 @@ function FlowNodeCanvas({
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""} ${
+        className={`flow-canvas dag-canvas ${ctrlPressed ? "is-pan-tool" : ""} ${panStart ? "is-panning" : ""} ${
           selectionDraft ? "is-selecting" : ""
         }`}
-        onContextMenu={(event) => event.preventDefault()}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          if (
+            event.ctrlKey
+            || panStart
+            || Date.now() < suppressContextMenuUntilRef.current
+          ) return;
+          const nodeElement = (event.target as HTMLElement).closest<HTMLElement>("[data-flow-node-id]");
+          const nodeId = nodeElement?.dataset.flowNodeId;
+          if (!nodeId || !nodeById.has(nodeId)) {
+            setNodeContextMenu(null);
+            return;
+          }
+          openNodeContextMenu(nodeId, event.clientX, event.clientY);
+        }}
         onDragOver={(event) => {
           if (locked) {
             return;
@@ -1503,12 +1568,6 @@ function FlowNodeCanvas({
           backgroundSize: `${16 * zoom}px ${16 * zoom}px`,
         }}
       >
-        {downloadingNodePackageId ? (
-          <div className="canvas-download-status" role="status">
-            <span aria-hidden="true" />
-            正在打包 · {nodeById.get(downloadingNodePackageId)?.title ?? "节点"}
-          </div>
-        ) : null}
         <div
           className="canvas-zoom-surface"
           ref={canvasSurfaceRef}
@@ -1619,6 +1678,13 @@ function FlowNodeCanvas({
                 if (locked || (event.target as HTMLElement).closest(".connection-port")) return;
                 onOpenInspector(node.id);
               }}
+              onKeyDown={(event) => {
+                if (event.shiftKey && event.key === "F10") {
+                  event.preventDefault();
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  openNodeContextMenu(node.id, rect.right - 12, rect.top + 24);
+                }
+              }}
               onPointerDown={(event) => startNodeDrag(event, node)}
               onPointerMove={dragNode}
               onPointerCancel={endNodeDrag}
@@ -1704,64 +1770,6 @@ function FlowNodeCanvas({
                 <i>{statusLabels[node.status]}</i>
               </span>
             </button>
-            {selectedNodeIds.has(node.id)
-              && node.id === activeNodeId
-              && (!locked || publishedNodeIdSet.has(node.id)) ? (
-              <div className="node-quick-actions" aria-label="节点操作">
-                {!locked ? (
-                  <button
-                    className="node-config-action"
-                    onClick={() => onOpenInspector(node.id)}
-                    title="配置节点"
-                    type="button"
-                  >
-                    ⚙
-                  </button>
-                ) : null}
-                {publishedNodeIdSet.has(node.id) ? (
-                  <button
-                    aria-label={`下载${node.title}节点资料包`}
-                    className="node-package-action"
-                    disabled={downloadingNodePackageId !== null}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDownloadNodePackage(node.id);
-                    }}
-                    title="下载节点资料包"
-                    type="button"
-                  >
-                    {downloadingNodePackageId === node.id ? (
-                      <span aria-hidden="true" className="node-package-action-spinner" />
-                    ) : (
-                      <svg aria-hidden="true" viewBox="0 0 20 20">
-                        <path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 15.5h12" />
-                      </svg>
-                    )}
-                  </button>
-                ) : null}
-                {!locked ? (
-                  canDeleteNode(node.id) ? (
-                    <button
-                      aria-label="删除节点"
-                      onClick={() => onDeleteNode(node.id)}
-                      title="删除节点"
-                      type="button"
-                    >
-                      ×
-                    </button>
-                  ) : (
-                    <span
-                      aria-label="已发布节点不可删除"
-                      className="node-delete-lock"
-                      role="img"
-                      title="已发布节点不可删除"
-                    >
-                      锁
-                    </span>
-                  )
-                ) : null}
-              </div>
-            ) : null}
           </div>
             ))}
             {nodes.length === 0 && (
@@ -1769,6 +1777,69 @@ function FlowNodeCanvas({
             )}
           </div>
         </div>
+        {nodeContextMenu && nodeById.has(nodeContextMenu.nodeId) ? (
+          <div
+            aria-label={`${nodeById.get(nodeContextMenu.nodeId)?.title ?? "节点"}操作`}
+            className="node-context-menu"
+            onContextMenu={(event) => event.preventDefault()}
+            onPointerDown={(event) => event.stopPropagation()}
+            ref={nodeMenuRef}
+            role="menu"
+            style={{ left: nodeContextMenu.left, top: nodeContextMenu.top }}
+          >
+            <button
+              disabled={locked}
+              onClick={() => {
+                if (locked) return;
+                setNodeContextMenu(null);
+                onOpenInspector(nodeContextMenu.nodeId);
+              }}
+              role="menuitem"
+              title={locked ? "请先解锁编辑" : "设置节点"}
+              type="button"
+            >
+              <span aria-hidden="true">⚙</span><strong>设置</strong>
+              {locked ? <small>请先解锁编辑</small> : null}
+            </button>
+            <button
+              className="is-destructive"
+              disabled={locked || !canDeleteNode(nodeContextMenu.nodeId)}
+              onClick={() => {
+                if (locked || !canDeleteNode(nodeContextMenu.nodeId)) return;
+                setNodeContextMenu(null);
+                onDeleteNode(nodeContextMenu.nodeId);
+              }}
+              role="menuitem"
+              title={
+                canDeleteNode(nodeContextMenu.nodeId) && !locked
+                  ? "删除节点"
+                  : publishedNodeIdSet.has(nodeContextMenu.nodeId)
+                    ? "已发布节点不可删除"
+                    : "当前不可删除"
+              }
+              type="button"
+            >
+              <span aria-hidden="true">×</span><strong>删除</strong>
+              {publishedNodeIdSet.has(nodeContextMenu.nodeId) ? (
+                <small>已发布节点不可删除</small>
+              ) : locked ? <small>当前不可删除</small> : null}
+            </button>
+            <button
+              disabled={!publishedNodeIdSet.has(nodeContextMenu.nodeId)}
+              onClick={() => {
+                if (!publishedNodeIdSet.has(nodeContextMenu.nodeId)) return;
+                setNodeContextMenu(null);
+                onDownloadNodePackage(nodeContextMenu.nodeId);
+              }}
+              role="menuitem"
+              title={publishedNodeIdSet.has(nodeContextMenu.nodeId) ? "下载节点资料" : "发布后可下载"}
+              type="button"
+            >
+              <span aria-hidden="true">↓</span><strong>下载</strong>
+              {!publishedNodeIdSet.has(nodeContextMenu.nodeId) ? <small>发布后可下载</small> : null}
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   );
