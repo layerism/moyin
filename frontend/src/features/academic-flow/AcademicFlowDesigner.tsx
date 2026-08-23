@@ -2401,42 +2401,115 @@ function ConfirmationScanSettings({
   };
   return (
     <section className="inspector-section confirmation-scan-settings">
-      <div className="file-type-restriction-heading">
-        <div><h3>扫描件提交与审核</h3><small>学生下载模板并上传签署扫描件，教师可选择直接通过或 AI 审核。</small></div>
-      </div>
-      <div className="node-template-card">
-        <h3>签署文件模板（DOCX）</h3>
-        {node.templateAsset ? <div className="node-template-file">
-          <span aria-hidden="true" className="node-template-file-icon">DOCX</span>
-          <div className="node-template-file-copy">
-            <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
-            <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
+      <header className="confirmation-scan-heading">
+        <strong>
+          <i aria-hidden="true">✓</i>
+          扫描件提交与审核
+        </strong>
+        <small>确认承诺</small>
+      </header>
+      <div className="confirmation-template-row">
+        {node.templateAsset ? (
+          <div className="node-template-file confirmation-template-file">
+            <span aria-hidden="true" className="node-template-file-icon">DOCX</span>
+            <div className="node-template-file-copy">
+              <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
+              <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
+            </div>
+            {disabled ? (
+              <span className="confirmation-template-lock">🔒 发布版固化</span>
+            ) : (
+              <div className="node-template-actions">
+                <label>
+                  替换模板
+                  <input
+                    accept=".docx"
+                    type="file"
+                    onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)}
+                  />
+                </label>
+                <button onClick={onDeleteTemplate} type="button">删除模板</button>
+              </div>
+            )}
           </div>
-          {disabled ? <span>已随发布版本固化</span> : <div className="node-template-actions">
-            <label>替换模板<input accept=".docx" type="file" onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)} /></label>
-            <button onClick={onDeleteTemplate} type="button">删除模板</button>
-          </div>}
-        </div> : disabled ? <p className="muted-line">该节点发布时未配置模板。</p> : <label className="node-template-upload">
-          <input accept=".docx" type="file" onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)} />
-          <strong>选择 DOCX 模板</strong><small>教师模板必须为 .docx 文件</small>
-        </label>}
+        ) : disabled ? (
+          <div className="confirmation-template-empty">
+            <span>未配置 DOCX 模板</span>
+            <small>🔒 发布版固化</small>
+          </div>
+        ) : (
+          <label className="confirmation-template-upload">
+            <input
+              accept=".docx"
+              type="file"
+              onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)}
+            />
+            <span aria-hidden="true">＋</span>
+            <strong>选择 DOCX 模板</strong>
+            <small>签署文件模板</small>
+          </label>
+        )}
       </div>
-      <fieldset className="scan-audit-mode" disabled={disabled}>
-        <legend>审核方式</legend>
-        <label><input checked={!enabled} name={`scan-mode-${node.id}`} onChange={() => onUpdate({ scanAuditEnabled: false, scanAuditMode: undefined, scanAuditPrompt: "" })} type="radio" />上传后直接通过</label>
-        <label><input checked={enabled && node.scanAuditMode === "pass_fail"} name={`scan-mode-${node.id}`} onChange={() => onUpdate({ scanAuditEnabled: true, scanAuditMode: "pass_fail" })} type="radio" />AI 通过 / 不通过</label>
-        <label><input checked={enabled && node.scanAuditMode === "score"} name={`scan-mode-${node.id}`} onChange={() => onUpdate({ scanAuditEnabled: true, scanAuditMode: "score" })} type="radio" />AI 评分（0–100 分）</label>
-      </fieldset>
-      {enabled ? <>
-        <label>
+      <div className="confirmation-audit-row">
+        <strong className="confirmation-audit-label">审核</strong>
+        <fieldset aria-label="审核方式" className="scan-audit-mode" disabled={disabled}>
+          <label className={!enabled ? "is-selected" : ""}>
+            <input
+              checked={!enabled}
+              name={`scan-mode-${node.id}`}
+              onChange={() => onUpdate({ scanAuditEnabled: false, scanAuditMode: undefined, scanAuditPrompt: "" })}
+              type="radio"
+            />
+            直接通过
+          </label>
+          <label className={enabled && node.scanAuditMode === "pass_fail" ? "is-selected" : ""}>
+            <input
+              checked={enabled && node.scanAuditMode === "pass_fail"}
+              name={`scan-mode-${node.id}`}
+              onChange={() => onUpdate({ scanAuditEnabled: true, scanAuditMode: "pass_fail" })}
+              type="radio"
+            />
+            AI 通过/不通过
+          </label>
+          <label className={enabled && node.scanAuditMode === "score" ? "is-selected" : ""}>
+            <input
+              checked={enabled && node.scanAuditMode === "score"}
+              name={`scan-mode-${node.id}`}
+              onChange={() => onUpdate({ scanAuditEnabled: true, scanAuditMode: "score" })}
+              type="radio"
+            />
+            AI 评分 0–100
+          </label>
+        </fieldset>
+        <span
+          className="confirmation-upload-limits"
+          title="学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB；支持 JPG、JPEG、PNG"
+        >
+          <i aria-hidden="true">⇧</i>
+          10 文件 · 20 页 · 10 MB/文件 · 30 MB/组 · JPG/JPEG/PNG
+        </span>
+      </div>
+      {enabled ? (
+        <label className="confirmation-prompt-field">
           <span>{node.scanAuditMode === "score" ? "评分标准" : "形式审核标准"}</span>
-          <textarea disabled={promptDisabled} maxLength={2000} placeholder="请说明 AI 应检查的项目和判定标准" value={node.scanAuditPrompt ?? ""} onChange={(event) => onUpdate({ scanAuditPrompt: event.target.value })} />
-          <small className={promptError ? "audit-script-error" : undefined}>
-            {promptError || `${(node.scanAuditPrompt ?? "").length}/2000`}
-          </small>
+          <span className="confirmation-prompt-input">
+            <textarea
+              disabled={promptDisabled}
+              maxLength={2000}
+              placeholder="请说明 AI 应检查的项目和判定标准"
+              value={node.scanAuditPrompt ?? ""}
+              onChange={(event) => onUpdate({ scanAuditPrompt: event.target.value })}
+            />
+            <small
+              className={promptError
+                ? "audit-script-error confirmation-prompt-feedback is-error"
+                : "confirmation-prompt-feedback"}
+            >
+              {promptError || `${(node.scanAuditPrompt ?? "").length}/2000`}
+            </small>
+          </span>
         </label>
-      </> : null}
-      <p className="muted-line">学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB。支持 JPG、JPEG、PNG。</p>
+      ) : null}
     </section>
   );
 }
