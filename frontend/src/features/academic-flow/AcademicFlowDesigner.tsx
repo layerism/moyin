@@ -957,7 +957,7 @@ function FlowNodeCanvas({
   );
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
-  const [ctrlPressed, setCtrlPressed] = useState(false);
+  const [altPressed, setAltPressed] = useState(false);
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.5);
@@ -975,21 +975,21 @@ function FlowNodeCanvas({
   }, []);
 
   useEffect(() => {
-    const updateCtrlState = (event: KeyboardEvent) => {
-      if (event.key === "Control") setCtrlPressed(event.type === "keydown");
+    const updateAltState = (event: KeyboardEvent) => {
+      if (event.key === "Alt") setAltPressed(event.type === "keydown");
       if (event.key === "Escape") setNodeContextMenu(null);
     };
-    const resetCtrlState = () => {
-      setCtrlPressed(false);
+    const resetAltState = () => {
+      setAltPressed(false);
       setNodeContextMenu(null);
     };
-    window.addEventListener("keydown", updateCtrlState);
-    window.addEventListener("keyup", updateCtrlState);
-    window.addEventListener("blur", resetCtrlState);
+    window.addEventListener("keydown", updateAltState);
+    window.addEventListener("keyup", updateAltState);
+    window.addEventListener("blur", resetAltState);
     return () => {
-      window.removeEventListener("keydown", updateCtrlState);
-      window.removeEventListener("keyup", updateCtrlState);
-      window.removeEventListener("blur", resetCtrlState);
+      window.removeEventListener("keydown", updateAltState);
+      window.removeEventListener("keyup", updateAltState);
+      window.removeEventListener("blur", resetAltState);
     };
   }, []);
 
@@ -1417,7 +1417,7 @@ function FlowNodeCanvas({
 
   const startCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (!canvasRef.current) return;
-    if (event.ctrlKey && shouldStartCanvasPan({ button: event.button })) {
+    if (event.altKey && shouldStartCanvasPan({ button: event.button })) {
       event.preventDefault();
       suppressContextMenuUntilRef.current = Date.now() + 1000;
       setNodeContextMenu(null);
@@ -1531,13 +1531,13 @@ function FlowNodeCanvas({
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${ctrlPressed ? "is-pan-tool" : ""} ${panStart ? "is-panning" : ""} ${
+        className={`flow-canvas dag-canvas ${altPressed ? "is-pan-tool" : ""} ${panStart ? "is-panning" : ""} ${
           selectionDraft ? "is-selecting" : ""
         }`}
         onContextMenu={(event) => {
           event.preventDefault();
           if (
-            event.ctrlKey
+            event.altKey
             || panStart
             || Date.now() < suppressContextMenuUntilRef.current
           ) return;
