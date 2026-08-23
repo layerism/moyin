@@ -2065,6 +2065,7 @@ function NodeInspector({
     setAuditPolicyParams((current) => ({ ...current, [key]: value }));
   };
   const settingCapabilities = getNodeSettingCapabilities(node.kind);
+  const timeSettingsLabel = getTimeSettingsLabel(node);
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
   const scriptLocksFileTypes = Boolean(node.auditScriptAcceptedExtensions?.length);
@@ -2117,8 +2118,10 @@ function NodeInspector({
             onClick={() => setTimeSettingsOpen(true)}
             type="button"
           >
-            <span aria-hidden="true">＋</span>
-            定时设置
+            <span aria-hidden="true">
+              {timeSettingsLabel === "定时设置" ? "＋" : "◷"}
+            </span>
+            {timeSettingsLabel}
           </button>
           {node.startAt || node.deadlineAt ? (
             <small>{getTimeWindowStatus(node)}</small>
@@ -2684,6 +2687,26 @@ function getTimeWindowStatus(node: AcademicFlowNode) {
   if (start !== null && start > now) return "定时开放";
   if (start === null && deadline === null) return "未设置";
   return "开放中";
+}
+
+function getTimeSettingsLabel(node: AcademicFlowNode) {
+  const startAt = formatNodeScheduleDateTime(node.startAt);
+  const deadlineAt = formatNodeScheduleDateTime(node.deadlineAt);
+  if (startAt && deadlineAt) return `${startAt} → ${deadlineAt}`;
+  if (startAt) return `${startAt} 开放`;
+  if (deadlineAt) return `${deadlineAt} 截止`;
+  return "定时设置";
+}
+
+function formatNodeScheduleDateTime(value: string | null | undefined) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return [
+    `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())}`,
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+  ].join(" ");
 }
 
 function getTimeWindowSummary(node: AcademicFlowNode) {
