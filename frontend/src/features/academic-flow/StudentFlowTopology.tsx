@@ -8,7 +8,7 @@ import {
   studentNodeSize,
 } from "./studentTopologyGeometry";
 import {
-  bindCtrlWheelListener,
+  bindCanvasZoomWheelListener,
   getCanvasPanOffset,
   getCanvasViewportZoomState,
   shouldStartCanvasPan,
@@ -81,7 +81,7 @@ export function StudentFlowTopology({
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    return bindCtrlWheelListener(viewport, zoomCanvas);
+    return bindCanvasZoomWheelListener(viewport, zoomCanvas);
   }, [viewportOffset, zoom]);
 
   const startCanvasPan = (event: ReactPointerEvent<HTMLDivElement>) => {

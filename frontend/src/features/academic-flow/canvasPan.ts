@@ -57,9 +57,24 @@ export type CanvasPanStartInput = {
   button: number;
 };
 
-const minimumZoom = 0.5;
+const minimumZoom = 0.25;
 const maximumZoom = 1.5;
 const zoomStep = 0.02;
+
+type CanvasModifierInput = {
+  altKey: boolean;
+  ctrlKey: boolean;
+  getModifierState: (keyArg: "AltGraph") => boolean;
+  metaKey: boolean;
+};
+
+export function isCanvasPanModifierActive(input: CanvasModifierInput) {
+  return input.altKey || input.getModifierState("AltGraph");
+}
+
+export function isCanvasZoomModifierActive(input: CanvasModifierInput) {
+  return input.ctrlKey || input.metaKey;
+}
 
 export function shouldStartCanvasPan(input: CanvasPanStartInput) {
   return input.button === 2;
@@ -96,18 +111,18 @@ export function constrainCanvasGroupDelta(
   };
 }
 
-export function bindCtrlWheelListener(
+export function bindCanvasZoomWheelListener(
   target: HTMLElement,
-  onCtrlWheel: (event: WheelEvent) => void,
+  onZoomWheel: (event: WheelEvent) => void,
 ) {
   const handleWheel = (event: WheelEvent) => {
-    if (!event.ctrlKey) return;
+    if (!isCanvasZoomModifierActive(event)) return;
     event.preventDefault();
-    onCtrlWheel(event);
+    onZoomWheel(event);
   };
 
-  target.addEventListener("wheel", handleWheel, { passive: false });
-  return () => target.removeEventListener("wheel", handleWheel);
+  target.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+  return () => target.removeEventListener("wheel", handleWheel, true);
 }
 
 export function getCanvasPanOffset(
