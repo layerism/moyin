@@ -30,6 +30,7 @@ import {
   getCanvasArrowKeyDelta,
   getCanvasPanOffset,
   getCanvasViewportZoomState,
+  isCanvasControlModifierActive,
   isCanvasKeyboardEditingTarget,
   normalizeCanvasRect,
   shouldStartCanvasPan,
@@ -1122,8 +1123,7 @@ function FlowNodeCanvas({
       if (
         locked
         || event.altKey
-        || event.ctrlKey
-        || event.metaKey
+        || isCanvasControlModifierActive(event)
         || event.shiftKey
         || isCanvasKeyboardEditingTarget(event.target)
       ) {
@@ -1272,7 +1272,7 @@ function FlowNodeCanvas({
     }
     setNodeContextMenu(null);
     event.stopPropagation();
-    if (event.ctrlKey) {
+    if (isCanvasControlModifierActive(event)) {
       event.preventDefault();
       toggleNodeSelection(node.id);
       return;
@@ -1410,7 +1410,10 @@ function FlowNodeCanvas({
 
   const startCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (!canvasRef.current) return;
-    if (event.ctrlKey && shouldStartCanvasPan({ button: event.button })) {
+    if (
+      isCanvasControlModifierActive(event)
+      && shouldStartCanvasPan({ button: event.button })
+    ) {
       event.preventDefault();
       suppressContextMenuUntilRef.current = Date.now() + 1000;
       setNodeContextMenu(null);
@@ -1530,7 +1533,7 @@ function FlowNodeCanvas({
         onContextMenu={(event) => {
           event.preventDefault();
           if (
-            event.ctrlKey
+            isCanvasControlModifierActive(event)
             || panStart
             || Date.now() < suppressContextMenuUntilRef.current
           ) return;
@@ -1663,7 +1666,10 @@ function FlowNodeCanvas({
               } ${selectedNodeIds.has(node.id) ? "selected" : ""}`}
               data-flow-node-id={node.id}
               onClick={(event) => {
-                if (event.ctrlKey || selectedNodeIds.has(node.id)) return;
+                if (
+                  isCanvasControlModifierActive(event)
+                  || selectedNodeIds.has(node.id)
+                ) return;
                 setSelectedNodeIds(new Set([node.id]));
                 onSelectNode(node.id);
               }}
