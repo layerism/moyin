@@ -61,21 +61,6 @@ const minimumZoom = 0.25;
 const maximumZoom = 1.5;
 const zoomStep = 0.02;
 
-type CanvasModifierInput = {
-  altKey: boolean;
-  ctrlKey: boolean;
-  getModifierState: (keyArg: "AltGraph") => boolean;
-  metaKey: boolean;
-};
-
-export function isCanvasPanModifierActive(input: CanvasModifierInput) {
-  return input.altKey || input.getModifierState("AltGraph");
-}
-
-export function isCanvasZoomModifierActive(input: CanvasModifierInput) {
-  return input.ctrlKey || input.metaKey;
-}
-
 export function shouldStartCanvasPan(input: CanvasPanStartInput) {
   return input.button === 2;
 }
@@ -116,7 +101,7 @@ export function bindCanvasZoomWheelListener(
   onZoomWheel: (event: WheelEvent) => void,
 ) {
   const handleWheel = (event: WheelEvent) => {
-    if (!isCanvasZoomModifierActive(event)) return;
+    if (!event.ctrlKey) return;
     event.preventDefault();
     onZoomWheel(event);
   };
