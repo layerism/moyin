@@ -2002,6 +2002,9 @@ function NodeInspector({
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
   const scriptLocksFileTypes = Boolean(node.auditScriptAcceptedExtensions?.length);
+  const lockedFileTypeLabel = (node.auditScriptAcceptedExtensions ?? [])
+    .map((extension) => extension.replace(/^\./, "").toUpperCase())
+    .join(" · ");
 
   return (
     <div className="node-inspector-backdrop">
@@ -2056,9 +2059,17 @@ function NodeInspector({
           ) : null}
         </div>
         {publishedRevision ? (
-          <p className="node-inspector-revision-note">
-            当前为发布后修订。标题、说明和起止时间重新发布后生效；审核提示词与脚本参数在原位置修改，完成时立即更新未完成审核。
-          </p>
+          <div className="node-inspector-revision-strip" role="note">
+            <strong className="revision-strip-title">
+              <span aria-hidden="true">↻</span>
+              发布后修订
+            </strong>
+            <span className="revision-strip-detail">基本信息/时间 · 重新发布生效</span>
+            <span className="revision-strip-detail is-immediate">
+              <i aria-hidden="true">⚡</i>
+              审核规则 · 完成立即生效
+            </span>
+          </div>
         ) : null}
         {settingCapabilities.collectsInformation ? (
           <section className="inspector-section" aria-disabled={coreSettingsDisabled}>
@@ -2095,56 +2106,72 @@ function NodeInspector({
 
         {settingCapabilities.configuresMaterialReview ? (
           <>
-            <section className="inspector-section">
-              <h3>设定限制</h3>
+            <section aria-label="文件限制" className="node-material-limits">
+              <strong className="node-material-limits-title">限制</strong>
               <div className="file-type-restriction">
-                <div className="file-type-restriction-heading">
-                  <span>文件类型限制</span>
-                  <button
-                    aria-checked={hasFileTypeRestriction}
-                    aria-label="启用文件类型限制"
-                    className={`restriction-switch ${hasFileTypeRestriction ? "is-enabled" : ""}`}
-                    disabled={coreSettingsDisabled || scriptLocksFileTypes}
-                    onClick={() =>
-                      onUpdateNode(node.id, {
-                        fileExtensions: hasFileTypeRestriction
-                          ? ""
-                          : getFileExtensionsForPreset("document"),
-                      })
-                    }
-                    role="switch"
-                    type="button"
-                  >
-                    <span />
-                  </button>
-                </div>
-                {hasFileTypeRestriction ? (
-                  <select
-                    aria-label="文件类型预设"
-                    disabled={coreSettingsDisabled || scriptLocksFileTypes}
-                    value={fileTypeRestrictionPreset}
-                    onChange={(event) =>
-                      onUpdateNode(node.id, {
-                        fileExtensions: getFileExtensionsForPreset(event.target.value),
-                      })
-                    }
-                  >
-                    {fileTypeRestrictionPreset === "custom" ? (
-                      <option value="custom">保留当前类型配置</option>
-                    ) : null}
-                    {fileTypeRestrictionPresets.map((preset) => (
-                      <option key={preset.value} value={preset.value}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : null}
+                <span className="node-material-limit-label">
+                  <i aria-hidden="true">▣</i>
+                  文件类型
+                </span>
                 {scriptLocksFileTypes ? (
-                  <small className="audit-script-format-hint">文件格式由审核脚本固定。</small>
-                ) : null}
+                  <span
+                    className="locked-file-types"
+                    title={`文件格式由审核脚本固定为 ${lockedFileTypeLabel}`}
+                  >
+                    <b>{lockedFileTypeLabel}</b>
+                    <small>脚本锁定</small>
+                    <i aria-hidden="true">🔒</i>
+                  </span>
+                ) : (
+                  <>
+                    <button
+                      aria-checked={hasFileTypeRestriction}
+                      aria-label="启用文件类型限制"
+                      className={`restriction-switch ${hasFileTypeRestriction ? "is-enabled" : ""}`}
+                      disabled={coreSettingsDisabled}
+                      onClick={() =>
+                        onUpdateNode(node.id, {
+                          fileExtensions: hasFileTypeRestriction
+                            ? ""
+                            : getFileExtensionsForPreset("document"),
+                        })
+                      }
+                      role="switch"
+                      type="button"
+                    >
+                      <span />
+                    </button>
+                    {hasFileTypeRestriction ? (
+                      <select
+                        aria-label="文件类型预设"
+                        disabled={coreSettingsDisabled}
+                        value={fileTypeRestrictionPreset}
+                        onChange={(event) =>
+                          onUpdateNode(node.id, {
+                            fileExtensions: getFileExtensionsForPreset(event.target.value),
+                          })
+                        }
+                      >
+                        {fileTypeRestrictionPreset === "custom" ? (
+                          <option value="custom">保留当前类型配置</option>
+                        ) : null}
+                        {fileTypeRestrictionPresets.map((preset) => (
+                          <option key={preset.value} value={preset.value}>
+                            {preset.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <small className="unrestricted-file-types">不限格式</small>
+                    )}
+                  </>
+                )}
               </div>
               <label className="file-size-limit-field">
-                <span>单个文件大小上限（M）</span>
+                <span className="node-material-limit-label">
+                  <i aria-hidden="true">↕</i>
+                  单文件
+                </span>
                 <span className="file-size-input">
                   <input
                     aria-label="单个文件大小上限（MB）"
