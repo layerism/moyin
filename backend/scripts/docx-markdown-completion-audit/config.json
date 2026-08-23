@@ -1,0 +1,77 @@
+{
+  "acceptedExtensions": [
+    ".docx"
+  ],
+  "parameters": [
+    {
+      "key": "documentReviewPrompt",
+      "label": "文档审核要求",
+      "type": "string",
+      "required": true,
+      "default": "# 审核要求\n\n请检查文档是否按照要求完整填写。",
+      "description": "使用 Markdown 按章节、表格或填写位置描述审核要求和修改方法",
+      "minimumLength": 1,
+      "maximumLength": 4000
+    }
+  ],
+  "runtimeSettings": [
+    {
+      "key": "systemPrompt",
+      "label": "系统提示词",
+      "type": "string",
+      "value": "你是 DOCX 文档完成性审核器。只依据用户审核要求找出明确不符合要求且需要学生修改的内容。",
+      "minimumLength": 1,
+      "maximumLength": 4000,
+      "multiline": true
+    },
+    {
+      "key": "apiBaseUrl",
+      "label": "API 地址",
+      "type": "string",
+      "value": "https://api.openai.com/v1",
+      "minimumLength": 1,
+      "maximumLength": 500
+    },
+    {
+      "key": "modelName",
+      "label": "模型名称",
+      "type": "string",
+      "value": "gpt-4.1-mini",
+      "minimumLength": 1,
+      "maximumLength": 200
+    },
+    {
+      "key": "thinkingEnabled",
+      "label": "模型思考",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "key": "temperature",
+      "label": "模型温度",
+      "type": "number",
+      "value": 0,
+      "minimum": 0,
+      "maximum": 1
+    },
+    {
+      "key": "requestTimeoutSeconds",
+      "label": "请求超时",
+      "type": "number",
+      "value": 60,
+      "minimum": 5,
+      "maximum": 300
+    },
+    {
+      "key": "maximumInputCharacters",
+      "label": "最大输入字符数",
+      "type": "integer",
+      "value": 120000,
+      "minimum": 1000,
+      "maximum": 500000
+    }
+  ],
+  "execution": {
+    "maxConcurrency": 4
+  }
+}

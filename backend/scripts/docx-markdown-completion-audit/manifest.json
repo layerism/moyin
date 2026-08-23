@@ -1,0 +1,7 @@
+{
+  "id": "docx-markdown-completion-audit",
+  "name": "DOCX 完成性审核",
+  "description": "将 DOCX 转换为 Markdown，并依据用户审核要求检查需要修改的内容",
+  "language": "py",
+  "entry": "handler.py"
+}
