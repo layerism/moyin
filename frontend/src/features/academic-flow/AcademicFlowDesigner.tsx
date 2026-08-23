@@ -317,7 +317,7 @@ export function AcademicFlowDesigner({
       setRevisionDirty(false);
       setRevisionImpact(null);
       setPendingPublishProcess(null);
-      setActionNotice(candidate.published ? "重新发布成功，学生链接：" : "发布成功，学生链接：");
+      setActionNotice(candidate.published ? "重新发布成功" : "发布成功");
       setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
     } catch (reason) {
       const shouldReloadRevision =
@@ -637,20 +637,10 @@ export function AcademicFlowDesigner({
             </button>
           </div>
         </header>
-        {actionNotice ? (
-          <p className="academic-action-notice">
-            {actionNotice}
-            {publishedShareUrl ? (
-              <a href={publishedShareUrl} rel="noreferrer" target="_blank">
-                {publishedShareUrl}
-              </a>
-            ) : null}
-          </p>
-        ) : null}
-
         <section className="flow-designer-grid">
           <ComponentPalette locked={editorLocked} onAddNode={addNode} />
           <FlowNodeCanvas
+            actionNotice={actionNotice}
             activeNodeId={activeNode?.id ?? ""}
             canDeleteEdge={(edgeId) => canDeleteRevisionEdge(edgeId, protectedEdgeIds)}
             canDeleteNode={(nodeId) =>
@@ -669,6 +659,7 @@ export function AcademicFlowDesigner({
             onOpenInspector={setInspectorNodeId}
             onSelectNode={setActiveNodeId}
             onUpdateNodePositions={updateNodePositions}
+            publishedShareUrl={publishedShareUrl}
             publishedNodeIds={protectedNodeIds}
           />
         </section>
@@ -897,6 +888,7 @@ function ComponentPalette({
 }
 
 function FlowNodeCanvas({
+  actionNotice,
   activeNodeId,
   canDeleteEdge,
   canDeleteNode,
@@ -913,8 +905,10 @@ function FlowNodeCanvas({
   onOpenInspector,
   onSelectNode,
   onUpdateNodePositions,
+  publishedShareUrl,
   publishedNodeIds,
 }: {
+  actionNotice: string;
   activeNodeId: string;
   canDeleteEdge: (edgeId: string) => boolean;
   canDeleteNode: (nodeId: string) => boolean;
@@ -940,6 +934,7 @@ function FlowNodeCanvas({
   onOpenInspector: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onUpdateNodePositions: (positions: Record<string, CanvasPoint>) => void;
+  publishedShareUrl: string;
   publishedNodeIds: string[];
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -1517,11 +1512,31 @@ function FlowNodeCanvas({
     1000,
     ...layoutNodes.map((node) => node.y + node.renderedHeight + 80),
   );
+  const actionNoticeHasShareUrl =
+    Boolean(publishedShareUrl) &&
+    (actionNotice === "发布成功" || actionNotice === "重新发布成功");
 
   return (
     <section className="flow-panel canvas-panel">
-      <div className="panel-heading">
-        <h2>流程画布</h2>
+      <div className="panel-heading canvas-panel-heading">
+        <div className="canvas-heading-summary">
+          <h2>流程画布</h2>
+          {actionNotice ? (
+            <p className="academic-action-notice" title={actionNotice}>
+              <span className="academic-action-notice-text">{actionNotice}</span>
+              {actionNoticeHasShareUrl ? (
+                <a
+                  href={publishedShareUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                  title={publishedShareUrl}
+                >
+                  打开学生链接
+                </a>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
         <div className="canvas-toolbar">
           <button type="button">{Math.round(zoom * 100)}%</button>
         </div>
