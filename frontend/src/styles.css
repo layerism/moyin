@@ -2228,6 +2228,23 @@ button {
   font-weight: 700;
 }
 
+.canvas-panel-heading {
+  min-width: 0;
+}
+
+.canvas-heading-summary {
+  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.canvas-heading-summary h2 {
+  flex: 0 0 auto;
+}
+
 .canvas-panel {
   min-height: 0;
   display: flex;
@@ -2238,6 +2255,7 @@ button {
 
 .canvas-toolbar {
   display: flex;
+  flex: 0 0 auto;
   gap: 6px;
 }
 
@@ -4652,14 +4670,31 @@ button {
 }
 
 .academic-action-notice {
-  margin: -4px 0 12px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  overflow: hidden;
   color: #b42318;
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.academic-action-notice .academic-action-notice-text {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .academic-action-notice a {
+  flex: 0 0 auto;
   color: #175cd3;
-  overflow-wrap: anywhere;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
