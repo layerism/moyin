@@ -2190,68 +2190,85 @@ function NodeInspector({
               </label>
             </section>
 
-            <section className="inspector-section node-template-card">
-              <h3>学生填写模板</h3>
-              {node.templateAsset ? (
-                <div className="node-template-file">
-                  <span aria-hidden="true" className="node-template-file-icon">
-                    {formatTemplateType(node.templateAsset.originalName)}
-                  </span>
-                  <div className="node-template-file-copy">
-                    <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
-                    <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
+            <section aria-label="材料配置" className="inspector-section node-file-material-settings">
+              <header className="node-file-material-heading">
+                <strong>
+                  <i aria-hidden="true">▤</i>
+                  材料配置
+                </strong>
+                <small>文件节点</small>
+              </header>
+              <div className="node-file-template-row">
+                <strong className="node-file-material-label">模板</strong>
+                {node.templateAsset ? (
+                  <div className="node-template-file node-file-template-file">
+                    <span aria-hidden="true" className="node-template-file-icon">
+                      {formatTemplateType(node.templateAsset.originalName)}
+                    </span>
+                    <div className="node-template-file-copy">
+                      <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
+                      <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
+                    </div>
+                    {coreSettingsDisabled ? (
+                      <span className="node-file-material-lock">🔒 发布版固化</span>
+                    ) : (
+                      <div className="node-template-actions">
+                        <label>
+                          替换模板
+                          <input
+                            accept={node.fileExtensions.split(",").map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
+                            type="file"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.currentTarget.value = "";
+                              if (file) onUploadTemplate(file);
+                            }}
+                          />
+                        </label>
+                        <button onClick={onDeleteTemplate} type="button">删除模板</button>
+                      </div>
+                    )}
                   </div>
-                  {coreSettingsDisabled ? <span>已随发布版本固化</span> : <div className="node-template-actions">
-                    <label>
-                      替换模板
-                      <input
-                        accept={node.fileExtensions.split(",").map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
-                        type="file"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          event.currentTarget.value = "";
-                          if (file) onUploadTemplate(file);
-                        }}
-                      />
-                    </label>
-                    <button onClick={onDeleteTemplate} type="button">删除模板</button>
-                  </div>}
-                </div>
-              ) : coreSettingsDisabled ? (
-                <p className="muted-line">该节点发布时未配置模板，当前不可新增。</p>
-              ) : (
-                <label className="node-template-upload">
-                  <input
-                    accept={node.fileExtensions.split(",").map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
-                    type="file"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      event.currentTarget.value = "";
-                      if (file) onUploadTemplate(file);
-                    }}
-                  />
-                  <strong>选择模板文件</strong>
-                  <small>可选；格式和大小须符合本节点上传限制</small>
-                </label>
-              )}
-            </section>
+                ) : coreSettingsDisabled ? (
+                  <div className="node-file-template-empty">
+                    <span>未配置模板</span>
+                    <small>🔒 发布版固化</small>
+                  </div>
+                ) : (
+                  <label className="node-file-template-upload">
+                    <input
+                      accept={node.fileExtensions.split(",").map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
+                      type="file"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.currentTarget.value = "";
+                        if (file) onUploadTemplate(file);
+                      }}
+                    />
+                    <span aria-hidden="true">＋</span>
+                    <strong>选择模板文件</strong>
+                    <small>可选；须符合上传限制</small>
+                  </label>
+                )}
+              </div>
 
-            <AuditScriptSelector
-              disabled={coreSettingsDisabled}
-              node={auditControlsNode}
-              onChange={(patch) => {
-                if (hasPublishedAuditPolicy && patch.auditScriptParams) {
-                  setAuditPolicyError("");
-                  setAuditPolicyParams(patch.auditScriptParams);
-                  return;
-                }
-                onUpdateNode(node.id, patch);
-              }}
-              parameterDisabled={hasPublishedAuditPolicy
-                ? !auditPolicy || auditPolicySaving
-                : coreSettingsDisabled}
-              parameters={hasPublishedAuditPolicy ? auditPolicy?.parameters : undefined}
-            />
+              <AuditScriptSelector
+                disabled={coreSettingsDisabled}
+                node={auditControlsNode}
+                onChange={(patch) => {
+                  if (hasPublishedAuditPolicy && patch.auditScriptParams) {
+                    setAuditPolicyError("");
+                    setAuditPolicyParams(patch.auditScriptParams);
+                    return;
+                  }
+                  onUpdateNode(node.id, patch);
+                }}
+                parameterDisabled={hasPublishedAuditPolicy
+                  ? !auditPolicy || auditPolicySaving
+                  : coreSettingsDisabled}
+                parameters={hasPublishedAuditPolicy ? auditPolicy?.parameters : undefined}
+              />
+            </section>
           </>
         ) : null}
         </div>
