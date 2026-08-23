@@ -61,6 +61,15 @@ const minimumZoom = 0.25;
 const maximumZoom = 1.5;
 const zoomStep = 0.02;
 
+type CanvasControlModifierInput = {
+  ctrlKey: boolean;
+  metaKey: boolean;
+};
+
+export function isCanvasControlModifierActive(input: CanvasControlModifierInput) {
+  return input.ctrlKey || input.metaKey;
+}
+
 export function shouldStartCanvasPan(input: CanvasPanStartInput) {
   return input.button === 2;
 }
@@ -101,7 +110,7 @@ export function bindCanvasZoomWheelListener(
   onZoomWheel: (event: WheelEvent) => void,
 ) {
   const handleWheel = (event: WheelEvent) => {
-    if (!event.ctrlKey) return;
+    if (!isCanvasControlModifierActive(event)) return;
     event.preventDefault();
     onZoomWheel(event);
   };
