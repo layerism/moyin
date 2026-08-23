@@ -25,18 +25,10 @@
       "multiline": true
     },
     {
-      "key": "apiBaseUrl",
-      "label": "API 地址",
-      "type": "string",
-      "value": "https://api.openai.com/v1",
-      "minimumLength": 1,
-      "maximumLength": 500
-    },
-    {
       "key": "modelName",
       "label": "模型名称",
       "type": "string",
-      "value": "gpt-4.1-mini",
+      "value": "deepseek-chat",
       "minimumLength": 1,
       "maximumLength": 200
     },

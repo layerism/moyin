@@ -34,7 +34,6 @@ ALLOWED_ISSUE_CODES = {
 }
 EXPECTED_SETTING_KEYS = {
     "systemPrompt",
-    "apiBaseUrl",
     "modelName",
     "thinkingEnabled",
     "temperature",
@@ -412,10 +411,10 @@ def build_model_messages(
 def request_review(
     system: str, user: str, settings: dict[str, object]
 ) -> dict[str, object]:
-    api_key = os.environ.get("OPENAI_API_KEY", "")
-    if not api_key:
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+    base_url = os.environ.get("DEEPSEEK_API_URL", "").strip().rstrip("/")
+    if not api_key or not base_url:
         raise RuntimeError("DOCX LLM 审核服务未配置")
-    base_url = str(settings["apiBaseUrl"]).strip().rstrip("/")
     parsed_url = urlsplit(base_url)
     if (
         parsed_url.scheme not in {"http", "https"}
@@ -576,7 +575,6 @@ def _validated_settings(value: object) -> dict[str, object]:
     if not isinstance(value, dict) or set(value) != EXPECTED_SETTING_KEYS:
         raise ValueError("DOCX LLM 审核运行配置无效")
     system_prompt = value["systemPrompt"]
-    api_base_url = value["apiBaseUrl"]
     model_name = value["modelName"]
     thinking_enabled = value["thinkingEnabled"]
     temperature = value["temperature"]
@@ -584,8 +582,6 @@ def _validated_settings(value: object) -> dict[str, object]:
     maximum_input = value["maximumInputCharacters"]
     if not isinstance(system_prompt, str) or not 1 <= len(system_prompt.strip()) <= 4000:
         raise ValueError("DOCX LLM 审核系统提示词无效")
-    if not isinstance(api_base_url, str) or not 1 <= len(api_base_url.strip()) <= 500:
-        raise ValueError("DOCX LLM 审核 API 地址无效")
     if not isinstance(model_name, str) or not 1 <= len(model_name.strip()) <= 200:
         raise ValueError("DOCX LLM 审核模型名称无效")
     if not isinstance(thinking_enabled, bool):
