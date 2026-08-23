@@ -1307,6 +1307,19 @@ button {
   background: #f4f6f9;
 }
 
+.designer-standalone-page {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.designer-standalone-page > .academic-standalone-header {
+  flex: 0 0 auto;
+}
+
 .academic-standalone-header {
   height: 64px;
   display: flex;
@@ -1423,10 +1436,16 @@ button {
 }
 
 .designer-workspace-main {
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  overflow: hidden;
+  flex-direction: column;
   padding-top: 12px;
 }
 
 .designer-topbar {
+  flex: 0 0 auto;
   align-items: center;
   gap: 16px;
   margin-bottom: 10px;
@@ -2060,10 +2079,16 @@ button {
 }
 
 .flow-designer-grid {
-  min-height: calc(100vh - 196px);
+  min-height: 0;
   display: grid;
+  flex: 1 1 auto;
+  overflow: hidden;
   grid-template-columns: 230px minmax(0, 1fr);
   gap: 14px;
+}
+
+.flow-designer-grid > .flow-panel {
+  min-height: 0;
 }
 
 .flow-panel,
@@ -2185,6 +2210,10 @@ button {
   line-height: 1.6;
 }
 
+.palette-panel {
+  overflow-y: auto;
+}
+
 .panel-heading,
 .section-heading {
   display: flex;
@@ -2200,6 +2229,10 @@ button {
 }
 
 .canvas-panel {
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
   padding: 14px;
 }
 
@@ -2228,7 +2261,9 @@ button {
 }
 
 .flow-canvas {
-  min-height: calc(100vh - 260px);
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
   margin-top: 12px;
   padding: 28px 18px;
   border: 1px solid #edf2f7;
@@ -2243,7 +2278,7 @@ button {
 
 .dag-canvas {
   min-width: 100%;
-  min-height: 780px;
+  min-height: 0;
   position: relative;
   overflow: hidden;
 }
@@ -4598,11 +4633,17 @@ button {
   }
 
   .flow-designer-grid {
+    min-height: 0;
+    grid-template-rows: minmax(0, auto) minmax(0, 1fr);
     grid-template-columns: 1fr;
   }
 
-  .flow-canvas {
-    min-height: 460px;
+  .flow-designer-grid .palette-panel {
+    max-height: min(180px, 30dvh);
+  }
+
+  .canvas-panel > .flow-canvas {
+    min-height: 0;
   }
 
   .share-url {

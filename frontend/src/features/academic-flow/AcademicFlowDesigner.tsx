@@ -575,7 +575,7 @@ export function AcademicFlowDesigner({
   };
 
   return (
-    <main className="academic-standalone-page">
+    <main className="academic-standalone-page designer-standalone-page">
       <AcademicStandaloneHeader
         currentLabel={workingProcess.name}
         onBack={() => requestNavigation("教务流程列表", onBack)}
