@@ -24,13 +24,14 @@ import {
   type NodeAuditPolicy,
 } from "./auditScripts";
 import {
-  bindCtrlWheelListener,
+  bindCanvasZoomWheelListener,
   canvasRectsIntersect,
   constrainCanvasGroupDelta,
   getCanvasArrowKeyDelta,
   getCanvasPanOffset,
   getCanvasViewportZoomState,
   isCanvasKeyboardEditingTarget,
+  isCanvasPanModifierActive,
   normalizeCanvasRect,
   shouldStartCanvasPan,
   type CanvasPoint,
@@ -976,19 +977,19 @@ function FlowNodeCanvas({
 
   useEffect(() => {
     const updateAltState = (event: KeyboardEvent) => {
-      if (event.key === "Alt") setAltPressed(event.type === "keydown");
+      setAltPressed(isCanvasPanModifierActive(event));
       if (event.key === "Escape") setNodeContextMenu(null);
     };
     const resetAltState = () => {
       setAltPressed(false);
       setNodeContextMenu(null);
     };
-    window.addEventListener("keydown", updateAltState);
-    window.addEventListener("keyup", updateAltState);
+    document.addEventListener("keydown", updateAltState, true);
+    document.addEventListener("keyup", updateAltState, true);
     window.addEventListener("blur", resetAltState);
     return () => {
-      window.removeEventListener("keydown", updateAltState);
-      window.removeEventListener("keyup", updateAltState);
+      document.removeEventListener("keydown", updateAltState, true);
+      document.removeEventListener("keyup", updateAltState, true);
       window.removeEventListener("blur", resetAltState);
     };
   }, []);
@@ -1191,7 +1192,7 @@ function FlowNodeCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    return bindCtrlWheelListener(canvas, zoomCanvas);
+    return bindCanvasZoomWheelListener(canvas, zoomCanvas);
   }, [viewportOffset, zoom]);
 
   const findMagnetTarget = (point: { x: number; y: number }, sourceNodeId: string) => {
@@ -1417,7 +1418,9 @@ function FlowNodeCanvas({
 
   const startCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (!canvasRef.current) return;
-    if (event.altKey && shouldStartCanvasPan({ button: event.button })) {
+    const panModifierActive = isCanvasPanModifierActive(event);
+    setAltPressed(panModifierActive);
+    if (panModifierActive && shouldStartCanvasPan({ button: event.button })) {
       event.preventDefault();
       suppressContextMenuUntilRef.current = Date.now() + 1000;
       setNodeContextMenu(null);
@@ -1452,6 +1455,7 @@ function FlowNodeCanvas({
   };
 
   const moveCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
+    setAltPressed(isCanvasPanModifierActive(event));
     if (panStart) {
       setViewportOffset(getCanvasPanOffset(panStart, event));
       return;
@@ -1537,7 +1541,7 @@ function FlowNodeCanvas({
         onContextMenu={(event) => {
           event.preventDefault();
           if (
-            event.altKey
+            isCanvasPanModifierActive(event)
             || panStart
             || Date.now() < suppressContextMenuUntilRef.current
           ) return;
