@@ -2266,16 +2266,6 @@ button {
   user-select: none;
 }
 
-.dag-canvas.is-pan-tool:not(.is-panning) {
-  cursor: grab;
-}
-
-.dag-canvas.is-pan-tool:not(.is-panning) .flow-node,
-.dag-canvas.is-pan-tool:not(.is-panning) .connection-port,
-.dag-canvas.is-pan-tool:not(.is-panning) .flow-edge-hitbox {
-  cursor: grab;
-}
-
 .dag-canvas.is-panning .connection-port,
 .dag-canvas.is-panning .flow-edge-hitbox {
   cursor: grabbing;
