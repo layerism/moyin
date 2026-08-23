@@ -43,8 +43,7 @@ def _block(
 def _settings() -> dict[str, object]:
     return {
         "systemPrompt": "只依据审核规则检查文档。",
-        "apiBaseUrl": "https://api.openai.com/v1",
-        "modelName": "gpt-4.1-mini",
+        "modelName": "deepseek-chat",
         "thinkingEnabled": False,
         "temperature": 0,
         "requestTimeoutSeconds": 60,
@@ -428,7 +427,8 @@ def test_request_review_reads_strict_json_object(
                 {"choices": [{"message": {"content": json.dumps(expected)}}]}
             ).encode()
 
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setenv("DEEPSEEK_API_URL", "https://api.deepseek.com")
     monkeypatch.setattr(handler, "urlopen", lambda request, timeout: Response())
 
     assert handler.request_review("system", "user", _settings()) == expected
