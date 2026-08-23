@@ -57,6 +57,21 @@ export type CanvasPanStartInput = {
   button: number;
 };
 
+export type CanvasViewportBounds = {
+  bottom: number;
+  left: number;
+  right: number;
+  top: number;
+};
+
+export type CanvasEdgePanInput = {
+  bounds: CanvasViewportBounds;
+  clientX: number;
+  clientY: number;
+  edgeSize: number;
+  maxStep: number;
+};
+
 const minimumZoom = 0.25;
 const maximumZoom = 1.5;
 const zoomStep = 0.02;
@@ -72,6 +87,36 @@ export function isCanvasControlModifierActive(input: CanvasControlModifierInput)
 
 export function shouldStartCanvasPan(input: CanvasPanStartInput) {
   return input.button === 2;
+}
+
+export function getCanvasEdgePanDelta(input: CanvasEdgePanInput): CanvasPoint {
+  if (
+    input.edgeSize <= 0 ||
+    input.maxStep <= 0 ||
+    input.clientX < input.bounds.left ||
+    input.clientX > input.bounds.right ||
+    input.clientY < input.bounds.top ||
+    input.clientY > input.bounds.bottom
+  ) {
+    return { x: 0, y: 0 };
+  }
+
+  return {
+    x: getEdgePanAxisDelta(
+      input.clientX,
+      input.bounds.left,
+      input.bounds.right,
+      input.edgeSize,
+      input.maxStep,
+    ),
+    y: getEdgePanAxisDelta(
+      input.clientY,
+      input.bounds.top,
+      input.bounds.bottom,
+      input.edgeSize,
+      input.maxStep,
+    ),
+  };
 }
 
 export function normalizeCanvasRect(start: CanvasPoint, end: CanvasPoint): CanvasRect {
@@ -156,4 +201,16 @@ function nextZoom(zoom: number, deltaY: number) {
     maximumZoom,
     Math.max(minimumZoom, zoom + (deltaY < 0 ? zoomStep : -zoomStep)),
   );
+}
+
+function getEdgePanAxisDelta(
+  pointer: number,
+  start: number,
+  end: number,
+  edgeSize: number,
+  maxStep: number,
+) {
+  const startStrength = Math.min(1, Math.max(0, (start + edgeSize - pointer) / edgeSize));
+  const endStrength = Math.min(1, Math.max(0, (pointer - end + edgeSize) / edgeSize));
+  return (startStrength - endStrength) * maxStep;
 }

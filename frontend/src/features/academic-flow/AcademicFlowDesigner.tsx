@@ -28,6 +28,7 @@ import {
   canvasRectsIntersect,
   constrainCanvasGroupDelta,
   getCanvasArrowKeyDelta,
+  getCanvasEdgePanDelta,
   getCanvasPanOffset,
   getCanvasViewportZoomState,
   isCanvasControlModifierActive,
@@ -87,6 +88,10 @@ const kindLabels: Record<AcademicFlowNodeKind, string> = {
 
 const nodeSize = { height: 126, width: 280 };
 const canvasGridSize = 16;
+const canvasMinimumSize = { height: 1000, width: 1200 };
+const canvasConnectionPadding = 240;
+const connectionEdgePanSize = 48;
+const connectionEdgePanMaxStep = 14;
 const connectionPorts: AcademicFlowPort[] = ["top", "bottom"];
 
 function snapToGrid(value: number) {
@@ -942,6 +947,8 @@ function FlowNodeCanvas({
   const nodeMenuRef = useRef<HTMLDivElement | null>(null);
   const suppressContextMenuUntilRef = useRef(0);
   const connectingFromRef = useRef<ConnectionDraft | null>(null);
+  const connectionPointerRef = useRef<CanvasPoint | null>(null);
+  const connectionPreviewPortRef = useRef<AcademicFlowPort | null>(null);
   const nodeElementsRef = useRef(new Map<string, HTMLButtonElement>());
   const [connectingFrom, setConnectingFrom] = useState<ConnectionDraft | null>(null);
   const [connectionPreviewPoint, setConnectionPreviewPoint] = useState<{
@@ -1030,6 +1037,8 @@ function FlowNodeCanvas({
   useEffect(() => {
     if (!locked) return;
     connectingFromRef.current = null;
+    connectionPointerRef.current = null;
+    connectionPreviewPortRef.current = null;
     setConnectingFrom(null);
     setConnectionPreviewPoint(null);
     setConnectionPreviewPort(null);
@@ -1338,6 +1347,8 @@ function FlowNodeCanvas({
       return;
     }
     connectingFromRef.current = source;
+    connectionPointerRef.current = null;
+    connectionPreviewPortRef.current = null;
     setConnectingFrom(source);
     if (!source) {
       setConnectionPreviewPoint(null);
@@ -1369,11 +1380,50 @@ function FlowNodeCanvas({
     if (!source) {
       return;
     }
+    connectionPointerRef.current = { x: clientX, y: clientY };
     const point = getCanvasPoint(clientX, clientY);
     const magnetTarget = findMagnetTarget(point, source.nodeId);
+    connectionPreviewPortRef.current = magnetTarget?.port ?? null;
     setConnectionPreviewPoint(magnetTarget?.point ?? point);
     setConnectionPreviewPort(magnetTarget?.port ?? null);
   };
+
+  useEffect(() => {
+    if (!connectingFrom || locked || panStart) return;
+    let frameId = 0;
+    const autoPanConnection = () => {
+      const canvas = canvasRef.current;
+      const pointer = connectionPointerRef.current;
+      if (canvas && pointer && !connectionPreviewPortRef.current) {
+        const rect = canvas.getBoundingClientRect();
+        const delta = getCanvasEdgePanDelta({
+          bounds: {
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right,
+            top: rect.top,
+          },
+          clientX: pointer.x,
+          clientY: pointer.y,
+          edgeSize: connectionEdgePanSize,
+          maxStep: connectionEdgePanMaxStep,
+        });
+        if (delta.x !== 0 || delta.y !== 0) {
+          setViewportOffset((current) => ({
+            x: current.x + delta.x,
+            y: current.y + delta.y,
+          }));
+          setConnectionPreviewPoint((current) => current ? ({
+            x: current.x - delta.x / zoom,
+            y: current.y - delta.y / zoom,
+          }) : current);
+        }
+      }
+      frameId = window.requestAnimationFrame(autoPanConnection);
+    };
+    frameId = window.requestAnimationFrame(autoPanConnection);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [connectingFrom, locked, panStart, zoom]);
 
   const finishConnectionAt = (clientX: number, clientY: number) => {
     if (locked) {
@@ -1508,9 +1558,17 @@ function FlowNodeCanvas({
         })
       : null;
   const previewPath = previewGeometry?.path ?? "";
+  const canvasSurfaceWidth = Math.max(
+    canvasMinimumSize.width,
+    ...layoutNodes.map((node) => node.x + nodeSize.width + canvasConnectionPadding),
+    connectionPreviewPoint ? connectionPreviewPoint.x + canvasConnectionPadding : 0,
+  );
   const canvasSurfaceHeight = Math.max(
-    1000,
-    ...layoutNodes.map((node) => node.y + node.renderedHeight + 80),
+    canvasMinimumSize.height,
+    ...layoutNodes.map(
+      (node) => node.y + node.renderedHeight + canvasConnectionPadding,
+    ),
+    connectionPreviewPoint ? connectionPreviewPoint.y + canvasConnectionPadding : 0,
   );
   const actionNoticeHasShareUrl =
     Boolean(publishedShareUrl) &&
@@ -1585,14 +1643,21 @@ function FlowNodeCanvas({
           style={{
             height: canvasSurfaceHeight * zoom,
             transform: `translate(${viewportOffset.x}px, ${viewportOffset.y}px)`,
-            width: 1200 * zoom,
+            width: canvasSurfaceWidth * zoom,
           }}
         >
           <div
             className="canvas-zoom-content"
-            style={{ height: canvasSurfaceHeight, transform: `scale(${zoom})` }}
+            style={{
+              height: canvasSurfaceHeight,
+              transform: `scale(${zoom})`,
+              width: canvasSurfaceWidth,
+            }}
           >
-            <svg className="flow-edge-layer" style={{ height: canvasSurfaceHeight }}>
+            <svg
+              className="flow-edge-layer"
+              style={{ height: canvasSurfaceHeight, width: canvasSurfaceWidth }}
+            >
           {edgeLines.map((edge) => {
             const path = edge.path;
             const deletable = !locked && canDeleteEdge(edge.id);
@@ -1762,6 +1827,7 @@ function FlowNodeCanvas({
                     event.dataTransfer.setData("application/x-academic-edge-source", node.id);
                     event.dataTransfer.setData("application/x-academic-edge-source-port", port);
                     setConnectionSource({ nodeId: node.id, port });
+                    updateConnectionPreview(event.clientX, event.clientY);
                   }}
                   onDragEnd={(event) => {
                     const target = document
