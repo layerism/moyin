@@ -1,5 +1,7 @@
 import type { AnswerSheetQuestion } from "../../types";
 
+const answerSheetHeadingPattern = /^\s{0,3}#{1,2}[ \t]+/gm;
+
 export function toggleExpandedQuestion(
   currentQuestionId: string | null,
   questionId: string,
@@ -26,4 +28,12 @@ export function getAnswerSheetQuestionMeta(question: AnswerSheetQuestion): strin
     return `${points} 分 · ${question.blanks.length} 个填空`;
   }
   return `${question.points} 分 · ${question.options.length} 个选项`;
+}
+
+export function getAnswerSheetQuestionExcerpt(question: AnswerSheetQuestion): string {
+  const excerpt = question.content
+    .replace(answerSheetHeadingPattern, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return excerpt || "未填写题干";
 }
