@@ -80,9 +80,18 @@ test("preview and publish share the exact process configuration", () => {
 });
 
 test("revision baseline conflicts require a server reload", () => {
-  assert.equal(shouldReloadRevisionAfterConflict(409, "draft-sha256", "version-current"), true);
-  assert.equal(shouldReloadRevisionAfterConflict(409, undefined, undefined), true);
-  assert.equal(shouldReloadRevisionAfterConflict(422, "draft-sha256", "version-current"), false);
+  assert.equal(
+    shouldReloadRevisionAfterConflict(409, "草稿已变更，请重新确认修订影响"),
+    true,
+  );
+  assert.equal(
+    shouldReloadRevisionAfterConflict(409, "已发布节点只能修改标题、描述和起止时间"),
+    false,
+  );
+  assert.equal(
+    shouldReloadRevisionAfterConflict(422, "草稿已变更，请重新确认修订影响"),
+    false,
+  );
 });
 
 test("only unpublished revision nodes allow draft deadline editing", () => {

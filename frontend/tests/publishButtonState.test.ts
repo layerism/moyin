@@ -69,7 +69,7 @@ test("revision without changes offers a local revision exit", () => {
     {
       action: "finish-revision",
       disabled: false,
-      label: "重新发布",
+      label: "退出编辑",
       title: undefined,
     },
   );

@@ -9,7 +9,7 @@ export type PublishButtonAction =
 export type PublishButtonState = {
   action: PublishButtonAction;
   disabled: boolean;
-  label: "提交发布" | "解锁编辑" | "重新发布";
+  label: "提交发布" | "解锁编辑" | "重新发布" | "退出编辑";
   title: string | undefined;
 };
 
@@ -42,7 +42,7 @@ export function getPublishButtonState(input: {
     return {
       action: "finish-revision",
       disabled: input.operationLocked,
-      label: "重新发布",
+      label: "退出编辑",
       title: undefined,
     };
   }
