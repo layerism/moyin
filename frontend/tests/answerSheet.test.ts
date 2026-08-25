@@ -13,6 +13,7 @@ import {
 } from "../src/features/academic-flow/answerSheetMarkdown.ts";
 import { getAnswerSheetPublishIssue } from "../src/features/academic-flow/answerSheetPublishPreflight.ts";
 import {
+  getAnswerSheetQuestionExcerpt,
   getAnswerSheetQuestionMeta,
   moveAnswerSheetQuestion,
   toggleExpandedQuestion,
@@ -155,4 +156,21 @@ test("answer sheet summary reports compact type-specific metadata", () => {
 
   const fill = createAnswerSheetQuestion("fill_blank");
   assert.equal(getAnswerSheetQuestionMeta(fill), "1 分 · 1 个填空");
+});
+
+test("answer sheet summary turns heading markdown into a one-line excerpt", () => {
+  const question = createAnswerSheetQuestion("single_choice");
+  question.content = "## 运动学\n\n求 $$v=t^2$$ 的值，代码为 `return v`。";
+
+  assert.equal(
+    getAnswerSheetQuestionExcerpt(question),
+    "运动学 求 $$v=t^2$$ 的值，代码为 `return v`。",
+  );
+});
+
+test("answer sheet summary identifies an empty question stem", () => {
+  const question = createAnswerSheetQuestion("fill_blank");
+  question.content = " \n#  \n";
+
+  assert.equal(getAnswerSheetQuestionExcerpt(question), "未填写题干");
 });

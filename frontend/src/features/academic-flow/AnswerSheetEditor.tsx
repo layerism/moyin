@@ -14,6 +14,7 @@ import {
   validateAnswerSheetAuthoring,
 } from "./answerSheet";
 import {
+  getAnswerSheetQuestionExcerpt,
   getAnswerSheetQuestionMeta,
   moveAnswerSheetQuestion,
   toggleExpandedQuestion,
@@ -31,6 +32,12 @@ type ActionMenuItem = {
   disabled?: boolean;
   label: string;
   onSelect: () => void;
+};
+
+const questionTypeLabels: Record<AnswerSheetQuestionType, string> = {
+  fill_blank: "填空",
+  multiple_choice: "多选",
+  single_choice: "单选",
 };
 
 export function AnswerSheetEditor({
@@ -277,24 +284,10 @@ export function AnswerSheetEditor({
                     moveQuestion(question.id, event.key === "ArrowUp" ? -1 : 1);
                   }}
                 />
-                <strong className="answer-sheet-question-index">第 {index + 1} 题</strong>
-                <select
-                  aria-label={`第 ${index + 1} 题题型`}
-                  disabled={disabled}
-                  value={question.type}
-                  onChange={(event) => changeQuestionType(
-                    question,
-                    event.target.value as AnswerSheetQuestionType,
-                  )}
-                >
-                  <option value="single_choice">单项选择题</option>
-                  <option value="multiple_choice">多项选择题</option>
-                  <option value="fill_blank">填空题</option>
-                </select>
                 <div
                   aria-controls={`answer-sheet-question-${question.id}`}
                   aria-expanded={expanded}
-                  className="answer-sheet-question-meta-toggle"
+                  className="answer-sheet-question-toggle"
                   onClick={() => {
                     setExpandedQuestionId((current) => toggleExpandedQuestion(current, question.id));
                     setOpenMenu(null);
@@ -308,24 +301,20 @@ export function AnswerSheetEditor({
                   role="button"
                   tabIndex={0}
                 >
-                  <small>{getAnswerSheetQuestionMeta(question)}</small>
-                  {questionErrors.length ? <span className="answer-sheet-error-badge">需修正</span> : null}
-                  <span aria-hidden="true" className={`answer-sheet-chevron${expanded ? " expanded" : ""}`}>
-                    <svg viewBox="0 0 16 16"><path d="m3.5 6 4.5 4 4.5-4" /></svg>
+                  <strong className="answer-sheet-question-index">第 {index + 1} 题</strong>
+                  <span className="answer-sheet-question-excerpt">
+                    {getAnswerSheetQuestionExcerpt(question)}
+                  </span>
+                  <span className="answer-sheet-question-meta">
+                    <small>
+                      {questionTypeLabels[question.type]} · {getAnswerSheetQuestionMeta(question)}
+                    </small>
+                    {questionErrors.length ? <span className="answer-sheet-error-badge">需修正</span> : null}
+                    <span aria-hidden="true" className={`answer-sheet-chevron${expanded ? " expanded" : ""}`}>
+                      <svg viewBox="0 0 16 16"><path d="m3.5 6 4.5 4 4.5-4" /></svg>
+                    </span>
                   </span>
                 </div>
-                <label className="answer-sheet-required">
-                  <input
-                    checked={question.required}
-                    disabled={disabled}
-                    type="checkbox"
-                    onChange={(event) => updateQuestion(
-                      question.id,
-                      { ...question, required: event.target.checked },
-                    )}
-                  />
-                  必答
-                </label>
                 <CompactActionMenu
                   ariaLabel={`第 ${index + 1} 题操作`}
                   disabled={disabled}
@@ -343,6 +332,51 @@ export function AnswerSheetEditor({
 
               {expanded ? (
                 <div className="answer-sheet-question-content" id={`answer-sheet-question-${question.id}`}>
+                  <div className="answer-sheet-question-settings">
+                    <label>
+                      <span>题型</span>
+                      <select
+                        aria-label={`第 ${index + 1} 题题型`}
+                        disabled={disabled}
+                        value={question.type}
+                        onChange={(event) => changeQuestionType(
+                          question,
+                          event.target.value as AnswerSheetQuestionType,
+                        )}
+                      >
+                        <option value="single_choice">单项选择题</option>
+                        <option value="multiple_choice">多项选择题</option>
+                        <option value="fill_blank">填空题</option>
+                      </select>
+                    </label>
+                    {question.type !== "fill_blank" ? (
+                      <label className="answer-sheet-question-points">
+                        <span>分值</span>
+                        <input
+                          disabled={disabled}
+                          min="1"
+                          type="number"
+                          value={question.points}
+                          onChange={(event) => updateQuestion(
+                            question.id,
+                            { ...question, points: Number(event.target.value) },
+                          )}
+                        />
+                      </label>
+                    ) : null}
+                    <label className="answer-sheet-required">
+                      <input
+                        checked={question.required}
+                        disabled={disabled}
+                        type="checkbox"
+                        onChange={(event) => updateQuestion(
+                          question.id,
+                          { ...question, required: event.target.checked },
+                        )}
+                      />
+                      必答
+                    </label>
+                  </div>
                   <MarkdownBlurEditor
                     disabled={disabled}
                     onChange={(content) => updateQuestion(question.id, { ...question, content })}
@@ -475,16 +509,6 @@ function SelectionEditor({
       })}
       <div className="answer-sheet-selection-footer">
         <button disabled={disabled} onClick={addOption} type="button">添加选项</button>
-        <label className="answer-sheet-points">
-          分值
-          <input
-            disabled={disabled}
-            min="1"
-            type="number"
-            value={question.points}
-            onChange={(event) => onQuestionChange({ ...question, points: Number(event.target.value) })}
-          />
-        </label>
       </div>
     </div>
   );

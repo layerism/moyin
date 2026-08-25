@@ -81,9 +81,9 @@
   padding: 6px 8px;
 }
 
-.answer-sheet-policy label,
-.answer-sheet-points,
-.answer-sheet-blank-row label {
+.answer-sheet-editor .answer-sheet-policy label,
+.answer-sheet-editor .answer-sheet-question-settings label,
+.answer-sheet-editor .answer-sheet-blank-row label {
   align-items: center;
   display: flex;
   gap: 8px;
@@ -95,15 +95,23 @@
   font-weight: 650;
 }
 
-.answer-sheet-policy input,
-.answer-sheet-policy select,
-.answer-sheet-question-summary select,
-.answer-sheet-points input,
-.answer-sheet-blank-row input {
+.answer-sheet-editor .answer-sheet-policy input,
+.answer-sheet-editor .answer-sheet-policy select,
+.answer-sheet-editor .answer-sheet-question-settings select,
+.answer-sheet-editor .answer-sheet-question-settings input[type="number"],
+.answer-sheet-editor .answer-sheet-blank-row input[type="number"] {
   border: 1px solid #ccd4e0;
   border-radius: 5px;
   min-height: 30px;
   padding: 3px 7px;
+}
+
+.answer-sheet-editor .answer-sheet-policy input {
+  width: 68px;
+}
+
+.answer-sheet-editor .answer-sheet-policy select {
+  width: auto;
 }
 
 .answer-sheet-question-list {
@@ -133,37 +141,55 @@
 .answer-sheet-question-summary {
   min-height: 44px;
   display: grid;
-  grid-template-columns: 28px auto minmax(130px, 1fr) auto auto 30px;
+  grid-template-columns: 28px minmax(0, 1fr) 30px;
   align-items: center;
   gap: 7px;
   padding: 6px 8px;
 }
 
-.answer-sheet-question-index,
-.answer-sheet-required {
-  white-space: nowrap;
-}
-
 .answer-sheet-question-index {
   color: #1e3a5f;
   font-size: 13px;
+  white-space: nowrap;
 }
 
-.answer-sheet-question-meta-toggle {
+.answer-sheet-question-toggle {
+  min-width: 0;
   min-height: 30px;
+  display: grid;
+  grid-template-columns: auto minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 0 4px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.answer-sheet-question-toggle:hover,
+.answer-sheet-question-toggle:focus-visible {
+  background: #f8fbff;
+  outline: 0;
+}
+
+.answer-sheet-question-excerpt {
+  min-width: 0;
+  overflow: hidden;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.answer-sheet-question-meta {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 3px 0 7px;
   color: #718096;
   white-space: nowrap;
 }
 
-.answer-sheet-question-meta-toggle:hover {
-  background: #f8fbff;
-}
-
-.answer-sheet-question-meta-toggle small {
+.answer-sheet-question-meta small {
   font-size: 11px;
   font-weight: 600;
 }
@@ -287,11 +313,49 @@
   opacity: 0.5;
 }
 
-.answer-sheet-required {
-  align-items: center;
+.answer-sheet-question-settings {
+  min-height: 38px;
   display: flex;
-  font-size: 13px;
-  gap: 5px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 4px 7px;
+  border: 1px solid #e1e7f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.answer-sheet-editor .answer-sheet-question-settings label {
+  gap: 6px;
+  color: #596579;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.answer-sheet-editor .answer-sheet-question-settings select {
+  width: 126px;
+}
+
+.answer-sheet-editor .answer-sheet-question-points input {
+  width: 60px;
+}
+
+.answer-sheet-editor .answer-sheet-required {
+  display: flex;
+  margin-left: auto;
+}
+
+.answer-sheet-editor .answer-sheet-required input[type="checkbox"],
+.answer-sheet-editor .answer-sheet-case-sensitive input[type="checkbox"],
+.answer-sheet-editor .answer-sheet-option-row > input[type="checkbox"],
+.answer-sheet-editor .answer-sheet-option-row > input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: #1677ee;
 }
 
 .answer-sheet-question-content {
@@ -308,17 +372,17 @@
   width: 100%;
 }
 
-.markdown-blur-source {
+.answer-sheet-editor .markdown-blur-source {
   field-sizing: content;
   line-height: 1.55;
   max-height: 260px;
-  min-height: 84px;
+  min-height: 64px;
   overflow: auto;
   padding: 8px 10px;
   resize: vertical;
 }
 
-.markdown-blur-source:focus {
+.answer-sheet-editor .markdown-blur-source:focus {
   border-color: #4e86d8;
   box-shadow: 0 0 0 2px rgba(43, 112, 211, 0.12);
   outline: 0;
@@ -397,10 +461,12 @@
 }
 
 .answer-sheet-selection-footer {
+  justify-content: flex-start;
   margin-top: 2px;
 }
 
-.answer-sheet-accepted-answers textarea {
+.answer-sheet-editor .answer-sheet-accepted-answers textarea {
+  width: 100%;
   border: 1px solid #ccd5e2;
   border-radius: 7px;
   min-height: 42px;
@@ -428,13 +494,18 @@
   white-space: nowrap;
 }
 
-.answer-sheet-accepted-answers {
-  align-items: stretch !important;
-  display: grid !important;
+.answer-sheet-editor .answer-sheet-blank-row input[type="number"] {
+  width: 58px;
+}
+
+.answer-sheet-editor .answer-sheet-accepted-answers {
+  align-items: stretch;
+  display: grid;
   font-size: 12px;
 }
 
-.answer-sheet-case-sensitive {
+.answer-sheet-editor .answer-sheet-case-sensitive {
+  display: flex;
   font-size: 12px;
   white-space: nowrap;
 }
@@ -657,37 +728,25 @@
   }
 
   .answer-sheet-question-summary {
-    grid-template-columns: 28px auto minmax(0, 1fr) 30px;
+    grid-template-columns: 28px minmax(0, 1fr) 30px;
   }
 
-  .answer-sheet-question-summary > .answer-sheet-reorder-handle {
-    grid-column: 1;
-    grid-row: 1;
+  .answer-sheet-question-toggle {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 4px 8px;
   }
 
-  .answer-sheet-question-index {
-    grid-column: 2;
-    grid-row: 1;
+  .answer-sheet-question-meta {
+    grid-column: 1 / 3;
+    justify-self: end;
   }
 
-  .answer-sheet-question-summary > select {
-    grid-column: 3;
-    grid-row: 1;
+  .answer-sheet-question-settings {
+    align-items: flex-start;
   }
 
-  .answer-sheet-question-summary > .answer-sheet-action-menu-wrap {
-    grid-column: 4;
-    grid-row: 1;
-  }
-
-  .answer-sheet-question-meta-toggle {
-    grid-column: 2 / 4;
-    grid-row: 2;
-  }
-
-  .answer-sheet-required {
-    grid-column: 4;
-    grid-row: 2;
+  .answer-sheet-editor .answer-sheet-required {
+    margin-left: 0;
   }
 
   .answer-sheet-blank-row {
