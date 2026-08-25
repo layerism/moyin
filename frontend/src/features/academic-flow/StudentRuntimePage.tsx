@@ -4,7 +4,7 @@ import Markdown from "react-markdown";
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
 import { validateFormAnswers } from "./formFields";
-import { validateAnswerSheetSubmission } from "./answerSheet";
+import { answerSheetMaxScore, validateAnswerSheetSubmission } from "./answerSheet";
 import { AnswerSheetGradeResult, RuntimeAnswerSheet } from "./RuntimeAnswerSheet";
 import { ReadonlyFormFields, RuntimeFormFields } from "./RuntimeFormFields";
 import {
@@ -496,6 +496,9 @@ function RuntimeNodeDialog({
     && Object.keys(runtime.submission).length > 0;
   const readonly = (runtime.status === "approved" || expiredAnswerSheetSubmission) && !writable;
   const displayedPayload = readonly ? runtime.submission : draft;
+  const answerSheetTotalScore = node.kind === "answer_sheet" && node.answerSheet
+    ? answerSheetMaxScore(node.answerSheet)
+    : 0;
   const draftFile = getDraftFile(draft.file);
   const submittedFile = getDraftFile(runtime.submission.file);
   const needsFileReplacement = runtime.status === "rejected" && Boolean(
@@ -659,6 +662,16 @@ function RuntimeNodeDialog({
             <span>{statusLabels[runtime.status]}</span>
             <h2>{node.title}</h2>
             <p>{node.requirement}</p>
+            {node.kind === "answer_sheet" ? (
+              <div className="runtime-answer-sheet-header-meta">
+                <span>
+                  总分 {answerSheetTotalScore} 分
+                </span>
+                <span>
+                  {runtime.attemptsRemaining === null ? "截止前不限次" : `剩余 ${runtime.attemptsRemaining} 次`}
+                </span>
+              </div>
+            ) : null}
           </div>
           <button aria-label="关闭填写窗口" onClick={onClose} type="button">×</button>
         </header>
@@ -675,12 +688,6 @@ function RuntimeNodeDialog({
         {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
         {node.kind === "answer_sheet" && runtime.grade ? (
           <AnswerSheetGradeResult grade={runtime.grade} node={node} />
-        ) : null}
-        {node.kind === "answer_sheet" ? (
-          <p className="runtime-answer-sheet-meta">
-            总分 {node.answerSheet ? node.answerSheet.questions.reduce((total, question) => total + (question.type === "fill_blank" ? question.blanks.reduce((sum, blank) => sum + blank.points, 0) : question.points), 0) : 0}
-            {runtime.attemptsRemaining === null ? " · 截止前不限作答次数" : ` · 剩余 ${runtime.attemptsRemaining} 次`}
-          </p>
         ) : null}
         {readonly ? (
           <>
