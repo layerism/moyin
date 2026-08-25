@@ -583,12 +583,6 @@
   gap: 16px;
 }
 
-.runtime-answer-sheet-meta {
-  color: #5d687b;
-  font-size: 13px;
-  margin: 0;
-}
-
 .runtime-answer-question {
   background: #fff;
   border: 1px solid #dfe5ee;
@@ -7053,6 +7047,26 @@ button {
   line-height: 1.55;
 }
 
+.runtime-node-dialog > header .runtime-answer-sheet-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.runtime-node-dialog > header .runtime-answer-sheet-header-meta span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: #f2f4f7;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .runtime-node-dialog > header button {
   width: 34px;
   height: 34px;
@@ -7066,6 +7080,11 @@ button {
 
 .runtime-node-dialog .runtime-node-form {
   padding: 22px 24px 24px;
+}
+
+.runtime-node-dialog:has(.runtime-answer-sheet) .runtime-node-form {
+  padding-top: 18px;
+  border-top: 0;
 }
 
 .runtime-reviewing-content {
