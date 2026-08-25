@@ -6,7 +6,7 @@
 
 **Architecture:** Public question content remains in the workflow JSON snapshot while answer keys live in private draft/version tables that student APIs never serialize. Teacher content images use a dedicated OSS-backed asset lifecycle. Student submission uses the existing node transaction and DAG statuses, but invokes a pure answer-sheet grader synchronously and stores an immutable one-to-one grade record.
 
-**Tech Stack:** React 18, TypeScript, Vite 5, Milkdown Crepe, react-markdown, KaTeX, FastAPI, Python 3.11, SQLite, openpyxl, Alibaba Cloud OSS.
+**Tech Stack:** React 18, TypeScript, Vite 5, react-markdown, KaTeX, rehype-highlight, FastAPI, Python 3.11, SQLite, openpyxl, Alibaba Cloud OSS.
 
 **Spec:** `docs/07_answer_sheet_node_design.md`
 
@@ -318,7 +318,8 @@ Apply `score_only`, `question_result`, or `full_after_deadline` on the backend. 
 - Modify: `frontend/src/features/academic-flow/StudentFlowTopology.tsx`
 - Modify: `frontend/src/styles.css`
 - Create: `frontend/src/features/academic-flow/AnswerSheetEditor.tsx`
-- Create: `frontend/src/features/academic-flow/CrepeMarkdownEditor.tsx`
+- Create: `frontend/src/features/academic-flow/MarkdownBlurEditor.tsx`
+- Create: `frontend/src/features/academic-flow/basicAnswerSheetMarkdown.ts`
 - Create: `frontend/src/features/academic-flow/AnswerSheetMarkdown.tsx`
 - Create: `frontend/src/features/academic-flow/RuntimeAnswerSheet.tsx`
 - Create: `frontend/src/features/academic-flow/ReadonlyAnswerSheet.tsx`
@@ -326,15 +327,15 @@ Apply `score_only`, `question_result`, or `full_after_deadline` on the backend. 
 - Modify: `frontend/tests/answerSheet.test.ts`
 
 **Interfaces:**
-- `CrepeMarkdownEditor({value, disabled, onChange, onUploadImage})` dynamically loads Milkdown only while an editable answer-sheet inspector is open.
-- `AnswerSheetMarkdown({children, flowId, instanceId})` uses react-markdown and the same formula parser for all teacher/student read-only content.
+- `MarkdownBlurEditor({value, disabled, onChange})` displays raw Markdown while focused and the shared preview after blur.
+- `AnswerSheetMarkdown({children})` limits rendering to `#`/`##`, math and highlighted code for all teacher/student read-only content.
 - `RuntimeAnswerSheet({config, payload, errors, onUpdate})` uses stable question/option/blank IDs.
 
 - [ ] **Step 1: Add exact dependency records using project-local npm**
 
 ```bash
 export PATH="$PWD/.local/node/bin:$PATH"
-npm --prefix frontend install @milkdown/crepe @milkdown/kit katex rehype-katex remark-math
+npm --prefix frontend install katex rehype-highlight rehype-katex remark-math
 ```
 
 - [ ] **Step 2: Write parser tests before the parser implementation**
@@ -355,7 +356,7 @@ Parse `$$$$` blocks before `$$` inline formulas and exclude fenced/inline code. 
 
 - [ ] **Step 4: Build the teacher editor and answer configuration cards**
 
-Use stable IDs, native accessible radio/checkbox controls, drag handles consistent with the existing form editor, field-level errors and derived total score. Lazy-load Milkdown so the heavy editor is absent from student and home bundles.
+Use stable IDs, native accessible radio/checkbox controls, compact spacing, field-level errors and derived total score. Do not add formatting buttons, image insertion, paste upload or drag upload.
 
 - [ ] **Step 5: Integrate node creation, inspector and publish validation**
 
