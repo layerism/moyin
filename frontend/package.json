@@ -10,13 +10,12 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@milkdown/crepe": "^7.22.1",
-    "@milkdown/kit": "^7.22.1",
     "katex": "^0.18.4",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-markdown": "^10.1.0",
     "read-excel-file": "^9.2.0",
+    "rehype-highlight": "^7.0.2",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0"
   },

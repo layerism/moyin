@@ -10,6 +10,8 @@ import {
   fromStandardMathMarkdown,
   toStandardMathMarkdown,
 } from "../src/features/academic-flow/answerSheetMarkdown.ts";
+import { resolveMarkdownEditorMode } from "../src/features/academic-flow/markdownBlurEditor.ts";
+import { restrictBasicMarkdownTree } from "../src/features/academic-flow/basicAnswerSheetMarkdown.ts";
 
 test("new answer sheet has stable publishable structural defaults", () => {
   const { config, key } = createDefaultAnswerSheet();
@@ -54,4 +56,33 @@ test("custom math delimiters round-trip without changing code", () => {
 
   assert.equal(toStandardMathMarkdown(source), standard);
   assert.equal(fromStandardMathMarkdown(standard), source);
+});
+
+test("markdown editor shows source only while focused", () => {
+  assert.equal(resolveMarkdownEditorMode({ disabled: false, focused: true }), "source");
+  assert.equal(resolveMarkdownEditorMode({ disabled: false, focused: false }), "preview");
+  assert.equal(resolveMarkdownEditorMode({ disabled: true, focused: true }), "preview");
+});
+
+test("answer sheet markdown keeps only headings math and code formatting", () => {
+  const tree = {
+    type: "root",
+    children: [
+      { type: "heading", depth: 2, children: [{ type: "text", value: "章节" }] },
+      { type: "heading", depth: 3, children: [{ type: "strong", children: [{ type: "text", value: "普通文本" }] }] },
+      { type: "paragraph", children: [{ type: "image", alt: "题图", url: "asset://image" }] },
+      { type: "code", lang: "python", value: "print(1)" },
+      { type: "math", value: "x^2" },
+    ],
+  };
+
+  restrictBasicMarkdownTree(tree);
+
+  assert.deepEqual(tree.children, [
+    { type: "heading", depth: 2, children: [{ type: "text", value: "章节" }] },
+    { type: "paragraph", children: [{ type: "text", value: "普通文本" }] },
+    { type: "paragraph", children: [{ type: "text", value: "题图" }] },
+    { type: "code", lang: "python", value: "print(1)" },
+    { type: "math", value: "x^2" },
+  ]);
 });

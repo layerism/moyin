@@ -1,5 +1,3 @@
-import { lazy, Suspense } from "react";
-
 import type {
   AnswerSheetConfig,
   AnswerSheetPrivateAnswer,
@@ -13,28 +11,20 @@ import {
   createPrivateAnswer,
   validateAnswerSheetAuthoring,
 } from "./answerSheet";
-import { AnswerSheetMarkdown } from "./AnswerSheetMarkdown";
-
-const CrepeMarkdownEditor = lazy(() => import("./CrepeMarkdownEditor"));
+import { MarkdownBlurEditor } from "./MarkdownBlurEditor";
 
 export function AnswerSheetEditor({
   config,
   deadlineAt,
   disabled,
-  flowId,
   gradingKey,
-  nodeKey,
   onChange,
-  onUploadImage,
 }: {
   config: AnswerSheetConfig;
   deadlineAt?: string | null;
   disabled: boolean;
-  flowId: string;
   gradingKey: AnswerSheetPrivateKey;
-  nodeKey: string;
   onChange: (config: AnswerSheetConfig, gradingKey: AnswerSheetPrivateKey) => void;
-  onUploadImage: (file: File) => Promise<{ assetId: string; originalName: string }>;
 }) {
   const errors = validateAnswerSheetAuthoring(config, gradingKey);
   const maximum = answerSheetMaxScore(config);
@@ -97,7 +87,7 @@ export function AnswerSheetEditor({
       <header className="answer-sheet-editor-heading">
         <div>
           <strong>答题卡</strong>
-          <small>Markdown、数学公式、题图与自动判分</small>
+          <small>Markdown 标题、数学公式、代码高亮与自动判分</small>
         </div>
         <span>总分 {maximum}</span>
       </header>
@@ -194,16 +184,12 @@ export function AnswerSheetEditor({
                 </div>
               </header>
 
-              <Suspense fallback={<div className="answer-sheet-editor-loading">正在加载 Markdown 编辑器…</div>}>
-                <CrepeMarkdownEditor
-                  disabled={disabled}
-                  flowId={flowId}
-                  nodeKey={nodeKey}
-                  onChange={(content) => updateQuestion(question.id, { ...question, content })}
-                  onUploadImage={onUploadImage}
-                  value={question.content}
-                />
-              </Suspense>
+              <MarkdownBlurEditor
+                disabled={disabled}
+                onChange={(content) => updateQuestion(question.id, { ...question, content })}
+                placeholder="输入 Markdown 题干"
+                value={question.content}
+              />
 
               {question.type === "fill_blank" ? (
                 <FillBlankEditor
@@ -217,7 +203,6 @@ export function AnswerSheetEditor({
                 <SelectionEditor
                   answer={privateAnswer}
                   disabled={disabled}
-                  flowId={flowId}
                   onAnswerChange={(answer) => updateAnswer(question.id, answer)}
                   onQuestionChange={(next) => updateQuestion(question.id, next)}
                   question={question}
@@ -245,14 +230,12 @@ export function AnswerSheetEditor({
 function SelectionEditor({
   answer,
   disabled,
-  flowId,
   onAnswerChange,
   onQuestionChange,
   question,
 }: {
   answer: AnswerSheetPrivateAnswer;
   disabled: boolean;
-  flowId: string;
   onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
   onQuestionChange: (question: Extract<AnswerSheetQuestion, { type: "single_choice" | "multiple_choice" }>) => void;
   question: Extract<AnswerSheetQuestion, { type: "single_choice" | "multiple_choice" }>;
@@ -294,16 +277,16 @@ function SelectionEditor({
                 });
               }}
             />
-            <textarea
-              aria-label={`选项 ${index + 1} 内容`}
+            <MarkdownBlurEditor
+              compact
               disabled={disabled}
+              placeholder={`输入选项 ${index + 1}`}
               value={option.content}
-              onChange={(event) => onQuestionChange({
+              onChange={(content) => onQuestionChange({
                 ...question,
-                options: question.options.map((item) => item.id === option.id ? { ...item, content: event.target.value } : item),
+                options: question.options.map((item) => item.id === option.id ? { ...item, content } : item),
               })}
             />
-            <div className="answer-sheet-option-preview"><AnswerSheetMarkdown flowId={flowId}>{option.content}</AnswerSheetMarkdown></div>
             <button
               aria-label={`删除选项 ${index + 1}`}
               disabled={disabled || question.options.length <= 2}
@@ -313,11 +296,11 @@ function SelectionEditor({
                 if (checked) onAnswerChange(createPrivateAnswer({ ...question, options }));
               }}
               type="button"
-            >×</button>
+            >删除</button>
           </div>
         );
       })}
-      <button disabled={disabled} onClick={addOption} type="button">＋ 添加选项</button>
+      <button disabled={disabled} onClick={addOption} type="button">添加选项</button>
     </div>
   );
 }
@@ -379,7 +362,7 @@ function FillBlankEditor({
         const id = createId("blank");
         onQuestionChange({ ...question, blanks: [...question.blanks, { id, points: 1 }], content: `${question.content} [[blank:${id}]]` });
         onAnswerChange({ type: "fill_blank", blanks: { ...blankAnswers, [id]: { acceptedAnswers: ["请输入答案"], caseSensitive: false } } });
-      }} type="button">＋ 添加填空</button>
+      }} type="button">添加填空</button>
     </div>
   );
 }

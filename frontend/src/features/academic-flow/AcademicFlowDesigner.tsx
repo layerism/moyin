@@ -579,18 +579,6 @@ export function AcademicFlowDesigner({
     }
   };
 
-  const uploadAnswerSheetImage = async (nodeId: string, file: File) => {
-    let candidate = workingProcess;
-    if (revisionDirty) {
-      const saved = await saveWorkingDraft(workingProcess, "");
-      if (!saved) throw new Error("题图上传前暂存失败");
-      candidate = saved;
-    }
-    const asset = await workflowApi.uploadAnswerSheetAsset(serverFlowId, nodeId, file);
-    if (candidate !== workingProcess) setWorkingProcess(candidate);
-    return asset;
-  };
-
   const deleteNodeTemplate = async (nodeId: string) => {
     setSaving(true);
     setActionNotice("");
@@ -737,7 +725,6 @@ export function AcademicFlowDesigner({
             onClose={() => setInspectorNodeId(null)}
             onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
             onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, file)}
-            onUploadAnswerSheetImage={(file) => uploadAnswerSheetImage(inspectorNode.id, file)}
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(params) => applyPublishedAuditPolicy(inspectorNode.id, params)}
@@ -1996,7 +1983,6 @@ function NodeInspector({
   onClose,
   onDeleteTemplate,
   onUploadTemplate,
-  onUploadAnswerSheetImage,
   onUpdateNode,
   onUpdateAnswerSheet,
   onAuditPolicySaved,
@@ -2011,7 +1997,6 @@ function NodeInspector({
   onClose: () => void;
   onDeleteTemplate: () => void;
   onUploadTemplate: (file: File) => void;
-  onUploadAnswerSheetImage: (file: File) => Promise<{ assetId: string; originalName: string }>;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   onUpdateAnswerSheet: (
     nodeId: string,
@@ -2227,11 +2212,8 @@ function NodeInspector({
             config={node.answerSheet}
             disabled={coreSettingsDisabled}
             deadlineAt={node.deadlineAt}
-            flowId={flowId}
             gradingKey={answerSheetKey}
-            nodeKey={node.id}
             onChange={(config, gradingKey) => onUpdateAnswerSheet(node.id, config, gradingKey)}
-            onUploadImage={onUploadAnswerSheetImage}
           />
         ) : null}
 

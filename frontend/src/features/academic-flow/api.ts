@@ -373,36 +373,6 @@ export const workflowApi = {
       { method: "DELETE" },
     );
   },
-  uploadAnswerSheetAsset(flowId: string, nodeKey: string, file: File) {
-    const body = new FormData();
-    body.append("file", file);
-    return request<{
-      assetId: string;
-      contentType: string;
-      originalName: string;
-      sha256: string;
-      sizeBytes: number;
-    }>(
-      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/answer-sheet-assets`,
-      { method: "POST", body },
-    );
-  },
-  deleteAnswerSheetAsset(flowId: string, assetId: string) {
-    return request<{ deleted: boolean }>(
-      `/api/workflows/${encodeURIComponent(flowId)}/answer-sheet-assets/${encodeURIComponent(assetId)}`,
-      { method: "DELETE" },
-    );
-  },
-  getTeacherAnswerSheetAsset(flowId: string, assetId: string) {
-    return request<{ assetId: string; contentType: string; originalName: string; sizeBytes: number; url: string }>(
-      `/api/workflows/${encodeURIComponent(flowId)}/answer-sheet-assets/${encodeURIComponent(assetId)}`,
-    );
-  },
-  getRuntimeContentAsset(instanceId: string, assetId: string) {
-    return request<{ assetId: string; contentType: string; originalName: string; sizeBytes: number; url: string }>(
-      `/api/student/flow-instances/${encodeURIComponent(instanceId)}/content-assets/${encodeURIComponent(assetId)}`,
-    );
-  },
   downloadNodeTemplate(nodeInstanceId: string) {
     return request<{ originalName: string; sizeBytes: number; url: string }>(
       `/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/template/download`,
