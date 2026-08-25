@@ -10,8 +10,10 @@ import {
   fromStandardMathMarkdown,
   toStandardMathMarkdown,
 } from "../src/features/academic-flow/answerSheetMarkdown.ts";
+import { getAnswerSheetPublishIssue } from "../src/features/academic-flow/answerSheetPublishPreflight.ts";
 import { resolveMarkdownEditorMode } from "../src/features/academic-flow/markdownBlurEditor.ts";
 import { restrictBasicMarkdownTree } from "../src/features/academic-flow/basicAnswerSheetMarkdown.ts";
+import type { AcademicFlowNode } from "../src/types.ts";
 
 test("new answer sheet has stable publishable structural defaults", () => {
   const { config, key } = createDefaultAnswerSheet();
@@ -85,4 +87,38 @@ test("answer sheet markdown keeps only headings math and code formatting", () =>
     { type: "code", lang: "python", value: "print(1)" },
     { type: "math", value: "x^2" },
   ]);
+});
+
+test("answer sheet publish issue identifies the exact invalid question", () => {
+  const { config, key } = createDefaultAnswerSheet();
+  const questionId = config.questions[0].id;
+  delete key.answers[questionId];
+  const node = {
+    answerSheet: config,
+    deadlineAt: null,
+    id: "answer-sheet-1",
+    kind: "answer_sheet",
+    title: "课堂测验",
+  } as AcademicFlowNode;
+
+  assert.deepEqual(
+    getAnswerSheetPublishIssue([node], { [node.id]: key }),
+    {
+      message: "答题卡“课堂测验”第 1 题：请选择唯一正确答案",
+      nodeId: node.id,
+    },
+  );
+});
+
+test("publishable answer sheet does not produce a preflight issue", () => {
+  const { config, key } = createDefaultAnswerSheet();
+  const node = {
+    answerSheet: config,
+    deadlineAt: null,
+    id: "answer-sheet-1",
+    kind: "answer_sheet",
+    title: "课堂测验",
+  } as AcademicFlowNode;
+
+  assert.equal(getAnswerSheetPublishIssue([node], { [node.id]: key }), null);
 });

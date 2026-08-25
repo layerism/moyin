@@ -57,7 +57,11 @@ import {
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { FormFieldEditor } from "./FormFieldEditor";
 import { validateFormFieldConfig } from "./formFields";
-import { createPrivateAnswer, validateAnswerSheetAuthoring } from "./answerSheet";
+import { createPrivateAnswer } from "./answerSheet";
+import {
+  getAnswerSheetPublishIssue,
+  type AnswerSheetPublishIssue,
+} from "./answerSheetPublishPreflight";
 import { AnswerSheetEditor } from "./AnswerSheetEditor";
 import {
   createCurveGeometry,
@@ -175,6 +179,7 @@ export function AcademicFlowDesigner({
   const [rosterActiveCount, setRosterActiveCount] = useState<number | null>(null);
   const [actionNotice, setActionNotice] = useState("");
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
+  const [publishIssue, setPublishIssue] = useState<AnswerSheetPublishIssue | null>(null);
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
   const [pendingPublishProcess, setPendingPublishProcess] = useState<AcademicProcess | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
@@ -244,6 +249,7 @@ export function AcademicFlowDesigner({
     setRevisionDirty(false);
     setRevisionImpact(null);
     setPendingPublishProcess(null);
+    setPublishIssue(null);
     setNodePackageDialogNodeId(null);
   }, [process.id, process.publishedVersionId]);
 
@@ -330,7 +336,7 @@ export function AcademicFlowDesigner({
     } catch (reason) {
       const shouldReloadRevision =
         reason instanceof ApiError
-          ? shouldReloadRevisionAfterConflict(reason.status, expectedDraftConfigHash)
+          ? shouldReloadRevisionAfterConflict(reason.status, reason.message)
           : false;
       setRevisionImpact(null);
       setPendingPublishProcess(null);
@@ -346,6 +352,7 @@ export function AcademicFlowDesigner({
 
   const preparePublish = async () => {
     const candidate = structuredClone(workingProcess);
+    setPublishIssue(null);
     const invalidFormNode = candidate.nodes.find(
       (node) => node.kind === "form"
         && Object.keys(validateFormFieldConfig(node.infoFields)).length > 0,
@@ -356,18 +363,13 @@ export function AcademicFlowDesigner({
       setActionNotice("请先修正表单字段配置");
       return;
     }
-    const invalidAnswerSheetNode = candidate.nodes.find((node) => {
-      if (node.kind !== "answer_sheet") return false;
-      const key = candidate.answerSheetKeys[node.id];
-      return !node.answerSheet
-        || !key
-        || (node.answerSheet.gradingPolicy.feedback === "full_after_deadline" && !node.deadlineAt)
-        || Object.keys(validateAnswerSheetAuthoring(node.answerSheet, key)).length > 0;
-    });
-    if (invalidAnswerSheetNode) {
-      setActiveNodeId(invalidAnswerSheetNode.id);
-      setInspectorNodeId(invalidAnswerSheetNode.id);
-      setActionNotice("请先修正答题卡配置");
+    const answerSheetIssue = getAnswerSheetPublishIssue(
+      candidate.nodes,
+      candidate.answerSheetKeys,
+    );
+    if (answerSheetIssue) {
+      setPublishIssue(answerSheetIssue);
+      setActionNotice(answerSheetIssue.message);
       return;
     }
     if (!workingProcess.published) {
@@ -693,6 +695,9 @@ export function AcademicFlowDesigner({
           <ComponentPalette locked={editorLocked} onAddNode={addNode} />
           <FlowNodeCanvas
             actionNotice={actionNotice}
+            actionNoticeTargetNodeId={
+              publishIssue?.message === actionNotice ? publishIssue.nodeId : null
+            }
             activeNodeId={activeNode?.id ?? ""}
             canDeleteEdge={(edgeId) => canDeleteRevisionEdge(edgeId, protectedEdgeIds)}
             canDeleteNode={(nodeId) =>
@@ -943,6 +948,7 @@ function ComponentPalette({
 
 function FlowNodeCanvas({
   actionNotice,
+  actionNoticeTargetNodeId,
   activeNodeId,
   canDeleteEdge,
   canDeleteNode,
@@ -963,6 +969,7 @@ function FlowNodeCanvas({
   publishedNodeIds,
 }: {
   actionNotice: string;
+  actionNoticeTargetNodeId: string | null;
   activeNodeId: string;
   canDeleteEdge: (edgeId: string) => boolean;
   canDeleteNode: (nodeId: string) => boolean;
@@ -1640,6 +1647,17 @@ function FlowNodeCanvas({
                 >
                   打开学生链接
                 </a>
+              ) : null}
+              {actionNoticeTargetNodeId ? (
+                <button
+                  onClick={() => {
+                    onSelectNode(actionNoticeTargetNodeId);
+                    onOpenInspector(actionNoticeTargetNodeId);
+                  }}
+                  type="button"
+                >
+                  前往修正
+                </button>
               ) : null}
             </p>
           ) : null}

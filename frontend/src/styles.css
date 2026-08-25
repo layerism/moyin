@@ -5736,11 +5736,21 @@ button {
   white-space: nowrap;
 }
 
-.academic-action-notice a {
+.academic-action-notice a,
+.academic-action-notice button {
   flex: 0 0 auto;
   color: #175cd3;
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.academic-action-notice button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
 }
 
 .revision-impact-backdrop {

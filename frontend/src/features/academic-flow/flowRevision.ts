@@ -35,10 +35,9 @@ export function createPublishRequestPayload(
 
 export function shouldReloadRevisionAfterConflict(
   status: number,
-  _expectedDraftConfigHash?: string | null,
-  _expectedCurrentVersionId?: string | null,
+  message: string,
 ) {
-  return status === 409;
+  return status === 409 && message === "草稿已变更，请重新确认修订影响";
 }
 
 export function canDeleteRevisionNode(
