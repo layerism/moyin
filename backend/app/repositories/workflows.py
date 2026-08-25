@@ -8,6 +8,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.database import get_connection
+from app.domain.answer_sheet import AnswerSheetConfigError
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     analyze_revision,
@@ -16,7 +17,22 @@ from app.domain.workflow_revision import (
 )
 from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_node_status
 from app.repositories.flow_templates import TemplateMutationError, validate_version_templates
+from app.repositories.answer_sheet_keys import (
+    assert_published_answer_keys_unchanged,
+    composite_draft_hash,
+    freeze_answer_sheet_keys,
+    get_answer_sheet_drafts,
+    get_version_answer_key,
+    replace_answer_sheet_drafts,
+    validate_answer_sheet_key_map,
+    validate_publishable_answer_sheet_keys,
+)
 from app.repositories.audit_policies import sync_published_audit_policies
+from app.repositories.flow_content_assets import (
+    ContentAssetError,
+    freeze_content_asset_refs,
+    validate_content_assets,
+)
 from app.services.audit_script_catalog import (
     CONFIRMATION_VISUAL_AUDIT_ID,
     AuditScriptCatalogError,
@@ -503,12 +519,27 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
                 raise FlowValidationError("流程模板资产无效，无法复制")
             source_assets.append((node, dict(asset)))
 
+        source_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
+        content_references = validate_content_assets(connection, flow_id, config)
+        source_content_assets: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        nodes_by_id = {str(node["id"]): node for node in config.get("nodes", [])}
+        for node_key, asset_ids in content_references.items():
+            for asset_id in sorted(asset_ids):
+                asset = connection.execute(
+                    "SELECT * FROM flow_content_assets WHERE id = ?",
+                    (asset_id,),
+                ).fetchone()
+                if asset is None:
+                    raise FlowValidationError("答题卡题图无效，无法复制")
+                source_content_assets.append((nodes_by_id[node_key], dict(asset)))
+
         source_data = dict(source)
 
     new_flow_id = str(uuid.uuid4())
     copied_keys: list[str] = []
     new_assets: list[dict[str, Any]] = []
-    storage = get_object_storage() if source_assets else None
+    new_content_assets: list[dict[str, Any]] = []
+    storage = get_object_storage() if source_assets or source_content_assets else None
 
     def compensate() -> None:
         if storage is None:
@@ -538,6 +569,36 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
                 "sizeBytes": asset["size_bytes"],
             }
             new_assets.append(
+                {
+                    **asset,
+                    "id": new_asset_id,
+                    "flow_id": new_flow_id,
+                    "storage_key": target_key,
+                    "etag": uploaded.etag,
+                }
+            )
+        for node, asset in source_content_assets:
+            new_asset_id = str(uuid.uuid4())
+            target_key = object_key(
+                settings.oss_prefix,
+                "content-assets",
+                new_flow_id,
+                node["id"],
+                timestamped_object_name(asset["original_name"], asset["sha256"]),
+            )
+            uploaded = storage.copy_object(asset["storage_key"], target_key)  # type: ignore[union-attr]
+            copied_keys.append(target_key)
+            old_reference = f"asset://{asset['id']}"
+            new_reference = f"asset://{new_asset_id}"
+            for question in node.get("answerSheet", {}).get("questions", []):
+                question["content"] = str(question.get("content") or "").replace(
+                    old_reference, new_reference
+                )
+                for option in question.get("options", []):
+                    option["content"] = str(option.get("content") or "").replace(
+                        old_reference, new_reference
+                    )
+            new_content_assets.append(
                 {
                     **asset,
                     "id": new_asset_id,
@@ -590,6 +651,28 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
                         asset["sha256"], asset["etag"], teacher_id, now,
                     ),
                 )
+            for asset in new_content_assets:
+                connection.execute(
+                    """
+                    INSERT INTO flow_content_assets
+                        (id, flow_id, node_key, storage_key, original_name, content_type,
+                         size_bytes, sha256, etag, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        asset["id"], new_flow_id, asset["node_key"], asset["storage_key"],
+                        asset["original_name"], asset["content_type"], asset["size_bytes"],
+                        asset["sha256"], asset["etag"], teacher_id, now,
+                    ),
+                )
+            replace_answer_sheet_drafts(
+                connection,
+                new_flow_id,
+                config,
+                source_answer_sheet_keys,
+                teacher_id,
+                now,
+            )
             connection.execute(
                 """
                 INSERT INTO audit_logs
@@ -606,6 +689,7 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
                             "newFlowId": new_flow_id,
                             "newName": new_name,
                             "templateCount": len(new_assets),
+                            "contentAssetCount": len(new_content_assets),
                         }
                     ),
                     now,
@@ -640,13 +724,29 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             else None
         )
         draft_config = json.loads(row["draft_config"])
+        draft_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
         published_config = (
             _version_config_with_runtime_deadlines(connection, published) if published else None
+        )
+        published_answer_sheet_keys = (
+            {
+                str(node["id"]): get_version_answer_key(
+                    connection, str(published["id"]), str(node["id"])
+                )["gradingKey"]
+                for node in published_config.get("nodes", [])
+                if node.get("kind") == "answer_sheet"
+            }
+            if published and published_config
+            else {}
         )
         visible_config = published_config if published_config is not None else draft_config
         has_unpublished_changes = (
             published_config is not None
-            and canonical_json(draft_config) != canonical_json(published_config)
+            and (
+                canonical_json(draft_config) != canonical_json(published_config)
+                or canonical_json(draft_answer_sheet_keys)
+                != canonical_json(published_answer_sheet_keys)
+            )
         )
     return {
         "id": row["id"],
@@ -662,6 +762,7 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         "status": row["status"],
         "config": visible_config,
         "draftConfig": draft_config,
+        "answerSheetKeys": draft_answer_sheet_keys,
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
     }
@@ -680,7 +781,12 @@ def list_flows(teacher_id: int) -> list[dict[str, object]]:
     return [get_flow(row["id"], teacher_id) for row in rows]
 
 
-def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[str, object]:
+def save_draft(
+    flow_id: str,
+    config: dict[str, Any],
+    teacher_id: int,
+    answer_sheet_keys: object | None = None,
+) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
@@ -689,8 +795,31 @@ def save_draft(flow_id: str, config: dict[str, Any], teacher_id: int) -> dict[st
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
-        _assert_valid_published_revision(connection, flow_id, config)
         validate_flow_config(config)
+        supplied_keys = (
+            answer_sheet_keys
+            if answer_sheet_keys is not None
+            else get_answer_sheet_drafts(connection, flow_id)
+        )
+        try:
+            replace_answer_sheet_drafts(
+                connection,
+                flow_id,
+                config,
+                supplied_keys,
+                teacher_id,
+                now,
+            )
+        except AnswerSheetConfigError as exc:
+            raise FlowValidationError(str(exc)) from exc
+        _assert_valid_published_revision(connection, flow_id, config)
+        try:
+            assert_published_answer_keys_unchanged(connection, flow_id, config)
+            validate_content_assets(connection, flow_id, config)
+        except AnswerSheetConfigError as exc:
+            raise PublishedNodeMutationError(str(exc)) from exc
+        except ContentAssetError as exc:
+            raise FlowValidationError(str(exc)) from exc
         _bind_confirmation_visual_audits(config)
         _refresh_file_audit_script_configs(config)
         _validate_audit_script_nodes(config)
@@ -1086,6 +1215,7 @@ def publish_flow(
     expected_draft_config_hash: str | None = None,
     expected_current_version_id: str | None = None,
     supplied_config: dict[str, Any] | None = None,
+    supplied_answer_sheet_keys: object | None = None,
 ) -> dict[str, object]:
     version_id = str(uuid.uuid4())
     now = utc_now_iso()
@@ -1099,9 +1229,31 @@ def publish_flow(
             raise ArchivedFlowError("已归档流程不可发布")
         config = supplied_config if supplied_config is not None else json.loads(flow["draft_config"])
         version_templates = prepare_runtime_config(connection, flow_id, config)
+        current_keys = (
+            supplied_answer_sheet_keys
+            if supplied_answer_sheet_keys is not None
+            else get_answer_sheet_drafts(connection, flow_id)
+        )
+        try:
+            if supplied_answer_sheet_keys is not None:
+                replace_answer_sheet_drafts(
+                    connection,
+                    flow_id,
+                    config,
+                    supplied_answer_sheet_keys,
+                    teacher_id,
+                    now,
+                )
+            current_keys = validate_publishable_answer_sheet_keys(
+                connection, flow_id, config, current_keys
+            )
+            validate_content_assets(connection, flow_id, config)
+        except (AnswerSheetConfigError, ContentAssetError) as exc:
+            raise FlowValidationError(str(exc)) from exc
         snapshot = canonical_json(config)
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
-        if expected_draft_config_hash is not None and expected_draft_config_hash != config_hash:
+        draft_hash = composite_draft_hash(config, current_keys)
+        if expected_draft_config_hash is not None and expected_draft_config_hash != draft_hash:
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         published_versions = _published_versions(connection, flow_id, teacher_id)
         published = published_versions[-1] if published_versions else None
@@ -1124,6 +1276,12 @@ def publish_flow(
         if baseline is not None and expected_draft_config_hash is None:
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         _assert_valid_published_revision(connection, flow_id, config)
+        try:
+            assert_published_answer_keys_unchanged(
+                connection, flow_id, config, current_keys
+            )
+        except AnswerSheetConfigError as exc:
+            raise PublishedNodeMutationError(str(exc)) from exc
         plan = _build_migration_plan(
             connection,
             source_versions,
@@ -1155,6 +1313,8 @@ def publish_flow(
             """,
             (version_id, flow_id, version_no, snapshot, config_hash, str(teacher_id), now),
         )
+        freeze_answer_sheet_keys(connection, flow_id, version_id, config)
+        freeze_content_asset_refs(connection, flow_id, version_id, config)
         for node in config["nodes"]:
             connection.execute(
                 """
@@ -1283,6 +1443,7 @@ def publish_flow(
         "token": token,
         "shareUrl": f"/s/{token}",
         "configHash": config_hash,
+        "draftHash": draft_hash,
     }
 
 
@@ -1290,6 +1451,7 @@ def get_revision_impact(
     flow_id: str,
     teacher_id: int,
     supplied_config: dict[str, Any] | None = None,
+    supplied_answer_sheet_keys: object | None = None,
 ) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
@@ -1307,6 +1469,26 @@ def get_revision_impact(
         )
         _assert_valid_published_revision(connection, flow_id, config)
         validate_flow_config(config, require_publishable=True)
+        current_keys = (
+            supplied_answer_sheet_keys
+            if supplied_answer_sheet_keys is not None
+            else get_answer_sheet_drafts(connection, flow_id)
+        )
+        try:
+            current_keys = validate_answer_sheet_key_map(
+                config, current_keys, require_publishable=True
+            )
+            validate_content_assets(connection, flow_id, config)
+        except AnswerSheetConfigError as exc:
+            raise FlowValidationError(str(exc)) from exc
+        except ContentAssetError as exc:
+            raise FlowValidationError(str(exc)) from exc
+        try:
+            assert_published_answer_keys_unchanged(
+                connection, flow_id, config, current_keys
+            )
+        except AnswerSheetConfigError as exc:
+            raise PublishedNodeMutationError(str(exc)) from exc
         _validate_audit_script_nodes(config)
         validate_version_templates(connection, flow_id, config)
         published = _latest_published_version(connection, flow_id, teacher_id)
@@ -1338,7 +1520,7 @@ def get_revision_impact(
         "currentVersionId": baseline["id"] if baseline else None,
         "currentVersionNo": baseline["version_no"] if baseline else None,
         "nextVersionNo": next_version_no,
-        "draftConfigHash": hashlib.sha256(canonical_json(config).encode("utf-8")).hexdigest(),
+        "draftConfigHash": composite_draft_hash(config, current_keys),
         **plan["analysis"],
     }
 

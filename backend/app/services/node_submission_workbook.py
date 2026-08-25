@@ -124,6 +124,10 @@ def _headers(selection: TeacherNodeExportSelection) -> list[str]:
         headers.append("是否确认")
         if confirmation_requires_scans(node):
             headers.extend(["模板下载时间", "扫描件数量", "扫描件名称", "扫描件页数"])
+    elif kind == "answer_sheet":
+        for index, _question in enumerate(node.get("answerSheet", {}).get("questions", []), start=1):
+            headers.extend([f"第{index}题作答", f"第{index}题得分"])
+        headers.extend(["总分", "满分", "是否及格"])
     if isinstance(node.get("auditScriptId"), str) and node.get("auditScriptId"):
         headers.extend(["审核状态", "审核方式", "审核结论或分数", "审核说明"])
     return headers
@@ -177,23 +181,180 @@ def _row_values(
                     ),
                 ]
             )
+    elif kind == "answer_sheet":
+        answers = student.payload.get("answers") if submitted else None
+        answers = answers if isinstance(answers, dict) else {}
+        results = student.grade.get("questionResults")
+        results_by_id = {
+            str(result.get("questionId")): result
+            for result in results
+            if isinstance(result, dict) and result.get("questionId")
+        } if isinstance(results, list) else {}
+        for question in node.get("answerSheet", {}).get("questions", []):
+            if not isinstance(question, dict):
+                continue
+            question_id = str(question.get("id") or "")
+            answer = answers.get(question_id)
+            values.extend([
+                _format_answer_sheet_answer(question, answer),
+                results_by_id.get(question_id, {}).get("awardedPoints") if submitted else None,
+            ])
+        values.extend([
+            student.grade.get("score") if submitted else None,
+            student.grade.get("maxScore") if submitted else None,
+            (
+                "是" if student.grade.get("passed") is True else "否"
+                if student.grade.get("passed") is False else None
+            ) if submitted else None,
+        ])
     if isinstance(node.get("auditScriptId"), str) and node.get("auditScriptId"):
         values.extend(_audit_values(student, node))
     return values
+
+
+def _format_answer_sheet_answer(question: dict[str, object], answer: object) -> str:
+    if not isinstance(answer, dict):
+        return ""
+    option_labels = {
+        str(option.get("id")): str(option.get("content") or "")
+        for option in question.get("options", [])
+        if isinstance(option, dict) and option.get("id")
+    }
+    if question.get("type") == "single_choice":
+        selected = answer.get("selectedOptionId")
+        return option_labels.get(str(selected), "") if selected else ""
+    if question.get("type") == "multiple_choice":
+        selected = answer.get("selectedOptionIds")
+        return "；".join(
+            option_labels.get(str(value), str(value))
+            for value in selected
+        ) if isinstance(selected, list) else ""
+    values = answer.get("blankValues")
+    return "；".join(
+        f"{blank.get('id')}：{values.get(str(blank.get('id')), '')}"
+        for blank in question.get("blanks", [])
+        if isinstance(blank, dict)
+    ) if isinstance(values, dict) else ""
 
 
 def build_node_submission_workbook(
     selection: TeacherNodeExportSelection,
 ) -> tuple[bytes, str]:
     workbook = Workbook()
+    if selection.node.get("kind") == "answer_sheet":
+        _build_answer_sheet_sheets(workbook, selection)
+    else:
+        sheet = workbook.active
+        sheet.title = "节点填写数据"
+        headers = _headers(selection)
+        sheet.append([_excel_cell(header) for header in headers])
+        for index, student in enumerate(selection.students, start=1):
+            sheet.append(
+                [_excel_cell(value) for value in _row_values(selection, student, index)]
+            )
+        _format_sheet(sheet, headers)
+
+    output = BytesIO()
+    workbook.save(output)
+    node_title = str(selection.node.get("title") or selection.node.get("id") or "节点")
+    filename = (
+        f"{_safe_filename_component(selection.flow_name)}-"
+        f"{_safe_filename_component(node_title)}-填写数据.xlsx"
+    )
+    return output.getvalue(), filename
+
+
+def _build_answer_sheet_sheets(
+    workbook: Workbook, selection: TeacherNodeExportSelection
+) -> None:
+    questions = [
+        question for question in selection.node.get("answerSheet", {}).get("questions", [])
+        if isinstance(question, dict)
+    ]
     sheet = workbook.active
-    sheet.title = "节点填写数据"
-    headers = _headers(selection)
-    sheet.append([_excel_cell(header) for header in headers])
+    sheet.title = "学生成绩"
+    grade_headers = ["序号", "学号", "姓名", "提交状态", "提交时间", "提交次数"]
+    grade_headers.extend(f"第{index}题得分" for index in range(1, len(questions) + 1))
+    grade_headers.extend(["总分", "满分", "是否及格"])
+    sheet.append(grade_headers)
     for index, student in enumerate(selection.students, start=1):
-        sheet.append(
-            [_excel_cell(value) for value in _row_values(selection, student, index)]
+        submitted = student.submission_status is not None
+        results = student.grade.get("questionResults")
+        result_by_id = {
+            str(result.get("questionId")): result
+            for result in results
+            if isinstance(result, dict) and result.get("questionId")
+        } if isinstance(results, list) else {}
+        values: list[object] = [
+            index,
+            student.student_no,
+            student.name,
+            _SUBMISSION_STATUS_LABELS.get(student.submission_status or "", student.submission_status),
+            _excel_datetime(student.submitted_at),
+            student.attempt_no if submitted else None,
+        ]
+        values.extend(
+            result_by_id.get(str(question.get("id")), {}).get("awardedPoints")
+            if submitted else None
+            for question in questions
         )
+        values.extend([
+            student.grade.get("score") if submitted else None,
+            student.grade.get("maxScore") if submitted else None,
+            (
+                "是" if student.grade.get("passed") is True else "否"
+                if student.grade.get("passed") is False else None
+            ) if submitted else None,
+        ])
+        sheet.append([_excel_cell(value) for value in values])
+    _format_sheet(sheet, grade_headers)
+
+    answer_sheet = workbook.create_sheet("学生答案")
+    answer_headers = ["序号", "学号", "姓名", "提交状态", "提交时间"]
+    answer_headers.extend(f"第{index}题作答" for index in range(1, len(questions) + 1))
+    answer_sheet.append(answer_headers)
+    for index, student in enumerate(selection.students, start=1):
+        submitted = student.submission_status is not None
+        answers = student.payload.get("answers") if submitted else None
+        answers = answers if isinstance(answers, dict) else {}
+        values = [
+            index,
+            student.student_no,
+            student.name,
+            _SUBMISSION_STATUS_LABELS.get(student.submission_status or "", student.submission_status),
+            _excel_datetime(student.submitted_at),
+            *(
+                _format_answer_sheet_answer(question, answers.get(str(question.get("id"))))
+                if submitted else None
+                for question in questions
+            ),
+        ]
+        answer_sheet.append([_excel_cell(value) for value in values])
+    _format_sheet(answer_sheet, answer_headers)
+
+    question_sheet = workbook.create_sheet("题目说明")
+    question_headers = ["题号", "题型", "题干 Markdown", "分值", "选项", "标准答案"]
+    question_sheet.append(question_headers)
+    private_answers = (selection.answer_key or {}).get("answers", {})
+    for index, question in enumerate(questions, start=1):
+        options = question.get("options")
+        option_text = "\n".join(
+            f"{option.get('id')}：{option.get('content')}"
+            for option in options
+            if isinstance(option, dict)
+        ) if isinstance(options, list) else None
+        question_sheet.append([
+            index,
+            {"single_choice": "单选题", "multiple_choice": "多选题", "fill_blank": "填空题"}.get(str(question.get("type")), ""),
+            _excel_cell(question.get("content")),
+            _question_points(question),
+            _excel_cell(option_text),
+            _excel_cell(_format_answer_sheet_standard(question, private_answers.get(str(question.get("id"))))),
+        ])
+    _format_sheet(question_sheet, question_headers)
+
+
+def _format_sheet(sheet, headers: list[str]) -> None:
 
     header_fill = PatternFill("solid", fgColor="DCE8FA")
     for cell in sheet[1]:
@@ -228,11 +389,38 @@ def build_node_submission_workbook(
     sheet.auto_filter.ref = sheet.dimensions
     sheet.row_dimensions[1].height = 24
 
-    output = BytesIO()
-    workbook.save(output)
-    node_title = str(selection.node.get("title") or selection.node.get("id") or "节点")
-    filename = (
-        f"{_safe_filename_component(selection.flow_name)}-"
-        f"{_safe_filename_component(node_title)}-填写数据.xlsx"
-    )
-    return output.getvalue(), filename
+
+
+def _question_points(question: dict[str, object]) -> int:
+    if question.get("type") == "fill_blank":
+        return sum(
+            int(blank.get("points") or 0)
+            for blank in question.get("blanks", [])
+            if isinstance(blank, dict)
+        )
+    return int(question.get("points") or 0)
+
+
+def _format_answer_sheet_standard(question: dict[str, object], answer: object) -> str:
+    if not isinstance(answer, dict):
+        return ""
+    option_labels = {
+        str(option.get("id")): str(option.get("content") or "")
+        for option in question.get("options", [])
+        if isinstance(option, dict) and option.get("id")
+    }
+    if question.get("type") == "single_choice":
+        option_id = answer.get("correctOptionId")
+        return option_labels.get(str(option_id), str(option_id or ""))
+    if question.get("type") == "multiple_choice":
+        option_ids = answer.get("correctOptionIds")
+        return "；".join(
+            option_labels.get(str(value), str(value))
+            for value in option_ids
+        ) if isinstance(option_ids, list) else ""
+    blanks = answer.get("blanks")
+    return "；".join(
+        f"{blank_id}：{' / '.join(str(value) for value in details.get('acceptedAnswers', []))}"
+        for blank_id, details in blanks.items()
+        if isinstance(details, dict)
+    ) if isinstance(blanks, dict) else ""

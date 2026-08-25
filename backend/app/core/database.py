@@ -88,6 +88,16 @@ CREATE TABLE IF NOT EXISTS flow_roster_entries (
     UNIQUE(flow_id, student_no)
 );
 
+CREATE TABLE IF NOT EXISTS answer_sheet_drafts (
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    grading_config TEXT NOT NULL,
+    grading_hash TEXT NOT NULL,
+    updated_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(flow_id, node_key)
+);
+
 CREATE TABLE IF NOT EXISTS flow_versions (
     id TEXT PRIMARY KEY,
     flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
@@ -98,6 +108,14 @@ CREATE TABLE IF NOT EXISTS flow_versions (
     published_by TEXT NOT NULL,
     published_at TEXT NOT NULL,
     UNIQUE(flow_id, version_no)
+);
+
+CREATE TABLE IF NOT EXISTS flow_version_answer_keys (
+    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    grading_snapshot TEXT NOT NULL,
+    grading_hash TEXT NOT NULL,
+    PRIMARY KEY(flow_version_id, node_key)
 );
 
 CREATE TABLE IF NOT EXISTS flow_node_runtime_configs (
@@ -126,11 +144,35 @@ CREATE TABLE IF NOT EXISTS flow_template_assets (
 CREATE INDEX IF NOT EXISTS idx_flow_template_assets_node
     ON flow_template_assets(flow_id, node_key);
 
+CREATE TABLE IF NOT EXISTS flow_content_assets (
+    id TEXT PRIMARY KEY,
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    storage_key TEXT NOT NULL UNIQUE,
+    original_name TEXT NOT NULL,
+    content_type TEXT NOT NULL CHECK (content_type IN ('image/png', 'image/jpeg', 'image/webp')),
+    size_bytes INTEGER NOT NULL CHECK (size_bytes BETWEEN 1 AND 5242880),
+    sha256 TEXT NOT NULL,
+    etag TEXT NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_flow_content_assets_node
+    ON flow_content_assets(flow_id, node_key);
+
 CREATE TABLE IF NOT EXISTS flow_version_templates (
     flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
     template_asset_id TEXT NOT NULL REFERENCES flow_template_assets(id) ON DELETE RESTRICT,
     PRIMARY KEY(flow_version_id, node_key)
+);
+
+CREATE TABLE IF NOT EXISTS flow_version_content_assets (
+    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    content_asset_id TEXT NOT NULL REFERENCES flow_content_assets(id) ON DELETE RESTRICT,
+    PRIMARY KEY(flow_version_id, node_key, content_asset_id)
 );
 
 CREATE TABLE IF NOT EXISTS share_tokens (
@@ -196,6 +238,18 @@ CREATE TABLE IF NOT EXISTS submissions (
     submitted_at TEXT NOT NULL,
     UNIQUE(node_instance_id, attempt_no),
     UNIQUE(node_instance_id, idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS answer_sheet_grades (
+    submission_id TEXT PRIMARY KEY REFERENCES submissions(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL CHECK (score >= 0),
+    max_score INTEGER NOT NULL CHECK (max_score >= 0),
+    passing_score INTEGER NOT NULL CHECK (passing_score >= 0),
+    passed INTEGER NOT NULL CHECK (passed IN (0, 1)),
+    grader_version TEXT NOT NULL,
+    grading_hash TEXT NOT NULL,
+    result_snapshot TEXT NOT NULL,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS uploaded_files (

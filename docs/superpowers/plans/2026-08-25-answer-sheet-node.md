@@ -233,7 +233,7 @@ Clone OSS objects and asset metadata like existing template cloning, rewrite Mar
 - Modify: `frontend/src/features/academic-flow/api.ts`
 
 **Interfaces:**
-- `POST /api/workflows/{flowId}/answer-sheet-assets` accepts one PNG/JPEG/WebP up to 5 MiB and returns public metadata without `storage_key`.
+- `POST /api/workflows/{flowId}/nodes/{nodeKey}/answer-sheet-assets` accepts one PNG/JPEG/WebP up to 5 MiB and returns public metadata without `storage_key`.
 - `DELETE /api/workflows/{flowId}/answer-sheet-assets/{assetId}` rejects assets referenced by any version.
 - `GET /api/student/flow-instances/{instanceId}/content-assets/{assetId}` checks runtime identity, roster, version reference and returns a short-lived URL.
 
@@ -318,23 +318,23 @@ Apply `score_only`, `question_result`, or `full_after_deadline` on the backend. 
 - Modify: `frontend/src/features/academic-flow/StudentFlowTopology.tsx`
 - Modify: `frontend/src/styles.css`
 - Create: `frontend/src/features/academic-flow/AnswerSheetEditor.tsx`
-- Create: `frontend/src/features/academic-flow/RichMarkdownEditor.tsx`
-- Create: `frontend/src/features/academic-flow/RichQuestionContent.tsx`
+- Create: `frontend/src/features/academic-flow/CrepeMarkdownEditor.tsx`
+- Create: `frontend/src/features/academic-flow/AnswerSheetMarkdown.tsx`
 - Create: `frontend/src/features/academic-flow/RuntimeAnswerSheet.tsx`
 - Create: `frontend/src/features/academic-flow/ReadonlyAnswerSheet.tsx`
-- Create: `frontend/src/features/academic-flow/answerSheetMathSyntax.ts`
-- Create: `frontend/tests/answerSheetMathSyntax.test.ts`
+- Create: `frontend/src/features/academic-flow/answerSheetMarkdown.ts`
+- Modify: `frontend/tests/answerSheet.test.ts`
 
 **Interfaces:**
-- `RichMarkdownEditor({value, disabled, onChange, onUploadImage})` dynamically loads Milkdown only while an editable answer-sheet inspector is open.
-- `RichQuestionContent({markdown, assetUrl})` uses react-markdown and the same formula parser for all teacher/student read-only content.
+- `CrepeMarkdownEditor({value, disabled, onChange, onUploadImage})` dynamically loads Milkdown only while an editable answer-sheet inspector is open.
+- `AnswerSheetMarkdown({children, flowId, instanceId})` uses react-markdown and the same formula parser for all teacher/student read-only content.
 - `RuntimeAnswerSheet({config, payload, errors, onUpdate})` uses stable question/option/blank IDs.
 
 - [ ] **Step 1: Add exact dependency records using project-local npm**
 
 ```bash
 export PATH="$PWD/.local/node/bin:$PATH"
-npm --prefix frontend install @milkdown/crepe katex rehype-katex rehype-sanitize
+npm --prefix frontend install @milkdown/crepe @milkdown/kit katex rehype-katex remark-math
 ```
 
 - [ ] **Step 2: Write parser tests before the parser implementation**

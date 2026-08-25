@@ -113,6 +113,7 @@ function pushAppPath(pathname: string) {
 
 function mapServerFlow(flow: ServerFlow): AcademicProcess {
   return {
+    answerSheetKeys: flow.answerSheetKeys ?? {},
     createdAt: new Date(flow.createdAt).toLocaleString("zh-CN"),
     description: flow.description,
     draftConfig: {

@@ -1,0 +1,389 @@
+import { lazy, Suspense } from "react";
+
+import type {
+  AnswerSheetConfig,
+  AnswerSheetPrivateAnswer,
+  AnswerSheetPrivateKey,
+  AnswerSheetQuestion,
+  AnswerSheetQuestionType,
+} from "../../types";
+import {
+  answerSheetMaxScore,
+  createAnswerSheetQuestion,
+  createPrivateAnswer,
+  validateAnswerSheetAuthoring,
+} from "./answerSheet";
+import { AnswerSheetMarkdown } from "./AnswerSheetMarkdown";
+
+const CrepeMarkdownEditor = lazy(() => import("./CrepeMarkdownEditor"));
+
+export function AnswerSheetEditor({
+  config,
+  deadlineAt,
+  disabled,
+  flowId,
+  gradingKey,
+  nodeKey,
+  onChange,
+  onUploadImage,
+}: {
+  config: AnswerSheetConfig;
+  deadlineAt?: string | null;
+  disabled: boolean;
+  flowId: string;
+  gradingKey: AnswerSheetPrivateKey;
+  nodeKey: string;
+  onChange: (config: AnswerSheetConfig, gradingKey: AnswerSheetPrivateKey) => void;
+  onUploadImage: (file: File) => Promise<{ assetId: string; originalName: string }>;
+}) {
+  const errors = validateAnswerSheetAuthoring(config, gradingKey);
+  const maximum = answerSheetMaxScore(config);
+
+  const updateQuestion = (questionId: string, nextQuestion: AnswerSheetQuestion) => {
+    onChange({
+      ...config,
+      questions: config.questions.map((question) => (
+        question.id === questionId ? nextQuestion : question
+      )),
+    }, gradingKey);
+  };
+
+  const updateAnswer = (questionId: string, answer: AnswerSheetPrivateAnswer) => {
+    onChange(config, {
+      ...gradingKey,
+      answers: { ...gradingKey.answers, [questionId]: answer },
+    });
+  };
+
+  const changeQuestionType = (question: AnswerSheetQuestion, type: AnswerSheetQuestionType) => {
+    if (question.type === type) return;
+    const replacement = { ...createAnswerSheetQuestion(type), id: question.id, content: question.content } as AnswerSheetQuestion;
+    onChange({
+      ...config,
+      questions: config.questions.map((item) => item.id === question.id ? replacement : item),
+    }, {
+      ...gradingKey,
+      answers: { ...gradingKey.answers, [question.id]: createPrivateAnswer(replacement) },
+    });
+  };
+
+  const addQuestion = (type: AnswerSheetQuestionType) => {
+    const question = createAnswerSheetQuestion(type);
+    onChange({ ...config, questions: [...config.questions, question] }, {
+      ...gradingKey,
+      answers: { ...gradingKey.answers, [question.id]: createPrivateAnswer(question) },
+    });
+  };
+
+  const removeQuestion = (questionId: string) => {
+    const answers = { ...gradingKey.answers };
+    delete answers[questionId];
+    onChange({
+      ...config,
+      questions: config.questions.filter((question) => question.id !== questionId),
+    }, { ...gradingKey, answers });
+  };
+
+  const moveQuestion = (index: number, offset: number) => {
+    const destination = index + offset;
+    if (destination < 0 || destination >= config.questions.length) return;
+    const questions = [...config.questions];
+    [questions[index], questions[destination]] = [questions[destination], questions[index]];
+    onChange({ ...config, questions }, gradingKey);
+  };
+
+  return (
+    <section className="answer-sheet-editor">
+      <header className="answer-sheet-editor-heading">
+        <div>
+          <strong>答题卡</strong>
+          <small>Markdown、数学公式、题图与自动判分</small>
+        </div>
+        <span>总分 {maximum}</span>
+      </header>
+
+      <div className="answer-sheet-policy">
+        <label>
+          <span>及格分</span>
+          <input
+            disabled={disabled}
+            max={maximum}
+            min="0"
+            type="number"
+            value={config.gradingPolicy.passingScore}
+            onChange={(event) => onChange({
+              ...config,
+              gradingPolicy: {
+                ...config.gradingPolicy,
+                passingScore: Number(event.target.value),
+              },
+            }, gradingKey)}
+          />
+        </label>
+        <label>
+          <span>作答次数</span>
+          <select
+            disabled={disabled}
+            value={config.gradingPolicy.maxAttempts ?? "unlimited"}
+            onChange={(event) => onChange({
+              ...config,
+              gradingPolicy: {
+                ...config.gradingPolicy,
+                maxAttempts: event.target.value === "unlimited" ? null : Number(event.target.value),
+              },
+            }, gradingKey)}
+          >
+            <option value="unlimited">截止前不限</option>
+            {[1, 2, 3, 5, 10].map((value) => <option key={value} value={value}>{value} 次</option>)}
+          </select>
+        </label>
+        <label>
+          <span>反馈</span>
+          <select
+            disabled={disabled}
+            value={config.gradingPolicy.feedback}
+            onChange={(event) => onChange({
+              ...config,
+              gradingPolicy: {
+                ...config.gradingPolicy,
+                feedback: event.target.value as AnswerSheetConfig["gradingPolicy"]["feedback"],
+              },
+            }, gradingKey)}
+          >
+            <option value="score_only">仅显示总分</option>
+            <option value="question_result">显示逐题结果</option>
+            <option value="full_after_deadline">截止后显示标准答案</option>
+          </select>
+        </label>
+      </div>
+      {errors._policy?.map((message) => <p className="answer-sheet-editor-error" key={message}>{message}</p>)}
+      {config.gradingPolicy.feedback === "full_after_deadline" && !deadlineAt ? (
+        <p className="answer-sheet-editor-error">“截止后显示标准答案”需要先在节点定时设置中填写截止时间。</p>
+      ) : null}
+
+      <div className="answer-sheet-question-list">
+        {config.questions.map((question, index) => {
+          const privateAnswer = gradingKey.answers[question.id] ?? createPrivateAnswer(question);
+          return (
+            <article className="answer-sheet-question-editor" key={question.id}>
+              <header>
+                <strong>第 {index + 1} 题</strong>
+                <select
+                  aria-label={`第 ${index + 1} 题题型`}
+                  disabled={disabled}
+                  value={question.type}
+                  onChange={(event) => changeQuestionType(question, event.target.value as AnswerSheetQuestionType)}
+                >
+                  <option value="single_choice">单项选择题</option>
+                  <option value="multiple_choice">多项选择题</option>
+                  <option value="fill_blank">填空题</option>
+                </select>
+                <label className="answer-sheet-required">
+                  <input
+                    checked={question.required}
+                    disabled={disabled}
+                    type="checkbox"
+                    onChange={(event) => updateQuestion(question.id, { ...question, required: event.target.checked })}
+                  />
+                  必答
+                </label>
+                <div className="answer-sheet-question-actions">
+                  <button disabled={disabled || index === 0} onClick={() => moveQuestion(index, -1)} type="button">上移</button>
+                  <button disabled={disabled || index === config.questions.length - 1} onClick={() => moveQuestion(index, 1)} type="button">下移</button>
+                  <button disabled={disabled} onClick={() => removeQuestion(question.id)} type="button">删除</button>
+                </div>
+              </header>
+
+              <Suspense fallback={<div className="answer-sheet-editor-loading">正在加载 Markdown 编辑器…</div>}>
+                <CrepeMarkdownEditor
+                  disabled={disabled}
+                  flowId={flowId}
+                  nodeKey={nodeKey}
+                  onChange={(content) => updateQuestion(question.id, { ...question, content })}
+                  onUploadImage={onUploadImage}
+                  value={question.content}
+                />
+              </Suspense>
+
+              {question.type === "fill_blank" ? (
+                <FillBlankEditor
+                  answer={privateAnswer}
+                  disabled={disabled}
+                  onAnswerChange={(answer) => updateAnswer(question.id, answer)}
+                  onQuestionChange={(next) => updateQuestion(question.id, next)}
+                  question={question}
+                />
+              ) : (
+                <SelectionEditor
+                  answer={privateAnswer}
+                  disabled={disabled}
+                  flowId={flowId}
+                  onAnswerChange={(answer) => updateAnswer(question.id, answer)}
+                  onQuestionChange={(next) => updateQuestion(question.id, next)}
+                  question={question}
+                />
+              )}
+              {errors[question.id]?.map((message) => (
+                <p className="answer-sheet-editor-error" key={message}>{message}</p>
+              ))}
+            </article>
+          );
+        })}
+      </div>
+      {errors._questions?.map((message) => <p className="answer-sheet-editor-error" key={message}>{message}</p>)}
+
+      <div className="answer-sheet-add-question">
+        <span>新增题目</span>
+        <button disabled={disabled} onClick={() => addQuestion("single_choice")} type="button">单选题</button>
+        <button disabled={disabled} onClick={() => addQuestion("multiple_choice")} type="button">多选题</button>
+        <button disabled={disabled} onClick={() => addQuestion("fill_blank")} type="button">填空题</button>
+      </div>
+    </section>
+  );
+}
+
+function SelectionEditor({
+  answer,
+  disabled,
+  flowId,
+  onAnswerChange,
+  onQuestionChange,
+  question,
+}: {
+  answer: AnswerSheetPrivateAnswer;
+  disabled: boolean;
+  flowId: string;
+  onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
+  onQuestionChange: (question: Extract<AnswerSheetQuestion, { type: "single_choice" | "multiple_choice" }>) => void;
+  question: Extract<AnswerSheetQuestion, { type: "single_choice" | "multiple_choice" }>;
+}) {
+  const addOption = () => {
+    const id = createId("option");
+    onQuestionChange({ ...question, options: [...question.options, { id, content: "新增选项" }] });
+  };
+  return (
+    <div className="answer-sheet-option-editor">
+      <label className="answer-sheet-points">
+        分值
+        <input disabled={disabled} min="1" type="number" value={question.points} onChange={(event) => onQuestionChange({ ...question, points: Number(event.target.value) })} />
+      </label>
+      {question.options.map((option, index) => {
+        const checked = answer.type === "single_choice"
+          ? answer.correctOptionId === option.id
+          : answer.type === "multiple_choice" && answer.correctOptionIds.includes(option.id);
+        return (
+          <div className="answer-sheet-option-row" key={option.id}>
+            <input
+              aria-label={`选项 ${index + 1} 为正确答案`}
+              checked={checked}
+              disabled={disabled}
+              name={`answer-${question.id}`}
+              type={question.type === "single_choice" ? "radio" : "checkbox"}
+              onChange={(event) => {
+                if (question.type === "single_choice") {
+                  onAnswerChange({ type: "single_choice", correctOptionId: option.id });
+                  return;
+                }
+                const current = answer.type === "multiple_choice" ? answer.correctOptionIds : [];
+                onAnswerChange({
+                  type: "multiple_choice",
+                  mode: "exact_set",
+                  correctOptionIds: event.target.checked
+                    ? [...current, option.id]
+                    : current.filter((id) => id !== option.id),
+                });
+              }}
+            />
+            <textarea
+              aria-label={`选项 ${index + 1} 内容`}
+              disabled={disabled}
+              value={option.content}
+              onChange={(event) => onQuestionChange({
+                ...question,
+                options: question.options.map((item) => item.id === option.id ? { ...item, content: event.target.value } : item),
+              })}
+            />
+            <div className="answer-sheet-option-preview"><AnswerSheetMarkdown flowId={flowId}>{option.content}</AnswerSheetMarkdown></div>
+            <button
+              aria-label={`删除选项 ${index + 1}`}
+              disabled={disabled || question.options.length <= 2}
+              onClick={() => {
+                const options = question.options.filter((item) => item.id !== option.id);
+                onQuestionChange({ ...question, options });
+                if (checked) onAnswerChange(createPrivateAnswer({ ...question, options }));
+              }}
+              type="button"
+            >×</button>
+          </div>
+        );
+      })}
+      <button disabled={disabled} onClick={addOption} type="button">＋ 添加选项</button>
+    </div>
+  );
+}
+
+function FillBlankEditor({
+  answer,
+  disabled,
+  onAnswerChange,
+  onQuestionChange,
+  question,
+}: {
+  answer: AnswerSheetPrivateAnswer;
+  disabled: boolean;
+  onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
+  onQuestionChange: (question: Extract<AnswerSheetQuestion, { type: "fill_blank" }>) => void;
+  question: Extract<AnswerSheetQuestion, { type: "fill_blank" }>;
+}) {
+  const blankAnswers = answer.type === "fill_blank" ? answer.blanks : {};
+  const updateBlankAnswer = (
+    blankId: string,
+    value: { acceptedAnswers: string[]; caseSensitive: boolean },
+  ) => onAnswerChange({ type: "fill_blank", blanks: { ...blankAnswers, [blankId]: value } });
+
+  return (
+    <div className="answer-sheet-blank-editor">
+      <p>题干中的 <code>[[blank:标识]]</code> 会渲染为输入框。</p>
+      {question.blanks.map((blank, index) => {
+        const privateBlank = blankAnswers[blank.id] ?? { acceptedAnswers: [""], caseSensitive: false };
+        return (
+          <div className="answer-sheet-blank-row" key={blank.id}>
+            <code>{`[[blank:${blank.id}]]`}</code>
+            <label>分值 <input disabled={disabled} min="1" type="number" value={blank.points} onChange={(event) => onQuestionChange({
+              ...question,
+              blanks: question.blanks.map((item) => item.id === blank.id ? { ...item, points: Number(event.target.value) } : item),
+            })} /></label>
+            <label className="answer-sheet-accepted-answers">
+              可接受答案（每行一个）
+              <textarea disabled={disabled} value={privateBlank.acceptedAnswers.join("\n")} onChange={(event) => updateBlankAnswer(blank.id, {
+                ...privateBlank,
+                acceptedAnswers: event.target.value.split("\n"),
+              })} />
+            </label>
+            <label><input checked={privateBlank.caseSensitive} disabled={disabled} type="checkbox" onChange={(event) => updateBlankAnswer(blank.id, { ...privateBlank, caseSensitive: event.target.checked })} /> 区分大小写</label>
+            <button
+              disabled={disabled || question.blanks.length <= 1}
+              onClick={() => {
+                const blanks = question.blanks.filter((item) => item.id !== blank.id);
+                const nextAnswers = { ...blankAnswers };
+                delete nextAnswers[blank.id];
+                onQuestionChange({ ...question, blanks, content: question.content.replaceAll(`[[blank:${blank.id}]]`, "") });
+                onAnswerChange({ type: "fill_blank", blanks: nextAnswers });
+              }}
+              type="button"
+            >删除第 {index + 1} 空</button>
+          </div>
+        );
+      })}
+      <button disabled={disabled} onClick={() => {
+        const id = createId("blank");
+        onQuestionChange({ ...question, blanks: [...question.blanks, { id, points: 1 }], content: `${question.content} [[blank:${id}]]` });
+        onAnswerChange({ type: "fill_blank", blanks: { ...blankAnswers, [id]: { acceptedAnswers: ["请输入答案"], caseSensitive: false } } });
+      }} type="button">＋ 添加填空</button>
+    </div>
+  );
+}
+
+function createId(prefix: "blank" | "option") {
+  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`;
+}

@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.domain.form_fields import FormAnswerValidationError
+from app.domain.answer_sheet import AnswerSheetSubmissionError
 from app.domain.workflow_runtime import (
     validate_confirmation_scan_filenames,
     validate_file_metadata,
@@ -35,6 +36,7 @@ from app.repositories.flow_instances import (
     submit_node,
 )
 from app.repositories.flow_roster import RosterAccessError
+from app.repositories.flow_content_assets import get_student_content_asset
 from app.repositories.flow_templates import (
     TemplateDownloadError,
     get_student_template,
@@ -66,6 +68,14 @@ class ScanOrderRequest(BaseModel):
 
 
 def runtime_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, AnswerSheetSubmissionError):
+        return HTTPException(
+            status_code=422,
+            detail={
+                "message": "答题内容未通过校验",
+                "fieldErrors": exc.field_errors,
+            },
+        )
     if isinstance(exc, FormAnswerValidationError):
         return HTTPException(
             status_code=422,
@@ -106,6 +116,32 @@ def download_node_template(
         "url": url,
         "originalName": record["original_name"],
         "sizeBytes": record["size_bytes"],
+    }
+
+
+@router.get("/flow-instances/{instance_id}/content-assets/{asset_id}")
+def get_answer_sheet_asset(
+    instance_id: str,
+    asset_id: str,
+    student: dict[str, object] = Depends(get_current_runtime_student),
+) -> dict[str, object]:
+    try:
+        asset = get_student_content_asset(instance_id, asset_id, int(student["id"]))
+        url = get_object_storage().signed_inline_url(
+            str(asset["storage_key"]), str(asset["content_type"])
+        )
+    except (KeyError, RosterAccessError) as exc:
+        raise HTTPException(status_code=404, detail="题图不存在") from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="题图存储服务未配置，请联系管理员") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail="题图预览链接生成失败") from exc
+    return {
+        "assetId": asset["id"],
+        "contentType": asset["content_type"],
+        "originalName": asset["original_name"],
+        "sizeBytes": asset["size_bytes"],
+        "url": url,
     }
 
 
@@ -374,7 +410,12 @@ def put_draft(
 ) -> dict[str, object]:
     try:
         return save_node_draft(node_instance_id, int(student["id"]), payload.payload)
-    except (KeyError, RosterAccessError, RuntimeConflictError) as exc:
+    except (
+        AnswerSheetSubmissionError,
+        KeyError,
+        RosterAccessError,
+        RuntimeConflictError,
+    ) as exc:
         raise runtime_error(exc) from exc
 
 
@@ -392,6 +433,7 @@ def post_submit(
             payload.idempotencyKey,
         )
     except (
+        AnswerSheetSubmissionError,
         KeyError,
         RosterAccessError,
         FormAnswerValidationError,

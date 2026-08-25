@@ -4,6 +4,7 @@ import type {
   AcademicProcess,
   AuditScriptType,
 } from "../../types";
+import { createDefaultAnswerSheet } from "./answerSheet";
 
 export const nodeTemplates: Array<{
   description: string;
@@ -11,6 +12,7 @@ export const nodeTemplates: Array<{
   title: string;
 }> = [
   { kind: "form", title: "表单填写", description: "自定义文本与选择题" },
+  { kind: "answer_sheet", title: "答题卡", description: "Markdown 题目与自动判分" },
   { kind: "file", title: "文件上传", description: "上传文件，支持类型与大小限制" },
   { kind: "confirmation", title: "确认承诺", description: "签署承诺书或确认协议" },
   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
@@ -32,6 +34,7 @@ export const fileTypeRestrictionPresets = [
 export function createAcademicProcess(name: string, id = `academic-${Date.now()}`): AcademicProcess {
   const encryptedSlug = createEncryptedSlug();
   return {
+    answerSheetKeys: {},
     createdAt: "刚刚",
     description: `用于“${name}”的分阶段提交与审核。`,
     draftConfig: { edges: [], nodes: [] },
@@ -57,7 +60,9 @@ export function createNode(
   title: string,
   position = { x: 208, y: 80 },
 ): AcademicFlowNode {
+  const answerSheet = kind === "answer_sheet" ? createDefaultAnswerSheet().config : undefined;
   return {
+    answerSheet,
     auditScriptName: "",
     auditScriptType: "none",
     deadlineAt: null,
@@ -126,6 +131,9 @@ function createEncryptedSlug() {
 }
 
 function getDefaultRequirement(kind: AcademicFlowNodeKind, title: string) {
+  if (kind === "answer_sheet") {
+    return `请完成“${title}”中的题目，提交后系统将自动判分。`;
+  }
   if (kind === "file") {
     return `请按要求上传“${title}”相关文件，提交后等待系统审核。`;
   }

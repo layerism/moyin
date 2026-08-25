@@ -6,6 +6,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.core.database import get_connection
+from app.domain.answer_sheet import (
+    grade_answer_sheet,
+    normalize_answer_sheet_submission,
+)
 from app.domain.form_fields import normalize_form_answers
 from app.domain.workflow import confirmation_requires_scans
 from app.domain.workflow_runtime import (
@@ -21,6 +25,12 @@ from app.repositories.audit_policies import (
     AuditPolicyConflictError,
     resolve_effective_audit_policy,
 )
+from app.repositories.answer_sheet_grades import (
+    get_answer_sheet_grade,
+    insert_answer_sheet_grade,
+    student_grade_view,
+)
+from app.repositories.answer_sheet_keys import get_version_answer_key
 from app.repositories.flow_files import (
     FileContextError,
     attach_uploaded_file,
@@ -225,6 +235,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         node_rows = connection.execute(
             """
             SELECT n.*, d.payload AS draft_payload, s.payload_snapshot AS submission_payload,
+                   s.id AS submission_id,
                    j.status AS audit_job_status, j.attempt_count AS audit_attempt_count,
                    j.result_json AS audit_result_json,
                    j.effective_params_json AS audit_effective_params_json,
@@ -275,12 +286,39 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 """,
                 (row["id"], instance["student_account_id"], instance["flow_version_id"], row["node_key"]),
             ).fetchone()
+            grade = get_answer_sheet_grade(connection, row["submission_id"])
+            grading_policy = (
+                config_node.get("answerSheet", {}).get("gradingPolicy", {})
+                if config_node.get("kind") == "answer_sheet"
+                else {}
+            )
+            max_attempts = grading_policy.get("maxAttempts")
+            attempts_remaining = (
+                None
+                if max_attempts is None
+                else max(0, int(max_attempts) - int(row["attempt_no"]))
+            )
+            answer_key = None
+            deadline_value = parse_datetime(deadline)
+            after_deadline = bool(
+                deadline_value is not None and deadline_value <= datetime.now(UTC)
+            )
+            if (
+                student_id is not None
+                and grading_policy.get("feedback") == "full_after_deadline"
+                and after_deadline
+                and grade is not None
+            ):
+                answer_key = get_version_answer_key(
+                    connection, str(instance["flow_version_id"]), str(row["node_key"])
+                )["gradingKey"]
             nodes.append(
                 {
                     "id": row["id"],
                     "nodeKey": row["node_key"],
                     "status": status,
                     "attemptNo": row["attempt_no"],
+                    "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),
                     "effectiveDeadline": deadline,
@@ -295,6 +333,16 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
                     "audit": _audit_summary(row, status, config_node),
+                    "grade": (
+                        student_grade_view(
+                            grade,
+                            str(grading_policy.get("feedback") or "question_result"),
+                            answer_key=answer_key,
+                            after_deadline=after_deadline,
+                        )
+                        if student_id is not None
+                        else grade
+                    ),
                 }
             )
         nodes.sort(key=lambda item: node_order[item["nodeKey"]])
@@ -454,11 +502,15 @@ def save_node_draft(
             and not approved_form_amendment
         ):
             raise RuntimeConflictError("当前节点不可暂存")
-        draft_payload = (
-            normalize_form_answers(node, payload, strict=False)
-            if node.get("kind") == "form"
-            else payload
-        )
+        if node.get("kind") == "answer_sheet":
+            max_attempts = node.get("answerSheet", {}).get("gradingPolicy", {}).get("maxAttempts")
+            if max_attempts is not None and int(row["attempt_no"]) >= int(max_attempts):
+                raise RuntimeConflictError("已达到最大作答次数")
+            draft_payload = normalize_answer_sheet_submission(node, payload, strict=False)
+        elif node.get("kind") == "form":
+            draft_payload = normalize_form_answers(node, payload, strict=False)
+        else:
+            draft_payload = payload
         connection.execute(
             """
             INSERT INTO node_drafts (node_instance_id, payload, updated_at)
@@ -513,6 +565,13 @@ def submit_node(
             config = version_config(connection, row["flow_version_id"])
             preview = is_preview_instance(connection, row["flow_instance_id"])
             node = node_by_key(config, row["node_key"])
+            max_attempts = (
+                node.get("answerSheet", {}).get("gradingPolicy", {}).get("maxAttempts")
+                if node.get("kind") == "answer_sheet"
+                else None
+            )
+            if max_attempts is not None and int(row["attempt_no"]) >= int(max_attempts):
+                raise RuntimeConflictError("已达到最大作答次数")
             approved_form_amendment = _is_approved_form_amendment(row["status"], node)
             statuses = {
                 item["node_key"]: item["status"]
@@ -539,7 +598,11 @@ def submit_node(
             ):
                 raise RuntimeConflictError("当前节点不可提交")
             script_id = node.get("auditScriptId")
-            has_audit_script = isinstance(script_id, str) and bool(script_id)
+            has_audit_script = (
+                node.get("kind") != "answer_sheet"
+                and isinstance(script_id, str)
+                and bool(script_id)
+            )
             audit_binding: dict[str, object] | None = None
             if has_audit_script:
                 try:
@@ -579,6 +642,8 @@ def submit_node(
                 ) as exc:
                     raise RuntimeConflictError(str(exc)) from exc
             submission_payload = payload
+            grade_result: dict[str, Any] | None = None
+            grading_hash: str | None = None
             uploaded_file = None
             uploaded_scans: list[dict[str, object]] = []
             if node.get("kind") == "file":
@@ -636,7 +701,18 @@ def submit_node(
                         for item in uploaded_scans
                     ],
                 }
-            if node.get("kind") == "form":
+            if node.get("kind") == "answer_sheet":
+                submission_payload = normalize_answer_sheet_submission(
+                    node, payload, strict=True
+                )
+                key_record = get_version_answer_key(
+                    connection, str(row["flow_version_id"]), str(row["node_key"])
+                )
+                grade_result = grade_answer_sheet(
+                    node, key_record["gradingKey"], submission_payload
+                )
+                grading_hash = str(key_record["gradingHash"])
+            elif node.get("kind") == "form":
                 submission_payload = normalize_form_answers(node, payload, strict=True)
             else:
                 try:
@@ -644,15 +720,14 @@ def submit_node(
                 except ValueError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
             attempt_no = int(row["attempt_no"]) + 1
-            submission_status = (
-                "approved"
-                if approved_form_amendment
-                else "reviewing"
-                if has_audit_script
-                else "approved"
-                if node.get("autoApprove", True)
-                else "reviewing"
-            )
+            if grade_result is not None:
+                submission_status = "approved" if grade_result["passed"] else "rejected"
+            elif approved_form_amendment:
+                submission_status = "approved"
+            elif has_audit_script:
+                submission_status = "reviewing"
+            else:
+                submission_status = "approved" if node.get("autoApprove", True) else "reviewing"
             submission_id = str(uuid.uuid4())
             connection.execute(
                 """
@@ -671,6 +746,10 @@ def submit_node(
                     now,
                 ),
             )
+            if grade_result is not None and grading_hash is not None:
+                insert_answer_sheet_grade(
+                    connection, submission_id, grade_result, grading_hash, now
+                )
             if uploaded_file is not None:
                 try:
                     attach_uploaded_file(connection, str(uploaded_file["id"]), submission_id)
@@ -819,6 +898,16 @@ def set_student_deadline(
         new_deadline = _parse_student_deadline(deadline_at)
         current_deadline = parse_datetime(current_deadline_value)
         now_datetime = datetime.now(UTC)
+        if (
+            node.get("kind") == "answer_sheet"
+            and node.get("answerSheet", {}).get("gradingPolicy", {}).get("feedback")
+            == "full_after_deadline"
+            and current_deadline is not None
+            and current_deadline <= now_datetime
+        ):
+            raise StudentDeadlineValidationError(
+                "该答题卡已在截止后展示标准答案，不能再次延期"
+            )
         if new_deadline <= now_datetime:
             raise StudentDeadlineValidationError("延期截止时间必须晚于当前时间")
         if current_deadline is None or new_deadline <= current_deadline:
@@ -977,9 +1066,11 @@ def get_teacher_submission_detail(
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT n.id, n.node_key, n.status, i.student_account_id,
+            SELECT n.id, n.node_key, n.status, n.attempt_no, i.student_account_id,
                    a.student_no, a.name AS student_name, v.config_snapshot,
                    s.id AS submission_id, s.status AS submission_status,
+                   s.payload_snapshot AS submission_payload,
+                   g.result_snapshot AS answer_sheet_grade,
                    j.result_json, j.status AS audit_job_status,
                    j.effective_params_json
             FROM node_instances n
@@ -990,6 +1081,7 @@ def get_teacher_submission_detail(
             LEFT JOIN submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
+            LEFT JOIN answer_sheet_grades g ON g.submission_id = s.id
             WHERE n.id = ? AND f.owner_id = ? AND v.status = 'published'
             """,
             (node_instance_id, str(teacher_id)),
@@ -999,9 +1091,10 @@ def get_teacher_submission_detail(
         config = json.loads(row["config_snapshot"])
         node = node_by_key(config, row["node_key"])
         result = _json_object(row["result_json"])
+        answer_sheet_grade = _json_object(row["answer_sheet_grade"])
         details = result.get("details") if isinstance(result.get("details"), dict) else {}
         effective_params = _json_object(row["effective_params_json"])
-        mode = effective_params.get("scanAuditMode")
+        mode = "answer_sheet" if answer_sheet_grade else effective_params.get("scanAuditMode")
         score_value = details.get("score")
         score = (
             float(score_value)
@@ -1021,13 +1114,20 @@ def get_teacher_submission_detail(
     return {
         "nodeInstanceId": row["id"],
         "submissionId": row["submission_id"],
+        "submission": _json_object(row["submission_payload"]),
+        "attemptNo": int(row["attempt_no"]),
         "nodeTitle": node.get("title") or row["node_key"],
         "student": {"studentNo": row["student_no"], "name": row["student_name"]},
         "mode": mode,
         "status": row["status"],
         "auditJobStatus": row["audit_job_status"],
-        "passed": result.get("passed") if isinstance(result.get("passed"), bool) else None,
-        "score": score,
+        "passed": (
+            answer_sheet_grade.get("passed")
+            if isinstance(answer_sheet_grade.get("passed"), bool)
+            else result.get("passed") if isinstance(result.get("passed"), bool) else None
+        ),
+        "score": answer_sheet_grade.get("score") if answer_sheet_grade else score,
+        "answerSheetGrade": answer_sheet_grade or None,
         "reason": result.get("reason") if isinstance(result.get("reason"), str) else None,
         "reviewSource": (
             details.get("reviewSource")

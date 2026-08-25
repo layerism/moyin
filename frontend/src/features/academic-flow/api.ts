@@ -1,4 +1,4 @@
-import type { AcademicFlowConfig, AcademicProcess } from "../../types";
+import type { AcademicFlowConfig, AcademicProcess, AnswerSheetPrivateKey } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
 import type { AuditScriptSummary, NodeAuditPolicy } from "./auditScripts";
 import type {
@@ -21,6 +21,7 @@ import { createFlowConfig, createPublishRequestPayload } from "./flowRevision";
 export const FLOW_PREVIEW_TOKEN_KEY = "oa-flow-preview-token";
 
 export type ServerFlow = {
+  answerSheetKeys: Record<string, AnswerSheetPrivateKey>;
   config: AcademicFlowConfig;
   createdAt: string;
   description: string;
@@ -197,7 +198,10 @@ export const workflowApi = {
   saveDraft(serverId: string, process: AcademicProcess) {
     return request<ServerFlow>(`/api/workflows/${encodeURIComponent(serverId)}/draft`, {
       method: "PUT",
-      body: JSON.stringify({ config: { nodes: process.nodes, edges: process.edges } }),
+      body: JSON.stringify({
+        answerSheetKeys: process.answerSheetKeys,
+        config: { nodes: process.nodes, edges: process.edges },
+      }),
     });
   },
   createPreview(serverId: string) {
@@ -211,7 +215,10 @@ export const workflowApi = {
       `/api/workflows/${encodeURIComponent(serverId)}/revision-impact`,
       {
         method: "POST",
-        body: JSON.stringify({ config: createFlowConfig(process) }),
+        body: JSON.stringify({
+          answerSheetKeys: process.answerSheetKeys,
+          config: createFlowConfig(process),
+        }),
       },
     );
   },
@@ -224,6 +231,7 @@ export const workflowApi = {
     return request<PublishedFlow>(`/api/workflows/${encodeURIComponent(serverId)}/publish`, {
       method: "POST",
       body: JSON.stringify({
+        answerSheetKeys: process.answerSheetKeys,
         config: createFlowConfig(process),
         ...createPublishRequestPayload(expectedDraftConfigHash, expectedCurrentVersionId),
       }),
@@ -363,6 +371,36 @@ export const workflowApi = {
     return request<{ templateAsset: null }>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/template`,
       { method: "DELETE" },
+    );
+  },
+  uploadAnswerSheetAsset(flowId: string, nodeKey: string, file: File) {
+    const body = new FormData();
+    body.append("file", file);
+    return request<{
+      assetId: string;
+      contentType: string;
+      originalName: string;
+      sha256: string;
+      sizeBytes: number;
+    }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/answer-sheet-assets`,
+      { method: "POST", body },
+    );
+  },
+  deleteAnswerSheetAsset(flowId: string, assetId: string) {
+    return request<{ deleted: boolean }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/answer-sheet-assets/${encodeURIComponent(assetId)}`,
+      { method: "DELETE" },
+    );
+  },
+  getTeacherAnswerSheetAsset(flowId: string, assetId: string) {
+    return request<{ assetId: string; contentType: string; originalName: string; sizeBytes: number; url: string }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/answer-sheet-assets/${encodeURIComponent(assetId)}`,
+    );
+  },
+  getRuntimeContentAsset(instanceId: string, assetId: string) {
+    return request<{ assetId: string; contentType: string; originalName: string; sizeBytes: number; url: string }>(
+      `/api/student/flow-instances/${encodeURIComponent(instanceId)}/content-assets/${encodeURIComponent(assetId)}`,
     );
   },
   downloadNodeTemplate(nodeInstanceId: string) {

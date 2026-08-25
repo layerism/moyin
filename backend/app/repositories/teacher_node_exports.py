@@ -4,6 +4,7 @@ from typing import Any
 
 from app.core.database import get_connection
 from app.domain.workflow_runtime import node_by_key
+from app.repositories.answer_sheet_keys import get_version_answer_key
 
 CURRENT_SUBMISSION_STATUSES = ("reviewing", "approved", "rejected", "audit_error")
 
@@ -30,7 +31,9 @@ class TeacherNodeExportStudent:
     audit_job_status: str | None
     audit_params: dict[str, Any]
     audit_result: dict[str, Any]
+    attempt_no: int | None
     files: tuple[TeacherNodeExportFile, ...]
+    grade: dict[str, Any]
     name: str
     payload: dict[str, Any]
     roster_entry_id: int
@@ -42,6 +45,7 @@ class TeacherNodeExportStudent:
 
 @dataclass(frozen=True)
 class TeacherNodeExportSelection:
+    answer_key: dict[str, Any] | None
     flow_name: str
     node: dict[str, Any]
     students: tuple[TeacherNodeExportStudent, ...]
@@ -93,8 +97,10 @@ def get_node_submission_export(
             SELECT r.id AS roster_entry_id, r.student_no, r.name,
                    s.id AS submission_id, s.status AS submission_status,
                    s.submitted_at, s.payload_snapshot,
+                   n.attempt_no,
                    j.status AS audit_job_status, j.result_json,
                    j.effective_params_json,
+                   g.result_snapshot AS answer_sheet_grade,
                    e.downloaded_at AS template_downloaded_at
             FROM flow_roster_entries r
             LEFT JOIN student_accounts a
@@ -108,6 +114,7 @@ def get_node_submission_export(
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
              AND s.status IN (?, ?, ?, ?)
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
+            LEFT JOIN answer_sheet_grades g ON g.submission_id = s.id
             LEFT JOIN flow_version_templates vt
               ON vt.flow_version_id = ? AND vt.node_key = ?
             LEFT JOIN template_download_events e
@@ -158,13 +165,20 @@ def get_node_submission_export(
                         storage_key=str(file_row["storage_key"]),
                     )
                 )
+        answer_key = (
+            get_version_answer_key(connection, version_id, node_key)["gradingKey"]
+            if node.get("kind") == "answer_sheet"
+            else None
+        )
 
     students = tuple(
         TeacherNodeExportStudent(
             audit_job_status=str(row["audit_job_status"]) if row["audit_job_status"] else None,
             audit_params=_json_object(row["effective_params_json"]),
             audit_result=_json_object(row["result_json"]),
+            attempt_no=int(row["attempt_no"]) if row["submission_id"] else None,
             files=tuple(files_by_submission.get(str(row["submission_id"]), [])),
+            grade=_json_object(row["answer_sheet_grade"]),
             name=str(row["name"]),
             payload=_json_object(row["payload_snapshot"]),
             roster_entry_id=int(row["roster_entry_id"]),
@@ -182,6 +196,7 @@ def get_node_submission_export(
         for row in rows
     )
     return TeacherNodeExportSelection(
+        answer_key=answer_key,
         flow_name=str(version["name"]),
         node=dict(node),
         students=students,
