@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createAnswerSheetQuestion,
   createDefaultAnswerSheet,
   validateAnswerSheetAuthoring,
   validateAnswerSheetSubmission,
@@ -11,6 +12,11 @@ import {
   toStandardMathMarkdown,
 } from "../src/features/academic-flow/answerSheetMarkdown.ts";
 import { getAnswerSheetPublishIssue } from "../src/features/academic-flow/answerSheetPublishPreflight.ts";
+import {
+  getAnswerSheetQuestionMeta,
+  moveAnswerSheetQuestion,
+  toggleExpandedQuestion,
+} from "../src/features/academic-flow/answerSheetEditorState.ts";
 import { resolveMarkdownEditorMode } from "../src/features/academic-flow/markdownBlurEditor.ts";
 import { restrictBasicMarkdownTree } from "../src/features/academic-flow/basicAnswerSheetMarkdown.ts";
 import type { AcademicFlowNode } from "../src/types.ts";
@@ -121,4 +127,32 @@ test("publishable answer sheet does not produce a preflight issue", () => {
   } as AcademicFlowNode;
 
   assert.equal(getAnswerSheetPublishIssue([node], { [node.id]: key }), null);
+});
+
+test("answer sheet accordion toggles only the selected question", () => {
+  assert.equal(toggleExpandedQuestion(null, "question-1"), "question-1");
+  assert.equal(toggleExpandedQuestion("question-1", "question-2"), "question-2");
+  assert.equal(toggleExpandedQuestion("question-2", "question-2"), null);
+});
+
+test("answer sheet question menu moves a stable question by one position", () => {
+  const questions = [
+    { id: "question-1" },
+    { id: "question-2" },
+    { id: "question-3" },
+  ];
+
+  assert.deepEqual(
+    moveAnswerSheetQuestion(questions, "question-2", -1).map((question) => question.id),
+    ["question-2", "question-1", "question-3"],
+  );
+  assert.equal(moveAnswerSheetQuestion(questions, "question-1", -1), questions);
+});
+
+test("answer sheet summary reports compact type-specific metadata", () => {
+  const { config } = createDefaultAnswerSheet();
+  assert.equal(getAnswerSheetQuestionMeta(config.questions[0]), "1 分 · 2 个选项");
+
+  const fill = createAnswerSheetQuestion("fill_blank");
+  assert.equal(getAnswerSheetQuestionMeta(fill), "1 分 · 1 个填空");
 });

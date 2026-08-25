@@ -9,59 +9,76 @@
 }
 
 /* Answer sheet node */
-.node-inspector-modal:has(.answer-sheet-editor) {
-  width: min(1180px, calc(100vw - 48px));
-}
-
 .answer-sheet-editor {
   display: grid;
-  gap: 10px;
-  padding: 0 0 12px;
+  gap: 8px;
+  padding: 0 0 10px;
 }
 
 .answer-sheet-editor-heading,
-.answer-sheet-question-editor > header,
-.answer-sheet-policy,
-.answer-sheet-add-question {
+.answer-sheet-heading-summary,
+.answer-sheet-add-actions,
+.answer-sheet-policy {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .answer-sheet-editor-heading {
   justify-content: space-between;
 }
 
-.answer-sheet-editor-heading div {
-  align-items: baseline;
-  display: flex;
-  gap: 8px;
-}
-
 .answer-sheet-editor-heading strong {
   color: #17233a;
-  font-size: 17px;
+  font-size: 16px;
 }
 
-.answer-sheet-editor-heading small,
-.answer-sheet-question-editor > header span {
+.answer-sheet-editor-heading small {
   color: #6d7789;
+  font-size: 12px;
 }
 
-.answer-sheet-editor-heading > span {
+.answer-sheet-heading-summary > span {
   background: #edf4ff;
   border-radius: 999px;
   color: #245aaf;
+  font-size: 12px;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 3px 8px;
+}
+
+.answer-sheet-add-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.answer-sheet-add-actions button,
+.answer-sheet-selection-footer > button,
+.answer-sheet-add-blank {
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: #fff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.answer-sheet-add-actions button:disabled,
+.answer-sheet-selection-footer > button:disabled,
+.answer-sheet-add-blank:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .answer-sheet-policy {
   background: #f7f9fc;
   border: 1px solid #e1e6ef;
-  border-radius: 10px;
+  border-radius: 8px;
   flex-wrap: wrap;
-  padding: 8px 10px;
+  padding: 6px 8px;
 }
 
 .answer-sheet-policy label,
@@ -80,66 +97,192 @@
 
 .answer-sheet-policy input,
 .answer-sheet-policy select,
-.answer-sheet-question-editor select,
+.answer-sheet-question-summary select,
 .answer-sheet-points input,
 .answer-sheet-blank-row input {
   border: 1px solid #ccd4e0;
-  border-radius: 7px;
-  min-height: 32px;
-  padding: 4px 8px;
+  border-radius: 5px;
+  min-height: 30px;
+  padding: 3px 7px;
 }
 
 .answer-sheet-question-list {
   display: grid;
-  gap: 10px;
+  gap: 7px;
 }
 
 .answer-sheet-question-editor {
+  position: relative;
   background: #fff;
-  border: 1px solid #dce2ec;
-  border-radius: 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
   display: grid;
-  gap: 8px;
-  padding: 10px 12px;
+  overflow: visible;
 }
 
-.answer-sheet-question-editor > header {
-  border-bottom: 1px solid #edf0f5;
-  padding-bottom: 8px;
+.answer-sheet-question-editor.has-errors {
+  border-color: #f04438;
+  box-shadow: 0 0 0 2px rgb(240 68 56 / 8%);
 }
 
-.answer-sheet-question-editor > header > strong,
+.answer-sheet-question-editor.is-drag-over {
+  border-color: #78a8eb;
+  box-shadow: 0 0 0 2px rgb(43 116 255 / 12%);
+}
+
+.answer-sheet-question-summary {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 28px auto minmax(130px, 1fr) auto auto 30px;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+}
+
+.answer-sheet-question-index,
 .answer-sheet-required {
   white-space: nowrap;
 }
 
-.answer-sheet-question-editor > header > select {
-  flex: 1;
-  min-width: 180px;
-}
-
-.answer-sheet-question-actions {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-}
-
-.answer-sheet-question-actions button,
-.answer-sheet-add-question button,
-.answer-sheet-option-editor > button,
-.answer-sheet-blank-editor > button {
-  background: #fff;
-  border: 1px solid #cbd4e2;
-  border-radius: 7px;
-  color: #344158;
-  cursor: pointer;
+.answer-sheet-question-index {
+  color: #1e3a5f;
   font-size: 13px;
-  padding: 5px 8px;
+}
+
+.answer-sheet-question-meta-toggle {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 3px 0 7px;
+  color: #718096;
   white-space: nowrap;
 }
 
-.answer-sheet-question-actions button:disabled,
-.answer-sheet-add-question button:disabled {
+.answer-sheet-question-meta-toggle:hover {
+  background: #f8fbff;
+}
+
+.answer-sheet-question-meta-toggle small {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.answer-sheet-error-badge {
+  color: #b42318;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.answer-sheet-chevron {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  transition: transform 140ms ease;
+}
+
+.answer-sheet-chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.answer-sheet-chevron svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.answer-sheet-reorder-handle,
+.answer-sheet-menu-trigger {
+  width: 28px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #7c8ba0;
+}
+
+.answer-sheet-reorder-handle {
+  cursor: grab;
+}
+
+.answer-sheet-reorder-handle:hover:not(:disabled),
+.answer-sheet-reorder-handle:focus-visible,
+.answer-sheet-reorder-handle.dragging,
+.answer-sheet-menu-trigger:hover:not(:disabled),
+.answer-sheet-menu-trigger:focus-visible {
+  border-color: #b8cff5;
+  background: #f1f6ff;
+  color: #2563c9;
+}
+
+.answer-sheet-reorder-handle.dragging {
+  cursor: grabbing;
+  opacity: 0.58;
+}
+
+.answer-sheet-reorder-handle svg {
+  width: 12px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.answer-sheet-menu-trigger svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.answer-sheet-action-menu-wrap {
+  position: relative;
+}
+
+.answer-sheet-action-menu {
+  width: 112px;
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid #d7e0eb;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgb(31 41 55 / 14%);
+}
+
+.answer-sheet-action-menu button {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.answer-sheet-action-menu button:hover:not(:disabled) {
+  background: #f2f6fb;
+}
+
+.answer-sheet-action-menu button.danger {
+  color: #b42318;
+}
+
+.answer-sheet-action-menu button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -149,6 +292,13 @@
   display: flex;
   font-size: 13px;
   gap: 5px;
+}
+
+.answer-sheet-question-content {
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid #e5ebf2;
 }
 
 .markdown-blur-source,
@@ -214,43 +364,68 @@
 .answer-sheet-option-editor,
 .answer-sheet-blank-editor {
   display: grid;
-  gap: 6px;
+  gap: 5px;
+}
+
+.answer-sheet-option-heading,
+.answer-sheet-selection-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.answer-sheet-option-heading strong {
+  color: #334155;
+  font-size: 12px;
+}
+
+.answer-sheet-option-heading span {
+  color: #8b99aa;
+  font-size: 11px;
 }
 
 .answer-sheet-option-row {
-  align-items: start;
+  align-items: center;
   background: #f8fafc;
   border: 1px solid #e2e7ef;
-  border-radius: 9px;
+  border-radius: 6px;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 22px minmax(0, 1fr) 48px;
-  padding: 6px 8px;
+  gap: 7px;
+  grid-template-columns: 18px minmax(0, 1fr) 30px;
+  padding: 4px 6px;
+}
+
+.answer-sheet-selection-footer {
+  margin-top: 2px;
 }
 
 .answer-sheet-accepted-answers textarea {
   border: 1px solid #ccd5e2;
   border-radius: 7px;
-  min-height: 56px;
+  min-height: 42px;
   padding: 6px 8px;
   resize: vertical;
-}
-
-.answer-sheet-blank-editor > p {
-  color: #69758a;
-  font-size: 13px;
-  margin: 0;
 }
 
 .answer-sheet-blank-row {
   align-items: center;
   background: #f8fafc;
   border: 1px solid #e1e7f0;
-  border-radius: 9px;
+  border-radius: 6px;
   display: grid;
-  gap: 8px;
-  grid-template-columns: auto auto minmax(220px, 1fr) auto auto;
-  padding: 8px;
+  gap: 7px;
+  grid-template-columns: minmax(150px, auto) auto minmax(220px, 1fr) auto 30px;
+  padding: 5px 6px;
+}
+
+.answer-sheet-blank-row > code {
+  max-width: 220px;
+  overflow: hidden;
+  color: #475569;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .answer-sheet-accepted-answers {
@@ -259,11 +434,17 @@
   font-size: 12px;
 }
 
-.answer-sheet-add-question {
-  border: 1px dashed #b8c5d8;
-  border-radius: 10px;
-  justify-content: center;
-  padding: 8px;
+.answer-sheet-case-sensitive {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.answer-sheet-add-blank {
+  justify-self: start;
+  border-style: dashed;
+  border-color: #b9c9dd;
+  background: #f8fbff;
+  color: #245fbd;
 }
 
 .answer-sheet-markdown {
@@ -466,19 +647,55 @@
 }
 
 @media (max-width: 760px) {
-  .answer-sheet-policy,
-  .answer-sheet-question-editor > header {
-    align-items: stretch;
+  .answer-sheet-editor-heading {
+    align-items: flex-start;
     flex-direction: column;
   }
 
-  .answer-sheet-question-actions {
-    margin-left: 0;
+  .answer-sheet-add-actions {
+    justify-content: flex-start;
   }
 
-  .answer-sheet-option-row,
+  .answer-sheet-question-summary {
+    grid-template-columns: 28px auto minmax(0, 1fr) 30px;
+  }
+
+  .answer-sheet-question-summary > .answer-sheet-reorder-handle {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .answer-sheet-question-index {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .answer-sheet-question-summary > select {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .answer-sheet-question-summary > .answer-sheet-action-menu-wrap {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .answer-sheet-question-meta-toggle {
+    grid-column: 2 / 4;
+    grid-row: 2;
+  }
+
+  .answer-sheet-required {
+    grid-column: 4;
+    grid-row: 2;
+  }
+
   .answer-sheet-blank-row {
     grid-template-columns: 1fr;
+  }
+
+  .answer-sheet-blank-row > .answer-sheet-action-menu-wrap {
+    justify-self: end;
   }
 }
 
