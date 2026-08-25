@@ -1,4 +1,4 @@
-import type { AcademicFlowEdge, AcademicFlowNode } from "../../types";
+import type { AcademicFlowEdge, AcademicFlowNode, AnswerSheetGrade } from "../../types";
 
 export type StudentIdentity = {
   id: number;
@@ -84,10 +84,12 @@ export type RuntimeNodeInstance = {
   approvedAt: string | null;
   audit: RuntimeNodeAudit | null;
   attemptNo: number;
+  attemptsRemaining: number | null;
   draft: Record<string, unknown>;
   effectiveDeadline: string | null;
   effectiveStartAt: string | null;
   id: string;
+  grade: AnswerSheetGrade | null;
   nodeKey: string;
   status: RuntimeNodeStatus;
   submission: Record<string, unknown>;
@@ -131,9 +133,11 @@ export type WorkflowProgressNode = {
 };
 
 export type TeacherSubmissionDetail = {
+  answerSheetGrade: AnswerSheetGrade | null;
+  attemptNo: number;
   auditJobStatus: "failed" | "pending" | "running" | "succeeded" | null;
   canManualApprove: boolean;
-  mode: "pass_fail" | "score" | null;
+  mode: "answer_sheet" | "pass_fail" | "score" | null;
   nodeInstanceId: string;
   nodeTitle: string;
   passed: boolean | null;
@@ -144,6 +148,7 @@ export type TeacherSubmissionDetail = {
   status: RuntimeNodeStatus;
   student: { name: string; studentNo: string };
   submissionId: string | null;
+  submission: Record<string, unknown>;
 };
 
 export type WorkflowProgress = {

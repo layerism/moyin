@@ -33,6 +33,7 @@ const openableStatuses = new Set<RuntimeNodeStatus>([
   "available",
   "audit_error",
   "draft",
+  "expired",
   "rejected",
   "reviewing",
   "scheduled",
@@ -212,6 +213,7 @@ export function StudentFlowTopology({
 }
 
 function getKindLabel(node: AcademicFlowNode) {
+  if (node.kind === "answer_sheet") return "答题卡";
   if (node.kind === "file") return "文件上传";
   if (node.kind === "confirmation") return "确认承诺";
   if (node.kind === "announcement") return "通知公告";

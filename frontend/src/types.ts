@@ -69,9 +69,88 @@ export type StudentAccount = {
 
 export type AuditScriptType = "js" | "mjs" | "none" | "py";
 export type AcademicFlowNodeStatus = "approved" | "disabled" | "pending" | "ready";
-export type AcademicFlowNodeKind = "announcement" | "confirmation" | "file" | "form";
+export type AcademicFlowNodeKind = "announcement" | "answer_sheet" | "confirmation" | "file" | "form";
 export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
 export type FormFieldType = "text" | "textarea" | "radio" | "checkbox";
+
+export type AnswerSheetQuestionType = "fill_blank" | "multiple_choice" | "single_choice";
+
+export type AnswerSheetOption = {
+  content: string;
+  id: string;
+};
+
+export type AnswerSheetSelectionQuestion = {
+  content: string;
+  id: string;
+  options: AnswerSheetOption[];
+  points: number;
+  required: boolean;
+  type: "multiple_choice" | "single_choice";
+};
+
+export type AnswerSheetBlank = {
+  id: string;
+  points: number;
+};
+
+export type AnswerSheetFillBlankQuestion = {
+  blanks: AnswerSheetBlank[];
+  content: string;
+  id: string;
+  required: boolean;
+  type: "fill_blank";
+};
+
+export type AnswerSheetQuestion = AnswerSheetSelectionQuestion | AnswerSheetFillBlankQuestion;
+
+export type AnswerSheetConfig = {
+  gradingPolicy: {
+    feedback: "full_after_deadline" | "question_result" | "score_only";
+    maxAttempts: number | null;
+    passingScore: number;
+  };
+  questions: AnswerSheetQuestion[];
+  schemaVersion: "1.0";
+};
+
+export type AnswerSheetPrivateAnswer =
+  | { correctOptionId: string; type: "single_choice" }
+  | { correctOptionIds: string[]; mode: "exact_set"; type: "multiple_choice" }
+  | {
+      blanks: Record<string, { acceptedAnswers: string[]; caseSensitive: boolean }>;
+      type: "fill_blank";
+    };
+
+export type AnswerSheetPrivateKey = {
+  answers: Record<string, AnswerSheetPrivateAnswer>;
+  graderVersion: "answer-sheet-v1";
+  schemaVersion: "1.0";
+};
+
+export type AnswerSheetQuestionResult = {
+  awardedPoints: number;
+  blankResults?: Array<{
+    awardedPoints: number;
+    blankId: string;
+    correct: boolean;
+    maxPoints: number;
+  }>;
+  correct: boolean;
+  maxPoints: number;
+  questionId: string;
+};
+
+export type AnswerSheetGrade = {
+  graderVersion: "answer-sheet-v1";
+  maxScore: number;
+  passed: boolean;
+  passingScore: number;
+  questionResults?: AnswerSheetQuestionResult[];
+  schemaVersion: "1.0";
+  score: number;
+  standardAnswers?: Record<string, AnswerSheetPrivateAnswer>;
+};
 
 export type FormFieldOption = {
   id: string;
@@ -102,6 +181,7 @@ export type NodeTemplateAsset = {
 };
 
 export type AcademicFlowNode = {
+  answerSheet?: AnswerSheetConfig;
   auditScriptAcceptedExtensions?: string[];
   auditScriptId?: string;
   auditScriptName: string;
@@ -139,6 +219,7 @@ export type AcademicFlowConfig = {
 };
 
 export type AcademicProcess = {
+  answerSheetKeys: Record<string, AnswerSheetPrivateKey>;
   createdAt: string;
   description: string;
   draftConfig: AcademicFlowConfig;

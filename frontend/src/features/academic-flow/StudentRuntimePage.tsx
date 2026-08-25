@@ -4,6 +4,8 @@ import Markdown from "react-markdown";
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
 import { validateFormAnswers } from "./formFields";
+import { validateAnswerSheetSubmission } from "./answerSheet";
+import { AnswerSheetGradeResult, RuntimeAnswerSheet } from "./RuntimeAnswerSheet";
 import { ReadonlyFormFields, RuntimeFormFields } from "./RuntimeFormFields";
 import {
   getScanFilenameError,
@@ -76,7 +78,17 @@ export function StudentRuntimePage({
     setDrafts((current) => {
       const next = { ...current };
       for (const node of instance.nodeInstances) {
-        if (!(node.id in next)) next[node.id] = node.draft;
+        if (!(node.id in next)) {
+          const configNode = instance.config.nodes.find((item) => item.id === node.nodeKey);
+          next[node.id] = (
+            configNode?.kind === "answer_sheet"
+            && node.status === "rejected"
+            && Object.keys(node.draft).length === 0
+          ) ? node.submission : configNode?.kind === "answer_sheet"
+            && Object.keys(node.draft).length === 0
+            ? { answers: {} }
+            : node.draft;
+        }
       }
       return next;
     });
@@ -230,6 +242,10 @@ export function StudentRuntimePage({
             ? "表单修改已提交并通过"
             : "自动审核通过，后续节点已按流程规则开放",
         );
+      } else if (submittedNode?.status === "rejected" && submittedNode.grade) {
+        setNotice(
+          `本次得分 ${submittedNode.grade.score} / ${submittedNode.grade.maxScore}，未达到及格要求`,
+        );
       } else {
         setNotice("节点已提交，正在自动审核");
       }
@@ -374,6 +390,7 @@ export function StudentRuntimePage({
           draft={drafts[activeRuntime.id] ?? {}}
           fieldErrors={fieldErrorsByNode[activeRuntime.id] ?? {}}
           key={activeRuntime.id}
+          instanceId={instance.id}
           node={activeNode}
           onBeginFormAmendment={() => beginFormAmendment(activeRuntime)}
           onClose={() => {
@@ -413,6 +430,7 @@ function RuntimeNodeDialog({
   busy,
   draft,
   fieldErrors,
+  instanceId,
   node,
   onBeginFormAmendment,
   onClose,
@@ -429,6 +447,7 @@ function RuntimeNodeDialog({
   busy: boolean;
   draft: Record<string, unknown>;
   fieldErrors: Record<string, string>;
+  instanceId: string;
   node: AcademicFlowNode;
   onBeginFormAmendment: () => void;
   onClose: () => void;
@@ -469,7 +488,13 @@ function RuntimeNodeDialog({
   const writable = writableStatuses.has(runtime.status) || (
     approvedForm && amendingApprovedForm && !deadlinePassed
   );
-  const readonly = runtime.status === "approved" && !writable;
+  const answerSheetAttemptsExhausted = node.kind === "answer_sheet"
+    && runtime.attemptsRemaining === 0;
+  const effectivelyWritable = writable && !answerSheetAttemptsExhausted;
+  const expiredAnswerSheetSubmission = node.kind === "answer_sheet"
+    && runtime.status === "expired"
+    && Object.keys(runtime.submission).length > 0;
+  const readonly = (runtime.status === "approved" || expiredAnswerSheetSubmission) && !writable;
   const displayedPayload = readonly ? runtime.submission : draft;
   const draftFile = getDraftFile(draft.file);
   const submittedFile = getDraftFile(runtime.submission.file);
@@ -512,7 +537,9 @@ function RuntimeNodeDialog({
     || Boolean(scanBlocker && !confirmationMissing);
   const clientFieldErrors = node.kind === "form"
     ? validateFormAnswers(node.infoFields, draft)
-    : {};
+    : node.kind === "answer_sheet" && node.answerSheet
+      ? validateAnswerSheetSubmission(node.answerSheet, draft, true)
+      : {};
   const visibleFieldErrors = Object.fromEntries(
     Object.entries({ ...clientFieldErrors, ...fieldErrors }).filter(([fieldId]) =>
       submitAttempted || touchedFieldIds.has(fieldId) || Boolean(fieldErrors[fieldId]),
@@ -598,7 +625,7 @@ function RuntimeNodeDialog({
   };
 
   const handleSubmit = () => {
-    if (node.kind === "form" && Object.keys(clientFieldErrors).length > 0) {
+    if ((node.kind === "form" || node.kind === "answer_sheet") && Object.keys(clientFieldErrors).length > 0) {
       setSubmitAttempted(true);
       const firstFieldId = Object.keys(clientFieldErrors)[0];
       window.requestAnimationFrame(() => {
@@ -646,15 +673,26 @@ function RuntimeNodeDialog({
           </p>
         ) : null}
         {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
+        {node.kind === "answer_sheet" && runtime.grade ? (
+          <AnswerSheetGradeResult grade={runtime.grade} node={node} />
+        ) : null}
+        {node.kind === "answer_sheet" ? (
+          <p className="runtime-answer-sheet-meta">
+            总分 {node.answerSheet ? node.answerSheet.questions.reduce((total, question) => total + (question.type === "fill_blank" ? question.blanks.reduce((sum, blank) => sum + blank.points, 0) : question.points), 0) : 0}
+            {runtime.attemptsRemaining === null ? " · 截止前不限作答次数" : ` · 剩余 ${runtime.attemptsRemaining} 次`}
+          </p>
+        ) : null}
         {readonly ? (
           <>
             <section className="runtime-completion-banner">
               <strong>
-                {approvedForm ? "已完成 · 当前通过内容" : "已完成 · 提交内容已锁定"}
+                {expiredAnswerSheetSubmission
+                  ? "已截止 · 最后一次提交"
+                  : approvedForm ? "已完成 · 当前通过内容" : "已完成 · 提交内容已锁定"}
               </strong>
               <span>提交时间：{formatDateTime(runtime.submittedAt)}</span>
             </section>
-            <ReadonlySubmission node={node} onDownloadFile={onDownloadFile} payload={displayedPayload} submittedAt={runtime.submittedAt} />
+            <ReadonlySubmission instanceId={instanceId} node={node} onDownloadFile={onDownloadFile} payload={displayedPayload} submittedAt={runtime.submittedAt} />
             {canAmendApprovedForm ? (
               <div className="runtime-node-actions runtime-node-actions-readonly">
                 <button
@@ -670,8 +708,8 @@ function RuntimeNodeDialog({
             ) : null}
           </>
         ) : awaitingReview ? (
-          <ReviewingSubmission node={node} onDownloadFile={onDownloadFile} runtime={runtime} />
-        ) : writable ? (
+          <ReviewingSubmission instanceId={instanceId} node={node} onDownloadFile={onDownloadFile} runtime={runtime} />
+        ) : effectivelyWritable ? (
           <div className="runtime-node-form">
           {node.kind === "form" ? (
             <RuntimeFormFields
@@ -680,6 +718,16 @@ function RuntimeNodeDialog({
               onBlur={(fieldId) => setTouchedFieldIds((current) => new Set(current).add(fieldId))}
               onUpdate={(answerKey, value, fieldId) => onUpdate(answerKey, value, fieldId)}
               payload={draft}
+            />
+          ) : null}
+          {node.kind === "answer_sheet" ? (
+            <RuntimeAnswerSheet
+              errors={visibleFieldErrors}
+              instanceId={instanceId}
+              node={node}
+              onChange={(answers, fieldId) => onUpdate("answers", answers, fieldId)}
+              payload={draft}
+              readonly={false}
             />
           ) : null}
           {node.kind === "file" ? (
@@ -829,6 +877,8 @@ function RuntimeNodeDialog({
             </div>
           </div>
           </div>
+        ) : answerSheetAttemptsExhausted ? (
+          <p className="runtime-state-hint">已达到最大作答次数，当前成绩不能继续重答。</p>
         ) : runtime.status === "audit_error" && runtime.audit?.canRetry ? (
           <div className="runtime-audit-retry">
             <p>{getStateHint(runtime.status)}</p>
@@ -852,10 +902,12 @@ function RuntimeNodeDialog({
 }
 
 function ReviewingSubmission({
+  instanceId,
   node,
   onDownloadFile,
   runtime,
 }: {
+  instanceId: string;
   node: AcademicFlowNode;
   onDownloadFile: (fileId: string) => void;
   runtime: RuntimeNodeInstance;
@@ -878,6 +930,7 @@ function ReviewingSubmission({
       </section>
       <h3 className="runtime-reviewing-submission-title">本次提交内容</h3>
       <ReadonlySubmission
+        instanceId={instanceId}
         node={node}
         onDownloadFile={onDownloadFile}
         payload={runtime.submission}
@@ -935,16 +988,29 @@ function RuntimeWarningDialog({
 }
 
 function ReadonlySubmission({
+  instanceId,
   node,
   onDownloadFile,
   payload,
   submittedAt,
 }: {
+  instanceId: string;
   node: AcademicFlowNode;
   onDownloadFile?: (fileId: string) => void;
   payload: Record<string, unknown>;
   submittedAt: string | null;
 }) {
+  if (node.kind === "answer_sheet") {
+    return (
+      <RuntimeAnswerSheet
+        errors={{}}
+        instanceId={instanceId}
+        node={node}
+        payload={payload}
+        readonly
+      />
+    );
+  }
   if (node.kind === "form") {
     return <ReadonlyFormFields fields={node.infoFields} payload={payload} />;
   }

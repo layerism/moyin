@@ -58,11 +58,21 @@ export function TeacherProgressPanel({
     (node) => node.kind === "file" || (node.kind === "confirmation" && Boolean(node.templateAsset)),
   );
   const materialNodeKeys = new Set(materialNodes.map((node) => node.id));
+  const deadlineAnswerReleaseNodeKeys = new Set(
+    nodes.filter((node) => (
+      node.kind === "answer_sheet"
+      && node.answerSheet?.gradingPolicy.feedback === "full_after_deadline"
+    )).map((node) => node.id),
+  );
   const selectedExportNodeKey = nodes.some((node) => node.id === exportNodeKey)
     ? exportNodeKey
     : nodes[0]?.id ?? "";
   const canExtendNode = (node: WorkflowProgressNode) => Boolean(
     node.effectiveDeadline
+      && !(
+        deadlineAnswerReleaseNodeKeys.has(node.nodeKey)
+        && new Date(node.effectiveDeadline).getTime() <= Date.now()
+      )
       && (node.status !== "approved" || formNodeKeys.has(node.nodeKey)),
   );
 
@@ -694,9 +704,11 @@ export function TeacherProgressPanel({
             {detailNotice ? <p className="submission-detail-notice">{detailNotice}</p> : null}
             <dl className="submission-detail-summary">
               <div><dt>状态</dt><dd>{submissionDetail.status}</dd></div>
-              <div><dt>模式</dt><dd>{submissionDetail.reviewSource === "manual" ? "人工审核" : submissionDetail.mode === "score" ? "AI 评分" : submissionDetail.mode === "pass_fail" ? "AI 通过 / 不通过" : "直接通过"}</dd></div>
-              {submissionDetail.reviewSource === "manual" ? <div><dt>审核结论</dt><dd>通过</dd></div> : submissionDetail.mode === "score" ? <div><dt>分数</dt><dd>{submissionDetail.score === null ? "尚未生成" : `${submissionDetail.score} 分`}</dd></div> : submissionDetail.mode === "pass_fail" ? <div><dt>审核结论</dt><dd>{submissionDetail.passed === null ? "尚未生成" : submissionDetail.passed ? "通过" : "不通过"}</dd></div> : <div><dt>提交结论</dt><dd>已通过</dd></div>}
+              <div><dt>模式</dt><dd>{submissionDetail.reviewSource === "manual" ? "人工审核" : submissionDetail.mode === "answer_sheet" ? "答题卡自动判分" : submissionDetail.mode === "score" ? "AI 评分" : submissionDetail.mode === "pass_fail" ? "AI 通过 / 不通过" : "直接通过"}</dd></div>
+              {submissionDetail.mode === "answer_sheet" ? <><div><dt>分数</dt><dd>{submissionDetail.answerSheetGrade ? `${submissionDetail.answerSheetGrade.score} / ${submissionDetail.answerSheetGrade.maxScore} 分` : "尚未生成"}</dd></div><div><dt>判定</dt><dd>{submissionDetail.passed ? "及格" : "未及格"}</dd></div></> : submissionDetail.reviewSource === "manual" ? <div><dt>审核结论</dt><dd>通过</dd></div> : submissionDetail.mode === "score" ? <div><dt>分数</dt><dd>{submissionDetail.score === null ? "尚未生成" : `${submissionDetail.score} 分`}</dd></div> : submissionDetail.mode === "pass_fail" ? <div><dt>审核结论</dt><dd>{submissionDetail.passed === null ? "尚未生成" : submissionDetail.passed ? "通过" : "不通过"}</dd></div> : <div><dt>提交结论</dt><dd>已通过</dd></div>}
+              {submissionDetail.mode === "answer_sheet" ? <div><dt>提交次数</dt><dd>第 {submissionDetail.attemptNo} 次</dd></div> : null}
             </dl>
+            {submissionDetail.answerSheetGrade?.questionResults?.length ? <section className="submission-detail-reason"><strong>逐题得分</strong><p>{submissionDetail.answerSheetGrade.questionResults.map((result, index) => `第 ${index + 1} 题 ${result.awardedPoints}/${result.maxPoints} 分`).join("；")}</p></section> : null}
             {submissionDetail.reason ? <section className="submission-detail-reason"><strong>{submissionDetail.reviewSource !== "manual" && submissionDetail.mode === "score" ? "评分说明" : "审核原因"}</strong><p>{submissionDetail.reason}</p></section> : null}
             <ul className="runtime-submitted-scan-list">{submissionDetail.scans.map((scan) => <li key={scan.fileId}><span>{scan.originalName} · {scan.pageCount} 页</span><a href={scan.url} rel="noreferrer" target="_blank">下载</a></li>)}</ul>
           </div>

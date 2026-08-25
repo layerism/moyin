@@ -57,6 +57,8 @@ import {
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { FormFieldEditor } from "./FormFieldEditor";
 import { validateFormFieldConfig } from "./formFields";
+import { createPrivateAnswer, validateAnswerSheetAuthoring } from "./answerSheet";
+import { AnswerSheetEditor } from "./AnswerSheetEditor";
 import {
   createCurveGeometry,
   createCurvedEdgeGeometries,
@@ -81,6 +83,7 @@ const statusLabels: Record<AcademicFlowNodeStatus, string> = {
 
 const kindLabels: Record<AcademicFlowNodeKind, string> = {
   announcement: "通知公告",
+  answer_sheet: "答题卡",
   confirmation: "确认承诺",
   file: "文件上传",
   form: "信息填写",
@@ -353,6 +356,20 @@ export function AcademicFlowDesigner({
       setActionNotice("请先修正表单字段配置");
       return;
     }
+    const invalidAnswerSheetNode = candidate.nodes.find((node) => {
+      if (node.kind !== "answer_sheet") return false;
+      const key = candidate.answerSheetKeys[node.id];
+      return !node.answerSheet
+        || !key
+        || (node.answerSheet.gradingPolicy.feedback === "full_after_deadline" && !node.deadlineAt)
+        || Object.keys(validateAnswerSheetAuthoring(node.answerSheet, key)).length > 0;
+    });
+    if (invalidAnswerSheetNode) {
+      setActiveNodeId(invalidAnswerSheetNode.id);
+      setInspectorNodeId(invalidAnswerSheetNode.id);
+      setActionNotice("请先修正答题卡配置");
+      return;
+    }
     if (!workingProcess.published) {
       await publishProcess(candidate);
       return;
@@ -424,8 +441,22 @@ export function AcademicFlowDesigner({
   ) => {
     if (editorLocked) return;
     const nextNode = createNode(kind, title, position);
+    const answerSheetKeys = nextNode.kind === "answer_sheet" && nextNode.answerSheet
+      ? {
+          ...workingProcess.answerSheetKeys,
+          [nextNode.id]: {
+            answers: Object.fromEntries(nextNode.answerSheet.questions.map((question) => [
+              question.id,
+              createPrivateAnswer(question),
+            ])),
+            graderVersion: "answer-sheet-v1" as const,
+            schemaVersion: "1.0" as const,
+          },
+        }
+      : workingProcess.answerSheetKeys;
     const nextProcess = {
       ...workingProcess,
+      answerSheetKeys,
       nodes: [...workingProcess.nodes, nextNode],
     };
     commitDesignChange(nextProcess);
@@ -447,6 +478,20 @@ export function AcademicFlowDesigner({
         node.id === nodeId ? { ...node, ...nextValue } : node,
       ),
     });
+  };
+
+  const updateAnswerSheet = (
+    nodeId: string,
+    answerSheet: NonNullable<AcademicFlowNode["answerSheet"]>,
+    gradingKey: AcademicProcess["answerSheetKeys"][string],
+  ) => {
+    if (editorLocked || protectedNodeIds.includes(nodeId)) return;
+    setWorkingProcess((current) => ({
+      ...current,
+      answerSheetKeys: { ...current.answerSheetKeys, [nodeId]: gradingKey },
+      nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, answerSheet } : node),
+    }));
+    setRevisionDirty(true);
   };
 
   const applyPublishedAuditPolicy = (
@@ -534,6 +579,18 @@ export function AcademicFlowDesigner({
     }
   };
 
+  const uploadAnswerSheetImage = async (nodeId: string, file: File) => {
+    let candidate = workingProcess;
+    if (revisionDirty) {
+      const saved = await saveWorkingDraft(workingProcess, "");
+      if (!saved) throw new Error("题图上传前暂存失败");
+      candidate = saved;
+    }
+    const asset = await workflowApi.uploadAnswerSheetAsset(serverFlowId, nodeId, file);
+    if (candidate !== workingProcess) setWorkingProcess(candidate);
+    return asset;
+  };
+
   const deleteNodeTemplate = async (nodeId: string) => {
     setSaving(true);
     setActionNotice("");
@@ -572,7 +629,9 @@ export function AcademicFlowDesigner({
     }
     const nodes = workingProcess.nodes.filter((node) => node.id !== nodeId);
     const edges = processEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId);
-    commitDesignChange({ ...workingProcess, edges, nodes });
+    const answerSheetKeys = { ...workingProcess.answerSheetKeys };
+    delete answerSheetKeys[nodeId];
+    commitDesignChange({ ...workingProcess, answerSheetKeys, edges, nodes });
     setActiveNodeId(nodes[0]?.id ?? "");
     if (inspectorNodeId === nodeId) {
       setInspectorNodeId(null);
@@ -674,10 +733,13 @@ export function AcademicFlowDesigner({
             flowId={serverFlowId}
             nodeCoreLocked={!canEditRevisionNodeCore(inspectorNode.id, protectedNodeIds)}
             node={inspectorNode}
+            answerSheetKey={workingProcess.answerSheetKeys[inspectorNode.id]}
             onClose={() => setInspectorNodeId(null)}
             onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
             onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, file)}
+            onUploadAnswerSheetImage={(file) => uploadAnswerSheetImage(inspectorNode.id, file)}
             onUpdateNode={updateNode}
+            onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(params) => applyPublishedAuditPolicy(inspectorNode.id, params)}
             publishedAuditPolicy={workingProcess.published && protectedNodeIds.includes(inspectorNode.id)}
             publishedRevision={workingProcess.published && revisionEditing}
@@ -1926,6 +1988,7 @@ function FlowNodeCanvas({
 }
 
 function NodeInspector({
+  answerSheetKey,
   editingLocked,
   flowId,
   nodeCoreLocked,
@@ -1933,11 +1996,14 @@ function NodeInspector({
   onClose,
   onDeleteTemplate,
   onUploadTemplate,
+  onUploadAnswerSheetImage,
   onUpdateNode,
+  onUpdateAnswerSheet,
   onAuditPolicySaved,
   publishedAuditPolicy,
   publishedRevision,
 }: {
+  answerSheetKey?: AcademicProcess["answerSheetKeys"][string];
   editingLocked: boolean;
   flowId: string;
   nodeCoreLocked: boolean;
@@ -1945,7 +2011,13 @@ function NodeInspector({
   onClose: () => void;
   onDeleteTemplate: () => void;
   onUploadTemplate: (file: File) => void;
+  onUploadAnswerSheetImage: (file: File) => Promise<{ assetId: string; originalName: string }>;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
+  onUpdateAnswerSheet: (
+    nodeId: string,
+    config: NonNullable<AcademicFlowNode["answerSheet"]>,
+    gradingKey: AcademicProcess["answerSheetKeys"][string],
+  ) => void;
   onAuditPolicySaved: (params: Record<string, string | number | boolean>) => void;
   publishedAuditPolicy: boolean;
   publishedRevision: boolean;
@@ -2148,6 +2220,19 @@ function NodeInspector({
               onChange={(infoFields) => onUpdateNode(node.id, { infoFields })}
             />
           </section>
+        ) : null}
+
+        {node.kind === "answer_sheet" && node.answerSheet && answerSheetKey ? (
+          <AnswerSheetEditor
+            config={node.answerSheet}
+            disabled={coreSettingsDisabled}
+            deadlineAt={node.deadlineAt}
+            flowId={flowId}
+            gradingKey={answerSheetKey}
+            nodeKey={node.id}
+            onChange={(config, gradingKey) => onUpdateAnswerSheet(node.id, config, gradingKey)}
+            onUploadImage={onUploadAnswerSheetImage}
+          />
         ) : null}
 
         {settingCapabilities.configuresConfirmationScan ? (
@@ -2667,6 +2752,9 @@ function StudentNode({ node }: { node: AcademicFlowNode }) {
 }
 
 function getTemplateIcon(kind: AcademicFlowNodeKind) {
+  if (kind === "answer_sheet") {
+    return "▣";
+  }
   if (kind === "file") {
     return "⇧";
   }

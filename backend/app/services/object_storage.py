@@ -110,6 +110,20 @@ class ObjectStorage:
         except Exception as exc:
             raise ObjectStorageError("OSS 下载链接生成失败") from exc
 
+    def signed_inline_url(self, key: str, content_type: str) -> str:
+        try:
+            return self._bucket.sign_url(
+                "GET",
+                key,
+                self._expires,
+                params={
+                    "response-content-disposition": "inline",
+                    "response-content-type": content_type,
+                },
+            )
+        except Exception as exc:
+            raise ObjectStorageError("OSS 预览链接生成失败") from exc
+
 
 def get_object_storage() -> ObjectStorage:
     return ObjectStorage(settings)

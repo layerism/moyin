@@ -17,6 +17,8 @@ class TablePolicy:
 
 
 TABLE_POLICIES: dict[str, TablePolicy] = {
+    "answer_sheet_drafts": TablePolicy(),
+    "answer_sheet_grades": TablePolicy(),
     "audit_logs": TablePolicy(deletable=True),
     "flow_instances": TablePolicy(
         frozenset({"status", "completed_at", "last_active_at"}), deletable=True
@@ -27,6 +29,9 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
     "flow_node_runtime_configs": TablePolicy(
         frozenset({"deadline_at"}), deletable=True
     ),
+    "flow_content_assets": TablePolicy(),
+    "flow_version_answer_keys": TablePolicy(),
+    "flow_version_content_assets": TablePolicy(),
     "flow_versions": TablePolicy(deletable=True),
     "flows": TablePolicy(
         frozenset({"name", "description", "owner_id", "status", "draft_config"}),
@@ -52,7 +57,13 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
     "teacher_sessions": TablePolicy(deletable=True),
 }
 
-SENSITIVE_COLUMNS = frozenset({"password_hash", "token_hash", "token_value"})
+SENSITIVE_COLUMNS = frozenset({
+    "grading_config",
+    "grading_snapshot",
+    "password_hash",
+    "token_hash",
+    "token_value",
+})
 REDACTED_VALUE = "******"
 
 

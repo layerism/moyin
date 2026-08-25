@@ -48,7 +48,15 @@ def test_super_admin_lists_tables_and_redacts_sensitive_values(client: TestClien
     rows = client.get("/api/admin/database/tables/teacher_accounts/rows")
 
     assert tables.status_code == 200
-    assert "teacher_accounts" in {table["name"] for table in tables.json()}
+    table_names = {table["name"] for table in tables.json()}
+    assert "teacher_accounts" in table_names
+    assert {
+        "answer_sheet_drafts",
+        "answer_sheet_grades",
+        "flow_content_assets",
+        "flow_version_answer_keys",
+        "flow_version_content_assets",
+    } <= table_names
     assert rows.status_code == 200
     assert rows.json()["rows"][0]["password_hash"] == "******"
     assert rows.json()["rows"][0]["role"] == "super_admin"
