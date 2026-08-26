@@ -73,15 +73,50 @@ test("markdown editor shows source only while focused", () => {
   assert.equal(resolveMarkdownEditorMode({ disabled: true, focused: true }), "preview");
 });
 
-test("answer sheet markdown keeps only headings math and code formatting", () => {
+test("answer sheet markdown keeps approved basic formatting and downgrades the rest", () => {
   const tree = {
     type: "root",
     children: [
       { type: "heading", depth: 2, children: [{ type: "text", value: "章节" }] },
       { type: "heading", depth: 3, children: [{ type: "strong", children: [{ type: "text", value: "普通文本" }] }] },
-      { type: "paragraph", children: [{ type: "image", alt: "题图", url: "asset://image" }] },
+      {
+        type: "paragraph",
+        children: [
+          { type: "strong", children: [{ type: "text", value: "重点" }] },
+          { type: "emphasis", children: [{ type: "text", value: "强调" }] },
+          { type: "link", url: "https://example.com", children: [{ type: "text", value: "链接文字" }] },
+          { type: "delete", children: [{ type: "text", value: "删除线文字" }] },
+          { type: "image", alt: "题图", url: "asset://image" },
+        ],
+      },
+      {
+        type: "blockquote",
+        children: [{ type: "paragraph", children: [{ type: "text", value: "提示" }] }],
+      },
+      {
+        type: "list",
+        ordered: false,
+        children: [{
+          type: "listItem",
+          checked: true,
+          children: [{ type: "paragraph", children: [{ type: "text", value: "任务文字" }] }],
+        }],
+      },
+      {
+        type: "table",
+        align: [null, "right"],
+        children: [{
+          type: "tableRow",
+          children: [
+            { type: "tableCell", children: [{ type: "strong", children: [{ type: "text", value: "项目" }] }] },
+            { type: "tableCell", children: [{ type: "inlineMath", value: "v" }] },
+          ],
+        }],
+      },
       { type: "code", lang: "python", value: "print(1)" },
       { type: "math", value: "x^2" },
+      { type: "thematicBreak" },
+      { type: "html", value: "<b>HTML</b>" },
     ],
   };
 
@@ -89,8 +124,40 @@ test("answer sheet markdown keeps only headings math and code formatting", () =>
 
   assert.deepEqual(tree.children, [
     { type: "heading", depth: 2, children: [{ type: "text", value: "章节" }] },
-    { type: "paragraph", children: [{ type: "text", value: "普通文本" }] },
-    { type: "paragraph", children: [{ type: "text", value: "题图" }] },
+    { type: "paragraph", children: [{ type: "strong", children: [{ type: "text", value: "普通文本" }] }] },
+    {
+      type: "paragraph",
+      children: [
+        { type: "strong", children: [{ type: "text", value: "重点" }] },
+        { type: "emphasis", children: [{ type: "text", value: "强调" }] },
+        { type: "text", value: "链接文字" },
+        { type: "text", value: "删除线文字" },
+        { type: "text", value: "题图" },
+      ],
+    },
+    {
+      type: "blockquote",
+      children: [{ type: "paragraph", children: [{ type: "text", value: "提示" }] }],
+    },
+    {
+      type: "list",
+      ordered: false,
+      children: [{
+        type: "listItem",
+        children: [{ type: "paragraph", children: [{ type: "text", value: "任务文字" }] }],
+      }],
+    },
+    {
+      type: "table",
+      align: [null, "right"],
+      children: [{
+        type: "tableRow",
+        children: [
+          { type: "tableCell", children: [{ type: "strong", children: [{ type: "text", value: "项目" }] }] },
+          { type: "tableCell", children: [{ type: "inlineMath", value: "v" }] },
+        ],
+      }],
+    },
     { type: "code", lang: "python", value: "print(1)" },
     { type: "math", value: "x^2" },
   ]);
