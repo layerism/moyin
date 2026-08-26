@@ -25,14 +25,6 @@
       "multiline": true
     },
     {
-      "key": "modelName",
-      "label": "模型名称",
-      "type": "string",
-      "value": "deepseek-v4-flash",
-      "minimumLength": 1,
-      "maximumLength": 200
-    },
-    {
       "key": "thinkingEnabled",
       "label": "模型思考",
       "type": "boolean",

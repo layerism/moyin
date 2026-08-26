@@ -43,7 +43,6 @@ def _block(
 def _settings() -> dict[str, object]:
     return {
         "systemPrompt": "只依据审核规则检查文档。",
-        "modelName": "deepseek-chat",
         "thinkingEnabled": False,
         "temperature": 0,
         "requestTimeoutSeconds": 60,
@@ -410,10 +409,11 @@ def test_run_propagates_system_failures(
         handler.run(_payload(path))
 
 
-def test_request_review_reads_strict_json_object(
+def test_request_review_uses_environment_model_and_reads_strict_json_object(
     handler: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     expected = {"issues": [], "checkedRuleIds": [], "checkedChunkIds": []}
+    requested_body: dict[str, object] = {}
 
     class Response:
         def __enter__(self) -> Self:
@@ -427,8 +427,27 @@ def test_request_review_reads_strict_json_object(
                 {"choices": [{"message": {"content": json.dumps(expected)}}]}
             ).encode()
 
+    def open_request(request: object, timeout: float) -> Response:
+        nonlocal requested_body
+        requested_body = json.loads(request.data)
+        assert timeout == 60
+        return Response()
+
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
     monkeypatch.setenv("DEEPSEEK_API_URL", "https://api.deepseek.com")
-    monkeypatch.setattr(handler, "urlopen", lambda request, timeout: Response())
+    monkeypatch.setenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    monkeypatch.setattr(handler, "urlopen", open_request)
 
     assert handler.request_review("system", "user", _settings()) == expected
+    assert requested_body["model"] == "deepseek-v4-flash"
+
+
+def test_request_review_rejects_missing_environment_model(
+    handler: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    monkeypatch.setenv("DEEPSEEK_API_URL", "https://api.deepseek.com")
+    monkeypatch.delenv("DEEPSEEK_MODEL", raising=False)
+
+    with pytest.raises(RuntimeError, match="DOCX LLM 审核服务未配置"):
+        handler.request_review("system", "user", _settings())

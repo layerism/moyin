@@ -26,9 +26,10 @@ class Settings(BaseSettings):
     audit_script_stdout_max_bytes: int = 1_048_576
     audit_script_stderr_max_bytes: int = 262_144
     audit_temp_root: str = ""
-    audit_script_env_allowlist: str = "DEEPSEEK_API_URL,DEEPSEEK_API_KEY"
+    audit_script_env_allowlist: str = "DEEPSEEK_API_URL,DEEPSEEK_API_KEY,DEEPSEEK_MODEL"
     deepseek_api_url: str = ""
     deepseek_api_key: str = ""
+    deepseek_model: str = ""
     vision_api_base_url: str = ""
     vision_api_key: str = ""
     vision_model: str = ""
