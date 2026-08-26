@@ -28,7 +28,7 @@
       "key": "modelName",
       "label": "模型名称",
       "type": "string",
-      "value": "deepseek-chat",
+      "value": "deepseek-v4-flash",
       "minimumLength": 1,
       "maximumLength": 200
     },
@@ -36,7 +36,7 @@
       "key": "thinkingEnabled",
       "label": "模型思考",
       "type": "boolean",
-      "value": false
+      "value": true
     },
     {
       "key": "temperature",
@@ -64,6 +64,6 @@
     }
   ],
   "execution": {
-    "maxConcurrency": 4
+    "maxConcurrency": 8
   }
 }
