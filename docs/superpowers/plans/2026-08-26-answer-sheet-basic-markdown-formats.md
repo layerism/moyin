@@ -31,10 +31,10 @@
 - Consumes: `BasicMarkdownNode` 与 `restrictBasicMarkdownTree(tree)`。
 - Produces: 只保留已批准块级和行内节点的规范化 MDAST。
 
-- [ ] 调整纯逻辑测试，覆盖粗体、斜体、列表、引用、表格保留，以及链接、图片、删除线、任务列表和三级标题降级。
-- [ ] 扩展 `normalizeBlocks`，显式处理 `blockquote`、`list`、`listItem`、`table`、`tableRow` 和 `tableCell`。
-- [ ] 扩展 `normalizeInline`，保留 `strong` 与 `emphasis`，继续剥离未批准包装节点。
-- [ ] 通过重建 `listItem` 删除 `checked` 属性，使 GFM 任务列表降级为普通列表。
+- [x] 调整纯逻辑测试，覆盖粗体、斜体、列表、引用、表格保留，以及链接、图片、删除线、任务列表和三级标题降级。
+- [x] 扩展 `normalizeBlocks`，显式处理 `blockquote`、`list`、`listItem`、`table`、`tableRow` 和 `tableCell`。
+- [x] 扩展 `normalizeInline`，保留 `strong` 与 `emphasis`，继续剥离未批准包装节点。
+- [x] 通过重建 `listItem` 删除 `checked` 属性，使 GFM 任务列表降级为普通列表。
 
 ### Task 2: 接入 GFM 表格并增加紧凑样式
 
@@ -48,10 +48,10 @@
 - Consumes: `remark-gfm` 产生的表格 AST。
 - Produces: 带横向滚动容器的语义化 HTML 表格，并保持教师与学生一致。
 
-- [ ] 使用项目内 Node.js 安装并锁定 `remark-gfm@4.0.1`。
-- [ ] 在 `remarkMath` 之后、白名单插件之前注册 `remarkGfm`。
-- [ ] 使用共享表格组件添加 `.answer-sheet-table-scroll` 容器。
-- [ ] 在 `.answer-sheet-markdown` 作用域内设置列表、引用、表格、单元格边框和窄屏横向滚动样式。
+- [x] 使用项目内 Node.js 安装并锁定 `remark-gfm@4.0.1`。
+- [x] 在 `remarkMath` 之后、白名单插件之前注册 `remarkGfm`。
+- [x] 使用共享表格组件添加 `.answer-sheet-table-scroll` 容器。
+- [x] 在 `.answer-sheet-markdown` 作用域内设置列表、引用、表格、单元格边框和窄屏横向滚动样式。
 
 ### Task 3: 静态审计、提交与重启
 
@@ -63,10 +63,10 @@
 - Consumes: Tasks 1-2 的渲染器、白名单、样式与依赖。
 - Produces: 可审计的提交和本地服务进程状态。
 
-- [ ] 使用 TypeScript 编译器执行静态类型检查，不运行测试或浏览器。
-- [ ] 检查任务文件差异、依赖锁文件和未批准 Markdown 节点的降级逻辑。
-- [ ] 创建结果检查点，仅提交本任务文件。
-- [ ] 清理项目生成的缓存并重启前后端本地服务，核对 5173、8000 与工作目录。
+- [x] 使用 TypeScript 编译器执行静态类型检查，不运行测试或浏览器。
+- [x] 检查任务文件差异、依赖锁文件和未批准 Markdown 节点的降级逻辑。
+- [x] 创建结果检查点，仅提交本任务文件。
+- [x] 清理项目生成的缓存并重启前后端本地服务，核对 5173、8000 与工作目录。
 
 ## Self-review
 

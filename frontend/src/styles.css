@@ -544,6 +544,57 @@
 .answer-sheet-markdown h1 { font-size: 20px; }
 .answer-sheet-markdown h2 { font-size: 17px; }
 
+.answer-sheet-markdown strong {
+  font-weight: 700;
+}
+
+.answer-sheet-markdown ul,
+.answer-sheet-markdown ol {
+  margin: 6px 0;
+  padding-left: 24px;
+}
+
+.answer-sheet-markdown li + li {
+  margin-top: 3px;
+}
+
+.answer-sheet-markdown blockquote {
+  background: #f7f9fc;
+  border-left: 3px solid #b8c5d8;
+  color: #52627a;
+  margin: 7px 0;
+  padding: 6px 10px;
+}
+
+.answer-sheet-markdown blockquote > :first-child { margin-top: 0; }
+.answer-sheet-markdown blockquote > :last-child { margin-bottom: 0; }
+
+.answer-sheet-table-scroll {
+  margin: 7px 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.answer-sheet-table-scroll table {
+  border-collapse: collapse;
+  min-width: max-content;
+  width: 100%;
+}
+
+.answer-sheet-table-scroll th,
+.answer-sheet-table-scroll td {
+  border: 1px solid #d9e0ea;
+  padding: 6px 9px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.answer-sheet-table-scroll th {
+  background: #f4f7fb;
+  color: #263750;
+  font-weight: 650;
+}
+
 .answer-sheet-markdown :not(pre) > code {
   background: #eef2f7;
   border-radius: 4px;
