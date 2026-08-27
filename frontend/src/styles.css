@@ -374,6 +374,7 @@
 
 .answer-sheet-editor .markdown-blur-source {
   field-sizing: content;
+  font-size: 15px;
   line-height: 1.55;
   max-height: 260px;
   min-height: 64px;
@@ -410,6 +411,19 @@
 .markdown-blur-preview.is-compact {
   min-height: 38px;
   padding: 6px 8px;
+}
+
+.answer-sheet-editor .markdown-blur-source.is-compact {
+  font-size: 14px;
+}
+
+.markdown-blur-preview.is-compact,
+.runtime-answer-question fieldset > label {
+  --answer-sheet-markdown-font-size: 14px;
+  --answer-sheet-markdown-h1-size: 1em;
+  --answer-sheet-markdown-h2-size: 1em;
+  --answer-sheet-markdown-heading-margin: 3px 0 2px;
+  --answer-sheet-markdown-display-align: left;
 }
 
 .markdown-blur-placeholder {
@@ -520,6 +534,7 @@
 
 .answer-sheet-markdown {
   color: inherit;
+  font-size: var(--answer-sheet-markdown-font-size, 15px);
   line-height: 1.55;
   min-width: 0;
 }
@@ -538,11 +553,29 @@
 .answer-sheet-markdown h2 {
   color: #17233a;
   line-height: 1.3;
-  margin: 8px 0 5px;
+  margin: var(--answer-sheet-markdown-heading-margin, 6px 0 4px);
 }
 
-.answer-sheet-markdown h1 { font-size: 20px; }
-.answer-sheet-markdown h2 { font-size: 17px; }
+.answer-sheet-markdown h1 { font-size: var(--answer-sheet-markdown-h1-size, 1.2em); }
+.answer-sheet-markdown h2 { font-size: var(--answer-sheet-markdown-h2-size, 1.1em); }
+
+.answer-sheet-markdown .katex {
+  font-size: 1.05em;
+}
+
+.answer-sheet-markdown .katex-display {
+  margin: 0.6em 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.15em 0;
+  text-align: var(--answer-sheet-markdown-display-align, center);
+}
+
+.answer-sheet-markdown .katex-display > .katex {
+  font-size: 1.1em;
+  text-align: var(--answer-sheet-markdown-display-align, center);
+}
 
 .answer-sheet-markdown strong {
   font-weight: 700;
