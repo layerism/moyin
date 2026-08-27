@@ -20,8 +20,10 @@ from app.repositories.flow_instances import (
 )
 from app.repositories.teacher_materials import (
     TeacherMaterialSelectionError,
+    get_teacher_material_library_file,
     get_node_instance_materials,
     get_version_materials,
+    list_teacher_material_library,
 )
 from app.repositories.teacher_node_exports import (
     TeacherNodeExportConflictError,
@@ -194,6 +196,73 @@ def submission_detail(
         raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
     except ObjectStorageError as exc:
         raise HTTPException(status_code=503, detail="材料下载链接生成失败") from exc
+
+
+@router.get("/material-library")
+def material_library(
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    flows = list_teacher_material_library(int(teacher["id"]))
+    return {
+        "flows": [
+            {
+                "flowId": flow.flow_id,
+                "versionId": flow.version_id,
+                "name": flow.name,
+                "nodes": [
+                    {
+                        "nodeKey": node.node_key,
+                        "title": node.title,
+                        "students": [
+                            {
+                                "rosterEntryId": student.roster_entry_id,
+                                "studentNo": student.student_no,
+                                "name": student.name,
+                                "files": [
+                                    {
+                                        "fileId": file.file_id,
+                                        "originalName": file.original_name,
+                                        "contentType": file.content_type,
+                                        "sizeBytes": file.size_bytes,
+                                        "createdAt": file.created_at,
+                                        "submittedAt": file.submitted_at,
+                                        "submissionStatus": file.submission_status,
+                                    }
+                                    for file in student.files
+                                ],
+                            }
+                            for student in node.students
+                        ],
+                    }
+                    for node in flow.nodes
+                ],
+            }
+            for flow in flows
+        ]
+    }
+
+
+@router.get("/material-library/files/{file_id}/download")
+def download_material_library_file(
+    file_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        record = get_teacher_material_library_file(file_id, int(teacher["id"]))
+        return {
+            "fileId": record.file_id,
+            "originalName": record.original_name,
+            "url": get_object_storage().signed_download_url(
+                record.storage_key,
+                record.original_name,
+            ),
+        }
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="文件不存在或已失效") from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=503, detail="文件下载链接生成失败") from exc
 
 
 @router.get("/versions/{version_id}/materials/download")
