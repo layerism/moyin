@@ -274,8 +274,7 @@ export function HomeView({
         <button className="drive-secondary" onClick={() => onAdminDemo()}>
           上传
         </button>
-        <nav className="drive-nav" aria-label="首页导航">
-          <button>⌂ 首页</button>
+        <nav className="drive-nav" aria-label="主导航">
           <button onClick={onAcademicFlow}>教务流程</button>
           <button
             className={activeFolder === null ? "selected" : undefined}
@@ -463,7 +462,6 @@ export function AcademicFlowView({
   onCloneProcess,
   onDatabaseAdmin,
   onDeleteProcess,
-  onHome,
   onOssCloud,
   onOpenProcess,
   onRenameProcess,
@@ -475,7 +473,6 @@ export function AcademicFlowView({
   onCloneProcess: (source: AcademicProcess, name: string) => Promise<AcademicProcess>;
   onDatabaseAdmin: () => void;
   onDeleteProcess: (process: AcademicProcess) => Promise<void>;
-  onHome: () => void;
   onOssCloud: () => void;
   onOpenProcess: (processId: string) => void;
   onRenameProcess: (process: AcademicProcess, name: string) => Promise<AcademicProcess>;
@@ -619,8 +616,7 @@ export function AcademicFlowView({
         </div>
         <button className="drive-primary">+ 新建</button>
         <button className="drive-secondary">上传</button>
-        <nav className="drive-nav" aria-label="首页导航">
-          <button onClick={onHome}>⌂ 首页</button>
+        <nav className="drive-nav" aria-label="主导航">
           <button className="selected">教务流程</button>
           <button
             onClick={onOssCloud}

@@ -267,7 +267,7 @@ export function App() {
   const completeAuthentication = (role: AuthRole, identity: AuthIdentity) => {
     if (role === "teacher") {
       setTeacherIdentity(identity);
-      openHome();
+      openAcademicFlow();
       return;
     }
     setStudentIdentity(identity);
@@ -623,7 +623,6 @@ export function App() {
           return renamed;
         }}
         onDatabaseAdmin={openDatabaseAdmin}
-        onHome={openHome}
         onOssCloud={() => {
           setHomeActiveFolder(null);
           openHome();
