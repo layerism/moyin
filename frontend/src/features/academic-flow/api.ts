@@ -82,6 +82,40 @@ export type NodePackageDownloadRequest = {
   studentScope: "all" | "selected";
 };
 
+export type MaterialLibraryFile = {
+  contentType: string;
+  createdAt: string;
+  fileId: string;
+  originalName: string;
+  sizeBytes: number;
+  submissionStatus: "reviewing" | "approved" | "rejected" | "audit_error";
+  submittedAt: string;
+};
+
+export type MaterialLibraryStudent = {
+  files: MaterialLibraryFile[];
+  name: string;
+  rosterEntryId: number;
+  studentNo: string;
+};
+
+export type MaterialLibraryNode = {
+  nodeKey: string;
+  students: MaterialLibraryStudent[];
+  title: string;
+};
+
+export type MaterialLibraryFlow = {
+  flowId: string;
+  name: string;
+  nodes: MaterialLibraryNode[];
+  versionId: string;
+};
+
+export type MaterialLibrary = {
+  flows: MaterialLibraryFlow[];
+};
+
 export class ApiError extends Error {
   public fieldErrors: Record<string, string>;
   public status: number;
@@ -416,6 +450,14 @@ export const workflowApi = {
   getProgress(versionId: string) {
     return request<WorkflowProgress>(
       `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/progress`,
+    );
+  },
+  getMaterialLibrary() {
+    return request<MaterialLibrary>("/api/workflow-admin/material-library");
+  },
+  downloadMaterialLibraryFile(fileId: string) {
+    return request<{ fileId: string; originalName: string; url: string }>(
+      `/api/workflow-admin/material-library/files/${encodeURIComponent(fileId)}/download`,
     );
   },
   getSubmissionDetail(nodeInstanceId: string) {

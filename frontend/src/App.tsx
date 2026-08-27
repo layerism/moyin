@@ -8,7 +8,8 @@ import type { RuntimeFlowInstance } from "./features/academic-flow/runtimeTypes"
 import { DatabaseAdminPage } from "./features/admin/DatabaseAdminPage";
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
 import { EditView } from "./features/editor/EditView";
-import { AcademicFlowView, HomeView } from "./features/home/HomeView";
+import { AcademicFlowView } from "./features/home/HomeView";
+import { OssMaterialLibraryView } from "./features/home/OssMaterialLibraryView";
 import { TopBar } from "./features/workspace/TopBar";
 import { LoginView, PasswordChangeView, PasswordResetView } from "./features/auth/AuthViews";
 import { AuthPortal, ForgotPasswordPlaceholder } from "./features/auth/AuthPortal";
@@ -19,7 +20,6 @@ import { initialAccounts, initialStudents } from "./data/mockData";
 import type {
   AcademicProcess,
   DraftStudent,
-  HomeFile,
   Screen,
   Student,
   StudentAccount,
@@ -146,9 +146,6 @@ export function App() {
   const [students, setStudents] = useState<Student[]>(initialStudents);
   const [accounts, setAccounts] = useState<StudentAccount[]>(initialAccounts);
   const [activeUser, setActiveUser] = useState<StudentAccount | null>(null);
-  const [homeFolders, setHomeFolders] = useState<string[]>([]);
-  const [homeActiveFolder, setHomeActiveFolder] = useState<string | null>(null);
-  const [homeFiles, setHomeFiles] = useState<HomeFile[]>([]);
   const [academicProcesses, setAcademicProcesses] = useState<AcademicProcess[]>([]);
   const [academicFlowsLoaded, setAcademicFlowsLoaded] = useState(false);
   const [academicFlowsLoadError, setAcademicFlowsLoadError] = useState("");
@@ -569,19 +566,8 @@ export function App() {
 
   if (screen === "home") {
     return (
-      <HomeView
-        activeFolder={homeActiveFolder}
-        files={homeFiles}
-        folders={homeFolders}
-        onAdminDemo={(nextTitle) => {
-          setCollectionTitle(nextTitle || "未命名收集表");
-          openWorkspace("edit", null);
-        }}
-        onActiveFolderChange={setHomeActiveFolder}
+      <OssMaterialLibraryView
         onAcademicFlow={openAcademicFlow}
-        onFilesChange={setHomeFiles}
-        onFoldersChange={setHomeFolders}
-        onLogin={() => navigateAuth("login", "student")}
         onDatabaseAdmin={openDatabaseAdmin}
         onTeacherLogout={() => void logoutRole("teacher")}
         teacherIdentity={teacherIdentity!}
@@ -623,10 +609,7 @@ export function App() {
           return renamed;
         }}
         onDatabaseAdmin={openDatabaseAdmin}
-        onOssCloud={() => {
-          setHomeActiveFolder(null);
-          openHome();
-        }}
+        onOssCloud={openHome}
         onOpenProcess={openAcademicProcess}
         onTeacherLogout={() => void logoutRole("teacher")}
         teacherIdentity={teacherIdentity!}

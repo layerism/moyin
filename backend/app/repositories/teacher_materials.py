@@ -37,6 +37,47 @@ class TeacherMaterialSelection:
     student_no: str | None = None
 
 
+@dataclass(frozen=True)
+class TeacherMaterialLibraryFile:
+    file_id: str
+    original_name: str
+    content_type: str
+    size_bytes: int
+    created_at: str
+    submitted_at: str
+    submission_status: str
+
+
+@dataclass(frozen=True)
+class TeacherMaterialLibraryStudent:
+    roster_entry_id: int
+    student_no: str
+    name: str
+    files: tuple[TeacherMaterialLibraryFile, ...]
+
+
+@dataclass(frozen=True)
+class TeacherMaterialLibraryNode:
+    node_key: str
+    title: str
+    students: tuple[TeacherMaterialLibraryStudent, ...]
+
+
+@dataclass(frozen=True)
+class TeacherMaterialLibraryFlow:
+    flow_id: str
+    version_id: str
+    name: str
+    nodes: tuple[TeacherMaterialLibraryNode, ...]
+
+
+@dataclass(frozen=True)
+class TeacherMaterialLibraryDownload:
+    file_id: str
+    original_name: str
+    storage_key: str
+
+
 def _material_nodes(config: dict[str, object]) -> list[dict[str, object]]:
     nodes = config.get("nodes")
     if not isinstance(nodes, list):
@@ -47,6 +88,176 @@ def _material_nodes(config: dict[str, object]) -> list[dict[str, object]]:
         if isinstance(node, dict)
         and (node.get("kind") == "file" or confirmation_requires_scans(node))
     ]
+
+
+def list_teacher_material_library(
+    teacher_id: int,
+) -> tuple[TeacherMaterialLibraryFlow, ...]:
+    with get_connection() as connection:
+        version_rows = connection.execute(
+            """
+            SELECT f.id AS flow_id, f.name, f.created_at,
+                   v.id AS version_id, v.config_snapshot
+            FROM flows f
+            JOIN flow_versions v ON v.flow_id = f.id AND v.status = 'published'
+            WHERE f.owner_id = ? AND f.status = 'published'
+            ORDER BY f.created_at DESC
+            """,
+            (str(teacher_id),),
+        ).fetchall()
+        version_ids = [str(row["version_id"]) for row in version_rows]
+        file_rows = []
+        if version_ids:
+            placeholders = ", ".join("?" for _ in version_ids)
+            file_rows = connection.execute(
+                f"""
+                SELECT v.id AS version_id, n.node_key,
+                       r.id AS roster_entry_id, r.student_no, r.name,
+                       u.id AS file_id, u.original_name, u.content_type,
+                       u.size_bytes, u.created_at, u.display_order,
+                       s.submitted_at, s.status AS submission_status
+                FROM uploaded_files u
+                JOIN submissions s ON s.id = u.submission_id
+                JOIN node_instances n ON n.id = s.node_instance_id
+                JOIN flow_instances i ON i.id = n.flow_instance_id
+                JOIN flow_versions v ON v.id = i.flow_version_id
+                JOIN flows f ON f.id = v.flow_id
+                JOIN student_accounts a ON a.id = i.student_account_id
+                JOIN flow_roster_entries r
+                  ON r.flow_id = f.id
+                 AND r.student_no = a.student_no
+                 AND r.name = a.name
+                 AND r.status = 'active'
+                WHERE v.id IN ({placeholders})
+                  AND v.status = 'published'
+                  AND f.status = 'published'
+                  AND f.owner_id = ?
+                  AND a.account_kind = 'normal'
+                  AND s.attempt_no = n.attempt_no
+                  AND s.status IN (?, ?, ?, ?)
+                ORDER BY v.id, n.node_key, r.student_no,
+                         u.display_order, u.created_at, u.id
+                """,
+                (*version_ids, str(teacher_id), *CURRENT_MATERIAL_STATUSES),
+            ).fetchall()
+
+    material_nodes_by_version: dict[str, list[dict[str, object]]] = {}
+    for row in version_rows:
+        version_id = str(row["version_id"])
+        config = json.loads(row["config_snapshot"])
+        material_nodes_by_version[version_id] = _material_nodes(config)
+
+    students_by_node: dict[
+        tuple[str, str],
+        dict[int, tuple[str, str, list[TeacherMaterialLibraryFile]]],
+    ] = {}
+    material_node_keys = {
+        version_id: {str(node["id"]) for node in nodes}
+        for version_id, nodes in material_nodes_by_version.items()
+    }
+    for row in file_rows:
+        version_id = str(row["version_id"])
+        node_key = str(row["node_key"])
+        if node_key not in material_node_keys.get(version_id, set()):
+            continue
+        roster_entry_id = int(row["roster_entry_id"])
+        students = students_by_node.setdefault((version_id, node_key), {})
+        student = students.setdefault(
+            roster_entry_id,
+            (str(row["student_no"]), str(row["name"]), []),
+        )
+        student[2].append(
+            TeacherMaterialLibraryFile(
+                file_id=str(row["file_id"]),
+                original_name=str(row["original_name"]),
+                content_type=str(row["content_type"]),
+                size_bytes=int(row["size_bytes"]),
+                created_at=str(row["created_at"]),
+                submitted_at=str(row["submitted_at"]),
+                submission_status=str(row["submission_status"]),
+            )
+        )
+
+    flows: list[TeacherMaterialLibraryFlow] = []
+    for row in version_rows:
+        version_id = str(row["version_id"])
+        nodes: list[TeacherMaterialLibraryNode] = []
+        for node in material_nodes_by_version[version_id]:
+            node_key = str(node["id"])
+            students = tuple(
+                TeacherMaterialLibraryStudent(
+                    roster_entry_id=roster_entry_id,
+                    student_no=student_no,
+                    name=name,
+                    files=tuple(files),
+                )
+                for roster_entry_id, (student_no, name, files) in students_by_node.get(
+                    (version_id, node_key), {}
+                ).items()
+            )
+            nodes.append(
+                TeacherMaterialLibraryNode(
+                    node_key=node_key,
+                    title=str(node.get("title") or node_key),
+                    students=students,
+                )
+            )
+        flows.append(
+            TeacherMaterialLibraryFlow(
+                flow_id=str(row["flow_id"]),
+                version_id=version_id,
+                name=str(row["name"]),
+                nodes=tuple(nodes),
+            )
+        )
+    return tuple(flows)
+
+
+def get_teacher_material_library_file(
+    file_id: str,
+    teacher_id: int,
+) -> TeacherMaterialLibraryDownload:
+    with get_connection() as connection:
+        row = connection.execute(
+            """
+            SELECT u.id AS file_id, u.original_name, u.storage_key,
+                   n.node_key, v.config_snapshot
+            FROM uploaded_files u
+            JOIN submissions s ON s.id = u.submission_id
+            JOIN node_instances n ON n.id = s.node_instance_id
+            JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN flow_versions v ON v.id = i.flow_version_id
+            JOIN flows f ON f.id = v.flow_id
+            JOIN student_accounts a ON a.id = i.student_account_id
+            JOIN flow_roster_entries r
+              ON r.flow_id = f.id
+             AND r.student_no = a.student_no
+             AND r.name = a.name
+             AND r.status = 'active'
+            WHERE u.id = ?
+              AND f.owner_id = ?
+              AND f.status = 'published'
+              AND v.status = 'published'
+              AND a.account_kind = 'normal'
+              AND s.attempt_no = n.attempt_no
+              AND s.status IN (?, ?, ?, ?)
+            """,
+            (file_id, str(teacher_id), *CURRENT_MATERIAL_STATUSES),
+        ).fetchone()
+    if row is None:
+        raise KeyError(file_id)
+    config = json.loads(row["config_snapshot"])
+    try:
+        node = node_by_key(config, str(row["node_key"]))
+    except KeyError as exc:
+        raise KeyError(file_id) from exc
+    if not (node.get("kind") == "file" or confirmation_requires_scans(node)):
+        raise KeyError(file_id)
+    return TeacherMaterialLibraryDownload(
+        file_id=str(row["file_id"]),
+        original_name=str(row["original_name"]),
+        storage_key=str(row["storage_key"]),
+    )
 
 
 def get_version_materials(

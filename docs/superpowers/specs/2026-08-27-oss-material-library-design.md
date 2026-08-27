@@ -48,6 +48,7 @@ GET /api/workflow-admin/material-library
           "title": "提交申请表",
           "students": [
             {
+              "rosterEntryId": 18,
               "studentNo": "20240001",
               "name": "张三",
               "files": [
@@ -57,6 +58,7 @@ GET /api/workflow-admin/material-library
                   "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                   "sizeBytes": 28672,
                   "createdAt": "2026-08-27T10:20:00Z",
+                  "submittedAt": "2026-08-27T10:22:00Z",
                   "submissionStatus": "approved"
                 }
               ]
@@ -69,7 +71,7 @@ GET /api/workflow-admin/material-library
 }
 ```
 
-流程按现有流程列表顺序返回；节点严格按发布快照中的节点顺序返回；学生按学号排序；同一学生的文件按 `display_order`、创建时间和文件 ID 排序。
+流程按现有流程列表顺序返回；节点严格按发布快照中的节点顺序返回；学生按学号排序，并使用有效名单记录 ID 作为稳定标识；同一学生的文件按 `display_order`、创建时间和文件 ID 排序。页面中的“提交时间”使用 `submissions.submitted_at`，不以文件上传时间代替。
 
 目录查询放在 `backend/app/repositories/teacher_materials.py`，复用现有材料节点判定和有效提交状态常量。查询使用当前发布版本和有效名单作为授权与数据边界，不从 `flow_instances` 反推名单授权。
 
@@ -127,7 +129,8 @@ OSS 云盘
 
 ### 4.3 组件与状态调整
 
-- `frontend/src/features/home/HomeView.tsx`：将原模拟文件管理页改为真实只读材料目录，删除模拟文件夹和文件 CRUD。
+- `frontend/src/features/home/OssMaterialLibraryView.tsx`：新增独立的真实只读材料目录组件，负责加载、逐层导航、搜索和下载状态。
+- `frontend/src/features/home/HomeView.tsx`：删除原模拟文件管理组件，只保留既有教务流程列表组件。
 - `frontend/src/features/academic-flow/api.ts`：增加材料目录类型、目录请求和单文件下载请求。
 - `frontend/src/App.tsx`：删除仅用于模拟云盘的 `homeFolders`、`homeFiles`、`homeActiveFolder` 状态和回调。
 - `frontend/src/types.ts`、`frontend/src/features/home/HomeDialogs.tsx`：删除不再使用的模拟文件、文件夹、右键菜单与移动对话框类型和组件；保留教务流程仍使用的名称、复制和删除对话框。
