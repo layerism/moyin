@@ -81,7 +81,7 @@ def _format_form_answer(field: dict[str, object], raw_value: object) -> str:
 
 def _audit_values(student: TeacherNodeExportStudent, node: dict[str, object]) -> list[object]:
     if student.submission_status is None:
-        return [None, None, None, None]
+        return [None, None, None, None, None]
     result = student.audit_result
     details = result.get("details") if isinstance(result.get("details"), dict) else {}
     mode = student.audit_params.get("scanAuditMode") or node.get("scanAuditMode")
@@ -96,8 +96,12 @@ def _audit_values(student: TeacherNodeExportStudent, node: dict[str, object]) ->
     score = details.get("score")
     passed = result.get("passed")
     conclusion: object = None
-    if mode == "score" and not isinstance(score, bool) and isinstance(score, (int, float)):
-        conclusion = score
+    audit_score: object = None
+    if review_source == "manual" and isinstance(passed, bool):
+        conclusion = "通过" if passed else "不通过"
+    elif mode == "score":
+        if not isinstance(score, bool) and isinstance(score, (int, float)):
+            audit_score = score
     elif isinstance(passed, bool):
         conclusion = "通过" if passed else "不通过"
     reason = result.get("reason")
@@ -105,6 +109,7 @@ def _audit_values(student: TeacherNodeExportStudent, node: dict[str, object]) ->
         _AUDIT_STATUS_LABELS.get(student.audit_job_status or "", student.audit_job_status),
         audit_method,
         conclusion,
+        audit_score,
         reason if isinstance(reason, str) else None,
     ]
 
@@ -131,7 +136,7 @@ def _headers(selection: TeacherNodeExportSelection) -> list[str]:
             headers.extend([f"第{index}题作答", f"第{index}题得分"])
         headers.extend(["总分", "满分", "是否及格"])
     if isinstance(node.get("auditScriptId"), str) and node.get("auditScriptId"):
-        headers.extend(["审核状态", "审核方式", "审核结论或分数", "审核说明"])
+        headers.extend(["审核状态", "审核方式", "审核结论", "审核分数", "审核说明"])
     return headers
 
 
