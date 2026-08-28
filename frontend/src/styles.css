@@ -857,6 +857,12 @@
   margin-top: 14px;
 }
 
+.runtime-answer-sheet.is-readonly {
+  margin-right: 24px;
+  margin-bottom: 24px;
+  margin-left: 24px;
+}
+
 .answer-sheet-standard-answers {
   border-top: 1px solid #e3e7ed;
   display: grid;
@@ -925,6 +931,11 @@
   }
 
   .answer-sheet-grade {
+    margin-right: 18px;
+    margin-left: 18px;
+  }
+
+  .runtime-answer-sheet.is-readonly {
     margin-right: 18px;
     margin-left: 18px;
   }
