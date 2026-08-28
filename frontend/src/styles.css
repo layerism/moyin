@@ -449,6 +449,39 @@
   gap: 5px;
 }
 
+.answer-sheet-single-answer-editor {
+  display: grid;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid #e1e7f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.answer-sheet-single-answer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.answer-sheet-single-answer-heading strong {
+  color: #334155;
+  font-size: 12px;
+}
+
+.answer-sheet-single-answer-heading span {
+  color: #78869a;
+  font-size: 11px;
+}
+
+.answer-sheet-single-answer-editor .markdown-blur-source,
+.answer-sheet-single-answer-editor .markdown-blur-preview {
+  width: 100%;
+  min-height: 48px;
+  background: #fff;
+}
+
 .answer-sheet-option-heading,
 .answer-sheet-selection-footer {
   display: flex;
@@ -750,6 +783,28 @@
   padding: 5px 7px;
 }
 
+.runtime-markdown-answer {
+  min-height: 72px;
+  border: 1px solid #d9e0ea;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.runtime-markdown-answer .markdown-blur-source,
+.runtime-markdown-answer .markdown-blur-preview {
+  width: 100%;
+  min-height: 70px;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.runtime-markdown-answer .markdown-blur-source:focus,
+.runtime-markdown-answer .markdown-blur-preview:focus-visible {
+  outline: 2px solid #1677ee;
+  outline-offset: 1px;
+}
+
 .answer-sheet-grade {
   margin: 16px 24px 0;
   background: #fff;
@@ -877,8 +932,14 @@
 
 .answer-sheet-standard-answers ol li {
   display: flex;
+  align-items: flex-start;
+  gap: 4px;
   font-size: 13px;
   justify-content: space-between;
+}
+
+.answer-sheet-standard-answers ol li > .answer-sheet-markdown {
+  flex: 1;
 }
 
 .answer-sheet-grade-completion {

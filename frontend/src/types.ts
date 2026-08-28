@@ -69,13 +69,26 @@ export type AnswerSheetBlank = {
   points: number;
 };
 
-export type AnswerSheetFillBlankQuestion = {
+export type AnswerSheetLegacyFillBlankQuestion = {
   blanks: AnswerSheetBlank[];
   content: string;
   id: string;
   required: boolean;
   type: "fill_blank";
 };
+
+export type AnswerSheetSingleMarkdownFillBlankQuestion = {
+  content: string;
+  format: "single_markdown_exact";
+  id: string;
+  points: number;
+  required: boolean;
+  type: "fill_blank";
+};
+
+export type AnswerSheetFillBlankQuestion =
+  | AnswerSheetLegacyFillBlankQuestion
+  | AnswerSheetSingleMarkdownFillBlankQuestion;
 
 export type AnswerSheetQuestion = AnswerSheetSelectionQuestion | AnswerSheetFillBlankQuestion;
 
@@ -86,7 +99,7 @@ export type AnswerSheetConfig = {
     passingScore: number;
   };
   questions: AnswerSheetQuestion[];
-  schemaVersion: "1.0";
+  schemaVersion: "1.0" | "2.0";
 };
 
 export type AnswerSheetPrivateAnswer =
@@ -95,12 +108,17 @@ export type AnswerSheetPrivateAnswer =
   | {
       blanks: Record<string, { acceptedAnswers: string[]; caseSensitive: boolean }>;
       type: "fill_blank";
+    }
+  | {
+      answerMarkdown: string;
+      format: "single_markdown_exact";
+      type: "fill_blank";
     };
 
 export type AnswerSheetPrivateKey = {
   answers: Record<string, AnswerSheetPrivateAnswer>;
-  graderVersion: "answer-sheet-v1";
-  schemaVersion: "1.0";
+  graderVersion: "answer-sheet-v1" | "answer-sheet-v2";
+  schemaVersion: "1.0" | "2.0";
 };
 
 export type AnswerSheetQuestionResult = {
@@ -117,12 +135,12 @@ export type AnswerSheetQuestionResult = {
 };
 
 export type AnswerSheetGrade = {
-  graderVersion: "answer-sheet-v1";
+  graderVersion: "answer-sheet-v1" | "answer-sheet-v2";
   maxScore: number;
   passed: boolean;
   passingScore: number;
   questionResults?: AnswerSheetQuestionResult[];
-  schemaVersion: "1.0";
+  schemaVersion: "1.0" | "2.0";
   score: number;
   standardAnswers?: Record<string, AnswerSheetPrivateAnswer>;
 };

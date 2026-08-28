@@ -1,10 +1,13 @@
 import type {
   AcademicFlowNode,
   AnswerSheetGrade,
+  AnswerSheetLegacyFillBlankQuestion,
   AnswerSheetPrivateAnswer,
   AnswerSheetQuestion,
 } from "../../types";
+import { isSingleMarkdownFillBlankQuestion } from "./answerSheet";
 import { AnswerSheetMarkdown } from "./AnswerSheetMarkdown";
+import { MarkdownBlurEditor } from "./MarkdownBlurEditor";
 
 export function RuntimeAnswerSheet({
   errors,
@@ -39,14 +42,24 @@ export function RuntimeAnswerSheet({
               {question.required ? <em>必答</em> : null}
             </header>
             {question.type === "fill_blank" ? (
-              <FillQuestion
-                answer={answer}
-                errors={errors}
-                instanceId={instanceId}
-                onChange={(blankValues, fieldId) => update(question.id, { blankValues }, fieldId)}
-                question={question}
-                readonly={readonly}
-              />
+              isSingleMarkdownFillBlankQuestion(question) ? (
+                <SingleMarkdownFillQuestion
+                  answer={answer}
+                  instanceId={instanceId}
+                  onChange={(answerMarkdown) => update(question.id, { answerMarkdown })}
+                  question={question}
+                  readonly={readonly}
+                />
+              ) : (
+                <FillQuestion
+                  answer={answer}
+                  errors={errors}
+                  instanceId={instanceId}
+                  onChange={(blankValues, fieldId) => update(question.id, { blankValues }, fieldId)}
+                  question={question}
+                  readonly={readonly}
+                />
+              )
             ) : (
               <>
                 <AnswerSheetMarkdown instanceId={instanceId}>{question.content}</AnswerSheetMarkdown>
@@ -129,7 +142,10 @@ export function AnswerSheetGradeResult({
         <div className="answer-sheet-standard-answers">
           <strong>标准答案</strong>
           <ol>{node.answerSheet?.questions.map((question, index) => (
-            <li key={question.id}>第 {index + 1} 题：{formatStandardAnswer(question, grade.standardAnswers?.[question.id])}</li>
+            <li key={question.id}>
+              <span>第 {index + 1} 题：</span>
+              <AnswerSheetMarkdown>{formatStandardAnswer(question, grade.standardAnswers?.[question.id])}</AnswerSheetMarkdown>
+            </li>
           ))}</ol>
         </div>
       ) : null}
@@ -140,6 +156,34 @@ export function AnswerSheetGradeResult({
         </footer>
       ) : null}
     </section>
+  );
+}
+
+function SingleMarkdownFillQuestion({
+  answer,
+  instanceId,
+  onChange,
+  question,
+  readonly,
+}: {
+  answer: Record<string, unknown>;
+  instanceId: string;
+  onChange: (answerMarkdown: string) => void;
+  question: Extract<AnswerSheetQuestion, { format: "single_markdown_exact" }>;
+  readonly: boolean;
+}) {
+  return (
+    <>
+      <AnswerSheetMarkdown instanceId={instanceId}>{question.content}</AnswerSheetMarkdown>
+      <div className="runtime-markdown-answer">
+        <MarkdownBlurEditor
+          disabled={readonly}
+          onChange={onChange}
+          placeholder="请输入 Markdown 答案"
+          value={typeof answer.answerMarkdown === "string" ? answer.answerMarkdown : ""}
+        />
+      </div>
+    </>
   );
 }
 
@@ -155,7 +199,7 @@ function FillQuestion({
   errors: Record<string, string>;
   instanceId: string;
   onChange: (values: Record<string, string>, fieldId: string) => void;
-  question: Extract<AnswerSheetQuestion, { type: "fill_blank" }>;
+  question: AnswerSheetLegacyFillBlankQuestion;
   readonly: boolean;
 }) {
   const values = asRecord(answer.blankValues);
@@ -184,7 +228,9 @@ function FillQuestion({
 
 function questionPoints(question: AnswerSheetQuestion): number {
   return question.type === "fill_blank"
-    ? question.blanks.reduce((total, blank) => total + blank.points, 0)
+    ? isSingleMarkdownFillBlankQuestion(question)
+      ? question.points
+      : question.blanks.reduce((total, blank) => total + blank.points, 0)
     : question.points;
 }
 
@@ -206,6 +252,10 @@ function formatStandardAnswer(
     return answer.correctOptionIds.map((id) => question.options.find((option) => option.id === id)?.content ?? id).join("；");
   }
   if (question.type === "fill_blank" && answer.type === "fill_blank") {
+    if (isSingleMarkdownFillBlankQuestion(question) && "answerMarkdown" in answer) {
+      return answer.answerMarkdown;
+    }
+    if (!("blanks" in answer) || isSingleMarkdownFillBlankQuestion(question)) return "未提供";
     return question.blanks.map((blank) => answer.blanks[blank.id]?.acceptedAnswers.join(" / ") ?? "").join("；");
   }
   return "未提供";

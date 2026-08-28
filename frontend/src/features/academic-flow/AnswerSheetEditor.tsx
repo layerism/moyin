@@ -2,6 +2,7 @@ import { useEffect, useState, type DragEvent, type KeyboardEvent } from "react";
 
 import type {
   AnswerSheetConfig,
+  AnswerSheetLegacyFillBlankQuestion,
   AnswerSheetPrivateAnswer,
   AnswerSheetPrivateKey,
   AnswerSheetQuestion,
@@ -13,6 +14,8 @@ import {
   createAnswerSheetOption,
   createAnswerSheetQuestion,
   createPrivateAnswer,
+  isSingleMarkdownFillBlankQuestion,
+  upgradeAnswerSheetAuthoring,
   validateAnswerSheetAuthoring,
 } from "./answerSheet";
 import {
@@ -57,13 +60,23 @@ export function AnswerSheetEditor({
   gradingKey: AnswerSheetPrivateKey;
   onChange: (config: AnswerSheetConfig, gradingKey: AnswerSheetPrivateKey) => void;
 }) {
-  const errors = validateAnswerSheetAuthoring(config, gradingKey);
-  const maximum = answerSheetMaxScore(config);
-  const questionIdKey = config.questions.map((question) => question.id).join("|");
+  const authoring = disabled
+    ? { config, key: gradingKey }
+    : upgradeAnswerSheetAuthoring(config, gradingKey);
+  const activeConfig = authoring.config;
+  const activeKey = authoring.key;
+  const errors = validateAnswerSheetAuthoring(activeConfig, activeKey);
+  const maximum = answerSheetMaxScore(activeConfig);
+  const questionIdKey = activeConfig.questions.map((question) => question.id).join("|");
   const [dragOverQuestionId, setDragOverQuestionId] = useState<string | null>(null);
   const [dragQuestionId, setDragQuestionId] = useState<string | null>(null);
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<AnswerSheetMenuTarget | null>(null);
+
+  useEffect(() => {
+    if (disabled || (activeConfig === config && activeKey === gradingKey)) return;
+    onChange(activeConfig, activeKey);
+  }, [activeConfig, activeKey, config, disabled, gradingKey, onChange]);
 
   useEffect(() => {
     const questionIds = new Set(questionIdKey ? questionIdKey.split("|") : []);
@@ -100,45 +113,45 @@ export function AnswerSheetEditor({
 
   const updateQuestion = (questionId: string, nextQuestion: AnswerSheetQuestion) => {
     onChange({
-      ...config,
-      questions: config.questions.map((question) => (
+      ...activeConfig,
+      questions: activeConfig.questions.map((question) => (
         question.id === questionId ? nextQuestion : question
       )),
-    }, gradingKey);
+    }, activeKey);
   };
 
   const updateAnswer = (questionId: string, answer: AnswerSheetPrivateAnswer) => {
-    onChange(config, {
-      ...gradingKey,
-      answers: { ...gradingKey.answers, [questionId]: answer },
+    onChange(activeConfig, {
+      ...activeKey,
+      answers: { ...activeKey.answers, [questionId]: answer },
     });
   };
 
   const addQuestion = (type: AnswerSheetQuestionType) => {
     const question = createAnswerSheetQuestion(type);
-    onChange({ ...config, questions: [...config.questions, question] }, {
-      ...gradingKey,
-      answers: { ...gradingKey.answers, [question.id]: createPrivateAnswer(question) },
+    onChange({ ...activeConfig, questions: [...activeConfig.questions, question] }, {
+      ...activeKey,
+      answers: { ...activeKey.answers, [question.id]: createPrivateAnswer(question) },
     });
     setExpandedQuestionId(question.id);
     setOpenMenu(null);
   };
 
   const removeQuestion = (questionId: string) => {
-    const answers = { ...gradingKey.answers };
+    const answers = { ...activeKey.answers };
     delete answers[questionId];
     onChange({
-      ...config,
-      questions: config.questions.filter((question) => question.id !== questionId),
-    }, { ...gradingKey, answers });
+      ...activeConfig,
+      questions: activeConfig.questions.filter((question) => question.id !== questionId),
+    }, { ...activeKey, answers });
     setExpandedQuestionId((current) => current === questionId ? null : current);
     setOpenMenu(null);
   };
 
   const moveQuestion = (questionId: string, offset: -1 | 1) => {
-    const questions = moveAnswerSheetQuestion(config.questions, questionId, offset);
-    if (questions === config.questions) return;
-    onChange({ ...config, questions }, gradingKey);
+    const questions = moveAnswerSheetQuestion(activeConfig.questions, questionId, offset);
+    if (questions === activeConfig.questions) return;
+    onChange({ ...activeConfig, questions }, activeKey);
     setOpenMenu(null);
   };
 
@@ -148,10 +161,10 @@ export function AnswerSheetEditor({
       setDragOverQuestionId(null);
       return;
     }
-    const source = config.questions.findIndex((question) => question.id === dragQuestionId);
-    const target = config.questions.findIndex((question) => question.id === targetQuestionId);
+    const source = activeConfig.questions.findIndex((question) => question.id === dragQuestionId);
+    const target = activeConfig.questions.findIndex((question) => question.id === targetQuestionId);
     if (source >= 0 && target >= 0) {
-      onChange({ ...config, questions: reorderItem(config.questions, source, target) }, gradingKey);
+      onChange({ ...activeConfig, questions: reorderItem(activeConfig.questions, source, target) }, activeKey);
     }
     setDragOverQuestionId(null);
     setDragQuestionId(null);
@@ -180,28 +193,28 @@ export function AnswerSheetEditor({
             max={maximum}
             min="0"
             type="number"
-            value={config.gradingPolicy.passingScore}
+            value={activeConfig.gradingPolicy.passingScore}
             onChange={(event) => onChange({
-              ...config,
+              ...activeConfig,
               gradingPolicy: {
-                ...config.gradingPolicy,
+                ...activeConfig.gradingPolicy,
                 passingScore: Number(event.target.value),
               },
-            }, gradingKey)}
+            }, activeKey)}
           />
         </label>
         <label>
           <span>作答次数</span>
           <select
             disabled={disabled}
-            value={config.gradingPolicy.maxAttempts ?? "unlimited"}
+            value={activeConfig.gradingPolicy.maxAttempts ?? "unlimited"}
             onChange={(event) => onChange({
-              ...config,
+              ...activeConfig,
               gradingPolicy: {
-                ...config.gradingPolicy,
+                ...activeConfig.gradingPolicy,
                 maxAttempts: event.target.value === "unlimited" ? null : Number(event.target.value),
               },
-            }, gradingKey)}
+            }, activeKey)}
           >
             <option value="unlimited">截止前不限</option>
             {[1, 2, 3, 5, 10].map((value) => <option key={value} value={value}>{value} 次</option>)}
@@ -211,14 +224,14 @@ export function AnswerSheetEditor({
           <span>反馈</span>
           <select
             disabled={disabled}
-            value={config.gradingPolicy.feedback}
+            value={activeConfig.gradingPolicy.feedback}
             onChange={(event) => onChange({
-              ...config,
+              ...activeConfig,
               gradingPolicy: {
-                ...config.gradingPolicy,
+                ...activeConfig.gradingPolicy,
                 feedback: event.target.value as AnswerSheetConfig["gradingPolicy"]["feedback"],
               },
-            }, gradingKey)}
+            }, activeKey)}
           >
             <option value="score_only">仅显示总分</option>
             <option value="question_result">显示逐题结果</option>
@@ -227,14 +240,15 @@ export function AnswerSheetEditor({
         </label>
       </div>
       {errors._policy?.map((message) => <p className="answer-sheet-editor-error" key={message}>{message}</p>)}
-      {config.gradingPolicy.feedback === "full_after_deadline" && !deadlineAt ? (
+      {activeConfig.gradingPolicy.feedback === "full_after_deadline" && !deadlineAt ? (
         <p className="answer-sheet-editor-error">“截止后显示标准答案”需要先在节点定时设置中填写截止时间。</p>
       ) : null}
 
       <div className="answer-sheet-question-list">
-        {config.questions.map((question, index) => {
+        {activeConfig.questions.map((question, index) => {
           const expanded = expandedQuestionId === question.id;
-          const privateAnswer = gradingKey.answers[question.id] ?? createPrivateAnswer(question);
+          const singleMarkdownFill = isSingleMarkdownFillBlankQuestion(question);
+          const privateAnswer = activeKey.answers[question.id] ?? createPrivateAnswer(question);
           const questionErrors = errors[question.id] ?? [];
           const questionMenuOpen = openMenu?.kind === "question"
             && openMenu.questionId === question.id;
@@ -305,7 +319,7 @@ export function AnswerSheetEditor({
                   disabled={disabled}
                   items={[
                     { disabled: index === 0, label: "上移", onSelect: () => moveQuestion(question.id, -1) },
-                    { disabled: index === config.questions.length - 1, label: "下移", onSelect: () => moveQuestion(question.id, 1) },
+                    { disabled: index === activeConfig.questions.length - 1, label: "下移", onSelect: () => moveQuestion(question.id, 1) },
                     { danger: true, label: "删除题目", onSelect: () => removeQuestion(question.id) },
                   ]}
                   onOpenChange={(open) => setOpenMenu(open
@@ -318,7 +332,7 @@ export function AnswerSheetEditor({
               {expanded ? (
                 <div className="answer-sheet-question-content" id={`answer-sheet-question-${question.id}`}>
                   <div className="answer-sheet-question-settings">
-                    {question.type !== "fill_blank" ? (
+                    {"points" in question ? (
                       <label className="answer-sheet-question-points">
                         <span>分值</span>
                         <input
@@ -348,26 +362,32 @@ export function AnswerSheetEditor({
                   </div>
                   <div className="answer-sheet-question-markdown">
                     <MarkdownBlurEditor
-                      clearOnEditValues={question.type === "fill_blank"
-                        ? []
-                        : LEGACY_QUESTION_PLACEHOLDERS}
+                      clearOnEditValues={question.type === "fill_blank" ? [] : LEGACY_QUESTION_PLACEHOLDERS}
                       disabled={disabled}
                       onChange={(content) => updateQuestion(question.id, { ...question, content })}
-                      placeholder={question.type === "fill_blank" ? "输入 Markdown 题干" : "请输入题干"}
+                      placeholder={singleMarkdownFill ? "请输入题干" : question.type === "fill_blank" ? "输入 Markdown 题干" : "请输入题干"}
                       value={question.content}
                     />
                   </div>
 
                   {question.type === "fill_blank" ? (
-                    <FillBlankEditor
-                      answer={privateAnswer}
-                      disabled={disabled}
-                      onAnswerChange={(answer) => updateAnswer(question.id, answer)}
-                      onMenuChange={setOpenMenu}
-                      onQuestionChange={(next) => updateQuestion(question.id, next)}
-                      openMenu={openMenu}
-                      question={question}
-                    />
+                    singleMarkdownFill ? (
+                      <SingleMarkdownFillBlankEditor
+                        answer={privateAnswer}
+                        disabled={disabled}
+                        onAnswerChange={(answer) => updateAnswer(question.id, answer)}
+                      />
+                    ) : (
+                      <FillBlankEditor
+                        answer={privateAnswer}
+                        disabled={disabled}
+                        onAnswerChange={(answer) => updateAnswer(question.id, answer)}
+                        onMenuChange={setOpenMenu}
+                        onQuestionChange={(next) => updateQuestion(question.id, next)}
+                        openMenu={openMenu}
+                        question={question}
+                      />
+                    )
                   ) : (
                     <SelectionEditor
                       answer={privateAnswer}
@@ -389,8 +409,40 @@ export function AnswerSheetEditor({
         })}
       </div>
       {errors._questions?.map((message) => <p className="answer-sheet-editor-error" key={message}>{message}</p>)}
-      {config.questions.length === 0 ? <p className="muted-line">该答题卡暂无题目。</p> : null}
+      {activeConfig.questions.length === 0 ? <p className="muted-line">该答题卡暂无题目。</p> : null}
     </section>
+  );
+}
+
+function SingleMarkdownFillBlankEditor({
+  answer,
+  disabled,
+  onAnswerChange,
+}: {
+  answer: AnswerSheetPrivateAnswer;
+  disabled: boolean;
+  onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
+}) {
+  const answerMarkdown = answer.type === "fill_blank" && "answerMarkdown" in answer
+    ? answer.answerMarkdown
+    : "";
+  return (
+    <div className="answer-sheet-single-answer-editor">
+      <div className="answer-sheet-single-answer-heading">
+        <strong>标准答案</strong>
+        <span>去除首尾空白后精确匹配</span>
+      </div>
+      <MarkdownBlurEditor
+        disabled={disabled}
+        onChange={(value) => onAnswerChange({
+          answerMarkdown: value,
+          format: "single_markdown_exact",
+          type: "fill_blank",
+        })}
+        placeholder="请输入标准答案"
+        value={answerMarkdown}
+      />
+    </div>
   );
 }
 
@@ -501,11 +553,11 @@ function FillBlankEditor({
   disabled: boolean;
   onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
   onMenuChange: (target: AnswerSheetMenuTarget | null) => void;
-  onQuestionChange: (question: Extract<AnswerSheetQuestion, { type: "fill_blank" }>) => void;
+  onQuestionChange: (question: AnswerSheetLegacyFillBlankQuestion) => void;
   openMenu: AnswerSheetMenuTarget | null;
-  question: Extract<AnswerSheetQuestion, { type: "fill_blank" }>;
+  question: AnswerSheetLegacyFillBlankQuestion;
 }) {
-  const blankAnswers = answer.type === "fill_blank" ? answer.blanks : {};
+  const blankAnswers = answer.type === "fill_blank" && "blanks" in answer ? answer.blanks : {};
   const updateBlankAnswer = (
     blankId: string,
     value: { acceptedAnswers: string[]; caseSensitive: boolean },
