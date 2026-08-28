@@ -105,6 +105,16 @@ def test_confirmation_scan_filename_checks_every_file_and_normalizes_unicode() -
         )
 
 
+def test_confirmation_scan_filename_allows_arbitrary_image_name_without_template() -> None:
+    validate_confirmation_scan_filenames(
+        ["数学稿纸第1页.jpg", "手写过程.PNG"],
+        None,
+    )
+
+    with pytest.raises(ValueError, match="JPG、JPEG 或 PNG"):
+        validate_confirmation_scan_filenames(["数学稿纸.pdf"], None)
+
+
 def test_students_share_definition_but_have_independent_progress(client: TestClient) -> None:
     published = publish_flow(client)
     token = published["token"]

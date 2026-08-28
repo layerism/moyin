@@ -678,8 +678,6 @@ def submit_node(
                     str(row["flow_version_id"]),
                     str(row["node_key"]),
                 )
-                if template_filename is None:
-                    raise RuntimeConflictError("当前节点模板配置异常，请联系教师")
                 try:
                     validate_confirmation_scan_filenames(
                         [str(item["original_name"]) for item in uploaded_scans],

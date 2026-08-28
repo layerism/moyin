@@ -338,6 +338,28 @@ def test_incomplete_scan_audit_can_be_saved_as_draft_but_not_published(
     assert publish_validation.json()["detail"] == "请填写扫描审核标准"
 
 
+def test_complete_scan_audit_can_validate_without_template(client: TestClient) -> None:
+    config = {
+        "nodes": [
+            {
+                "id": "confirmation-1",
+                "kind": "confirmation",
+                "title": "数学稿纸确认",
+                "requirement": "上传数学稿纸并确认",
+                "infoFields": [],
+                "scanAuditEnabled": True,
+                "scanAuditMode": "pass_fail",
+                "scanAuditPrompt": "检查图片是否包含完整的手写计算过程",
+            }
+        ],
+        "edges": [],
+    }
+
+    response = client.post("/api/workflows/validate", json={"config": config})
+
+    assert response.status_code == 200
+
+
 def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "证明收集"}).json()
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})

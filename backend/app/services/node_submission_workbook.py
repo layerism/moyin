@@ -123,7 +123,9 @@ def _headers(selection: TeacherNodeExportSelection) -> list[str]:
     elif kind in {"announcement", "confirmation"}:
         headers.append("是否确认")
         if confirmation_requires_scans(node):
-            headers.extend(["模板下载时间", "扫描件数量", "扫描件名称", "扫描件页数"])
+            if node.get("templateAsset") is not None:
+                headers.append("模板下载时间")
+            headers.extend(["扫描件数量", "扫描件名称", "扫描件页数"])
     elif kind == "answer_sheet":
         for index, _question in enumerate(node.get("answerSheet", {}).get("questions", []), start=1):
             headers.extend([f"第{index}题作答", f"第{index}题得分"])
@@ -169,9 +171,10 @@ def _row_values(
     elif kind in {"announcement", "confirmation"}:
         values.append("是" if submitted and student.payload.get("confirmed") is True else None)
         if confirmation_requires_scans(node):
+            if node.get("templateAsset") is not None:
+                values.append(_excel_datetime(student.template_downloaded_at))
             values.extend(
                 [
-                    _excel_datetime(student.template_downloaded_at),
                     len(student.files) if submitted else None,
                     "\n".join(file.original_name for file in student.files) if submitted else None,
                     (

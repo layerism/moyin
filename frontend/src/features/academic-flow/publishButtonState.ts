@@ -73,9 +73,6 @@ export function getPublishButtonState(input: {
 export function getScanAuditConfigError(node: AcademicFlowNode): string | undefined {
   if (node.kind !== "confirmation") return undefined;
   if (!node.scanAuditEnabled) return undefined;
-  if (!node.templateAsset?.originalName.toLowerCase().endsWith(".docx")) {
-    return `节点“${node.title}”需要上传 DOCX 签署文件模板`;
-  }
   if (!node.scanAuditMode) return `节点“${node.title}”需要选择审核模式`;
   if (!node.scanAuditPrompt?.trim()) return `节点“${node.title}”需要填写审核标准`;
   return undefined;

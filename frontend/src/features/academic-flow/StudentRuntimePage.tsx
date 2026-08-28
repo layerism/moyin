@@ -522,17 +522,20 @@ function RuntimeNodeDialog({
   const confirmationRequired = node.kind === "confirmation" || node.kind === "announcement";
   const confirmationMissing = confirmationRequired && draft.confirmed !== true;
   const confirmationInvalid = confirmationAttempted && confirmationMissing;
+  const scanRequired = node.kind === "confirmation" && (
+    Boolean(runtime.template) || node.scanAuditEnabled === true
+  );
   const scanBlocker = getScanSubmitBlocker({
     confirmed: draft.confirmed === true,
-    scanRequired: node.kind === "confirmation" && Boolean(runtime.template),
+    scanRequired,
     scans: scanState.scans,
     templateDownloaded: !runtime.template || runtime.templateDownloaded,
     uploading: scanState.uploading,
   });
-  const scanFilenameError = runtime.template
+  const scanFilenameError = scanRequired
     ? getScanFilenameError({
         filenames: scanState.scans.map((scan) => scan.originalName),
-        templateFilename: runtime.template.originalName,
+        templateFilename: runtime.template?.originalName ?? null,
       })
     : null;
   const submitDisabled = busy
@@ -838,29 +841,33 @@ function RuntimeNodeDialog({
               ) : null}
             </div>
           ) : null}
-          {node.kind === "confirmation" && runtime.template ? (
-            <div className="runtime-template-steps has-template">
-              <section
-                className={`runtime-template-download${templateDownloadAttention ? " needs-attention" : ""}`}
-              >
-                <span>1</span>
-                <div>
-                  <strong>{runtime.templateDownloaded ? "模板已下载" : "下载签署文件模板"}</strong>
-                  <small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small>
-                </div>
-                <button disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
-                  {runtime.templateDownloaded ? "重新下载" : "下载模板"}
-                </button>
-              </section>
-              <strong className="runtime-upload-step-title">2 上传签署后的扫描件</strong>
+          {node.kind === "confirmation" && scanRequired ? (
+            <div className={`runtime-template-steps${runtime.template ? " has-template" : ""}`}>
+              {runtime.template ? (
+                <section
+                  className={`runtime-template-download${templateDownloadAttention ? " needs-attention" : ""}`}
+                >
+                  <span>1</span>
+                  <div>
+                    <strong>{runtime.templateDownloaded ? "模板已下载" : "下载签署文件模板"}</strong>
+                    <small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small>
+                  </div>
+                  <button disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
+                    {runtime.templateDownloaded ? "重新下载" : "下载模板"}
+                  </button>
+                </section>
+              ) : null}
+              <strong className="runtime-upload-step-title">
+                {runtime.template ? "2 上传签署后的扫描件" : "上传图片材料"}
+              </strong>
               <ScanUploadWorkspace
                 disabled={busy}
                 nodeInstanceId={runtime.id}
                 onDownload={onDownloadFile}
                 onStateChange={updateScanState}
                 onTemplateRequired={handleTemplateRequired}
-                templateFilename={runtime.template.originalName}
-                templateLocked={!runtime.templateDownloaded}
+                templateFilename={runtime.template?.originalName ?? null}
+                templateLocked={Boolean(runtime.template && !runtime.templateDownloaded)}
               />
             </div>
           ) : null}
