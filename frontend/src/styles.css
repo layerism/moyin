@@ -492,6 +492,10 @@
   resize: vertical;
 }
 
+.answer-sheet-editor .answer-sheet-accepted-answers textarea:focus::placeholder {
+  color: transparent;
+}
+
 .answer-sheet-blank-row {
   align-items: center;
   background: #f8fafc;

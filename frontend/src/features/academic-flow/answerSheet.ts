@@ -8,6 +8,8 @@ import type {
   AnswerSheetSelectionQuestion,
 } from "../../types";
 
+export const ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER = "请输入答案";
+
 export type AnswerSheetAuthoring = {
   config: AnswerSheetConfig;
   key: AnswerSheetPrivateKey;
@@ -77,7 +79,7 @@ export function createPrivateAnswer(question: AnswerSheetQuestion): AnswerSheetP
   return {
     blanks: Object.fromEntries(question.blanks.map((blank) => [
       blank.id,
-      { acceptedAnswers: ["请输入答案"], caseSensitive: false },
+      { acceptedAnswers: [""], caseSensitive: false },
     ])),
     type: question.type,
   };
@@ -246,10 +248,16 @@ function validateFillQuestion(
     const marker = `[[blank:${blank.id}]]`;
     if (question.content.split(marker).length !== 2) add(question.id, "题干标记必须与填空配置一一对应");
     blankIds.add(blank.id);
-    if (
-      privateAnswer?.type !== "fill_blank"
-      || !privateAnswer.blanks[blank.id]?.acceptedAnswers.some((value) => value.trim())
-    ) {
+    const acceptedAnswers = privateAnswer?.type === "fill_blank"
+      ? privateAnswer.blanks[blank.id]?.acceptedAnswers
+      : undefined;
+    const hasAcceptedAnswer = acceptedAnswers?.some((value) => (
+      value.trim() && value.trim() !== ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER
+    )) ?? false;
+    const hasPlaceholder = acceptedAnswers?.some(
+      (value) => value.trim() === ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER,
+    ) ?? false;
+    if (!hasAcceptedAnswer || hasPlaceholder) {
       add(question.id, `填空 ${blank.id} 至少需要一个答案`);
     }
   }

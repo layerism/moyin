@@ -8,6 +8,7 @@ import type {
   AnswerSheetQuestionType,
 } from "../../types";
 import {
+  ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER,
   answerSheetMaxScore,
   createAnswerSheetQuestion,
   createPrivateAnswer,
@@ -511,6 +512,8 @@ function FillBlankEditor({
       </div>
       {question.blanks.map((blank, index) => {
         const privateBlank = blankAnswers[blank.id] ?? { acceptedAnswers: [""], caseSensitive: false };
+        const hasLegacyPlaceholder = privateBlank.acceptedAnswers.length === 1
+          && privateBlank.acceptedAnswers[0].trim() === ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER;
         const menuOpen = openMenu?.kind === "blank"
           && openMenu.questionId === question.id
           && openMenu.blankId === blank.id;
@@ -523,10 +526,20 @@ function FillBlankEditor({
             })} /></label>
             <label className="answer-sheet-accepted-answers">
               可接受答案（每行一个）
-              <textarea disabled={disabled} value={privateBlank.acceptedAnswers.join("\n")} onChange={(event) => updateBlankAnswer(blank.id, {
-                ...privateBlank,
-                acceptedAnswers: event.target.value.split("\n"),
-              })} />
+              <textarea
+                disabled={disabled}
+                placeholder={ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER}
+                value={hasLegacyPlaceholder ? "" : privateBlank.acceptedAnswers.join("\n")}
+                onFocus={() => {
+                  if (hasLegacyPlaceholder) {
+                    updateBlankAnswer(blank.id, { ...privateBlank, acceptedAnswers: [""] });
+                  }
+                }}
+                onChange={(event) => updateBlankAnswer(blank.id, {
+                  ...privateBlank,
+                  acceptedAnswers: event.target.value.split("\n"),
+                })}
+              />
             </label>
             <label className="answer-sheet-case-sensitive"><input checked={privateBlank.caseSensitive} disabled={disabled} type="checkbox" onChange={(event) => updateBlankAnswer(blank.id, { ...privateBlank, caseSensitive: event.target.checked })} /> 区分大小写</label>
             <CompactActionMenu
@@ -554,7 +567,7 @@ function FillBlankEditor({
       <button className="answer-sheet-add-blank" disabled={disabled} onClick={() => {
         const id = createId("blank");
         onQuestionChange({ ...question, blanks: [...question.blanks, { id, points: 1 }], content: `${question.content} [[blank:${id}]]` });
-        onAnswerChange({ type: "fill_blank", blanks: { ...blankAnswers, [id]: { acceptedAnswers: ["请输入答案"], caseSensitive: false } } });
+        onAnswerChange({ type: "fill_blank", blanks: { ...blankAnswers, [id]: { acceptedAnswers: [""], caseSensitive: false } } });
       }} type="button">添加填空</button>
     </div>
   );

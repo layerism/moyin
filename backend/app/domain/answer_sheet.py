@@ -16,6 +16,7 @@ _PRIVATE_KEY_KEYS = {"schemaVersion", "graderVersion", "answers"}
 _BLANK_MARKER = re.compile(r"\[\[blank:([A-Za-z0-9_-]+)\]\]")
 _MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*\]\(\s*<?([^\s)>]+)>?[^)]*\)")
 _CONTENT_ASSET_URL = re.compile(r"^asset://[A-Za-z0-9-]+$")
+_LEGACY_BLANK_ANSWER_PLACEHOLDER = "请输入答案"
 
 
 class AnswerSheetConfigError(ValueError):
@@ -254,7 +255,12 @@ def _validate_private_question_answer(
         if (
             not isinstance(accepted, list)
             or not accepted
-            or any(not isinstance(value, str) or not value.strip() for value in accepted)
+            or any(
+                not isinstance(value, str)
+                or not value.strip()
+                or value.strip() == _LEGACY_BLANK_ANSWER_PLACEHOLDER
+                for value in accepted
+            )
         ):
             raise AnswerSheetConfigError(f"{prefix}填空“{blank_id}”至少需要一个答案")
         normalized = {
