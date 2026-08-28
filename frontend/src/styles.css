@@ -97,7 +97,6 @@
 
 .answer-sheet-editor .answer-sheet-policy input,
 .answer-sheet-editor .answer-sheet-policy select,
-.answer-sheet-editor .answer-sheet-question-settings select,
 .answer-sheet-editor .answer-sheet-question-settings input[type="number"],
 .answer-sheet-editor .answer-sheet-blank-row input[type="number"] {
   border: 1px solid #ccd4e0;
@@ -157,7 +156,7 @@
   min-width: 0;
   min-height: 30px;
   display: grid;
-  grid-template-columns: auto minmax(80px, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 9px;
   padding: 0 4px;
@@ -171,21 +170,12 @@
   outline: 0;
 }
 
-.answer-sheet-question-excerpt {
-  min-width: 0;
-  overflow: hidden;
-  color: #334155;
-  font-size: 13px;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .answer-sheet-question-meta {
   display: flex;
   align-items: center;
   gap: 6px;
   color: #718096;
+  justify-self: end;
   white-space: nowrap;
 }
 
@@ -333,10 +323,6 @@
   white-space: nowrap;
 }
 
-.answer-sheet-editor .answer-sheet-question-settings select {
-  width: 126px;
-}
-
 .answer-sheet-editor .answer-sheet-question-points input {
   width: 60px;
 }
@@ -386,6 +372,24 @@
 .answer-sheet-editor .markdown-blur-source:focus {
   border-color: #4e86d8;
   box-shadow: 0 0 0 2px rgba(43, 112, 211, 0.12);
+  outline: 0;
+}
+
+.answer-sheet-question-markdown .markdown-blur-source,
+.answer-sheet-question-markdown .markdown-blur-preview:not(.is-disabled) {
+  background: #f3f8ff;
+  border-color: #8fb4e8;
+}
+
+.answer-sheet-question-markdown .markdown-blur-preview:not(.is-disabled):hover {
+  border-color: #5f91d5;
+}
+
+.answer-sheet-question-markdown .markdown-blur-source:focus,
+.answer-sheet-question-markdown .markdown-blur-preview:focus-visible {
+  background: #eaf3ff;
+  border-color: #2f6fc8;
+  box-shadow: 0 0 0 3px rgb(47 111 200 / 16%);
   outline: 0;
 }
 
@@ -807,16 +811,6 @@
 
   .answer-sheet-question-summary {
     grid-template-columns: 28px minmax(0, 1fr) 30px;
-  }
-
-  .answer-sheet-question-toggle {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 4px 8px;
-  }
-
-  .answer-sheet-question-meta {
-    grid-column: 1 / 3;
-    justify-self: end;
   }
 
   .answer-sheet-question-settings {

@@ -14,7 +14,6 @@ import {
   validateAnswerSheetAuthoring,
 } from "./answerSheet";
 import {
-  getAnswerSheetQuestionExcerpt,
   getAnswerSheetQuestionMeta,
   moveAnswerSheetQuestion,
   toggleExpandedQuestion,
@@ -107,22 +106,6 @@ export function AnswerSheetEditor({
     onChange(config, {
       ...gradingKey,
       answers: { ...gradingKey.answers, [questionId]: answer },
-    });
-  };
-
-  const changeQuestionType = (question: AnswerSheetQuestion, type: AnswerSheetQuestionType) => {
-    if (question.type === type) return;
-    const replacement = {
-      ...createAnswerSheetQuestion(type),
-      content: question.content,
-      id: question.id,
-    } as AnswerSheetQuestion;
-    onChange({
-      ...config,
-      questions: config.questions.map((item) => item.id === question.id ? replacement : item),
-    }, {
-      ...gradingKey,
-      answers: { ...gradingKey.answers, [question.id]: createPrivateAnswer(replacement) },
     });
   };
 
@@ -302,9 +285,6 @@ export function AnswerSheetEditor({
                   tabIndex={0}
                 >
                   <strong className="answer-sheet-question-index">第 {index + 1} 题</strong>
-                  <span className="answer-sheet-question-excerpt">
-                    {getAnswerSheetQuestionExcerpt(question)}
-                  </span>
                   <span className="answer-sheet-question-meta">
                     <small>
                       {questionTypeLabels[question.type]} · {getAnswerSheetQuestionMeta(question)}
@@ -333,22 +313,6 @@ export function AnswerSheetEditor({
               {expanded ? (
                 <div className="answer-sheet-question-content" id={`answer-sheet-question-${question.id}`}>
                   <div className="answer-sheet-question-settings">
-                    <label>
-                      <span>题型</span>
-                      <select
-                        aria-label={`第 ${index + 1} 题题型`}
-                        disabled={disabled}
-                        value={question.type}
-                        onChange={(event) => changeQuestionType(
-                          question,
-                          event.target.value as AnswerSheetQuestionType,
-                        )}
-                      >
-                        <option value="single_choice">单项选择题</option>
-                        <option value="multiple_choice">多项选择题</option>
-                        <option value="fill_blank">填空题</option>
-                      </select>
-                    </label>
                     {question.type !== "fill_blank" ? (
                       <label className="answer-sheet-question-points">
                         <span>分值</span>
@@ -377,12 +341,14 @@ export function AnswerSheetEditor({
                       必答
                     </label>
                   </div>
-                  <MarkdownBlurEditor
-                    disabled={disabled}
-                    onChange={(content) => updateQuestion(question.id, { ...question, content })}
-                    placeholder="输入 Markdown 题干"
-                    value={question.content}
-                  />
+                  <div className="answer-sheet-question-markdown">
+                    <MarkdownBlurEditor
+                      disabled={disabled}
+                      onChange={(content) => updateQuestion(question.id, { ...question, content })}
+                      placeholder="输入 Markdown 题干"
+                      value={question.content}
+                    />
+                  </div>
 
                   {question.type === "fill_blank" ? (
                     <FillBlankEditor
