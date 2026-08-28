@@ -235,7 +235,6 @@ export function StudentRuntimePage({
       setFieldErrorsByNode((current) => ({ ...current, [runtime.id]: {} }));
       const submittedNode = next.nodeInstances.find((node) => node.id === runtime.id);
       if (submittedNode?.status === "approved") {
-        setActiveNodeKey(null);
         setAmendingNodeId(null);
         setNotice(
           approvedFormAmendment
