@@ -25,6 +25,7 @@ export function DatabaseAdminPage({
   const [offset, setOffset] = useState(0);
   const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null);
   const [deletingRow, setDeletingRow] = useState<Record<string, unknown> | null>(null);
+  const [resettingStudent, setResettingStudent] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,7 @@ export function DatabaseAdminPage({
         setRowPage(rows);
         setEditingRow(null);
         setDeletingRow(null);
+        setResettingStudent(null);
       })
       .catch((reason: Error) => setError(reason.message))
       .finally(() => setLoading(false));
@@ -155,6 +157,11 @@ export function DatabaseAdminPage({
         <DatabaseRowEditor
           key={`${activeTable}-${JSON.stringify(primaryKey(schema, editingRow))}`}
           onClose={() => setEditingRow(null)}
+          onResetPassword={
+            activeTable === "student_accounts" && editingRow.account_kind === "normal"
+              ? () => setResettingStudent(editingRow)
+              : undefined
+          }
           onSaved={async () => {
             setEditingRow(null);
             setNotice("记录已保存；修改前数据库备份和审计记录已生成");
@@ -164,6 +171,20 @@ export function DatabaseAdminPage({
           row={editingRow}
           schema={schema}
           table={activeTable}
+        />
+      ) : null}
+      {resettingStudent ? (
+        <StudentPasswordResetDialog
+          key={`student-password-reset-${String(resettingStudent.id)}`}
+          onClose={() => setResettingStudent(null)}
+          onReset={async () => {
+            setResettingStudent(null);
+            setEditingRow(null);
+            setNotice("学生密码已重置为 123；原流程数据保留，学生下次登录必须修改密码");
+            setRowPage(await databaseAdminApi.getRows(activeTable, offset, PAGE_SIZE));
+            await loadTables();
+          }}
+          row={resettingStudent}
         />
       ) : null}
       {deletingRow && schema ? (
@@ -314,14 +335,95 @@ function DatabaseRowDeleteDialog({
   );
 }
 
+function StudentPasswordResetDialog({
+  onClose,
+  onReset,
+  row,
+}: {
+  onClose: () => void;
+  onReset: () => Promise<void>;
+  row: Record<string, unknown>;
+}) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  const reset = async () => {
+    if (!reason.trim()) {
+      setError("请填写重置原因");
+      return;
+    }
+    const studentId = Number(row.id);
+    if (!Number.isInteger(studentId)) {
+      setError("学生账号 ID 无效");
+      return;
+    }
+    setResetting(true);
+    setError("");
+    try {
+      await databaseAdminApi.resetStudentPassword(studentId, reason.trim());
+      await onReset();
+    } catch (reasonValue) {
+      setError(reasonValue instanceof Error ? reasonValue.message : "密码重置失败");
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  return (
+    <div className="database-editor-backdrop database-delete-backdrop" onMouseDown={onClose}>
+      <section
+        aria-labelledby="student-password-reset-title"
+        aria-modal="true"
+        className="database-delete-dialog database-reset-dialog"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <div className="database-delete-icon database-reset-icon" aria-hidden="true">!</div>
+        <h2 id="student-password-reset-title">重置学生密码？</h2>
+        <p>执行后该学生现有登录状态将全部失效，下次登录必须先设置新密码。</p>
+        <dl>
+          <div><dt>学生</dt><dd>{String(row.name)}（{String(row.student_no)}）</dd></div>
+          <div><dt>临时密码</dt><dd>123</dd></div>
+          <div><dt>数据保留</dt><dd>流程、草稿、提交、成绩和文件均不删除</dd></div>
+        </dl>
+        <label>
+          <span>重置原因</span>
+          <input
+            autoFocus
+            disabled={resetting}
+            maxLength={300}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="请说明重置原因（必填）"
+            value={reason}
+          />
+        </label>
+        {error ? <p className="database-delete-error" role="alert">{error}</p> : null}
+        <footer>
+          <button disabled={resetting} onClick={onClose}>取消</button>
+          <button
+            className="primary-action"
+            disabled={resetting}
+            onClick={() => void reset()}
+          >
+            {resetting ? "正在重置" : "确认重置"}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function DatabaseRowEditor({
   onClose,
+  onResetPassword,
   onSaved,
   row,
   schema,
   table,
 }: {
   onClose: () => void;
+  onResetPassword?: () => void;
   onSaved: () => Promise<void>;
   row: Record<string, unknown>;
   schema: AdminTableSchema;
@@ -393,6 +495,15 @@ function DatabaseRowEditor({
         </div>
         {error ? <p className="database-editor-error" role="alert">{error}</p> : null}
         <footer>
+          {onResetPassword ? (
+            <button
+              className="database-reset-password-action"
+              disabled={saving}
+              onClick={onResetPassword}
+            >
+              重置密码
+            </button>
+          ) : null}
           <button disabled={saving} onClick={onClose}>取消</button>
           <button className="primary-action" disabled={saving || editableColumns.length === 0} onClick={() => void save()}>
             {saving ? "保存中" : editableColumns.length === 0 ? "只读记录" : "保存修改"}

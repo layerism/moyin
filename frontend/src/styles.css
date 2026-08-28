@@ -2370,6 +2370,13 @@ button {
   font-weight: 700;
 }
 
+.database-row-editor footer .database-reset-password-action {
+  margin-right: auto;
+  border-color: #fecdca;
+  background: #fff6f5;
+  color: #b42318;
+}
+
 .database-delete-backdrop {
   display: grid;
   place-items: center;
@@ -2473,6 +2480,17 @@ button {
 .database-delete-dialog footer .danger-action {
   border-color: #d92d20;
   background: #d92d20;
+  color: #fff;
+}
+
+.database-reset-dialog .database-reset-icon {
+  background: #fff4e5;
+  color: #b54708;
+}
+
+.database-reset-dialog footer .primary-action {
+  border-color: #175cd3;
+  background: #175cd3;
   color: #fff;
 }
 
@@ -9537,6 +9555,100 @@ button {
   border: 0;
   background: transparent;
   color: #175cd3;
+}
+
+.student-password-change-form {
+  width: min(460px, 100%);
+  padding: 28px;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(16 24 40 / 8%);
+}
+
+.student-password-change-form header {
+  margin-bottom: 18px;
+}
+
+.student-password-change-form h2 {
+  margin: 0 0 7px;
+  font-size: 24px;
+}
+
+.student-password-change-form header p,
+.student-password-change-preserved {
+  margin: 0;
+  color: #667085;
+  line-height: 1.6;
+}
+
+.student-password-change-identity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 11px 12px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.student-password-change-identity span {
+  color: #667085;
+}
+
+.student-password-change-preserved {
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border-left: 3px solid #12b76a;
+  background: #ecfdf3;
+  color: #027a48;
+  font-size: 13px;
+}
+
+.student-password-change-form label {
+  display: block;
+  margin-bottom: 15px;
+}
+
+.student-password-change-form label span {
+  display: block;
+  margin-bottom: 7px;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.student-password-change-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.student-password-change-error {
+  min-height: 20px;
+  margin: 0 0 10px;
+  color: #b42318;
+  font-size: 13px;
+}
+
+.student-password-change-submit {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 6px;
+}
+
+.student-password-change-logout {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: #475467;
 }
 
 .forgot-placeholder-page,

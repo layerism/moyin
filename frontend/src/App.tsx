@@ -15,6 +15,7 @@ import { LoginView, PasswordChangeView, PasswordResetView } from "./features/aut
 import { AuthPortal, ForgotPasswordPlaceholder } from "./features/auth/AuthPortal";
 import { StudentAccountPage } from "./features/auth/StudentAccountPage";
 import { StudentAccessGate } from "./features/auth/StudentAccessGate";
+import { StudentPasswordChangeForm } from "./features/auth/StudentPasswordChangeForm";
 import { authApi, type AuthIdentity, type AuthRole } from "./features/auth/authApi";
 import { initialAccounts, initialStudents } from "./data/mockData";
 import type {
@@ -48,6 +49,9 @@ function getRouteFromPathname(): {
   }
   if (window.location.pathname === "/student") {
     return { authRole: "student", processId: null, screen: "studentHome", studentInstanceId: null, studentSlug: null };
+  }
+  if (window.location.pathname === "/student/change-password") {
+    return { authRole: "student", processId: null, screen: "studentChangePassword", studentInstanceId: null, studentSlug: null };
   }
   if (window.location.pathname === "/academic-flow") {
     return { authRole, processId: null, screen: "academicFlow", studentInstanceId: null, studentSlug: null };
@@ -110,6 +114,12 @@ function pushAppPath(pathname: string) {
     window.history.pushState(null, "", pathname);
   }
 }
+
+const STUDENT_AUTHENTICATED_SCREENS: Screen[] = [
+  "academicFlowStudentRuntime",
+  "studentChangePassword",
+  "studentHome",
+];
 
 function mapServerFlow(flow: ServerFlow): AcademicProcess {
   return {
@@ -184,6 +194,22 @@ export function App() {
     window.addEventListener("popstate", syncRoute);
     return () => window.removeEventListener("popstate", syncRoute);
   }, []);
+
+  useEffect(() => {
+    if (!authReady || !studentIdentity) return;
+    const isRuntimePreview = screen === "academicFlowStudentRuntime"
+      && new URLSearchParams(window.location.search).get("preview") === "1";
+    if (isRuntimePreview || !STUDENT_AUTHENTICATED_SCREENS.includes(screen)) return;
+    if (studentIdentity.mustChangePassword && screen !== "studentChangePassword") {
+      pushAppPath("/student/change-password");
+      setScreen("studentChangePassword");
+      return;
+    }
+    if (!studentIdentity.mustChangePassword && screen === "studentChangePassword") {
+      pushAppPath("/student");
+      setScreen("studentHome");
+    }
+  }, [authReady, screen, studentIdentity]);
 
   useEffect(() => {
     if (!teacherIdentity) {
@@ -268,6 +294,11 @@ export function App() {
       return;
     }
     setStudentIdentity(identity);
+    if (identity.mustChangePassword) {
+      pushAppPath("/student/change-password");
+      setScreen("studentChangePassword");
+      return;
+    }
     pushAppPath("/student");
     setScreen("studentHome");
   };
@@ -515,7 +546,11 @@ export function App() {
     "home",
     "workspace",
   ];
-  if (!authReady && (teacherScreens.includes(screen) || screen === "studentHome")) {
+  const isRuntimePreview = screen === "academicFlowStudentRuntime"
+    && new URLSearchParams(window.location.search).get("preview") === "1";
+  const requiresStudentIdentity = STUDENT_AUTHENTICATED_SCREENS.includes(screen)
+    && !isRuntimePreview;
+  if (!authReady && (teacherScreens.includes(screen) || requiresStudentIdentity)) {
     return (
       <main className="auth-loading-page">
         <strong>正在验证登录状态</strong>
@@ -532,6 +567,48 @@ export function App() {
         onNavigate={navigateAuth}
       />
     );
+  }
+
+  if (requiresStudentIdentity && !studentIdentity) {
+    return (
+      <AuthPortal
+        initialRole="student"
+        mode="login"
+        onAuthenticated={completeAuthentication}
+        onNavigate={navigateAuth}
+      />
+    );
+  }
+
+  if (
+    requiresStudentIdentity
+    && studentIdentity?.mustChangePassword
+  ) {
+    return (
+      <main className="role-auth-page">
+        <section className="role-auth-brand">
+          <span className="oa-brand-mark">OA</span>
+          <p>学生账户安全</p>
+          <h1>首次登录请修改密码</h1>
+          <div>完成改密后即可继续访问原有流程，已填写内容不会删除。</div>
+        </section>
+        <section className="role-auth-main">
+          <StudentPasswordChangeForm
+            identity={studentIdentity}
+            onChanged={(identity) => {
+              setStudentIdentity(identity);
+              pushAppPath("/student");
+              setScreen("studentHome");
+            }}
+            onLogout={() => logoutRole("student")}
+          />
+        </section>
+      </main>
+    );
+  }
+
+  if (screen === "studentChangePassword") {
+    return <main className="auth-loading-page"><strong>正在进入学生中心</strong></main>;
   }
 
   if (screen === "adminDatabase") {

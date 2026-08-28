@@ -1,11 +1,5 @@
 import type { AcademicFlowEdge, AcademicFlowNode, AnswerSheetGrade } from "../../types";
 
-export type StudentIdentity = {
-  id: number;
-  name: string;
-  studentNo: string;
-};
-
 export type PublishedFlow = {
   configHash: string;
   flowId: string;

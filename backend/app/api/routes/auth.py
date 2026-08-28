@@ -10,11 +10,12 @@ from app.services.security import (
     SESSION_DAYS,
     TEACHER_SESSION_COOKIE,
     create_session,
+    create_student_session,
     create_teacher_session,
     delete_session,
     delete_teacher_session,
+    get_authenticated_student,
     get_current_teacher,
-    get_current_student,
     hash_password,
     utc_now_iso,
     verify_password,
@@ -23,10 +24,20 @@ from app.services.security import (
 router = APIRouter()
 
 
-class Credentials(BaseModel):
+class StudentRegistrationCredentials(BaseModel):
     name: str = Field(min_length=1, max_length=64)
     studentNo: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=8, max_length=128)
+
+
+class StudentLoginCredentials(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    studentNo: str = Field(min_length=1, max_length=32)
+    password: str = Field(min_length=3, max_length=128)
+
+
+class StudentPasswordChangeRequest(BaseModel):
+    newPassword: str = Field(min_length=8, max_length=128)
 
 
 class TeacherCredentials(BaseModel):
@@ -59,7 +70,10 @@ def set_teacher_session_cookie(response: Response, token: str) -> None:
 
 @router.post("/student/register", status_code=status.HTTP_201_CREATED)
 @router.post("/register", status_code=status.HTTP_201_CREATED, include_in_schema=False)
-def register(payload: Credentials, response: Response) -> dict[str, object]:
+def register(
+    payload: StudentRegistrationCredentials,
+    response: Response,
+) -> dict[str, object]:
     now = utc_now_iso()
     student_no = payload.studentNo.strip()
     if student_no.startswith("preview-student-"):
@@ -86,16 +100,21 @@ def register(payload: Credentials, response: Response) -> dict[str, object]:
 
     token = create_session(student_id)
     set_session_cookie(response, token)
-    return {"id": student_id, "studentNo": student_no, "name": payload.name.strip()}
+    return {
+        "id": student_id,
+        "studentNo": student_no,
+        "name": payload.name.strip(),
+        "mustChangePassword": False,
+    }
 
 
 @router.post("/student/login")
 @router.post("/login", include_in_schema=False)
-def login(payload: Credentials, response: Response) -> dict[str, object]:
+def login(payload: StudentLoginCredentials, response: Response) -> dict[str, object]:
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT id, student_no, name, password_hash
+            SELECT id, student_no, name, password_hash, must_change_password
             FROM student_accounts
             WHERE student_no = ? AND status = 'active' AND account_kind = 'normal'
             """,
@@ -109,13 +128,65 @@ def login(payload: Credentials, response: Response) -> dict[str, object]:
         raise HTTPException(status_code=401, detail="姓名、学号或密码不正确")
     token = create_session(int(row["id"]))
     set_session_cookie(response, token)
-    return {"id": row["id"], "studentNo": row["student_no"], "name": row["name"]}
+    return {
+        "id": row["id"],
+        "studentNo": row["student_no"],
+        "name": row["name"],
+        "mustChangePassword": bool(row["must_change_password"]),
+    }
 
 
 @router.get("/student/me")
 @router.get("/me", include_in_schema=False)
-def me(student: dict[str, object] = Depends(get_current_student)) -> dict[str, object]:
+def me(student: dict[str, object] = Depends(get_authenticated_student)) -> dict[str, object]:
     return student
+
+
+@router.post("/student/change-password")
+def change_student_password(
+    payload: StudentPasswordChangeRequest,
+    response: Response,
+    student: dict[str, object] = Depends(get_authenticated_student),
+) -> dict[str, object]:
+    if payload.newPassword == "123":
+        raise HTTPException(status_code=422, detail="新密码不能与初始密码相同")
+
+    now = utc_now_iso()
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute(
+            """
+            SELECT id, student_no, name, status, account_kind, must_change_password
+            FROM student_accounts
+            WHERE id = ?
+            """,
+            (int(student["id"]),),
+        ).fetchone()
+        if row is None or row["status"] != "active" or row["account_kind"] != "normal":
+            raise HTTPException(status_code=401, detail="登录状态已失效")
+        if not bool(row["must_change_password"]):
+            raise HTTPException(status_code=409, detail="当前账号不需要重置密码")
+        connection.execute(
+            """
+            UPDATE student_accounts
+            SET password_hash = ?, must_change_password = 0, updated_at = ?
+            WHERE id = ?
+            """,
+            (hash_password(payload.newPassword), now, int(row["id"])),
+        )
+        connection.execute(
+            "DELETE FROM student_sessions WHERE student_account_id = ?",
+            (int(row["id"]),),
+        )
+        token = create_student_session(connection, int(row["id"]))
+
+    set_session_cookie(response, token)
+    return {
+        "id": row["id"],
+        "studentNo": row["student_no"],
+        "name": row["name"],
+        "mustChangePassword": False,
+    }
 
 
 @router.post("/student/logout", status_code=status.HTTP_204_NO_CONTENT)

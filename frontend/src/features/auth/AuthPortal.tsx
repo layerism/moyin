@@ -39,12 +39,19 @@ export function AuthPortal({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const fieldPrefix = `${role}-${mode}`;
+  const minimumPasswordLength = role === "student" && mode === "login" ? 3 : 8;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
-    if (!form.name.trim() || !form.identifier.trim() || form.password.length < 8) {
-      setError(`请填写姓名、${role === "teacher" ? "工号" : "学号"}和至少 8 位密码`);
+    if (
+      !form.name.trim()
+      || !form.identifier.trim()
+      || form.password.length < minimumPasswordLength
+    ) {
+      setError(
+        `请填写姓名、${role === "teacher" ? "工号" : "学号"}和至少 ${minimumPasswordLength} 位密码`,
+      );
       return;
     }
     if (mode === "register" && form.password !== form.confirm) {

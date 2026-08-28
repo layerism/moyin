@@ -43,6 +43,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const databaseAdminApi = {
+  resetStudentPassword(studentId: number, reason: string) {
+    return request<{ backupCreated: boolean; reset: boolean }>(
+      `/api/admin/database/student-accounts/${studentId}/reset-password`,
+      { method: "POST", body: JSON.stringify({ reason }) },
+    );
+  },
   listTables() {
     return request<AdminTable[]>("/api/admin/database/tables");
   },

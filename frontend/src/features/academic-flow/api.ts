@@ -12,7 +12,6 @@ import type {
   RuntimeFlowInstance,
   RuntimeScanFile,
   SharedFlow,
-  StudentIdentity,
   TeacherSubmissionDetail,
   WorkflowProgress,
 } from "./runtimeTypes";
@@ -297,24 +296,6 @@ export const workflowApi = {
   },
   getShared(token: string) {
     return request<SharedFlow>(`/api/shared-flows/${encodeURIComponent(token)}`);
-  },
-  me() {
-    return request<StudentIdentity>("/api/auth/me");
-  },
-  register(payload: { name: string; password: string; studentNo: string }) {
-    return request<StudentIdentity>("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  },
-  login(payload: { name: string; password: string; studentNo: string }) {
-    return request<StudentIdentity>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  },
-  logout() {
-    return request<void>("/api/auth/logout", { method: "POST" });
   },
   enterShared(token: string) {
     return request<RuntimeFlowInstance>(
