@@ -64,6 +64,17 @@ test("scan filename validation rejects a mixed selected batch before upload", ()
   }) ?? "", /文件“其他材料\.png”.*安全责任书/);
 });
 
+test("scan filename validation allows arbitrary image names without a template", () => {
+  assert.equal(getScanFilenameError({
+    filenames: ["数学稿纸第1页.jpg", "手写过程.PNG"],
+    templateFilename: null,
+  }), null);
+  assert.match(getScanFilenameError({
+    filenames: ["数学稿纸.pdf"],
+    templateFilename: null,
+  }) ?? "", /JPG、JPEG 或 PNG/);
+});
+
 test("confirmation without a signing template does not require scans", () => {
   assert.equal(getScanSubmitBlocker({
     confirmed: true,

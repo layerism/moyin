@@ -11,7 +11,10 @@ class FlowValidationError(ValueError):
 
 
 def confirmation_requires_scans(node: dict[str, Any]) -> bool:
-    return node.get("kind") == "confirmation" and node.get("templateAsset") is not None
+    return node.get("kind") == "confirmation" and (
+        node.get("templateAsset") is not None
+        or node.get("scanAuditEnabled") is True
+    )
 
 
 def validate_flow_config(
@@ -133,5 +136,3 @@ def _validate_confirmation_scan(
             raise FlowValidationError("请选择扫描审核模式")
         if not isinstance(prompt, str) or not prompt.strip():
             raise FlowValidationError("请填写扫描审核标准")
-        if not node.get("templateAsset"):
-            raise FlowValidationError("请上传 DOCX 签署文件模板")

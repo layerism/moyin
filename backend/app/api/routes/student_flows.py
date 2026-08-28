@@ -240,7 +240,7 @@ def upload_node_scan(
         raise HTTPException(status_code=422, detail="请选择扫描件")
     try:
         validate_confirmation_scan_filenames(
-            [filename], context.template_original_name or ""
+            [filename], context.template_original_name
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

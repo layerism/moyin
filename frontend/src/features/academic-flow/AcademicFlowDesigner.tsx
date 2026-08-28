@@ -2617,7 +2617,7 @@ function ConfirmationScanSettings({
             />
             <span aria-hidden="true">＋</span>
             <strong>选择 DOCX 模板</strong>
-            <small>签署文件模板</small>
+            <small>可选；不提供时学生直接上传图片</small>
           </label>
         )}
       </div>

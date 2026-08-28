@@ -24,15 +24,20 @@ export function getScanFilenameError(input: {
   templateFilename: string | null;
 }): string | null {
   const template = getFilenameIdentity(input.templateFilename ?? "");
-  if (!template.stem || template.suffix !== ".docx") {
+  const hasTemplate = input.templateFilename !== null;
+  if (hasTemplate && (!template.stem || template.suffix !== ".docx")) {
     return "当前节点模板配置异常，请联系教师";
   }
   const invalidFilename = input.filenames.find((filename) => {
     const scan = getFilenameIdentity(filename);
     return ![".jpg", ".jpeg", ".png"].includes(scan.suffix)
-      || !scan.stem.startsWith(template.stem);
+      || (hasTemplate && !scan.stem.startsWith(template.stem));
   });
   if (invalidFilename) {
+    if (!hasTemplate) {
+      return `文件“${normalizeFilename(invalidFilename)}”格式不符合要求，`
+        + "请上传 JPG、JPEG 或 PNG 图片。";
+    }
     return `文件“${normalizeFilename(invalidFilename)}”名称不符合要求，`
       + `请改为以“${template.stem}”开头后重新上传。`;
   }
@@ -76,7 +81,7 @@ export function ScanUploadWorkspace({
   onDownload: (fileId: string) => void;
   onStateChange: (state: { scans: RuntimeScanFile[]; uploading: boolean }) => void;
   onTemplateRequired: () => void;
-  templateFilename: string;
+  templateFilename: string | null;
   templateLocked: boolean;
 }) {
   const [scans, setScans] = useState<RuntimeScanFile[]>([]);
@@ -215,7 +220,10 @@ export function ScanUploadWorkspace({
         if (files.length) void upload(files);
       }} />
       <strong>{uploading ? "正在逐个上传扫描件" : "选择或拖拽扫描件"}</strong>
-      <small>JPG、JPEG、PNG；最多 10 个文件、20 页</small>
+      <small>
+        JPG、JPEG、PNG；最多 10 个文件、20 页
+        {templateFilename === null ? "；文件名不限" : ""}
+      </small>
     </label>
     {templateReminderVisible ? (
       <p className="runtime-scan-prerequisite-error" role="alert">
