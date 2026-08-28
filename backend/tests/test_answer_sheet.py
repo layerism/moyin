@@ -99,6 +99,16 @@ def test_rejects_private_answer_for_unknown_option() -> None:
         )
 
 
+def test_rejects_fill_blank_ui_placeholder_as_private_answer() -> None:
+    key = answer_key()
+    key["answers"]["q3"]["blanks"]["b1"]["acceptedAnswers"] = ["请输入答案"]
+
+    with pytest.raises(AnswerSheetConfigError, match="至少需要一个答案"):
+        validate_private_answer_key(
+            answer_sheet_node(), key, require_publishable=True
+        )
+
+
 def test_multiple_choice_requires_exact_set_but_ignores_order() -> None:
     payload = {
         "answers": {

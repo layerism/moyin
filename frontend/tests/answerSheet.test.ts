@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER,
   createAnswerSheetQuestion,
+  createPrivateAnswer,
   createDefaultAnswerSheet,
   validateAnswerSheetAuthoring,
   validateAnswerSheetSubmission,
@@ -37,6 +39,26 @@ test("single choice requires exactly one existing private answer", () => {
   assert.deepEqual(validateAnswerSheetAuthoring(config, key), {
     [questionId]: ["请选择唯一正确答案"],
   });
+});
+
+test("fill blank prompt is UI-only and does not count as an answer", () => {
+  const { config, key } = createDefaultAnswerSheet();
+  const question = createAnswerSheetQuestion("fill_blank");
+  assert.equal(question.type, "fill_blank");
+  if (question.type !== "fill_blank") return;
+  config.questions = [question];
+  key.answers = { [question.id]: createPrivateAnswer(question) };
+
+  const answer = key.answers[question.id];
+  assert.ok(answer);
+  if (!answer) return;
+  assert.equal(answer.type, "fill_blank");
+  if (answer.type !== "fill_blank") return;
+  assert.deepEqual(answer.blanks[question.blanks[0].id].acceptedAnswers, [""]);
+  assert.match(validateAnswerSheetAuthoring(config, key)[question.id]?.join("；") ?? "", /至少需要一个答案/);
+
+  answer.blanks[question.blanks[0].id].acceptedAnswers = [ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER];
+  assert.match(validateAnswerSheetAuthoring(config, key)[question.id]?.join("；") ?? "", /至少需要一个答案/);
 });
 
 test("strict submission reports every unanswered required question", () => {
