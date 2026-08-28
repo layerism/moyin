@@ -495,6 +495,12 @@ function RuntimeNodeDialog({
     && runtime.status === "expired"
     && Object.keys(runtime.submission).length > 0;
   const readonly = (runtime.status === "approved" || expiredAnswerSheetSubmission) && !writable;
+  const completionLabel = expiredAnswerSheetSubmission
+    ? "已截止 · 最后一次提交"
+    : approvedForm ? "已完成 · 当前通过内容" : "已完成 · 提交内容已锁定";
+  const answerSheetGradeCompletion = readonly && node.kind === "answer_sheet" && runtime.grade
+    ? { label: completionLabel, submittedAt: formatDateTime(runtime.submittedAt) }
+    : undefined;
   const displayedPayload = readonly ? runtime.submission : draft;
   const answerSheetTotalScore = node.kind === "answer_sheet" && node.answerSheet
     ? answerSheetMaxScore(node.answerSheet)
@@ -690,18 +696,20 @@ function RuntimeNodeDialog({
         ) : null}
         {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
         {node.kind === "answer_sheet" && runtime.grade ? (
-          <AnswerSheetGradeResult grade={runtime.grade} node={node} />
+          <AnswerSheetGradeResult
+            completion={answerSheetGradeCompletion}
+            grade={runtime.grade}
+            node={node}
+          />
         ) : null}
         {readonly ? (
           <>
-            <section className="runtime-completion-banner">
-              <strong>
-                {expiredAnswerSheetSubmission
-                  ? "已截止 · 最后一次提交"
-                  : approvedForm ? "已完成 · 当前通过内容" : "已完成 · 提交内容已锁定"}
-              </strong>
-              <span>提交时间：{formatDateTime(runtime.submittedAt)}</span>
-            </section>
+            {answerSheetGradeCompletion ? null : (
+              <section className="runtime-completion-banner">
+                <strong>{completionLabel}</strong>
+                <span>提交时间：{formatDateTime(runtime.submittedAt)}</span>
+              </section>
+            )}
             <ReadonlySubmission instanceId={instanceId} node={node} onDownloadFile={onDownloadFile} payload={displayedPayload} submittedAt={runtime.submittedAt} />
             {canAmendApprovedForm ? (
               <div className="runtime-node-actions runtime-node-actions-readonly">

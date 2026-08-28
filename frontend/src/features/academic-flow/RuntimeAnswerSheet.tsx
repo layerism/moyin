@@ -92,9 +92,14 @@ export function RuntimeAnswerSheet({
 }
 
 export function AnswerSheetGradeResult({
+  completion,
   grade,
   node,
 }: {
+  completion?: {
+    label: string;
+    submittedAt: string;
+  };
   grade: AnswerSheetGrade;
   node: AcademicFlowNode;
 }) {
@@ -102,11 +107,15 @@ export function AnswerSheetGradeResult({
   return (
     <section className={`answer-sheet-grade ${grade.passed ? "is-passed" : "is-failed"}`}>
       <header>
-        <div><strong>{grade.score}</strong><span> / {grade.maxScore} 分</span></div>
+        <div className="answer-sheet-grade-score">
+          <span>得分</span>
+          <strong>{grade.score}</strong>
+          <small>/ {grade.maxScore} 分</small>
+        </div>
         <em>{grade.passed ? "已达到及格要求" : `未达到 ${grade.passingScore} 分的及格要求`}</em>
       </header>
       {grade.questionResults?.length ? (
-        <ol>
+        <ol className="answer-sheet-grade-breakdown">
           {node.answerSheet?.questions.map((question, index) => {
             const result = results.get(question.id);
             return <li className={result?.correct ? "is-correct" : "is-wrong"} key={question.id}>
@@ -123,6 +132,12 @@ export function AnswerSheetGradeResult({
             <li key={question.id}>第 {index + 1} 题：{formatStandardAnswer(question, grade.standardAnswers?.[question.id])}</li>
           ))}</ol>
         </div>
+      ) : null}
+      {completion ? (
+        <footer className="answer-sheet-grade-completion">
+          <strong>{completion.label}</strong>
+          <span>提交时间：{completion.submittedAt}</span>
+        </footer>
       ) : null}
     </section>
   );
