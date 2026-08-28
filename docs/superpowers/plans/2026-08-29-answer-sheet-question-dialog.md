@@ -32,11 +32,11 @@
 - Produces: 已有题目打开、新题打开、确认写回、退出丢弃四个状态操作。
 - Consumes: 现有 `createAnswerSheetQuestion()`、`createPrivateAnswer()` 与外层 `onChange()`。
 
-- [ ] **Step 1: 用单一草稿状态替换 `expandedQuestionId`**
+- [x] **Step 1: 用单一草稿状态替换 `expandedQuestionId`**
 
   已有题目打开时读取同题号的公开题目与私有答案；新增题目只创建临时对象，不立即写回。题目被外部删除时关闭对应草稿。
 
-- [ ] **Step 2: 实现确认和退出**
+- [x] **Step 2: 实现确认和退出**
 
   确认已有题目时按 ID 替换公开题目和私有答案；确认新题时追加两者；两种路径都只调用一次 `onChange()`。退出只清空草稿和题目内部菜单。
 
@@ -49,15 +49,15 @@
 - Produces: `AnswerSheetQuestionDialog`。
 - Consumes: `SelectionEditor`、`FillBlankEditor`、`SingleMarkdownFillBlankEditor`、`validateAnswerSheetAuthoring()`。
 
-- [ ] **Step 1: 外层题目摘要改为打开弹窗**
+- [x] **Step 1: 外层题目摘要改为打开弹窗**
 
   移除行内内容和展开箭头状态；摘要按钮使用 `aria-haspopup="dialog"`。排序手柄和菜单保持独立兄弟节点。
 
-- [ ] **Step 2: 渲染草稿弹窗**
+- [x] **Step 2: 渲染草稿弹窗**
 
   弹窗内容继续呈现分值、必答、题干 Markdown 及对应题型细节。使用包含草稿的临时 config/key 计算当前题目的校验信息；不完整题目不禁用确认。
 
-- [ ] **Step 3: 固定关闭规则**
+- [x] **Step 3: 固定关闭规则**
 
   右上角“×”和“退出”调用丢弃；“确认”调用原子写回；遮罩无关闭回调，也不注册 `Escape` 关闭处理。锁定模式隐藏确认按钮。
 
@@ -71,14 +71,14 @@
 - Produces: 固定定位、独立滚动、固定头尾的题目弹窗样式。
 - Removes: `toggleExpandedQuestion()`。
 
-- [ ] **Step 1: 新增题目弹窗视觉层级**
+- [x] **Step 1: 新增题目弹窗视觉层级**
 
   遮罩层级高于节点设置弹窗；弹窗宽度适配桌面与窄屏，主体可滚动，头尾保持可见。
 
-- [ ] **Step 2: 清理行内展开遗留**
+- [x] **Step 2: 清理行内展开遗留**
 
   删除展开状态函数、展开样式和无效 `aria-controls`，保留题目卡片错误态、拖拽态和紧凑摘要。
 
-- [ ] **Step 3: 静态审计、重启与提交**
+- [x] **Step 3: 静态审计、重启与提交**
 
   使用 `rg` 审计不再存在行内展开调用，人工检查新建/已有题目的确认与退出写回路径。按项目规则不运行测试或构建；清理限定缓存，本地重启前后端，再创建一个结果提交。

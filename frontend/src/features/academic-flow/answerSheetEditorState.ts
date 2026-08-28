@@ -1,13 +1,6 @@
 import type { AnswerSheetQuestion } from "../../types";
 import { isSingleMarkdownFillBlankQuestion } from "./answerSheet";
 
-export function toggleExpandedQuestion(
-  currentQuestionId: string | null,
-  questionId: string,
-): string | null {
-  return currentQuestionId === questionId ? null : questionId;
-}
-
 export function moveAnswerSheetQuestion<T extends { id: string }>(
   questions: T[],
   questionId: string,
