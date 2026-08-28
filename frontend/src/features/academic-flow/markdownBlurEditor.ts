@@ -9,3 +9,10 @@ export function resolveMarkdownEditorMode({
 }): MarkdownEditorMode {
   return disabled || !focused ? "preview" : "source";
 }
+
+export function resolveMarkdownValueOnEdit(
+  value: string,
+  clearOnEditValues: readonly string[],
+): string {
+  return clearOnEditValues.includes(value) ? "" : value;
+}

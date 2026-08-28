@@ -15,6 +15,10 @@ export type AnswerSheetAuthoring = {
   key: AnswerSheetPrivateKey;
 };
 
+export function createAnswerSheetOption(): AnswerSheetSelectionQuestion["options"][number] {
+  return { content: "", id: createStableId("option") };
+}
+
 export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
   const question = createAnswerSheetQuestion("single_choice") as AnswerSheetSelectionQuestion;
   return {
@@ -53,11 +57,11 @@ export function createAnswerSheetQuestion(type: AnswerSheetQuestionType): Answer
     };
   }
   return {
-    content: "请输入题干",
+    content: "",
     id,
     options: [
-      { content: "选项 1", id: createStableId("option") },
-      { content: "选项 2", id: createStableId("option") },
+      createAnswerSheetOption(),
+      createAnswerSheetOption(),
     ],
     points: 1,
     required: true,

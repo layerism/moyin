@@ -10,6 +10,7 @@ import type {
 import {
   ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER,
   answerSheetMaxScore,
+  createAnswerSheetOption,
   createAnswerSheetQuestion,
   createPrivateAnswer,
   validateAnswerSheetAuthoring,
@@ -33,6 +34,9 @@ type ActionMenuItem = {
   label: string;
   onSelect: () => void;
 };
+
+const LEGACY_QUESTION_PLACEHOLDERS = ["请输入题干"] as const;
+const LEGACY_OPTION_PLACEHOLDERS = ["选项 1", "选项 2", "新增选项"] as const;
 
 const questionTypeLabels: Record<AnswerSheetQuestionType, string> = {
   fill_blank: "填空",
@@ -344,9 +348,12 @@ export function AnswerSheetEditor({
                   </div>
                   <div className="answer-sheet-question-markdown">
                     <MarkdownBlurEditor
+                      clearOnEditValues={question.type === "fill_blank"
+                        ? []
+                        : LEGACY_QUESTION_PLACEHOLDERS}
                       disabled={disabled}
                       onChange={(content) => updateQuestion(question.id, { ...question, content })}
-                      placeholder="输入 Markdown 题干"
+                      placeholder={question.type === "fill_blank" ? "输入 Markdown 题干" : "请输入题干"}
                       value={question.content}
                     />
                   </div>
@@ -405,8 +412,7 @@ function SelectionEditor({
   question: Extract<AnswerSheetQuestion, { type: "single_choice" | "multiple_choice" }>;
 }) {
   const addOption = () => {
-    const id = createId("option");
-    onQuestionChange({ ...question, options: [...question.options, { id, content: "新增选项" }] });
+    onQuestionChange({ ...question, options: [...question.options, createAnswerSheetOption()] });
   };
   return (
     <div className="answer-sheet-option-editor">
@@ -445,9 +451,10 @@ function SelectionEditor({
               }}
             />
             <MarkdownBlurEditor
+              clearOnEditValues={LEGACY_OPTION_PLACEHOLDERS}
               compact
               disabled={disabled}
-              placeholder={`输入选项 ${index + 1}`}
+              placeholder={`选项 ${index + 1}`}
               value={option.content}
               onChange={(content) => onQuestionChange({
                 ...question,
