@@ -374,24 +374,62 @@
 
 .answer-sheet-question-dialog > header {
   border-bottom: 1px solid #e7ecf3;
+  padding-top: 11px;
+  padding-bottom: 11px;
 }
 
-.answer-sheet-question-dialog > header > div {
+.answer-sheet-question-dialog-heading {
+  min-width: 0;
+  flex: 1;
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 10px;
 }
 
 .answer-sheet-question-dialog > header h2 {
   margin: 0;
   color: #172033;
   font-size: 18px;
+  white-space: nowrap;
 }
 
-.answer-sheet-question-dialog > header span {
+.answer-sheet-question-dialog-type {
   color: #667085;
   font-size: 12px;
   font-weight: 650;
+}
+
+.answer-sheet-question-dialog-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.answer-sheet-editor .answer-sheet-question-dialog-settings label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 0;
+  color: #596579;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.answer-sheet-editor .answer-sheet-question-dialog-settings input[type="number"] {
+  width: 52px;
+  min-height: 28px;
+  border: 1px solid #ccd4e0;
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+
+.answer-sheet-editor .answer-sheet-question-dialog-settings input[type="number"]:focus {
+  border-color: #4e86d8;
+  box-shadow: 0 0 0 2px rgb(43 112 211 / 12%);
+  outline: 0;
 }
 
 .answer-sheet-question-dialog > header button {

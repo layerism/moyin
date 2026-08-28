@@ -420,44 +420,44 @@ function AnswerSheetQuestionDialog({
         role="dialog"
       >
         <header>
-          <div>
+          <div className="answer-sheet-question-dialog-heading">
             <h2 id="answer-sheet-question-dialog-title">
               {disabled ? "查看" : "编辑"}第 {index + 1} 题
             </h2>
-            <span>{questionTypeLabels[question.type]}</span>
+            <span className="answer-sheet-question-dialog-type">{questionTypeLabels[question.type]}</span>
+            <div className="answer-sheet-question-dialog-settings">
+              {"points" in question ? (
+                <label className="answer-sheet-question-points">
+                  <span>分值</span>
+                  <input
+                    disabled={disabled}
+                    min="1"
+                    type="number"
+                    value={question.points}
+                    onChange={(event) => onQuestionChange({
+                      ...question,
+                      points: Number(event.target.value),
+                    })}
+                  />
+                </label>
+              ) : null}
+              <label className="answer-sheet-required">
+                <input
+                  checked={question.required}
+                  disabled={disabled}
+                  type="checkbox"
+                  onChange={(event) => onQuestionChange({
+                    ...question,
+                    required: event.target.checked,
+                  })}
+                />
+                必答
+              </label>
+            </div>
           </div>
           <button aria-label="退出题目编辑" onClick={onCancel} type="button">×</button>
         </header>
         <div className="answer-sheet-question-dialog-body">
-          <div className="answer-sheet-question-settings">
-            {"points" in question ? (
-              <label className="answer-sheet-question-points">
-                <span>分值</span>
-                <input
-                  disabled={disabled}
-                  min="1"
-                  type="number"
-                  value={question.points}
-                  onChange={(event) => onQuestionChange({
-                    ...question,
-                    points: Number(event.target.value),
-                  })}
-                />
-              </label>
-            ) : null}
-            <label className="answer-sheet-required">
-              <input
-                checked={question.required}
-                disabled={disabled}
-                type="checkbox"
-                onChange={(event) => onQuestionChange({
-                  ...question,
-                  required: event.target.checked,
-                })}
-              />
-              必答
-            </label>
-          </div>
           <div className="answer-sheet-question-markdown">
             <MarkdownBlurEditor
               clearOnEditValues={question.type === "fill_blank" ? [] : LEGACY_QUESTION_PLACEHOLDERS}
