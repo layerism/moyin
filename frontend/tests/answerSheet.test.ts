@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER,
+  createAnswerSheetOption,
   createAnswerSheetQuestion,
   createPrivateAnswer,
   createDefaultAnswerSheet,
@@ -19,21 +20,35 @@ import {
   moveAnswerSheetQuestion,
   toggleExpandedQuestion,
 } from "../src/features/academic-flow/answerSheetEditorState.ts";
-import { resolveMarkdownEditorMode } from "../src/features/academic-flow/markdownBlurEditor.ts";
+import {
+  resolveMarkdownEditorMode,
+  resolveMarkdownValueOnEdit,
+} from "../src/features/academic-flow/markdownBlurEditor.ts";
 import { restrictBasicMarkdownTree } from "../src/features/academic-flow/basicAnswerSheetMarkdown.ts";
 import type { AcademicFlowNode } from "../src/types.ts";
 
-test("new answer sheet has stable publishable structural defaults", () => {
+test("new answer sheet keeps authoring prompts out of business content", () => {
   const { config, key } = createDefaultAnswerSheet();
 
   assert.equal(config.schemaVersion, "1.0");
   assert.equal(config.questions.length, 1);
-  assert.equal(key.answers[config.questions[0].id]?.type, "single_choice");
+  const question = config.questions[0];
+  assert.equal(question.type, "single_choice");
+  if (question.type !== "single_choice") return;
+  assert.equal(question.content, "");
+  assert.deepEqual(question.options.map((option) => option.content), ["", ""]);
+  assert.equal(key.answers[question.id]?.type, "single_choice");
+  assert.equal(createAnswerSheetOption().content, "");
 });
 
 test("single choice requires exactly one existing private answer", () => {
   const { config, key } = createDefaultAnswerSheet();
   const questionId = config.questions[0].id;
+  config.questions[0].content = "太阳从哪一方向升起？";
+  if (config.questions[0].type === "single_choice") {
+    config.questions[0].options[0].content = "东方";
+    config.questions[0].options[1].content = "西方";
+  }
   delete key.answers[questionId];
 
   assert.deepEqual(validateAnswerSheetAuthoring(config, key), {
@@ -92,6 +107,13 @@ test("markdown editor shows source only while focused", () => {
   assert.equal(resolveMarkdownEditorMode({ disabled: false, focused: true }), "source");
   assert.equal(resolveMarkdownEditorMode({ disabled: false, focused: false }), "preview");
   assert.equal(resolveMarkdownEditorMode({ disabled: true, focused: true }), "preview");
+});
+
+test("markdown editor clears only configured legacy placeholders on edit", () => {
+  assert.equal(resolveMarkdownValueOnEdit("请输入题干", ["请输入题干"]), "");
+  assert.equal(resolveMarkdownValueOnEdit("选项 1", ["选项 1", "选项 2", "新增选项"]), "");
+  assert.equal(resolveMarkdownValueOnEdit("真实题干", ["请输入题干"]), "真实题干");
+  assert.equal(resolveMarkdownValueOnEdit("", ["请输入题干"]), "");
 });
 
 test("answer sheet markdown keeps approved basic formatting and downgrades the rest", () => {
@@ -187,6 +209,11 @@ test("answer sheet markdown keeps approved basic formatting and downgrades the r
 test("answer sheet publish issue identifies the exact invalid question", () => {
   const { config, key } = createDefaultAnswerSheet();
   const questionId = config.questions[0].id;
+  config.questions[0].content = "太阳从哪一方向升起？";
+  if (config.questions[0].type === "single_choice") {
+    config.questions[0].options[0].content = "东方";
+    config.questions[0].options[1].content = "西方";
+  }
   delete key.answers[questionId];
   const node = {
     answerSheet: config,
@@ -207,6 +234,11 @@ test("answer sheet publish issue identifies the exact invalid question", () => {
 
 test("publishable answer sheet does not produce a preflight issue", () => {
   const { config, key } = createDefaultAnswerSheet();
+  config.questions[0].content = "太阳从哪一方向升起？";
+  if (config.questions[0].type === "single_choice") {
+    config.questions[0].options[0].content = "东方";
+    config.questions[0].options[1].content = "西方";
+  }
   const node = {
     answerSheet: config,
     deadlineAt: null,

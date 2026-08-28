@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { AnswerSheetMarkdown } from "./AnswerSheetMarkdown";
-import { resolveMarkdownEditorMode } from "./markdownBlurEditor";
+import { resolveMarkdownEditorMode, resolveMarkdownValueOnEdit } from "./markdownBlurEditor";
 
 export function MarkdownBlurEditor({
+  clearOnEditValues = [],
   compact = false,
   disabled,
   onChange,
   placeholder = "点击编辑 Markdown",
   value,
 }: {
+  clearOnEditValues?: readonly string[];
   compact?: boolean;
   disabled: boolean;
   onChange: (value: string) => void;
@@ -19,6 +21,7 @@ export function MarkdownBlurEditor({
   const [focused, setFocused] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mode = resolveMarkdownEditorMode({ disabled, focused });
+  const editableValue = resolveMarkdownValueOnEdit(value, clearOnEditValues);
 
   useEffect(() => {
     if (mode === "source") textareaRef.current?.focus();
@@ -38,21 +41,22 @@ export function MarkdownBlurEditor({
         onKeyDown={(event) => {
           if (event.key === "Escape") event.currentTarget.blur();
         }}
-        placeholder={placeholder}
         ref={textareaRef}
         rows={compact ? 1 : 3}
-        value={value}
+        value={editableValue}
       />
     );
   }
 
   const beginEditing = () => {
-    if (!disabled) setFocused(true);
+    if (disabled) return;
+    if (editableValue !== value) onChange(editableValue);
+    setFocused(true);
   };
   const handlePreviewKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (disabled || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
-    setFocused(true);
+    beginEditing();
   };
 
   return (
@@ -64,8 +68,8 @@ export function MarkdownBlurEditor({
       role={disabled ? undefined : "button"}
       tabIndex={disabled ? undefined : 0}
     >
-      {value.trim() ? (
-        <AnswerSheetMarkdown>{value}</AnswerSheetMarkdown>
+      {editableValue.trim() ? (
+        <AnswerSheetMarkdown>{editableValue}</AnswerSheetMarkdown>
       ) : (
         <span className="markdown-blur-placeholder">{placeholder}</span>
       )}
