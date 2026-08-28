@@ -3,8 +3,10 @@ import unicodedata
 from typing import Any
 
 
-ANSWER_SHEET_SCHEMA_VERSION = "1.0"
-ANSWER_SHEET_GRADER_VERSION = "answer-sheet-v1"
+ANSWER_SHEET_GRADERS = {
+    "1.0": "answer-sheet-v1",
+    "2.0": "answer-sheet-v2",
+}
 QUESTION_TYPES = {"single_choice", "multiple_choice", "fill_blank"}
 FEEDBACK_POLICIES = {"score_only", "question_result", "full_after_deadline"}
 _ANSWER_SHEET_KEYS = {"schemaVersion", "questions", "gradingPolicy"}
@@ -38,7 +40,8 @@ def validate_public_answer_sheet(
     config = node.get("answerSheet")
     if not isinstance(config, dict) or set(config) != _ANSWER_SHEET_KEYS:
         raise AnswerSheetConfigError(f"答题卡“{title}”配置格式无效")
-    if config.get("schemaVersion") != ANSWER_SHEET_SCHEMA_VERSION:
+    schema_version = config.get("schemaVersion")
+    if schema_version not in ANSWER_SHEET_GRADERS:
         raise AnswerSheetConfigError(f"答题卡“{title}”配置版本无效")
 
     questions = config.get("questions")
@@ -50,7 +53,12 @@ def validate_public_answer_sheet(
     question_ids: set[str] = set()
     for index, question in enumerate(questions, start=1):
         _validate_public_question(
-            title, index, question, question_ids, require_publishable
+            title,
+            index,
+            question,
+            question_ids,
+            require_publishable,
+            str(schema_version),
         )
 
     policy = config.get("gradingPolicy")
@@ -82,6 +90,7 @@ def _validate_public_question(
     question: object,
     question_ids: set[str],
     require_publishable: bool,
+    schema_version: str,
 ) -> None:
     prefix = f"答题卡“{title}”第 {index} 题"
     if not isinstance(question, dict):
@@ -89,8 +98,15 @@ def _validate_public_question(
     question_type = question.get("type")
     if question_type not in QUESTION_TYPES:
         raise AnswerSheetConfigError(f"{prefix}题型无效")
+    single_markdown_fill = _is_single_markdown_question(question)
+    if single_markdown_fill and schema_version != "2.0":
+        raise AnswerSheetConfigError(f"{prefix}填空格式与协议版本不一致")
     expected_keys = _COMMON_QUESTION_KEYS | (
-        {"blanks"} if question_type == "fill_blank" else {"points", "options"}
+        {"format", "points"}
+        if single_markdown_fill
+        else {"blanks"}
+        if question_type == "fill_blank"
+        else {"points", "options"}
     )
     if set(question) != expected_keys:
         raise AnswerSheetConfigError(f"{prefix}包含未知或缺失配置")
@@ -110,6 +126,11 @@ def _validate_public_question(
         raise AnswerSheetConfigError(f"{prefix}必答配置无效")
 
     if question_type == "fill_blank":
+        if single_markdown_fill:
+            points = question.get("points")
+            if type(points) is not int or points <= 0:
+                raise AnswerSheetConfigError(f"{prefix}分值必须是正整数")
+            return
         _validate_public_blanks(prefix, question, require_publishable)
         return
 
@@ -186,9 +207,10 @@ def validate_private_answer_key(
     title = str(node.get("title") or "未命名答题卡")
     if not isinstance(key, dict) or set(key) != _PRIVATE_KEY_KEYS:
         raise AnswerSheetConfigError(f"答题卡“{title}”标准答案格式无效")
-    if key.get("schemaVersion") != ANSWER_SHEET_SCHEMA_VERSION:
+    schema_version = node.get("answerSheet", {}).get("schemaVersion")
+    if key.get("schemaVersion") != schema_version or schema_version not in ANSWER_SHEET_GRADERS:
         raise AnswerSheetConfigError(f"答题卡“{title}”标准答案版本无效")
-    if key.get("graderVersion") != ANSWER_SHEET_GRADER_VERSION:
+    if key.get("graderVersion") != ANSWER_SHEET_GRADERS[schema_version]:
         raise AnswerSheetConfigError(f"答题卡“{title}”评分器版本无效")
     answers = key.get("answers")
     if not isinstance(answers, dict):
@@ -236,6 +258,16 @@ def _validate_private_question_answer(
             or len(correct_ids) != len(set(correct_ids))
         ):
             raise AnswerSheetConfigError(f"{prefix}多选标准答案无效")
+        return
+
+    if _is_single_markdown_question(question):
+        if (
+            set(answer) != {"type", "format", "answerMarkdown"}
+            or answer.get("format") != "single_markdown_exact"
+            or not isinstance(answer.get("answerMarkdown"), str)
+            or not answer["answerMarkdown"].strip()
+        ):
+            raise AnswerSheetConfigError(f"{prefix}填空标准答案格式无效")
         return
 
     if set(answer) != {"type", "blanks"} or not isinstance(answer.get("blanks"), dict):
@@ -295,7 +327,7 @@ def normalize_answer_sheet_submission(
         raw_answer = raw_answers.get(question_id)
         if raw_answer is None:
             if strict and question.get("required") is True:
-                errors[question_id] = _required_answer_message(question["type"])
+                errors[question_id] = _required_answer_message(question)
             continue
         normalized = _normalize_question_submission(question, raw_answer, errors, strict)
         if normalized is not None:
@@ -351,6 +383,17 @@ def _normalize_question_submission(
         selected_set = set(selected)
         return {"selectedOptionIds": [value for value in option_order if value in selected_set]}
 
+    if _is_single_markdown_question(question):
+        answer_markdown = raw_answer.get("answerMarkdown")
+        if set(raw_answer) != {"answerMarkdown"} or not isinstance(answer_markdown, str):
+            errors[question_id] = "填空内容格式无效"
+            return None
+        if not answer_markdown.strip():
+            if strict and question.get("required") is True:
+                errors[question_id] = "请输入答案"
+            return None
+        return {"answerMarkdown": answer_markdown}
+
     blank_values = raw_answer.get("blankValues")
     blank_ids = [blank["id"] for blank in question["blanks"]]
     if set(raw_answer) != {"blankValues"} or not isinstance(blank_values, dict):
@@ -394,9 +437,10 @@ def grade_answer_sheet(
     score = sum(result["awardedPoints"] for result in results)
     maximum = answer_sheet_max_score(node)
     passing_score = node["answerSheet"]["gradingPolicy"]["passingScore"]
+    schema_version = node["answerSheet"]["schemaVersion"]
     return {
-        "schemaVersion": ANSWER_SHEET_SCHEMA_VERSION,
-        "graderVersion": ANSWER_SHEET_GRADER_VERSION,
+        "schemaVersion": schema_version,
+        "graderVersion": ANSWER_SHEET_GRADERS[schema_version],
         "score": score,
         "maxScore": maximum,
         "passingScore": passing_score,
@@ -417,6 +461,13 @@ def _grade_question(
         correct = bool(answer) and set(answer["selectedOptionIds"]) == set(private["correctOptionIds"])
         points = int(question["points"])
         return _selection_result(question["id"], points, correct)
+
+    if _is_single_markdown_question(question):
+        actual = str((answer or {}).get("answerMarkdown", "")).strip()
+        expected = str(private["answerMarkdown"]).strip()
+        return _selection_result(
+            question["id"], int(question["points"]), actual == expected
+        )
 
     blank_results: list[dict[str, Any]] = []
     for blank in question["blanks"]:
@@ -468,7 +519,9 @@ def answer_sheet_max_score(node: dict[str, Any]) -> int:
     for question in config["questions"]:
         if not isinstance(question, dict):
             continue
-        if question.get("type") == "fill_blank" and isinstance(question.get("blanks"), list):
+        if _is_single_markdown_question(question) and type(question.get("points")) is int:
+            total += question["points"]
+        elif question.get("type") == "fill_blank" and isinstance(question.get("blanks"), list):
             total += sum(
                 blank.get("points", 0)
                 for blank in question["blanks"]
@@ -484,9 +537,18 @@ def _normalize_fill_text(value: str, case_sensitive: bool) -> str:
     return normalized if case_sensitive else normalized.casefold()
 
 
-def _required_answer_message(question_type: str) -> str:
+def _is_single_markdown_question(question: object) -> bool:
+    return (
+        isinstance(question, dict)
+        and question.get("type") == "fill_blank"
+        and question.get("format") == "single_markdown_exact"
+    )
+
+
+def _required_answer_message(question: dict[str, Any]) -> str:
+    question_type = question["type"]
     if question_type == "single_choice":
         return "请选择一项"
     if question_type == "multiple_choice":
         return "请至少选择一项"
-    return "请完成所有填空"
+    return "请输入答案" if _is_single_markdown_question(question) else "请完成所有填空"

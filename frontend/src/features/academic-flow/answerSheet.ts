@@ -1,11 +1,12 @@
 import type {
   AnswerSheetConfig,
-  AnswerSheetFillBlankQuestion,
+  AnswerSheetLegacyFillBlankQuestion,
   AnswerSheetPrivateAnswer,
   AnswerSheetPrivateKey,
   AnswerSheetQuestion,
   AnswerSheetQuestionType,
   AnswerSheetSelectionQuestion,
+  AnswerSheetSingleMarkdownFillBlankQuestion,
 } from "../../types";
 
 export const ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER = "请输入答案";
@@ -29,7 +30,7 @@ export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
         passingScore: question.points,
       },
       questions: [question],
-      schemaVersion: "1.0",
+      schemaVersion: "2.0",
     },
     key: {
       answers: {
@@ -38,8 +39,8 @@ export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
           type: "single_choice",
         },
       },
-      graderVersion: "answer-sheet-v1",
-      schemaVersion: "1.0",
+      graderVersion: "answer-sheet-v2",
+      schemaVersion: "2.0",
     },
   };
 }
@@ -47,11 +48,11 @@ export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
 export function createAnswerSheetQuestion(type: AnswerSheetQuestionType): AnswerSheetQuestion {
   const id = createStableId("question");
   if (type === "fill_blank") {
-    const blankId = createStableId("blank");
     return {
-      blanks: [{ id: blankId, points: 1 }],
-      content: `请输入题干，并在需要作答的位置保留 [[blank:${blankId}]]。`,
+      content: "",
+      format: "single_markdown_exact",
       id,
+      points: 1,
       required: true,
       type,
     };
@@ -80,6 +81,13 @@ export function createPrivateAnswer(question: AnswerSheetQuestion): AnswerSheetP
       type: question.type,
     };
   }
+  if (isSingleMarkdownFillBlankQuestion(question)) {
+    return {
+      answerMarkdown: "",
+      format: "single_markdown_exact",
+      type: question.type,
+    };
+  }
   return {
     blanks: Object.fromEntries(question.blanks.map((blank) => [
       blank.id,
@@ -92,9 +100,50 @@ export function createPrivateAnswer(question: AnswerSheetQuestion): AnswerSheetP
 export function answerSheetMaxScore(config: AnswerSheetConfig): number {
   return config.questions.reduce((total, question) => total + (
     question.type === "fill_blank"
-      ? question.blanks.reduce((sum, blank) => sum + blank.points, 0)
+      ? isSingleMarkdownFillBlankQuestion(question)
+        ? question.points
+        : question.blanks.reduce((sum, blank) => sum + blank.points, 0)
       : question.points
   ), 0);
+}
+
+export function isSingleMarkdownFillBlankQuestion(
+  question: AnswerSheetQuestion,
+): question is AnswerSheetSingleMarkdownFillBlankQuestion {
+  return question.type === "fill_blank"
+    && "format" in question
+    && question.format === "single_markdown_exact";
+}
+
+export function upgradeAnswerSheetAuthoring(
+  config: AnswerSheetConfig,
+  key: AnswerSheetPrivateKey,
+): AnswerSheetAuthoring {
+  const answers = { ...key.answers };
+  let changed = config.schemaVersion !== "2.0"
+    || key.schemaVersion !== "2.0"
+    || key.graderVersion !== "answer-sheet-v2";
+  const questions = config.questions.map((question) => {
+    if (question.type !== "fill_blank" || isSingleMarkdownFillBlankQuestion(question)) {
+      return question;
+    }
+    const answer = answers[question.id];
+    const upgraded = upgradeLegacyFillBlankQuestion(question, answer);
+    if (!upgraded) return question;
+    answers[question.id] = upgraded.answer;
+    changed = true;
+    return upgraded.question;
+  });
+  if (!changed) return { config, key };
+  return {
+    config: { ...config, questions, schemaVersion: "2.0" },
+    key: {
+      ...key,
+      answers,
+      graderVersion: "answer-sheet-v2",
+      schemaVersion: "2.0",
+    },
+  };
 }
 
 export function validateAnswerSheetAuthoring(
@@ -137,7 +186,11 @@ export function validateAnswerSheetAuthoring(
       }
       continue;
     }
-    validateFillQuestion(question, privateAnswer, add);
+    if (isSingleMarkdownFillBlankQuestion(question)) {
+      validateSingleMarkdownFillQuestion(question, privateAnswer, add);
+    } else {
+      validateLegacyFillQuestion(question, privateAnswer, add);
+    }
   }
   for (const questionId of Object.keys(key.answers)) {
     if (!ids.has(questionId)) add(questionId, "标准答案对应的题目不存在");
@@ -171,7 +224,7 @@ export function validateAnswerSheetSubmission(
   for (const question of config.questions) {
     const answer = asRecord(rawAnswers[question.id]);
     if (!answer) {
-      if (strict && question.required) errors[question.id] = requiredMessage(question.type);
+      if (strict && question.required) errors[question.id] = requiredMessage(question);
       continue;
     }
     if (question.type === "single_choice") {
@@ -198,6 +251,16 @@ export function validateAnswerSheetSubmission(
         )
       ) {
         errors[question.id] = "请至少选择一项";
+      }
+      continue;
+    }
+    if (isSingleMarkdownFillBlankQuestion(question)) {
+      const answerMarkdown = answer.answerMarkdown;
+      if (
+        typeof answerMarkdown !== "string"
+        || (strict && question.required && !answerMarkdown.trim())
+      ) {
+        errors[question.id] = "请输入答案";
       }
       continue;
     }
@@ -237,8 +300,26 @@ function validateSelectionQuestion(
   }
 }
 
-function validateFillQuestion(
-  question: AnswerSheetFillBlankQuestion,
+function validateSingleMarkdownFillQuestion(
+  question: AnswerSheetSingleMarkdownFillBlankQuestion,
+  privateAnswer: AnswerSheetPrivateAnswer | undefined,
+  add: (id: string, message: string) => void,
+) {
+  if (!Number.isInteger(question.points) || question.points <= 0) {
+    add(question.id, "分值必须是正整数");
+  }
+  if (
+    privateAnswer?.type !== "fill_blank"
+    || !("format" in privateAnswer)
+    || privateAnswer.format !== "single_markdown_exact"
+    || !privateAnswer.answerMarkdown.trim()
+  ) {
+    add(question.id, "请输入标准答案");
+  }
+}
+
+function validateLegacyFillQuestion(
+  question: AnswerSheetLegacyFillBlankQuestion,
   privateAnswer: AnswerSheetPrivateAnswer | undefined,
   add: (id: string, message: string) => void,
 ) {
@@ -252,7 +333,7 @@ function validateFillQuestion(
     const marker = `[[blank:${blank.id}]]`;
     if (question.content.split(marker).length !== 2) add(question.id, "题干标记必须与填空配置一一对应");
     blankIds.add(blank.id);
-    const acceptedAnswers = privateAnswer?.type === "fill_blank"
+    const acceptedAnswers = privateAnswer?.type === "fill_blank" && "blanks" in privateAnswer
       ? privateAnswer.blanks[blank.id]?.acceptedAnswers
       : undefined;
     const hasAcceptedAnswer = acceptedAnswers?.some((value) => (
@@ -270,10 +351,50 @@ function validateFillQuestion(
   }
 }
 
-function requiredMessage(type: AnswerSheetQuestionType): string {
-  if (type === "single_choice") return "请选择一项";
-  if (type === "multiple_choice") return "请至少选择一项";
-  return "请完成所有填空";
+function requiredMessage(question: AnswerSheetQuestion): string {
+  if (question.type === "single_choice") return "请选择一项";
+  if (question.type === "multiple_choice") return "请至少选择一项";
+  return isSingleMarkdownFillBlankQuestion(question) ? "请输入答案" : "请完成所有填空";
+}
+
+function upgradeLegacyFillBlankQuestion(
+  question: AnswerSheetLegacyFillBlankQuestion,
+  answer: AnswerSheetPrivateAnswer | undefined,
+): {
+  answer: AnswerSheetPrivateAnswer;
+  question: AnswerSheetSingleMarkdownFillBlankQuestion;
+} | null {
+  if (question.blanks.length !== 1 || answer?.type !== "fill_blank" || !("blanks" in answer)) {
+    return null;
+  }
+  const blank = question.blanks[0];
+  const blankAnswer = answer.blanks[blank.id];
+  if (!blankAnswer || blankAnswer.caseSensitive || Object.keys(answer.blanks).length !== 1) {
+    return null;
+  }
+  const acceptedAnswers = blankAnswer.acceptedAnswers.filter((value) => (
+    value.trim() && value.trim() !== ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER
+  ));
+  if (acceptedAnswers.length) return null;
+  const marker = `[[blank:${blank.id}]]`;
+  const markers = [...question.content.matchAll(/\[\[blank:([A-Za-z0-9_-]+)\]\]/g)];
+  if (markers.length !== 1 || markers[0][1] !== blank.id) return null;
+  const legacyPlaceholder = `请输入题干，并在需要作答的位置保留 ${marker}。`;
+  return {
+    answer: {
+      answerMarkdown: "",
+      format: "single_markdown_exact",
+      type: "fill_blank",
+    },
+    question: {
+      content: question.content === legacyPlaceholder ? "" : question.content.replace(marker, ""),
+      format: "single_markdown_exact",
+      id: question.id,
+      points: blank.points,
+      required: question.required,
+      type: "fill_blank",
+    },
+  };
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

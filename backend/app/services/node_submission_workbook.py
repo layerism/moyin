@@ -237,6 +237,9 @@ def _format_answer_sheet_answer(question: dict[str, object], answer: object) -> 
             option_labels.get(str(value), str(value))
             for value in selected
         ) if isinstance(selected, list) else ""
+    if question.get("format") == "single_markdown_exact":
+        answer_markdown = answer.get("answerMarkdown")
+        return answer_markdown if isinstance(answer_markdown, str) else ""
     values = answer.get("blankValues")
     return "；".join(
         f"{blank.get('id')}：{values.get(str(blank.get('id')), '')}"
@@ -401,6 +404,8 @@ def _format_sheet(sheet, headers: list[str]) -> None:
 
 def _question_points(question: dict[str, object]) -> int:
     if question.get("type") == "fill_blank":
+        if question.get("format") == "single_markdown_exact":
+            return int(question.get("points") or 0)
         return sum(
             int(blank.get("points") or 0)
             for blank in question.get("blanks", [])
@@ -426,6 +431,9 @@ def _format_answer_sheet_standard(question: dict[str, object], answer: object) -
             option_labels.get(str(value), str(value))
             for value in option_ids
         ) if isinstance(option_ids, list) else ""
+    if question.get("format") == "single_markdown_exact":
+        answer_markdown = answer.get("answerMarkdown")
+        return answer_markdown if isinstance(answer_markdown, str) else ""
     blanks = answer.get("blanks")
     return "；".join(
         f"{blank_id}：{' / '.join(str(value) for value in details.get('acceptedAnswers', []))}"

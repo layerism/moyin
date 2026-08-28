@@ -1,4 +1,5 @@
 import type { AnswerSheetQuestion } from "../../types";
+import { isSingleMarkdownFillBlankQuestion } from "./answerSheet";
 
 export function toggleExpandedQuestion(
   currentQuestionId: string | null,
@@ -22,8 +23,9 @@ export function moveAnswerSheetQuestion<T extends { id: string }>(
 
 export function getAnswerSheetQuestionMeta(question: AnswerSheetQuestion): string {
   if (question.type === "fill_blank") {
+    if (isSingleMarkdownFillBlankQuestion(question)) return `${question.points} 分`;
     const points = question.blanks.reduce((total, blank) => total + blank.points, 0);
-    return `${points} 分 · ${question.blanks.length} 个填空`;
+    return `${points} 分 · 旧版填空`;
   }
   return `${question.points} 分 · ${question.options.length} 个选项`;
 }
