@@ -21,7 +21,6 @@ import {
 import {
   getAnswerSheetQuestionMeta,
   moveAnswerSheetQuestion,
-  toggleExpandedQuestion,
 } from "./answerSheetEditorState";
 import { MarkdownBlurEditor } from "./MarkdownBlurEditor";
 import { reorderItem } from "./reorder";
@@ -36,6 +35,12 @@ type ActionMenuItem = {
   disabled?: boolean;
   label: string;
   onSelect: () => void;
+};
+
+type AnswerSheetQuestionDraft = {
+  answer: AnswerSheetPrivateAnswer;
+  isNew: boolean;
+  question: AnswerSheetQuestion;
 };
 
 const LEGACY_QUESTION_PLACEHOLDERS = ["请输入题干"] as const;
@@ -70,8 +75,27 @@ export function AnswerSheetEditor({
   const questionIdKey = activeConfig.questions.map((question) => question.id).join("|");
   const [dragOverQuestionId, setDragOverQuestionId] = useState<string | null>(null);
   const [dragQuestionId, setDragQuestionId] = useState<string | null>(null);
-  const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<AnswerSheetMenuTarget | null>(null);
+  const [questionDraft, setQuestionDraft] = useState<AnswerSheetQuestionDraft | null>(null);
+
+  const draftConfig = questionDraft ? {
+    ...activeConfig,
+    questions: questionDraft.isNew
+      ? [...activeConfig.questions, questionDraft.question]
+      : activeConfig.questions.map((question) => (
+        question.id === questionDraft.question.id ? questionDraft.question : question
+      )),
+  } : null;
+  const draftKey = questionDraft ? {
+    ...activeKey,
+    answers: {
+      ...activeKey.answers,
+      [questionDraft.question.id]: questionDraft.answer,
+    },
+  } : null;
+  const draftErrors = draftConfig && draftKey && questionDraft
+    ? validateAnswerSheetAuthoring(draftConfig, draftKey)[questionDraft.question.id] ?? []
+    : [];
 
   useEffect(() => {
     if (disabled || (activeConfig === config && activeKey === gradingKey)) return;
@@ -80,7 +104,9 @@ export function AnswerSheetEditor({
 
   useEffect(() => {
     const questionIds = new Set(questionIdKey ? questionIdKey.split("|") : []);
-    setExpandedQuestionId((current) => current && questionIds.has(current) ? current : null);
+    setQuestionDraft((current) => (
+      current && (current.isNew || questionIds.has(current.question.id)) ? current : null
+    ));
     setOpenMenu((current) => current && questionIds.has(current.questionId) ? current : null);
     setDragQuestionId((current) => current && questionIds.has(current) ? current : null);
     setDragOverQuestionId((current) => current && questionIds.has(current) ? current : null);
@@ -111,30 +137,43 @@ export function AnswerSheetEditor({
     setOpenMenu(null);
   }, [disabled]);
 
-  const updateQuestion = (questionId: string, nextQuestion: AnswerSheetQuestion) => {
-    onChange({
-      ...activeConfig,
-      questions: activeConfig.questions.map((question) => (
-        question.id === questionId ? nextQuestion : question
-      )),
-    }, activeKey);
-  };
-
-  const updateAnswer = (questionId: string, answer: AnswerSheetPrivateAnswer) => {
-    onChange(activeConfig, {
-      ...activeKey,
-      answers: { ...activeKey.answers, [questionId]: answer },
-    });
-  };
-
   const addQuestion = (type: AnswerSheetQuestionType) => {
     const question = createAnswerSheetQuestion(type);
-    onChange({ ...activeConfig, questions: [...activeConfig.questions, question] }, {
-      ...activeKey,
-      answers: { ...activeKey.answers, [question.id]: createPrivateAnswer(question) },
+    setQuestionDraft({
+      answer: createPrivateAnswer(question),
+      isNew: true,
+      question,
     });
-    setExpandedQuestionId(question.id);
     setOpenMenu(null);
+  };
+
+  const openQuestion = (question: AnswerSheetQuestion) => {
+    setQuestionDraft({
+      answer: activeKey.answers[question.id] ?? createPrivateAnswer(question),
+      isNew: false,
+      question,
+    });
+    setOpenMenu(null);
+  };
+
+  const closeQuestionDraft = () => {
+    setQuestionDraft(null);
+    setOpenMenu(null);
+  };
+
+  const confirmQuestionDraft = () => {
+    if (!questionDraft) return;
+    const { answer, isNew, question: draftQuestion } = questionDraft;
+    const questions = isNew
+      ? [...activeConfig.questions, draftQuestion]
+      : activeConfig.questions.map((question) => (
+        question.id === draftQuestion.id ? draftQuestion : question
+      ));
+    onChange({ ...activeConfig, questions }, {
+      ...activeKey,
+      answers: { ...activeKey.answers, [draftQuestion.id]: answer },
+    });
+    closeQuestionDraft();
   };
 
   const removeQuestion = (questionId: string) => {
@@ -144,7 +183,6 @@ export function AnswerSheetEditor({
       ...activeConfig,
       questions: activeConfig.questions.filter((question) => question.id !== questionId),
     }, { ...activeKey, answers });
-    setExpandedQuestionId((current) => current === questionId ? null : current);
     setOpenMenu(null);
   };
 
@@ -246,17 +284,14 @@ export function AnswerSheetEditor({
 
       <div className="answer-sheet-question-list">
         {activeConfig.questions.map((question, index) => {
-          const expanded = expandedQuestionId === question.id;
-          const singleMarkdownFill = isSingleMarkdownFillBlankQuestion(question);
-          const privateAnswer = activeKey.answers[question.id] ?? createPrivateAnswer(question);
           const questionErrors = errors[question.id] ?? [];
           const questionMenuOpen = openMenu?.kind === "question"
             && openMenu.questionId === question.id;
           return (
             <article
-              className={`answer-sheet-question-editor${expanded ? " is-expanded" : ""}${
-                questionErrors.length ? " has-errors" : ""
-              }${dragOverQuestionId === question.id ? " is-drag-over" : ""}`}
+              className={`answer-sheet-question-editor${questionErrors.length ? " has-errors" : ""}${
+                dragOverQuestionId === question.id ? " is-drag-over" : ""
+              }`}
               key={question.id}
               onDragOver={(event) => {
                 if (!dragQuestionId || disabled) return;
@@ -287,18 +322,13 @@ export function AnswerSheetEditor({
                   }}
                 />
                 <div
-                  aria-controls={`answer-sheet-question-${question.id}`}
-                  aria-expanded={expanded}
+                  aria-haspopup="dialog"
                   className="answer-sheet-question-toggle"
-                  onClick={() => {
-                    setExpandedQuestionId((current) => toggleExpandedQuestion(current, question.id));
-                    setOpenMenu(null);
-                  }}
+                  onClick={() => openQuestion(question)}
                   onKeyDown={(event) => {
                     if (event.key !== "Enter" && event.key !== " ") return;
                     event.preventDefault();
-                    setExpandedQuestionId((current) => toggleExpandedQuestion(current, question.id));
-                    setOpenMenu(null);
+                    openQuestion(question);
                   }}
                   role="button"
                   tabIndex={0}
@@ -309,8 +339,8 @@ export function AnswerSheetEditor({
                       {questionTypeLabels[question.type]} · {getAnswerSheetQuestionMeta(question)}
                     </small>
                     {questionErrors.length ? <span className="answer-sheet-error-badge">需修正</span> : null}
-                    <span aria-hidden="true" className={`answer-sheet-chevron${expanded ? " expanded" : ""}`}>
-                      <svg viewBox="0 0 16 16"><path d="m3.5 6 4.5 4 4.5-4" /></svg>
+                    <span aria-hidden="true" className="answer-sheet-chevron">
+                      <svg viewBox="0 0 16 16"><path d="m6 3.5 4 4.5-4 4.5" /></svg>
                     </span>
                   </span>
                 </div>
@@ -328,89 +358,158 @@ export function AnswerSheetEditor({
                   open={questionMenuOpen}
                 />
               </div>
-
-              {expanded ? (
-                <div className="answer-sheet-question-content" id={`answer-sheet-question-${question.id}`}>
-                  <div className="answer-sheet-question-settings">
-                    {"points" in question ? (
-                      <label className="answer-sheet-question-points">
-                        <span>分值</span>
-                        <input
-                          disabled={disabled}
-                          min="1"
-                          type="number"
-                          value={question.points}
-                          onChange={(event) => updateQuestion(
-                            question.id,
-                            { ...question, points: Number(event.target.value) },
-                          )}
-                        />
-                      </label>
-                    ) : null}
-                    <label className="answer-sheet-required">
-                      <input
-                        checked={question.required}
-                        disabled={disabled}
-                        type="checkbox"
-                        onChange={(event) => updateQuestion(
-                          question.id,
-                          { ...question, required: event.target.checked },
-                        )}
-                      />
-                      必答
-                    </label>
-                  </div>
-                  <div className="answer-sheet-question-markdown">
-                    <MarkdownBlurEditor
-                      clearOnEditValues={question.type === "fill_blank" ? [] : LEGACY_QUESTION_PLACEHOLDERS}
-                      disabled={disabled}
-                      onChange={(content) => updateQuestion(question.id, { ...question, content })}
-                      placeholder={singleMarkdownFill ? "请输入题干" : question.type === "fill_blank" ? "输入 Markdown 题干" : "请输入题干"}
-                      value={question.content}
-                    />
-                  </div>
-
-                  {question.type === "fill_blank" ? (
-                    singleMarkdownFill ? (
-                      <SingleMarkdownFillBlankEditor
-                        answer={privateAnswer}
-                        disabled={disabled}
-                        onAnswerChange={(answer) => updateAnswer(question.id, answer)}
-                      />
-                    ) : (
-                      <FillBlankEditor
-                        answer={privateAnswer}
-                        disabled={disabled}
-                        onAnswerChange={(answer) => updateAnswer(question.id, answer)}
-                        onMenuChange={setOpenMenu}
-                        onQuestionChange={(next) => updateQuestion(question.id, next)}
-                        openMenu={openMenu}
-                        question={question}
-                      />
-                    )
-                  ) : (
-                    <SelectionEditor
-                      answer={privateAnswer}
-                      disabled={disabled}
-                      onAnswerChange={(answer) => updateAnswer(question.id, answer)}
-                      onMenuChange={setOpenMenu}
-                      onQuestionChange={(next) => updateQuestion(question.id, next)}
-                      openMenu={openMenu}
-                      question={question}
-                    />
-                  )}
-                  {questionErrors.map((message) => (
-                    <p className="answer-sheet-editor-error" key={message}>{message}</p>
-                  ))}
-                </div>
-              ) : null}
             </article>
           );
         })}
       </div>
       {errors._questions?.map((message) => <p className="answer-sheet-editor-error" key={message}>{message}</p>)}
       {activeConfig.questions.length === 0 ? <p className="muted-line">该答题卡暂无题目。</p> : null}
+      {questionDraft ? (
+        <AnswerSheetQuestionDialog
+          answer={questionDraft.answer}
+          disabled={disabled}
+          errors={draftErrors}
+          index={questionDraft.isNew
+            ? activeConfig.questions.length
+            : Math.max(0, activeConfig.questions.findIndex((question) => question.id === questionDraft.question.id))}
+          onAnswerChange={(answer) => setQuestionDraft((current) => current ? { ...current, answer } : current)}
+          onCancel={closeQuestionDraft}
+          onConfirm={confirmQuestionDraft}
+          onMenuChange={setOpenMenu}
+          onQuestionChange={(question) => setQuestionDraft((current) => current ? { ...current, question } : current)}
+          openMenu={openMenu}
+          question={questionDraft.question}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function AnswerSheetQuestionDialog({
+  answer,
+  disabled,
+  errors,
+  index,
+  onAnswerChange,
+  onCancel,
+  onConfirm,
+  onMenuChange,
+  onQuestionChange,
+  openMenu,
+  question,
+}: {
+  answer: AnswerSheetPrivateAnswer;
+  disabled: boolean;
+  errors: string[];
+  index: number;
+  onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+  onMenuChange: (target: AnswerSheetMenuTarget | null) => void;
+  onQuestionChange: (question: AnswerSheetQuestion) => void;
+  openMenu: AnswerSheetMenuTarget | null;
+  question: AnswerSheetQuestion;
+}) {
+  const singleMarkdownFill = isSingleMarkdownFillBlankQuestion(question);
+  return (
+    <div className="answer-sheet-question-dialog-backdrop">
+      <section
+        aria-labelledby="answer-sheet-question-dialog-title"
+        aria-modal="true"
+        className="answer-sheet-question-dialog"
+        role="dialog"
+      >
+        <header>
+          <div>
+            <h2 id="answer-sheet-question-dialog-title">
+              {disabled ? "查看" : "编辑"}第 {index + 1} 题
+            </h2>
+            <span>{questionTypeLabels[question.type]}</span>
+          </div>
+          <button aria-label="退出题目编辑" onClick={onCancel} type="button">×</button>
+        </header>
+        <div className="answer-sheet-question-dialog-body">
+          <div className="answer-sheet-question-settings">
+            {"points" in question ? (
+              <label className="answer-sheet-question-points">
+                <span>分值</span>
+                <input
+                  disabled={disabled}
+                  min="1"
+                  type="number"
+                  value={question.points}
+                  onChange={(event) => onQuestionChange({
+                    ...question,
+                    points: Number(event.target.value),
+                  })}
+                />
+              </label>
+            ) : null}
+            <label className="answer-sheet-required">
+              <input
+                checked={question.required}
+                disabled={disabled}
+                type="checkbox"
+                onChange={(event) => onQuestionChange({
+                  ...question,
+                  required: event.target.checked,
+                })}
+              />
+              必答
+            </label>
+          </div>
+          <div className="answer-sheet-question-markdown">
+            <MarkdownBlurEditor
+              clearOnEditValues={question.type === "fill_blank" ? [] : LEGACY_QUESTION_PLACEHOLDERS}
+              disabled={disabled}
+              onChange={(content) => onQuestionChange({ ...question, content })}
+              placeholder={singleMarkdownFill
+                ? "请输入题干"
+                : question.type === "fill_blank" ? "输入 Markdown 题干" : "请输入题干"}
+              value={question.content}
+            />
+          </div>
+          {question.type === "fill_blank" ? (
+            singleMarkdownFill ? (
+              <SingleMarkdownFillBlankEditor
+                answer={answer}
+                disabled={disabled}
+                onAnswerChange={onAnswerChange}
+              />
+            ) : (
+              <FillBlankEditor
+                answer={answer}
+                disabled={disabled}
+                onAnswerChange={onAnswerChange}
+                onMenuChange={onMenuChange}
+                onQuestionChange={onQuestionChange}
+                openMenu={openMenu}
+                question={question}
+              />
+            )
+          ) : (
+            <SelectionEditor
+              answer={answer}
+              disabled={disabled}
+              onAnswerChange={onAnswerChange}
+              onMenuChange={onMenuChange}
+              onQuestionChange={onQuestionChange}
+              openMenu={openMenu}
+              question={question}
+            />
+          )}
+          {errors.map((message) => (
+            <p className="answer-sheet-editor-error" key={message}>{message}</p>
+          ))}
+        </div>
+        <footer>
+          <button className="answer-sheet-question-dialog-cancel" onClick={onCancel} type="button">退出</button>
+          {!disabled ? (
+            <button className="answer-sheet-question-dialog-confirm" onClick={onConfirm} type="button">确认</button>
+          ) : null}
+        </footer>
+      </section>
+    </div>
   );
 }
 
