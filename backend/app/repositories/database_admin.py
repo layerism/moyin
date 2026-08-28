@@ -8,6 +8,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.database import get_connection
+from app.services.security import hash_password, utc_now_iso
 
 
 @dataclass(frozen=True)
@@ -253,6 +254,84 @@ def delete_admin_row(
     except sqlite3.IntegrityError as exc:
         raise DatabaseAdminError("该记录存在受保护的关联数据，无法删除") from exc
     return {"deleted": True, "backupCreated": True}
+
+
+def reset_student_password(
+    student_id: int,
+    reason: str,
+    actor_id: int,
+) -> dict[str, object]:
+    if not reason.strip():
+        raise DatabaseAdminError("请填写重置原因")
+
+    _backup_database()
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        account = connection.execute(
+            """
+            SELECT id, student_no, name, account_kind, must_change_password
+            FROM student_accounts
+            WHERE id = ?
+            """,
+            (student_id,),
+        ).fetchone()
+        if account is None:
+            raise KeyError(student_id)
+        if account["account_kind"] != "normal":
+            raise DatabaseAdminError("预览学生账号不能重置密码")
+
+        session_count = int(
+            connection.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM student_sessions
+                WHERE student_account_id = ?
+                """,
+                (student_id,),
+            ).fetchone()["count"]
+        )
+        now = utc_now_iso()
+        connection.execute(
+            """
+            UPDATE student_accounts
+            SET password_hash = ?, must_change_password = 1, updated_at = ?
+            WHERE id = ?
+            """,
+            (hash_password("123"), now, student_id),
+        )
+        connection.execute(
+            "DELETE FROM student_sessions WHERE student_account_id = ?",
+            (student_id,),
+        )
+        before_data = {
+            "studentNo": account["student_no"],
+            "name": account["name"],
+            "mustChangePassword": bool(account["must_change_password"]),
+            "activeSessionCount": session_count,
+        }
+        after_data = {
+            "studentNo": account["student_no"],
+            "name": account["name"],
+            "mustChangePassword": True,
+            "sessionsInvalidated": session_count,
+        }
+        connection.execute(
+            """
+            INSERT INTO audit_logs
+                (actor_id, action, entity_type, entity_id,
+                 before_data, after_data, reason, created_at)
+            VALUES (?, 'student_password_reset', 'student_account', ?, ?, ?, ?, ?)
+            """,
+            (
+                str(actor_id),
+                str(student_id),
+                json.dumps(before_data, ensure_ascii=False, sort_keys=True),
+                json.dumps(after_data, ensure_ascii=False, sort_keys=True),
+                reason.strip(),
+                now,
+            ),
+        )
+    return {"reset": True, "backupCreated": True}
 
 
 def _table_names(connection: sqlite3.Connection) -> list[str]:

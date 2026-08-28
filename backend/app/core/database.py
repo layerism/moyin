@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS student_accounts (
     student_no TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     password_hash TEXT NOT NULL,
+    must_change_password INTEGER NOT NULL DEFAULT 0
+        CHECK (must_change_password IN (0, 1)),
     status TEXT NOT NULL DEFAULT 'active',
     account_kind TEXT NOT NULL DEFAULT 'normal'
         CHECK (account_kind IN ('normal', 'preview')),
@@ -372,6 +374,7 @@ def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA)
         _apply_super_admin_role_migration(connection)
+        _apply_student_password_change_migration(connection)
         _apply_flow_owner_migration(connection)
         _apply_share_token_value_migration(connection)
         _apply_scan_file_metadata_migration(connection)
@@ -400,6 +403,26 @@ def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
     )
     connection.execute(
         "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )
+
+
+def _apply_student_password_change_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260829_add_student_password_change_requirement"
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info(student_accounts)").fetchall()
+    }
+    if "must_change_password" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE student_accounts
+            ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0
+            CHECK (must_change_password IN (0, 1))
+            """
+        )
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
         (migration_id, datetime.now(UTC).isoformat()),
     )
 

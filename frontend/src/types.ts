@@ -12,6 +12,7 @@ export type Screen =
   | "login"
   | "reset"
   | "changePassword"
+  | "studentChangePassword"
   | "studentHome"
   | "workspace";
 export type Tab = "edit" | "stats" | "settings" | "fill";

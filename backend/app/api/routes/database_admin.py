@@ -9,6 +9,7 @@ from app.repositories.database_admin import (
     get_admin_table_schema,
     list_admin_rows,
     list_admin_tables,
+    reset_student_password,
     update_admin_row,
 )
 from app.services.security import get_current_super_admin
@@ -25,6 +26,10 @@ class UpdateRowRequest(BaseModel):
 
 class DeleteRowRequest(BaseModel):
     key: dict[str, Any]
+    reason: str = Field(min_length=1, max_length=300)
+
+
+class ResetStudentPasswordRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=300)
 
 
@@ -88,5 +93,23 @@ def delete_table_row(
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="数据表或记录不存在") from exc
+    except DatabaseAdminError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/student-accounts/{student_id}/reset-password")
+def reset_password(
+    student_id: int,
+    payload: ResetStudentPasswordRequest,
+    admin: dict[str, object] = Depends(get_current_super_admin),
+) -> dict[str, object]:
+    try:
+        return reset_student_password(
+            student_id=student_id,
+            reason=payload.reason,
+            actor_id=int(admin["id"]),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="学生账号不存在") from exc
     except DatabaseAdminError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

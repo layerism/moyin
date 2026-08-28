@@ -2,6 +2,7 @@ import base64
 import hashlib
 import hmac
 import secrets
+import sqlite3
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Cookie, Depends, Header, HTTPException, status
@@ -49,20 +50,32 @@ def verify_password(password: str, encoded: str) -> bool:
         return False
 
 
-def create_session(student_account_id: int) -> str:
+def create_student_session(
+    connection: sqlite3.Connection,
+    student_account_id: int,
+) -> str:
     token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
     now = utc_now()
-    with get_connection() as connection:
-        connection.execute(
-            """
-            INSERT INTO student_sessions
-                (student_account_id, token_hash, expires_at, created_at)
-            VALUES (?, ?, ?, ?)
-            """,
-            (student_account_id, token_hash, (now + timedelta(days=SESSION_DAYS)).isoformat(), now.isoformat()),
-        )
+    connection.execute(
+        """
+        INSERT INTO student_sessions
+            (student_account_id, token_hash, expires_at, created_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            student_account_id,
+            token_hash,
+            (now + timedelta(days=SESSION_DAYS)).isoformat(),
+            now.isoformat(),
+        ),
+    )
     return token
+
+
+def create_session(student_account_id: int) -> str:
+    with get_connection() as connection:
+        return create_student_session(connection, student_account_id)
 
 
 def create_teacher_session(teacher_account_id: int) -> str:
@@ -97,14 +110,16 @@ def delete_teacher_session(token: str | None) -> None:
         connection.execute("DELETE FROM teacher_sessions WHERE token_hash = ?", (token_hash,))
 
 
-def get_current_student(oa_session: str | None = Cookie(default=None)) -> dict[str, object]:
+def get_authenticated_student(
+    oa_session: str | None = Cookie(default=None),
+) -> dict[str, object]:
     if not oa_session:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请先登录")
     token_hash = hashlib.sha256(oa_session.encode("utf-8")).hexdigest()
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT a.id, a.student_no, a.name
+            SELECT a.id, a.student_no, a.name, a.must_change_password
             FROM student_sessions s
             JOIN student_accounts a ON a.id = s.student_account_id
             WHERE s.token_hash = ? AND s.expires_at > ? AND a.status = 'active'
@@ -114,7 +129,24 @@ def get_current_student(oa_session: str | None = Cookie(default=None)) -> dict[s
         ).fetchone()
     if row is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="登录状态已失效")
-    return {"id": row["id"], "studentNo": row["student_no"], "name": row["name"]}
+    return {
+        "id": row["id"],
+        "studentNo": row["student_no"],
+        "name": row["name"],
+        "mustChangePassword": bool(row["must_change_password"]),
+    }
+
+
+def get_current_student(
+    oa_session: str | None = Cookie(default=None),
+) -> dict[str, object]:
+    student = get_authenticated_student(oa_session)
+    if student["mustChangePassword"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="请先修改初始密码",
+        )
+    return student
 
 
 def _teacher_from_session(teacher_session: str | None) -> dict[str, object] | None:

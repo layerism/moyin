@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 
-import { ApiError, workflowApi } from "../academic-flow/api";
+import { workflowApi } from "../academic-flow/api";
 import type { RuntimeFlowInstance, SharedFlow } from "../academic-flow/runtimeTypes";
+import { AuthApiError, authApi, type AuthIdentity } from "./authApi";
+import { StudentPasswordChangeForm } from "./StudentPasswordChangeForm";
 
 export function StudentAccessGate({
   onEntered,
@@ -13,6 +15,7 @@ export function StudentAccessGate({
   const [flow, setFlow] = useState<SharedFlow | null>(null);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [form, setForm] = useState({ confirm: "", name: "", password: "", studentNo: "" });
+  const [pendingIdentity, setPendingIdentity] = useState<AuthIdentity | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -24,12 +27,16 @@ export function StudentAccessGate({
         if (cancelled) return;
         setFlow(shared);
         try {
-          await workflowApi.me();
+          const identity = await authApi.me("student");
+          if (identity.mustChangePassword) {
+            if (!cancelled) setPendingIdentity(identity);
+            return;
+          }
           const instance = await workflowApi.enterShared(token);
           if (!cancelled) onEntered(instance);
           return;
         } catch (reason) {
-          if (!(reason instanceof ApiError) || reason.status !== 401) throw reason;
+          if (!(reason instanceof AuthApiError) || reason.status !== 401) throw reason;
         }
       } catch (reason) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : "分享链接不可用");
@@ -46,8 +53,13 @@ export function StudentAccessGate({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
-    if (!form.name.trim() || !form.studentNo.trim() || form.password.length < 8) {
-      setError("请填写姓名、学号和至少 8 位密码");
+    const minimumPasswordLength = mode === "login" ? 3 : 8;
+    if (
+      !form.name.trim()
+      || !form.studentNo.trim()
+      || form.password.length < minimumPasswordLength
+    ) {
+      setError(`请填写姓名、学号和至少 ${minimumPasswordLength} 位密码`);
       return;
     }
     if (mode === "register" && form.password !== form.confirm) {
@@ -56,13 +68,18 @@ export function StudentAccessGate({
     }
     setLoading(true);
     try {
-      const payload = {
+      const credentials = {
+        identifier: form.studentNo.trim(),
         name: form.name.trim(),
-        studentNo: form.studentNo.trim(),
         password: form.password,
       };
-      if (mode === "register") await workflowApi.register(payload);
-      else await workflowApi.login(payload);
+      const identity = mode === "register"
+        ? await authApi.register("student", credentials)
+        : await authApi.login("student", credentials);
+      if (identity.mustChangePassword) {
+        setPendingIdentity(identity);
+        return;
+      }
       onEntered(await workflowApi.enterShared(token));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "登录失败");
@@ -71,14 +88,44 @@ export function StudentAccessGate({
     }
   };
 
+  const summary = (
+    <section className="oa-access-summary">
+      <span className="oa-brand-mark">OA</span>
+      <p>教务流程采集</p>
+      <h1>{flow?.name ?? "正在读取流程"}</h1>
+      <div>{flow?.description ?? "请稍候"}</div>
+    </section>
+  );
+
+  if (pendingIdentity) {
+    return (
+      <main className="oa-access-page">
+        {summary}
+        <section className="oa-access-auth">
+          <StudentPasswordChangeForm
+            identity={pendingIdentity}
+            onChanged={async () => {
+              setPendingIdentity(null);
+              try {
+                onEntered(await workflowApi.enterShared(token));
+              } catch (reason) {
+                setError(reason instanceof Error ? reason.message : "进入流程失败");
+              }
+            }}
+            onLogout={async () => {
+              await authApi.logout("student");
+              setPendingIdentity(null);
+              setError("");
+            }}
+          />
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="oa-access-page">
-      <section className="oa-access-summary">
-        <span className="oa-brand-mark">OA</span>
-        <p>教务流程采集</p>
-        <h1>{flow?.name ?? "正在读取流程"}</h1>
-        <div>{flow?.description ?? "请稍候"}</div>
-      </section>
+      {summary}
       <section className="oa-access-auth">
         <div className="oa-auth-tabs" role="tablist" aria-label="学生账号">
           <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>

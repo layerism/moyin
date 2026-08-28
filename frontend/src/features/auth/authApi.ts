@@ -3,6 +3,7 @@ export type AuthRole = "student" | "teacher";
 export type AuthIdentity = {
   employeeNo?: string;
   id: number;
+  mustChangePassword?: boolean;
   name: string;
   role?: "super_admin" | "teacher";
   studentNo?: string;
@@ -60,6 +61,12 @@ function payload(role: AuthRole, credentials: RoleCredentials) {
 }
 
 export const authApi = {
+  changeStudentPassword(newPassword: string) {
+    return request<AuthIdentity>("/api/auth/student/change-password", {
+      method: "POST",
+      body: JSON.stringify({ newPassword }),
+    });
+  },
   login(role: AuthRole, credentials: RoleCredentials) {
     return request<AuthIdentity>(`/api/auth/${role}/login`, {
       method: "POST",
