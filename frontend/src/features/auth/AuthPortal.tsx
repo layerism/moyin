@@ -227,20 +227,22 @@ export function AuthPortal({
                 </button>
               ) : null}
               {mode === "login" ? (
-                <div className="role-auth-links-secondary">
-                  <button
-                    className="auth-role-switch-link"
-                    onClick={() =>
-                      onNavigate("login", role === "student" ? "teacher" : "student")
-                    }
-                    type="button"
-                  >
-                    {role === "student" ? "教师入口" : "学生入口"}
-                  </button>
-                  <button type="button" onClick={() => onNavigate("forgot", role)}>忘记密码</button>
-                </div>
+                <button type="button" onClick={() => onNavigate("forgot", role)}>忘记密码</button>
               ) : null}
             </div>
+            {mode === "login" ? (
+              <footer className="auth-role-footer">
+                <button
+                  className="auth-role-footer-link"
+                  onClick={() =>
+                    onNavigate("login", role === "student" ? "teacher" : "student")
+                  }
+                  type="button"
+                >
+                  {role === "student" ? "教职工用户？教师入口" : "返回学生登录"}
+                </button>
+              </footer>
+            ) : null}
           </form>
         </div>
       </section>
