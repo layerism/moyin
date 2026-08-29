@@ -6,6 +6,7 @@ from typing import Any
 ANSWER_SHEET_GRADERS = {
     "1.0": "answer-sheet-v1",
     "2.0": "answer-sheet-v2",
+    "3.0": "answer-sheet-v3",
 }
 QUESTION_TYPES = {"single_choice", "multiple_choice", "fill_blank"}
 FEEDBACK_POLICIES = {"score_only", "question_result", "full_after_deadline"}
@@ -99,7 +100,7 @@ def _validate_public_question(
     if question_type not in QUESTION_TYPES:
         raise AnswerSheetConfigError(f"{prefix}题型无效")
     single_markdown_fill = _is_single_markdown_question(question)
-    if single_markdown_fill and schema_version != "2.0":
+    if single_markdown_fill and schema_version not in {"2.0", "3.0"}:
         raise AnswerSheetConfigError(f"{prefix}填空格式与协议版本不一致")
     expected_keys = _COMMON_QUESTION_KEYS | (
         {"format", "points"}
@@ -227,11 +228,19 @@ def validate_private_answer_key(
     if require_publishable and set(answers) != set(questions):
         raise AnswerSheetConfigError(f"答题卡“{title}”每道题都必须配置标准答案")
     for question_id, answer in answers.items():
-        _validate_private_question_answer(title, questions[question_id], answer)
+        _validate_private_question_answer(
+            title,
+            questions[question_id],
+            answer,
+            str(key["graderVersion"]),
+        )
 
 
 def _validate_private_question_answer(
-    title: str, question: dict[str, Any], answer: object
+    title: str,
+    question: dict[str, Any],
+    answer: object,
+    grader_version: str,
 ) -> None:
     question_id = str(question["id"])
     prefix = f"答题卡“{title}”题目“{question_id}”"
@@ -261,6 +270,18 @@ def _validate_private_question_answer(
         return
 
     if _is_single_markdown_question(question):
+        if grader_version == "answer-sheet-v3":
+            accepted = answer.get("acceptedAnswerMarkdowns")
+            if (
+                set(answer) != {"type", "format", "acceptedAnswerMarkdowns"}
+                or answer.get("format") != "single_markdown_exact"
+                or not isinstance(accepted, list)
+                or not accepted
+                or any(not isinstance(value, str) or not value.strip() for value in accepted)
+                or len({value.strip() for value in accepted}) != len(accepted)
+            ):
+                raise AnswerSheetConfigError(f"{prefix}填空标准答案格式无效")
+            return
         if (
             set(answer) != {"type", "format", "answerMarkdown"}
             or answer.get("format") != "single_markdown_exact"
@@ -431,6 +452,7 @@ def grade_answer_sheet(
             question,
             private_answers[question["id"]],
             answers.get(question["id"]),
+            str(key["graderVersion"]),
         )
         for question in node["answerSheet"]["questions"]
     ]
@@ -450,7 +472,10 @@ def grade_answer_sheet(
 
 
 def _grade_question(
-    question: dict[str, Any], private: dict[str, Any], answer: dict[str, Any] | None
+    question: dict[str, Any],
+    private: dict[str, Any],
+    answer: dict[str, Any] | None,
+    grader_version: str,
 ) -> dict[str, Any]:
     question_type = question["type"]
     if question_type == "single_choice":
@@ -464,9 +489,13 @@ def _grade_question(
 
     if _is_single_markdown_question(question):
         actual = str((answer or {}).get("answerMarkdown", "")).strip()
-        expected = str(private["answerMarkdown"]).strip()
+        accepted = (
+            [str(value).strip() for value in private["acceptedAnswerMarkdowns"]]
+            if grader_version == "answer-sheet-v3"
+            else [str(private["answerMarkdown"]).strip()]
+        )
         return _selection_result(
-            question["id"], int(question["points"]), actual == expected
+            question["id"], int(question["points"]), actual in accepted
         )
 
     blank_results: list[dict[str, Any]] = []
