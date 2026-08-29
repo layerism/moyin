@@ -41,17 +41,21 @@ export function AuthPortal({
   const [submitting, setSubmitting] = useState(false);
   const fieldPrefix = `${role}-${mode}`;
   const minimumPasswordLength = role === "student" && mode === "login" ? 3 : 8;
+  const identifierIsValid = role === "teacher"
+    ? /^\d{5}$/.test(form.identifier.trim())
+    : form.identifier.trim().length > 0;
+  const credentialsAreValid = form.name.trim().length > 0
+    && identifierIsValid
+    && form.password.length >= minimumPasswordLength;
+  const formIsValid = credentialsAreValid
+    && (mode === "login" || form.password === form.confirm);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
-    if (
-      !form.name.trim()
-      || !form.identifier.trim()
-      || form.password.length < minimumPasswordLength
-    ) {
+    if (!credentialsAreValid) {
       setError(
-        `请填写姓名、${role === "teacher" ? "工号" : "学号"}和至少 ${minimumPasswordLength} 位密码`,
+        `请填写姓名、${role === "teacher" ? "5 位数字工号" : "学号"}和至少 ${minimumPasswordLength} 位密码`,
       );
       return;
     }
@@ -217,7 +221,11 @@ export function AuthPortal({
             ) : null}
             {notice ? <p className="role-auth-notice">{notice}</p> : null}
             <p className="role-auth-error" role="alert">{error}</p>
-            <button className="primary-action role-auth-submit" disabled={submitting} type="submit">
+            <button
+              className="primary-action role-auth-submit"
+              disabled={!formIsValid || submitting}
+              type="submit"
+            >
               {submitting ? "处理中" : mode === "register" ? "注册并进入" : "登录"}
             </button>
             <div className="role-auth-links">
