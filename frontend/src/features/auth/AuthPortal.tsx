@@ -129,21 +129,8 @@ export function AuthPortal({
             onSubmit={submit}
           >
             <header className="role-auth-form-header">
-              <div>
-                <h2>{role === "teacher" ? "教师" : "学生"}{mode === "register" ? "注册" : "登录"}</h2>
-                <p>{role === "teacher" ? "进入流程设计与管理工作台" : "查看并继续个人填写流程"}</p>
-              </div>
-              {mode === "login" ? (
-                <button
-                  className="auth-role-entry"
-                  onClick={() =>
-                    onNavigate("login", role === "student" ? "teacher" : "student")
-                  }
-                  type="button"
-                >
-                  {role === "student" ? "教师入口 →" : "学生入口 →"}
-                </button>
-              ) : null}
+              <h2>{role === "teacher" ? "教师" : "学生"}{mode === "register" ? "注册" : "登录"}</h2>
+              <p>{role === "teacher" ? "进入流程设计与管理工作台" : "查看并继续个人填写流程"}</p>
             </header>
             <div
               className="account-history-control"
@@ -240,7 +227,18 @@ export function AuthPortal({
                 </button>
               ) : null}
               {mode === "login" ? (
-                <button type="button" onClick={() => onNavigate("forgot", role)}>忘记密码</button>
+                <div className="role-auth-links-secondary">
+                  <button
+                    className="auth-role-switch-link"
+                    onClick={() =>
+                      onNavigate("login", role === "student" ? "teacher" : "student")
+                    }
+                    type="button"
+                  >
+                    {role === "student" ? "教师入口" : "学生入口"}
+                  </button>
+                  <button type="button" onClick={() => onNavigate("forgot", role)}>忘记密码</button>
+                </div>
               ) : null}
             </div>
           </form>
