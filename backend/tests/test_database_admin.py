@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ import pytest
 from app.core.config import settings
 from app.core.database import get_connection
 from app.main import app
+from tests.teacher_auth_helpers import login_teacher, provision_teacher
 
 
 @pytest.fixture
@@ -17,11 +19,8 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
 
 
 def register_teacher(client: TestClient, employee_no: str) -> None:
-    response = client.post(
-        "/api/auth/teacher/register",
-        json={"name": "管理教师", "employeeNo": employee_no, "password": "Pass1234"},
-    )
-    assert response.status_code == 201
+    provision_teacher(employee_no=employee_no)
+    login_teacher(client, employee_no=employee_no)
 
 
 def promote_current_teacher(employee_no: str) -> None:
@@ -33,7 +32,7 @@ def promote_current_teacher(employee_no: str) -> None:
 
 
 def test_regular_teacher_cannot_access_database_admin(client: TestClient) -> None:
-    register_teacher(client, "T100")
+    register_teacher(client, "30001")
 
     response = client.get("/api/admin/database/tables")
 
@@ -41,8 +40,8 @@ def test_regular_teacher_cannot_access_database_admin(client: TestClient) -> Non
 
 
 def test_super_admin_lists_tables_and_redacts_sensitive_values(client: TestClient) -> None:
-    register_teacher(client, "A100")
-    promote_current_teacher("A100")
+    register_teacher(client, "30002")
+    promote_current_teacher("30002")
 
     tables = client.get("/api/admin/database/tables")
     rows = client.get("/api/admin/database/tables/teacher_accounts/rows")
@@ -63,8 +62,8 @@ def test_super_admin_lists_tables_and_redacts_sensitive_values(client: TestClien
 
 
 def test_super_admin_update_creates_backup_and_redacted_audit(client: TestClient) -> None:
-    register_teacher(client, "A200")
-    promote_current_teacher("A200")
+    register_teacher(client, "30003")
+    promote_current_teacher("30003")
     flow = client.post("/api/workflows", json={"name": "待维护流程"}).json()
 
     response = client.patch(
@@ -89,8 +88,8 @@ def test_super_admin_update_creates_backup_and_redacted_audit(client: TestClient
 
 
 def test_super_admin_delete_creates_backup_and_audit(client: TestClient) -> None:
-    register_teacher(client, "A300")
-    promote_current_teacher("A300")
+    register_teacher(client, "30004")
+    promote_current_teacher("30004")
     flow = client.post("/api/workflows", json={"name": "待删除流程"}).json()
 
     response = client.request(
@@ -112,3 +111,64 @@ def test_super_admin_delete_creates_backup_and_audit(client: TestClient) -> None
     assert audit is not None
     assert flow["id"] in audit["entity_id"]
     assert "待删除流程" in audit["before_data"]
+
+
+def test_regular_teacher_cannot_manage_teacher_invitations(client: TestClient) -> None:
+    register_teacher(client, "30005")
+
+    response = client.get("/api/admin/teacher-invitations")
+
+    assert response.status_code == 403
+
+
+def test_super_admin_creates_lists_and_revokes_teacher_invitation(
+    client: TestClient,
+) -> None:
+    register_teacher(client, "30006")
+    promote_current_teacher("30006")
+    created = client.post(
+        "/api/admin/teacher-invitations",
+        json={
+            "name": "受邀教师",
+            "employeeNo": "30007",
+            "expiresAt": (datetime.now(UTC) + timedelta(hours=24)).isoformat(),
+        },
+    )
+
+    listed = client.get("/api/admin/teacher-invitations")
+    revoked = client.post(
+        f"/api/admin/teacher-invitations/{created.json()['id']}/revoke"
+    )
+
+    assert created.status_code == 201
+    assert created.json()["token"]
+    assert listed.status_code == 200
+    assert "token" not in listed.json()[0]
+    assert "tokenHash" not in listed.json()[0]
+    assert revoked.status_code == 200
+    assert revoked.json()["status"] == "revoked"
+
+
+def test_super_admin_cannot_duplicate_account_or_active_invitation(
+    client: TestClient,
+) -> None:
+    register_teacher(client, "30008")
+    promote_current_teacher("30008")
+    expiry = (datetime.now(UTC) + timedelta(hours=24)).isoformat()
+
+    existing_account = client.post(
+        "/api/admin/teacher-invitations",
+        json={"name": "已有教师", "employeeNo": "30008", "expiresAt": expiry},
+    )
+    first = client.post(
+        "/api/admin/teacher-invitations",
+        json={"name": "待注册教师", "employeeNo": "30009", "expiresAt": expiry},
+    )
+    duplicate = client.post(
+        "/api/admin/teacher-invitations",
+        json={"name": "待注册教师", "employeeNo": "30009", "expiresAt": expiry},
+    )
+
+    assert existing_account.status_code == 422
+    assert first.status_code == 201
+    assert duplicate.status_code == 422

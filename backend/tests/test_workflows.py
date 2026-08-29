@@ -12,6 +12,7 @@ from app.core.database import get_connection
 from app.main import app
 from app.repositories import workflows
 from app.services.object_storage import ObjectStorageError, UploadedObject
+from tests.teacher_auth_helpers import login_teacher, provision_teacher
 
 
 class FakeCloneStorage:
@@ -34,10 +35,8 @@ class FakeCloneStorage:
 def client(tmp_path: Path) -> Iterator[TestClient]:
     settings.database_path = str(tmp_path / "test.db")
     with TestClient(app) as test_client:
-        test_client.post(
-            "/api/auth/teacher/register",
-            json={"name": "测试教师", "employeeNo": "TW001", "password": "Pass1234"},
-        )
+        provision_teacher(employee_no="10001", name="测试教师")
+        login_teacher(test_client, employee_no="10001", name="测试教师")
         yield test_client
 
 
@@ -81,7 +80,7 @@ def add_template_assets(flow_id: str, count: int = 1) -> dict[str, object]:
     now = "2026-08-08T00:00:00+00:00"
     with get_connection() as connection:
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'TW001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '10001'"
         ).fetchone()["id"]
         for index in range(count):
             asset_id = f"{flow_id}-asset-{index + 1}"
@@ -168,10 +167,8 @@ def test_clone_rejects_source_name_duplicate_name_and_foreign_source(client: Tes
         f"/api/workflows/{source['id']}/clone", json={"name": "已有流程"}
     ).status_code == 409
     client.post("/api/auth/teacher/logout")
-    client.post(
-        "/api/auth/teacher/register",
-        json={"name": "另一位教师", "employeeNo": "TW002", "password": "Pass1234"},
-    )
+    provision_teacher(employee_no="10002", name="另一位教师")
+    login_teacher(client, employee_no="10002", name="另一位教师")
     assert client.post(
         f"/api/workflows/{source['id']}/clone", json={"name": "越权副本"}
     ).status_code == 404
@@ -244,12 +241,9 @@ def test_archived_legacy_name_does_not_block_visible_flow_creation(client: TestC
 def test_teacher_can_only_access_owned_flows(client: TestClient) -> None:
     teacher_a_flow = client.post("/api/workflows", json={"name": "教师私有流程"}).json()
     client.post("/api/auth/teacher/logout")
-    registered = client.post(
-        "/api/auth/teacher/register",
-        json={"name": "另一位教师", "employeeNo": "TW002", "password": "Pass1234"},
-    )
+    provision_teacher(employee_no="10002", name="另一位教师")
+    login_teacher(client, employee_no="10002", name="另一位教师")
 
-    assert registered.status_code == 201
     assert client.get("/api/workflows").json() == []
     assert client.get(f"/api/workflows/{teacher_a_flow['id']}").status_code == 404
     assert (
@@ -271,7 +265,7 @@ def test_teacher_can_only_access_owned_flows(client: TestClient) -> None:
     client.post("/api/auth/teacher/logout")
     login = client.post(
         "/api/auth/teacher/login",
-        json={"name": "测试教师", "employeeNo": "TW001", "password": "Pass1234"},
+        json={"name": "测试教师", "employeeNo": "10001", "password": "Pass1234"},
     )
     assert login.status_code == 200
     assert [flow["id"] for flow in client.get("/api/workflows").json()] == [teacher_a_flow["id"]]
@@ -467,10 +461,8 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
     assert rejected.json() == {"detail": "已发布节点不可删除：n1"}
 
     client.post("/api/auth/teacher/logout")
-    client.post(
-        "/api/auth/teacher/register",
-        json={"name": "另一位教师", "employeeNo": "TW002", "password": "Pass1234"},
-    )
+    provision_teacher(employee_no="10002", name="另一位教师")
+    login_teacher(client, employee_no="10002", name="另一位教师")
     assert client.post(f"/api/workflows/{flow['id']}/revision-impact").status_code == 404
 
 
@@ -711,7 +703,7 @@ def test_historical_node_cannot_be_deleted_when_latest_legacy_version_omits_it(
     snapshot = json.dumps(legacy_latest, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     with get_connection() as connection:
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'TW001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '10001'"
         ).fetchone()["id"]
         connection.execute(
             "UPDATE flow_versions SET status = 'disabled' WHERE id = ?",

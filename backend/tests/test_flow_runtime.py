@@ -12,16 +12,15 @@ from app.domain.workflow_runtime import (
     validate_submission,
 )
 from app.main import app
+from tests.teacher_auth_helpers import login_teacher, provision_teacher
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> Iterator[TestClient]:
     settings.database_path = str(tmp_path / "test.db")
     with TestClient(app) as test_client:
-        test_client.post(
-            "/api/auth/teacher/register",
-            json={"name": "测试教师", "employeeNo": "TR001", "password": "Pass1234"},
-        )
+        provision_teacher(employee_no="12001", name="测试教师")
+        login_teacher(test_client, employee_no="12001", name="测试教师")
         yield test_client
 
 
@@ -333,12 +332,9 @@ def test_teacher_cannot_manage_another_teachers_flow_runtime(client: TestClient)
     register(client, "20260043", "流程学生")
     instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
     client.post("/api/auth/teacher/logout")
-    registered = client.post(
-        "/api/auth/teacher/register",
-        json={"name": "另一位教师", "employeeNo": "TR002", "password": "Pass1234"},
-    )
+    provision_teacher(employee_no="12002", name="另一位教师")
+    login_teacher(client, employee_no="12002", name="另一位教师")
 
-    assert registered.status_code == 201
     version_id = published["flowVersionId"]
     assert (
         client.get(f"/api/workflow-admin/versions/{version_id}/progress").status_code

@@ -8,6 +8,7 @@ from app.api.routes import (
     health,
     student_flows,
     submissions,
+    teacher_invitations,
     templates,
     workflow_admin,
     workflows,
@@ -18,6 +19,11 @@ api_router.include_router(health.router, tags=["health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(
     database_admin.router, prefix="/admin/database", tags=["database-admin"]
+)
+api_router.include_router(
+    teacher_invitations.router,
+    prefix="/admin/teacher-invitations",
+    tags=["teacher-invitations"],
 )
 api_router.include_router(templates.router, prefix="/templates", tags=["templates"])
 api_router.include_router(submissions.router, prefix="/submissions", tags=["submissions"])

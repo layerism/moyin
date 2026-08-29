@@ -6,10 +6,12 @@ export function TeacherAccountMenu({
   identity,
   onDatabaseAdmin,
   onLogout,
+  onTeacherInvitations,
 }: {
   identity: AuthIdentity;
   onDatabaseAdmin: () => void;
   onLogout: () => void;
+  onTeacherInvitations: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -51,9 +53,14 @@ export function TeacherAccountMenu({
             <div><dt>身份</dt><dd>{identity.role === "super_admin" ? "超级管理员" : "教师"}</dd></div>
           </dl>
           {identity.role === "super_admin" ? (
-            <button className="teacher-account-admin" onClick={onDatabaseAdmin} type="button">
-              数据库管理
-            </button>
+            <div className="teacher-account-admin-actions">
+              <button className="teacher-account-admin" onClick={onTeacherInvitations} type="button">
+                教师邀请
+              </button>
+              <button className="teacher-account-admin" onClick={onDatabaseAdmin} type="button">
+                数据库管理
+              </button>
+            </div>
           ) : null}
           <button className="teacher-account-logout" onClick={onLogout} type="button">
             退出登录

@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.main import app
 from app.api.routes import student_flows, workflows
 from app.repositories.flow_files import add_pending_scan
+from tests.teacher_auth_helpers import login_teacher, provision_teacher
 
 
 ONE_PIXEL_PNG = base64.b64decode(
@@ -42,11 +43,8 @@ def client(tmp_path: Path, monkeypatch) -> Iterator[tuple[TestClient, FakeObject
     monkeypatch.setattr(student_flows, "get_object_storage", lambda: storage, raising=False)
     monkeypatch.setattr(workflows, "get_object_storage", lambda: storage, raising=False)
     with TestClient(app) as test_client:
-        registered = test_client.post(
-            "/api/auth/teacher/register",
-            json={"name": "测试教师", "employeeNo": "TR001", "password": "Pass1234"},
-        )
-        assert registered.status_code == 201
+        provision_teacher(employee_no="14001", name="测试教师")
+        login_teacher(test_client, employee_no="14001", name="测试教师")
         yield test_client, storage
 
 

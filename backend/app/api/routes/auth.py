@@ -5,6 +5,12 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.database import get_connection
+from app.repositories.teacher_invitations import (
+    INVALID_INVITATION_MESSAGE,
+    TeacherInvitationError,
+    accept_teacher_invitation,
+    get_teacher_invitation,
+)
 from app.services.security import (
     SESSION_COOKIE,
     SESSION_DAYS,
@@ -40,9 +46,13 @@ class StudentPasswordChangeRequest(BaseModel):
     newPassword: str = Field(min_length=8, max_length=128)
 
 
-class TeacherCredentials(BaseModel):
+class TeacherLoginCredentials(BaseModel):
     name: str = Field(min_length=1, max_length=64)
-    employeeNo: str = Field(min_length=1, max_length=32)
+    employeeNo: str = Field(pattern=r"^\d{5}$")
+    password: str = Field(min_length=8, max_length=128)
+
+
+class TeacherInvitationAcceptance(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
@@ -198,40 +208,41 @@ def logout(oa_session: str | None = Cookie(default=None)) -> Response:
     return response
 
 
-@router.post("/teacher/register", status_code=status.HTTP_201_CREATED)
-def register_teacher(payload: TeacherCredentials, response: Response) -> dict[str, object]:
-    now = utc_now_iso()
+@router.get("/teacher-invitations/{token}")
+def teacher_invitation(token: str) -> dict[str, object]:
     try:
-        with get_connection() as connection:
-            cursor = connection.execute(
-                """
-                INSERT INTO teacher_accounts
-                    (employee_no, name, password_hash, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    payload.employeeNo.strip(),
-                    payload.name.strip(),
-                    hash_password(payload.password),
-                    now,
-                    now,
-                ),
-            )
-            teacher_id = int(cursor.lastrowid)
-    except sqlite3.IntegrityError as exc:
-        raise HTTPException(status_code=409, detail="该工号已注册") from exc
-    token = create_teacher_session(teacher_id)
-    set_teacher_session_cookie(response, token)
+        invitation = get_teacher_invitation(token)
+    except TeacherInvitationError as exc:
+        raise HTTPException(status_code=404, detail=INVALID_INVITATION_MESSAGE) from exc
     return {
-        "id": teacher_id,
-        "employeeNo": payload.employeeNo.strip(),
-        "name": payload.name.strip(),
-        "role": "teacher",
+        "employeeNo": invitation["employeeNo"],
+        "name": invitation["name"],
+        "expiresAt": invitation["expiresAt"],
     }
 
 
+@router.post(
+    "/teacher-invitations/{token}/accept",
+    status_code=status.HTTP_201_CREATED,
+)
+def accept_invitation(
+    token: str,
+    payload: TeacherInvitationAcceptance,
+    response: Response,
+) -> dict[str, object]:
+    try:
+        identity = accept_teacher_invitation(token=token, password=payload.password)
+    except TeacherInvitationError as exc:
+        if str(exc) == INVALID_INVITATION_MESSAGE:
+            raise HTTPException(status_code=404, detail=INVALID_INVITATION_MESSAGE) from exc
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    session_token = create_teacher_session(int(identity["id"]))
+    set_teacher_session_cookie(response, session_token)
+    return identity
+
+
 @router.post("/teacher/login")
-def login_teacher(payload: TeacherCredentials, response: Response) -> dict[str, object]:
+def login_teacher(payload: TeacherLoginCredentials, response: Response) -> dict[str, object]:
     with get_connection() as connection:
         row = connection.execute(
             """

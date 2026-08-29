@@ -19,6 +19,7 @@ export function AcademicFlowView({
   onOpenProcess,
   onRenameProcess,
   onTeacherLogout,
+  onTeacherInvitations,
   teacherIdentity,
 }: {
   processes: AcademicProcess[];
@@ -30,6 +31,7 @@ export function AcademicFlowView({
   onOpenProcess: (processId: string) => void;
   onRenameProcess: (process: AcademicProcess, name: string) => Promise<AcademicProcess>;
   onTeacherLogout: () => void;
+  onTeacherInvitations: () => void;
   teacherIdentity: AuthIdentity;
 }) {
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
@@ -193,6 +195,7 @@ export function AcademicFlowView({
             identity={teacherIdentity}
             onDatabaseAdmin={onDatabaseAdmin}
             onLogout={onTeacherLogout}
+            onTeacherInvitations={onTeacherInvitations}
           />
         </header>
 

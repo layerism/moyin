@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.database import get_connection
 from app.main import app
 from app.services.audit_script_catalog import list_audit_scripts
+from tests.teacher_auth_helpers import login_teacher, provision_teacher
 
 
 def write_script(
@@ -60,12 +61,9 @@ def client(
         yield test_client
 
 
-def register_teacher(client: TestClient, employee_no: str = "TS001") -> None:
-    response = client.post(
-        "/api/auth/teacher/register",
-        json={"name": "测试教师", "employeeNo": employee_no, "password": "Pass1234"},
-    )
-    assert response.status_code == 201
+def register_teacher(client: TestClient, employee_no: str = "16001") -> None:
+    provision_teacher(employee_no=employee_no, name="测试教师")
+    login_teacher(client, employee_no=employee_no, name="测试教师")
 
 
 def promote_current_teacher() -> None:

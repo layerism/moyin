@@ -55,11 +55,13 @@ export function OssMaterialLibraryView({
   onAcademicFlow,
   onDatabaseAdmin,
   onTeacherLogout,
+  onTeacherInvitations,
   teacherIdentity,
 }: {
   onAcademicFlow: () => void;
   onDatabaseAdmin: () => void;
   onTeacherLogout: () => void;
+  onTeacherInvitations: () => void;
   teacherIdentity: AuthIdentity;
 }) {
   const [library, setLibrary] = useState<MaterialLibrary | null>(null);
@@ -186,6 +188,7 @@ export function OssMaterialLibraryView({
             identity={teacherIdentity}
             onDatabaseAdmin={onDatabaseAdmin}
             onLogout={onTeacherLogout}
+            onTeacherInvitations={onTeacherInvitations}
           />
         </header>
 

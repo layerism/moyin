@@ -7,6 +7,8 @@ import pytest
 from app.core.config import settings
 from app.core.database import get_connection
 from app.main import app
+from tests.teacher_auth_helpers import login_teacher as authenticate_teacher
+from tests.teacher_auth_helpers import provision_teacher
 
 
 @pytest.fixture
@@ -17,11 +19,8 @@ def client(tmp_path: Path) -> Iterator[TestClient]:
 
 
 def login_teacher(client: TestClient) -> None:
-    response = client.post(
-        "/api/auth/teacher/register",
-        json={"name": "管理教师", "employeeNo": "T900", "password": "Pass1234"},
-    )
-    assert response.status_code == 201
+    provision_teacher(employee_no="15001")
+    authenticate_teacher(client, employee_no="15001")
 
 
 def create_published_flow(client: TestClient) -> dict[str, object]:

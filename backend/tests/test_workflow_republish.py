@@ -15,6 +15,7 @@ from app.core.database import get_connection
 from app.main import app
 from app.repositories import flow_instances
 from app.repositories.workflows import canonical_json, publish_flow, resolve_share_token
+from tests.teacher_auth_helpers import login_teacher, provision_teacher
 
 
 BASE_CONFIG = {
@@ -65,11 +66,8 @@ BASE_CONFIG = {
 def client(tmp_path: Path) -> Iterator[TestClient]:
     settings.database_path = str(tmp_path / "test.db")
     with TestClient(app) as test_client:
-        registered = test_client.post(
-            "/api/auth/teacher/register",
-            json={"name": "测试教师", "employeeNo": "RP001", "password": "Pass1234"},
-        )
-        assert registered.status_code == 201
+        provision_teacher(employee_no="11001", name="测试教师")
+        login_teacher(test_client, employee_no="11001", name="测试教师")
         yield test_client
 
 
@@ -564,7 +562,7 @@ def test_multiple_published_versions_tokens_and_duplicate_students_are_normalize
     token_one = context["published"]["token"]  # type: ignore[index]
     with get_connection() as connection:
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
     version_two, token_two = _insert_legacy_published_version(flow_id, BASE_CONFIG, teacher_id)
     latest_duplicate = client.post(f"/api/student/shared/{token_two}/enter").json()
@@ -666,7 +664,7 @@ def test_duplicate_student_impact_uses_only_highest_version_instance(
     low_instance_id = context["instance"]["id"]  # type: ignore[index]
     with get_connection() as connection:
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
     high_version_id, high_token = _insert_legacy_published_version(flow_id, BASE_CONFIG, teacher_id)
     high_instance = client.post(f"/api/student/shared/{high_token}/enter").json()
@@ -853,7 +851,7 @@ def test_republish_restores_deadline_from_deep_history_without_instances(
     ]
     with get_connection() as connection:
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
     version_two, _ = _insert_legacy_published_version(flow_id, legacy_config, teacher_id)
     with get_connection() as connection:
@@ -902,7 +900,7 @@ def test_runtime_writes_begin_immediately_and_revalidate_current_version(
             "SELECT id FROM student_accounts WHERE student_no = '20260001'"
         ).fetchone()["id"]
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
 
     real_get_connection = flow_instances.get_connection
@@ -1003,7 +1001,7 @@ def test_get_instance_uses_one_snapshot_when_republish_commits_between_selects(
             "SELECT id FROM student_accounts WHERE student_no = '20260001'"
         ).fetchone()["id"]
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
 
     real_get_connection = flow_instances.get_connection
@@ -1073,7 +1071,7 @@ def test_republish_retargets_only_unexpired_active_tokens_and_returns_a_valid_on
     token_ids: dict[str, str] = {}
     with get_connection() as connection:
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
         token_ids[original_token] = connection.execute(
             "SELECT id FROM share_tokens WHERE token_value = ?", (original_token,)
@@ -1212,7 +1210,7 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
     before = {table: _table_rows(table) for table in tables}
     with get_connection() as connection:
         teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = 'RP001'"
+            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
         connection.execute(
             """

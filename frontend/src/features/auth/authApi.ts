@@ -73,10 +73,10 @@ export const authApi = {
       body: JSON.stringify(payload(role, credentials)),
     });
   },
-  register(role: AuthRole, credentials: RoleCredentials) {
-    return request<AuthIdentity>(`/api/auth/${role}/register`, {
+  registerStudent(credentials: RoleCredentials) {
+    return request<AuthIdentity>("/api/auth/student/register", {
       method: "POST",
-      body: JSON.stringify(payload(role, credentials)),
+      body: JSON.stringify(payload("student", credentials)),
     });
   },
   me(role: AuthRole) {

@@ -6,6 +6,7 @@ import { workflowApi, type ServerFlow } from "./features/academic-flow/api";
 import { StudentRuntimePage } from "./features/academic-flow/StudentRuntimePage";
 import type { RuntimeFlowInstance } from "./features/academic-flow/runtimeTypes";
 import { DatabaseAdminPage } from "./features/admin/DatabaseAdminPage";
+import { TeacherInvitationsAdminPage } from "./features/admin/TeacherInvitationsAdminPage";
 import { FillView, SettingsView, StatsView } from "./features/collection/CollectionViews";
 import { EditView } from "./features/editor/EditView";
 import { AcademicFlowView } from "./features/home/HomeView";
@@ -16,6 +17,7 @@ import { AuthPortal, ForgotPasswordPlaceholder } from "./features/auth/AuthPorta
 import { StudentAccountPage } from "./features/auth/StudentAccountPage";
 import { StudentAccessGate } from "./features/auth/StudentAccessGate";
 import { StudentPasswordChangeForm } from "./features/auth/StudentPasswordChangeForm";
+import { TeacherInvitationRegistrationPage } from "./features/auth/TeacherInvitationRegistrationPage";
 import { authApi, type AuthIdentity, type AuthRole } from "./features/auth/authApi";
 import { initialAccounts, initialStudents } from "./data/mockData";
 import type {
@@ -28,89 +30,129 @@ import type {
 } from "./types";
 import { makeFileName } from "./utils/fileName";
 
-function getRouteFromPathname(): {
+type AppRoute = {
   processId: string | null;
   screen: Screen;
   studentInstanceId: string | null;
   studentSlug: string | null;
   authRole: AuthRole;
-} {
-  const authRole: AuthRole = new URLSearchParams(window.location.search).get("role") === "student"
-    ? "student"
-    : "teacher";
+  teacherInvitationToken: string | null;
+};
+
+function canonicalizeLegacyAuthPath() {
+  const role = new URLSearchParams(window.location.search).get("role") === "teacher"
+    ? "teacher"
+    : "student";
+  let target: string | null = null;
   if (window.location.pathname === "/auth/login") {
-    return { authRole, processId: null, screen: "authLogin", studentInstanceId: null, studentSlug: null };
+    target = role === "teacher" ? "/teacher/login" : "/login";
+  } else if (window.location.pathname === "/auth/register") {
+    target = role === "teacher"
+      ? "/teacher/login?notice=invitation-required"
+      : "/student/register";
+  } else if (window.location.pathname === "/auth/forgot-password") {
+    target = role === "teacher" ? "/teacher/forgot-password" : "/student/forgot-password";
   }
-  if (window.location.pathname === "/auth/register") {
-    return { authRole, processId: null, screen: "authRegister", studentInstanceId: null, studentSlug: null };
+  if (target !== null) window.history.replaceState(null, "", target);
+}
+
+function getRouteFromPathname(): AppRoute {
+  canonicalizeLegacyAuthPath();
+  const pathname = window.location.pathname;
+  const base = {
+    processId: null,
+    studentInstanceId: null,
+    studentSlug: null,
+    teacherInvitationToken: null,
+  };
+  if (pathname === "/login") {
+    return { ...base, authRole: "student", screen: "authLogin" };
   }
-  if (window.location.pathname === "/auth/forgot-password") {
-    return { authRole, processId: null, screen: "authForgot", studentInstanceId: null, studentSlug: null };
+  if (pathname === "/student/register") {
+    return { ...base, authRole: "student", screen: "authRegister" };
   }
-  if (window.location.pathname === "/student") {
-    return { authRole: "student", processId: null, screen: "studentHome", studentInstanceId: null, studentSlug: null };
+  if (pathname === "/teacher/login") {
+    return { ...base, authRole: "teacher", screen: "authLogin" };
   }
-  if (window.location.pathname === "/student/change-password") {
-    return { authRole: "student", processId: null, screen: "studentChangePassword", studentInstanceId: null, studentSlug: null };
+  if (pathname === "/student/forgot-password") {
+    return { ...base, authRole: "student", screen: "authForgot" };
   }
-  if (window.location.pathname === "/academic-flow") {
-    return { authRole, processId: null, screen: "academicFlow", studentInstanceId: null, studentSlug: null };
+  if (pathname === "/teacher/forgot-password") {
+    return { ...base, authRole: "teacher", screen: "authForgot" };
   }
-  if (window.location.pathname === "/admin/database") {
-    return { authRole, processId: null, screen: "adminDatabase", studentInstanceId: null, studentSlug: null };
+  const teacherInvitationMatch = pathname.match(/^\/teacher\/invitations\/([^/]+)$/);
+  if (teacherInvitationMatch) {
+    return {
+      ...base,
+      authRole: "teacher",
+      screen: "teacherInvitation",
+      teacherInvitationToken: decodeURIComponent(teacherInvitationMatch[1]),
+    };
+  }
+  if (pathname === "/student") {
+    return { ...base, authRole: "student", screen: "studentHome" };
+  }
+  if (pathname === "/student/change-password") {
+    return { ...base, authRole: "student", screen: "studentChangePassword" };
+  }
+  if (pathname === "/academic-flow") {
+    return { ...base, authRole: "teacher", screen: "academicFlow" };
+  }
+  if (pathname === "/admin/database") {
+    return { ...base, authRole: "teacher", screen: "adminDatabase" };
+  }
+  if (pathname === "/admin/teacher-invitations") {
+    return { ...base, authRole: "teacher", screen: "teacherInvitationsAdmin" };
   }
 
-  const sharedMatch = window.location.pathname.match(/^\/s\/([^/]+)$/);
+  const sharedMatch = pathname.match(/^\/s\/([^/]+)$/);
   if (sharedMatch) {
     return {
-      processId: null,
+      ...base,
       authRole: "student",
       screen: "academicFlowShared",
-      studentInstanceId: null,
       studentSlug: decodeURIComponent(sharedMatch[1]),
     };
   }
 
-  const runtimeMatch = window.location.pathname.match(/^\/student\/flows\/([^/]+)$/);
+  const runtimeMatch = pathname.match(/^\/student\/flows\/([^/]+)$/);
   if (runtimeMatch) {
     return {
-      processId: null,
+      ...base,
       authRole: "student",
       screen: "academicFlowStudentRuntime",
       studentInstanceId: decodeURIComponent(runtimeMatch[1]),
-      studentSlug: null,
     };
   }
 
-  const studentMatch = window.location.pathname.match(
+  const studentMatch = pathname.match(
     /^\/academic-flow\/([^/]+)\/student\/([^/]+)$/,
   );
   if (studentMatch) {
     return {
+      ...base,
       processId: decodeURIComponent(studentMatch[1]),
       authRole: "student",
       screen: "academicFlowStudent",
-      studentInstanceId: null,
       studentSlug: decodeURIComponent(studentMatch[2]),
     };
   }
 
-  const detailMatch = window.location.pathname.match(/^\/academic-flow\/([^/]+)$/);
+  const detailMatch = pathname.match(/^\/academic-flow\/([^/]+)$/);
   if (detailMatch) {
     return {
+      ...base,
       processId: decodeURIComponent(detailMatch[1]),
-      authRole,
+      authRole: "teacher",
       screen: "academicFlowDetail",
-      studentInstanceId: null,
-      studentSlug: null,
     };
   }
 
-  return { authRole, processId: null, screen: "home", studentInstanceId: null, studentSlug: null };
+  return { ...base, authRole: "teacher", screen: "home" };
 }
 
 function pushAppPath(pathname: string) {
-  if (window.location.pathname !== pathname) {
+  if (`${window.location.pathname}${window.location.search}` !== pathname) {
     window.history.pushState(null, "", pathname);
   }
 }
@@ -119,6 +161,15 @@ const STUDENT_AUTHENTICATED_SCREENS: Screen[] = [
   "academicFlowStudentRuntime",
   "studentChangePassword",
   "studentHome",
+];
+
+const TEACHER_AUTHENTICATED_SCREENS: Screen[] = [
+  "academicFlow",
+  "academicFlowDetail",
+  "adminDatabase",
+  "home",
+  "teacherInvitationsAdmin",
+  "workspace",
 ];
 
 function mapServerFlow(flow: ServerFlow): AcademicProcess {
@@ -165,6 +216,9 @@ export function App() {
   const [activeStudentToken, setActiveStudentToken] = useState<string | null>(
     initialRoute.studentSlug,
   );
+  const [teacherInvitationToken, setTeacherInvitationToken] = useState<string | null>(
+    initialRoute.teacherInvitationToken,
+  );
   const [activeRuntimeInstanceId, setActiveRuntimeInstanceId] = useState<string | null>(
     initialRoute.studentInstanceId,
   );
@@ -187,6 +241,7 @@ export function App() {
       setActiveAcademicProcessId(route.processId);
       setActiveRuntimeInstanceId(route.studentInstanceId);
       setActiveStudentToken(route.studentSlug);
+      setTeacherInvitationToken(route.teacherInvitationToken);
       setAuthRole(route.authRole);
       setScreen(route.screen);
     };
@@ -194,6 +249,33 @@ export function App() {
     window.addEventListener("popstate", syncRoute);
     return () => window.removeEventListener("popstate", syncRoute);
   }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
+    if (screen === "home" && window.location.pathname === "/" && !teacherIdentity) {
+      window.history.replaceState(null, "", "/login");
+      setAuthRole("student");
+      setScreen("authLogin");
+      return;
+    }
+    if (TEACHER_AUTHENTICATED_SCREENS.includes(screen) && !teacherIdentity) {
+      window.history.replaceState(null, "", "/teacher/login");
+      setAuthRole("teacher");
+      setScreen("authLogin");
+      return;
+    }
+    const isRuntimePreview = screen === "academicFlowStudentRuntime"
+      && new URLSearchParams(window.location.search).get("preview") === "1";
+    if (
+      STUDENT_AUTHENTICATED_SCREENS.includes(screen)
+      && !isRuntimePreview
+      && !studentIdentity
+    ) {
+      window.history.replaceState(null, "", "/login");
+      setAuthRole("student");
+      setScreen("authLogin");
+    }
+  }, [authReady, screen, studentIdentity, teacherIdentity]);
 
   useEffect(() => {
     if (!authReady || !studentIdentity) return;
@@ -281,8 +363,11 @@ export function App() {
   };
 
   const navigateAuth = (mode: "forgot" | "login" | "register", role: AuthRole) => {
-    const pathname = mode === "forgot" ? "/auth/forgot-password" : `/auth/${mode}`;
-    pushAppPath(`${pathname}?role=${role}`);
+    const pathname = role === "teacher"
+      ? mode === "forgot" ? "/teacher/forgot-password" : "/teacher/login"
+      : mode === "forgot" ? "/student/forgot-password"
+        : mode === "register" ? "/student/register" : "/login";
+    pushAppPath(pathname);
     setAuthRole(role);
     setScreen(mode === "forgot" ? "authForgot" : mode === "register" ? "authRegister" : "authLogin");
   };
@@ -319,6 +404,11 @@ export function App() {
   const openDatabaseAdmin = () => {
     pushAppPath("/admin/database");
     setScreen("adminDatabase");
+  };
+
+  const openTeacherInvitationsAdmin = () => {
+    pushAppPath("/admin/teacher-invitations");
+    setScreen("teacherInvitationsAdmin");
   };
 
   const openAcademicProcess = (processId: string) => {
@@ -521,11 +611,26 @@ export function App() {
   if (screen === "authLogin" || screen === "authRegister") {
     return (
       <AuthPortal
-        initialRole={authRole}
         key={`${screen}-${authRole}`}
         mode={screen === "authRegister" ? "register" : "login"}
+        notice={
+          new URLSearchParams(window.location.search).get("notice") === "invitation-required"
+            ? "教师账号需要通过超级管理员邀请链接注册"
+            : ""
+        }
         onAuthenticated={completeAuthentication}
         onNavigate={navigateAuth}
+        role={authRole}
+      />
+    );
+  }
+
+  if (screen === "teacherInvitation" && teacherInvitationToken) {
+    return (
+      <TeacherInvitationRegistrationPage
+        onAccepted={(identity) => completeAuthentication("teacher", identity)}
+        onTeacherLogin={() => navigateAuth("login", "teacher")}
+        token={teacherInvitationToken}
       />
     );
   }
@@ -539,18 +644,11 @@ export function App() {
     );
   }
 
-  const teacherScreens: Screen[] = [
-    "academicFlow",
-    "academicFlowDetail",
-    "adminDatabase",
-    "home",
-    "workspace",
-  ];
   const isRuntimePreview = screen === "academicFlowStudentRuntime"
     && new URLSearchParams(window.location.search).get("preview") === "1";
   const requiresStudentIdentity = STUDENT_AUTHENTICATED_SCREENS.includes(screen)
     && !isRuntimePreview;
-  if (!authReady && (teacherScreens.includes(screen) || requiresStudentIdentity)) {
+  if (!authReady && (TEACHER_AUTHENTICATED_SCREENS.includes(screen) || requiresStudentIdentity)) {
     return (
       <main className="auth-loading-page">
         <strong>正在验证登录状态</strong>
@@ -558,13 +656,13 @@ export function App() {
     );
   }
 
-  if (teacherScreens.includes(screen) && !teacherIdentity) {
+  if (TEACHER_AUTHENTICATED_SCREENS.includes(screen) && !teacherIdentity) {
     return (
       <AuthPortal
-        initialRole="teacher"
         mode="login"
         onAuthenticated={completeAuthentication}
         onNavigate={navigateAuth}
+        role="teacher"
       />
     );
   }
@@ -572,10 +670,10 @@ export function App() {
   if (requiresStudentIdentity && !studentIdentity) {
     return (
       <AuthPortal
-        initialRole="student"
         mode="login"
         onAuthenticated={completeAuthentication}
         onNavigate={navigateAuth}
+        role="student"
       />
     );
   }
@@ -615,14 +713,18 @@ export function App() {
     return <DatabaseAdminPage identity={teacherIdentity!} onBack={openHome} />;
   }
 
+  if (screen === "teacherInvitationsAdmin") {
+    return <TeacherInvitationsAdminPage identity={teacherIdentity!} onBack={openHome} />;
+  }
+
   if (screen === "studentHome") {
     if (!studentIdentity) {
       return (
         <AuthPortal
-          initialRole="student"
           mode="login"
           onAuthenticated={completeAuthentication}
           onNavigate={navigateAuth}
+          role="student"
         />
       );
     }
@@ -647,6 +749,7 @@ export function App() {
         onAcademicFlow={openAcademicFlow}
         onDatabaseAdmin={openDatabaseAdmin}
         onTeacherLogout={() => void logoutRole("teacher")}
+        onTeacherInvitations={openTeacherInvitationsAdmin}
         teacherIdentity={teacherIdentity!}
       />
     );
@@ -689,6 +792,7 @@ export function App() {
         onOssCloud={openHome}
         onOpenProcess={openAcademicProcess}
         onTeacherLogout={() => void logoutRole("teacher")}
+        onTeacherInvitations={openTeacherInvitationsAdmin}
         teacherIdentity={teacherIdentity!}
       />
     );

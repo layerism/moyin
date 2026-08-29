@@ -14,6 +14,8 @@ export type Screen =
   | "changePassword"
   | "studentChangePassword"
   | "studentHome"
+  | "teacherInvitation"
+  | "teacherInvitationsAdmin"
   | "workspace";
 export type Tab = "edit" | "stats" | "settings" | "fill";
 export type Source = "导入" | "临时添加";
