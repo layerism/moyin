@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AcademicFlowDesigner, StudentFlowPage } from "./features/academic-flow/AcademicFlowDesigner";
 import { createAcademicProcess, createFallbackAcademicProcess } from "./features/academic-flow/academicFlowData";
@@ -235,47 +235,52 @@ export function App() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [notice, setNotice] = useState("最近保存 12:28");
 
+  const applyRoute = useCallback((route: AppRoute) => {
+    setActiveAcademicProcessId(route.processId);
+    setActiveRuntimeInstanceId(route.studentInstanceId);
+    setActiveStudentToken(route.studentSlug);
+    setTeacherInvitationToken(route.teacherInvitationToken);
+    setAuthRole(route.authRole);
+    setScreen(route.screen);
+  }, []);
+
   useEffect(() => {
     const syncRoute = () => {
-      const route = getRouteFromPathname();
-      setActiveAcademicProcessId(route.processId);
-      setActiveRuntimeInstanceId(route.studentInstanceId);
-      setActiveStudentToken(route.studentSlug);
-      setTeacherInvitationToken(route.teacherInvitationToken);
-      setAuthRole(route.authRole);
-      setScreen(route.screen);
+      applyRoute(getRouteFromPathname());
     };
 
     window.addEventListener("popstate", syncRoute);
     return () => window.removeEventListener("popstate", syncRoute);
-  }, []);
+  }, [applyRoute]);
 
   useEffect(() => {
     if (!authReady) return;
-    if (screen === "home" && window.location.pathname === "/" && !teacherIdentity) {
+    const currentRoute = getRouteFromPathname();
+    if (
+      currentRoute.screen === "home"
+      && window.location.pathname === "/"
+      && !teacherIdentity
+    ) {
       window.history.replaceState(null, "", "/login");
-      setAuthRole("student");
-      setScreen("authLogin");
+      applyRoute(getRouteFromPathname());
       return;
     }
-    if (TEACHER_AUTHENTICATED_SCREENS.includes(screen) && !teacherIdentity) {
+    if (TEACHER_AUTHENTICATED_SCREENS.includes(currentRoute.screen) && !teacherIdentity) {
       window.history.replaceState(null, "", "/teacher/login");
-      setAuthRole("teacher");
-      setScreen("authLogin");
+      applyRoute(getRouteFromPathname());
       return;
     }
-    const isRuntimePreview = screen === "academicFlowStudentRuntime"
+    const isRuntimePreview = currentRoute.screen === "academicFlowStudentRuntime"
       && new URLSearchParams(window.location.search).get("preview") === "1";
     if (
-      STUDENT_AUTHENTICATED_SCREENS.includes(screen)
+      STUDENT_AUTHENTICATED_SCREENS.includes(currentRoute.screen)
       && !isRuntimePreview
       && !studentIdentity
     ) {
       window.history.replaceState(null, "", "/login");
-      setAuthRole("student");
-      setScreen("authLogin");
+      applyRoute(getRouteFromPathname());
     }
-  }, [authReady, screen, studentIdentity, teacherIdentity]);
+  }, [applyRoute, authReady, screen, studentIdentity, teacherIdentity]);
 
   useEffect(() => {
     if (!authReady || !studentIdentity) return;
@@ -368,8 +373,7 @@ export function App() {
       : mode === "forgot" ? "/student/forgot-password"
         : mode === "register" ? "/student/register" : "/login";
     pushAppPath(pathname);
-    setAuthRole(role);
-    setScreen(mode === "forgot" ? "authForgot" : mode === "register" ? "authRegister" : "authLogin");
+    applyRoute(getRouteFromPathname());
   };
 
   const completeAuthentication = (role: AuthRole, identity: AuthIdentity) => {
