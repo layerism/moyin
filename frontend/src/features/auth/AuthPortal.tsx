@@ -127,6 +127,15 @@ export function AuthPortal({
             name={`${fieldPrefix}-auth-form`}
             onSubmit={submit}
           >
+            {role === "student" && mode === "login" ? (
+              <button
+                className="teacher-login-entry"
+                onClick={() => onNavigate("login", "teacher")}
+                type="button"
+              >
+                教职工用户？教师登录 ›
+              </button>
+            ) : null}
             <header>
               <h2>{role === "teacher" ? "教师" : "学生"}{mode === "register" ? "注册" : "登录"}</h2>
               <p>{role === "teacher" ? "进入流程设计与管理工作台" : "查看并继续个人填写流程"}</p>
@@ -233,15 +242,6 @@ export function AuthPortal({
                 <button type="button" onClick={() => onNavigate("forgot", role)}>忘记密码</button>
               ) : null}
             </div>
-            {role === "student" && mode === "login" ? (
-              <button
-                className="teacher-login-entry"
-                onClick={() => onNavigate("login", "teacher")}
-                type="button"
-              >
-                教职工用户？教师登录 ›
-              </button>
-            ) : null}
           </form>
         </div>
       </section>
