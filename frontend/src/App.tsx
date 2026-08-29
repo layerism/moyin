@@ -328,14 +328,20 @@ export function App() {
     let cancelled = false;
     Promise.allSettled([authApi.me("teacher"), authApi.me("student")]).then(([teacher, student]) => {
       if (cancelled) return;
-      if (teacher.status === "fulfilled") setTeacherIdentity(teacher.value);
+      if (teacher.status === "fulfilled") {
+        setTeacherIdentity(teacher.value);
+        if (window.location.pathname === "/") {
+          window.history.replaceState(null, "", "/academic-flow");
+          applyRoute(getRouteFromPathname());
+        }
+      }
       if (student.status === "fulfilled") setStudentIdentity(student.value);
       setAuthReady(true);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyRoute]);
 
   const stats = useMemo(() => {
     const submitted = students.filter((student) => student.submitStatus !== "未提交").length;
