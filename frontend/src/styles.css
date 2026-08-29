@@ -9973,13 +9973,28 @@ button {
   min-height: 44px;
   border: 0;
   border-radius: 8px;
+  background: #e4e7ec;
+  color: #98a2b3;
+  cursor: not-allowed;
   font-weight: 750;
   transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
 }
 
+.role-auth-submit:not(:disabled) {
+  background: #2773f6;
+  color: #fff;
+  cursor: pointer;
+}
+
 .role-auth-submit:not(:disabled):hover {
+  background: #175cd3;
   box-shadow: 0 8px 18px rgb(39 115 246 / 20%);
   transform: translateY(-1px);
+}
+
+.role-auth-submit:disabled {
+  box-shadow: none;
+  transform: none;
 }
 
 .role-auth-links {
