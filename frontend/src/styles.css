@@ -9999,27 +9999,33 @@ button {
   font-weight: 650;
 }
 
-.role-auth-links-secondary {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.role-auth-links button:only-child {
   margin-left: auto;
 }
 
-.role-auth-links .auth-role-switch-link {
+.auth-role-footer {
+  margin: 24px -32px -32px;
+  padding: 14px 32px 15px;
+  border-top: 1px solid #eaecf0;
+  border-radius: 0 0 13px 13px;
+  background: #fbfcfe;
+  text-align: center;
+}
+
+.auth-role-footer-link {
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
   color: #667085;
+  font-size: 13px;
   font-weight: 600;
 }
 
-.role-auth-links .auth-role-switch-link:hover,
-.role-auth-links .auth-role-switch-link:focus-visible {
+.auth-role-footer-link:hover,
+.auth-role-footer-link:focus-visible {
   color: #344054;
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.role-auth-links button:only-child {
-  margin-left: auto;
 }
 
 .teacher-invitation-login-link {
