@@ -19,20 +19,21 @@ type AuthForm = {
 const EMPTY_AUTH_FORM: AuthForm = { confirm: "", identifier: "", name: "", password: "" };
 
 export function AuthPortal({
-  initialRole,
   mode,
+  notice = "",
   onAuthenticated,
   onNavigate,
+  role,
 }: {
-  initialRole: AuthRole;
   mode: "login" | "register";
+  notice?: string;
   onAuthenticated: (role: AuthRole, identity: AuthIdentity) => void;
   onNavigate: (mode: "forgot" | "login" | "register", role: AuthRole) => void;
+  role: AuthRole;
 }) {
-  const [role, setRole] = useState<AuthRole>(initialRole);
   const [form, setForm] = useState<AuthForm>(EMPTY_AUTH_FORM);
   const [accountHistory, setAccountHistory] = useState<RememberedLoginAccount[]>(() =>
-    mode === "login" ? getRememberedAccounts(window.localStorage, initialRole) : [],
+    mode === "login" ? getRememberedAccounts(window.localStorage, role) : [],
   );
   const [historyAnchor, setHistoryAnchor] = useState<"identifier" | "name" | null>(null);
   const [rememberAccount, setRememberAccount] = useState(mode === "login");
@@ -67,7 +68,7 @@ export function AuthPortal({
       };
       const identity =
         mode === "register"
-          ? await authApi.register(role, credentials)
+          ? await authApi.registerStudent(credentials)
           : await authApi.login(role, credentials);
       if (mode === "login") {
         if (rememberAccount) {
@@ -83,17 +84,6 @@ export function AuthPortal({
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const changeRole = (nextRole: AuthRole) => {
-    setRole(nextRole);
-    setForm(EMPTY_AUTH_FORM);
-    setAccountHistory(
-      mode === "login" ? getRememberedAccounts(window.localStorage, nextRole) : [],
-    );
-    setHistoryAnchor(null);
-    setRememberAccount(mode === "login");
-    setError("");
   };
 
   const selectRememberedAccount = (account: RememberedLoginAccount) => {
@@ -131,22 +121,6 @@ export function AuthPortal({
       </section>
       <section className="role-auth-main">
         <div className="role-auth-card">
-          <div className="role-segment" role="tablist" aria-label="账户身份">
-            <button
-              className={role === "teacher" ? "active" : ""}
-              onClick={() => changeRole("teacher")}
-              type="button"
-            >
-              教师
-            </button>
-            <button
-              className={role === "student" ? "active" : ""}
-              onClick={() => changeRole("student")}
-              type="button"
-            >
-              学生
-            </button>
-          </div>
           <form
             autoComplete={mode === "login" ? "off" : "on"}
             id={`${fieldPrefix}-auth-form`}
@@ -189,8 +163,11 @@ export function AuthPortal({
                   autoCapitalize="none"
                   autoComplete="off"
                   id={`${fieldPrefix}-username`}
+                  inputMode={role === "teacher" ? "numeric" : undefined}
+                  maxLength={role === "teacher" ? 5 : undefined}
                   name="account-identifier"
                   onFocus={() => setHistoryAnchor("identifier")}
+                  pattern={role === "teacher" ? "[0-9]{5}" : undefined}
                   required
                   spellCheck={false}
                   value={form.identifier}
@@ -237,18 +214,34 @@ export function AuthPortal({
                 <span>记住账号</span>
               </label>
             ) : null}
+            {notice ? <p className="role-auth-notice">{notice}</p> : null}
             <p className="role-auth-error" role="alert">{error}</p>
             <button className="primary-action role-auth-submit" disabled={submitting} type="submit">
               {submitting ? "处理中" : mode === "register" ? "注册并进入" : "登录"}
             </button>
             <div className="role-auth-links">
-              <button type="button" onClick={() => onNavigate(mode === "login" ? "register" : "login", role)}>
-                {mode === "login" ? "注册新账户" : "已有账户，返回登录"}
-              </button>
+              {role === "student" ? (
+                <button type="button" onClick={() => onNavigate(mode === "login" ? "register" : "login", role)}>
+                  {mode === "login" ? "注册学生账户" : "已有账户，返回登录"}
+                </button>
+              ) : (
+                <button className="auth-back-link" type="button" onClick={() => onNavigate("login", "student")}>
+                  返回学生登录
+                </button>
+              )}
               {mode === "login" ? (
                 <button type="button" onClick={() => onNavigate("forgot", role)}>忘记密码</button>
               ) : null}
             </div>
+            {role === "student" && mode === "login" ? (
+              <button
+                className="teacher-login-entry"
+                onClick={() => onNavigate("login", "teacher")}
+                type="button"
+              >
+                教职工用户？教师登录 ›
+              </button>
+            ) : null}
           </form>
         </div>
       </section>

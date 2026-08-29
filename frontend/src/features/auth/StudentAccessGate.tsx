@@ -74,7 +74,7 @@ export function StudentAccessGate({
         password: form.password,
       };
       const identity = mode === "register"
-        ? await authApi.register("student", credentials)
+        ? await authApi.registerStudent(credentials)
         : await authApi.login("student", credentials);
       if (identity.mustChangePassword) {
         setPendingIdentity(identity);

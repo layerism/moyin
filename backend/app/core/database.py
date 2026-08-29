@@ -55,6 +55,26 @@ CREATE TABLE IF NOT EXISTS teacher_sessions (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS teacher_invitations (
+    id TEXT PRIMARY KEY,
+    employee_no TEXT NOT NULL
+        CHECK (length(employee_no) = 5 AND employee_no NOT GLOB '*[^0-9]*'),
+    name TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'active'
+        CHECK (status IN ('active', 'used', 'expired', 'revoked')),
+    expires_at TEXT NOT NULL,
+    created_by INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    used_by_teacher_id INTEGER REFERENCES teacher_accounts(id) ON DELETE SET NULL,
+    used_at TEXT,
+    revoked_at TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_teacher_invitations_active_employee
+ON teacher_invitations(employee_no)
+WHERE status = 'active';
+
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     actor_id TEXT,
@@ -374,6 +394,7 @@ def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA)
         _apply_super_admin_role_migration(connection)
+        _apply_teacher_invitation_migration(connection)
         _apply_student_password_change_migration(connection)
         _apply_flow_owner_migration(connection)
         _apply_share_token_value_migration(connection)
@@ -403,6 +424,37 @@ def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:
     )
     connection.execute(
         "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )
+
+
+def _apply_teacher_invitation_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260829_add_teacher_invitations"
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS teacher_invitations (
+            id TEXT PRIMARY KEY,
+            employee_no TEXT NOT NULL
+                CHECK (length(employee_no) = 5 AND employee_no NOT GLOB '*[^0-9]*'),
+            name TEXT NOT NULL,
+            token_hash TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL DEFAULT 'active'
+                CHECK (status IN ('active', 'used', 'expired', 'revoked')),
+            expires_at TEXT NOT NULL,
+            created_by INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            used_by_teacher_id INTEGER REFERENCES teacher_accounts(id) ON DELETE SET NULL,
+            used_at TEXT,
+            revoked_at TEXT
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_teacher_invitations_active_employee
+        ON teacher_invitations(employee_no)
+        WHERE status = 'active';
+        """
+    )
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
         (migration_id, datetime.now(UTC).isoformat()),
     )
 

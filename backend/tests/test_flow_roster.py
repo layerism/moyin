@@ -7,17 +7,15 @@ import pytest
 from app.core.config import settings
 from app.core.database import get_connection
 from app.main import app
+from tests.teacher_auth_helpers import login_teacher, provision_teacher
 
 
 @pytest.fixture
 def client(tmp_path: Path) -> Iterator[TestClient]:
     settings.database_path = str(tmp_path / "test.db")
     with TestClient(app) as test_client:
-        response = test_client.post(
-            "/api/auth/teacher/register",
-            json={"name": "名单教师", "employeeNo": "R001", "password": "Pass1234"},
-        )
-        assert response.status_code == 201
+        provision_teacher(employee_no="13001", name="名单教师")
+        login_teacher(test_client, employee_no="13001", name="名单教师")
         yield test_client
 
 
@@ -133,10 +131,8 @@ def test_import_rejects_conflicting_duplicate_student_numbers(client: TestClient
 def test_teacher_cannot_access_another_teachers_roster(client: TestClient) -> None:
     flow_id = create_flow(client)
     client.post("/api/auth/teacher/logout")
-    client.post(
-        "/api/auth/teacher/register",
-        json={"name": "其他教师", "employeeNo": "R002", "password": "Pass1234"},
-    )
+    provision_teacher(employee_no="13002", name="其他教师")
+    login_teacher(client, employee_no="13002", name="其他教师")
 
     assert client.get(f"/api/workflows/{flow_id}/roster").status_code == 404
     assert (
