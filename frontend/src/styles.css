@@ -9803,15 +9803,7 @@ button {
 }
 
 .role-auth-form-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
   margin-bottom: 26px;
-}
-
-.role-auth-form-header > div {
-  min-width: 0;
 }
 
 .role-auth-form h2 {
@@ -9825,27 +9817,6 @@ button {
   color: #667085;
   font-size: 14px;
   line-height: 1.55;
-}
-
-.auth-role-entry {
-  min-height: 32px;
-  flex: 0 0 auto;
-  padding: 0 12px;
-  border: 1px solid #c9dcfb;
-  border-radius: 999px;
-  background: #f4f8ff;
-  color: #175cd3;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
-}
-
-.auth-role-entry:hover,
-.auth-role-entry:focus-visible {
-  border-color: #84adff;
-  background: #eaf2ff;
-  box-shadow: 0 0 0 3px rgb(39 115 246 / 10%);
 }
 
 .role-auth-form label {
@@ -10026,6 +9997,25 @@ button {
   color: #175cd3;
   font-size: 13px;
   font-weight: 650;
+}
+
+.role-auth-links-secondary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.role-auth-links .auth-role-switch-link {
+  color: #667085;
+  font-weight: 600;
+}
+
+.role-auth-links .auth-role-switch-link:hover,
+.role-auth-links .auth-role-switch-link:focus-visible {
+  color: #344054;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .role-auth-links button:only-child {
