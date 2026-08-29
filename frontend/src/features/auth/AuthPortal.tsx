@@ -122,23 +122,28 @@ export function AuthPortal({
       <section className="role-auth-main">
         <div className="role-auth-card">
           <form
+            className="role-auth-form"
             autoComplete={mode === "login" ? "off" : "on"}
             id={`${fieldPrefix}-auth-form`}
             name={`${fieldPrefix}-auth-form`}
             onSubmit={submit}
           >
-            {role === "student" && mode === "login" ? (
-              <button
-                className="teacher-login-entry"
-                onClick={() => onNavigate("login", "teacher")}
-                type="button"
-              >
-                教职工用户？教师登录 ›
-              </button>
-            ) : null}
-            <header>
-              <h2>{role === "teacher" ? "教师" : "学生"}{mode === "register" ? "注册" : "登录"}</h2>
-              <p>{role === "teacher" ? "进入流程设计与管理工作台" : "查看并继续个人填写流程"}</p>
+            <header className="role-auth-form-header">
+              <div>
+                <h2>{role === "teacher" ? "教师" : "学生"}{mode === "register" ? "注册" : "登录"}</h2>
+                <p>{role === "teacher" ? "进入流程设计与管理工作台" : "查看并继续个人填写流程"}</p>
+              </div>
+              {mode === "login" ? (
+                <button
+                  className="auth-role-entry"
+                  onClick={() =>
+                    onNavigate("login", role === "student" ? "teacher" : "student")
+                  }
+                  type="button"
+                >
+                  {role === "student" ? "教师入口 →" : "学生入口 →"}
+                </button>
+              ) : null}
             </header>
             <div
               className="account-history-control"
@@ -233,11 +238,7 @@ export function AuthPortal({
                 <button type="button" onClick={() => onNavigate(mode === "login" ? "register" : "login", role)}>
                   {mode === "login" ? "注册学生账户" : "已有账户，返回登录"}
                 </button>
-              ) : (
-                <button className="auth-back-link" type="button" onClick={() => onNavigate("login", "student")}>
-                  返回学生登录
-                </button>
-              )}
+              ) : null}
               {mode === "login" ? (
                 <button type="button" onClick={() => onNavigate("forgot", role)}>忘记密码</button>
               ) : null}

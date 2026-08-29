@@ -9748,10 +9748,10 @@ button {
 }
 
 .role-auth-card {
-  width: min(460px, 100%);
+  width: min(448px, 100%);
 }
 
-.role-auth-card form {
+.role-auth-card form:not(.role-auth-form) {
   padding: 28px;
   border: 1px solid #d8dee8;
   border-radius: 8px;
@@ -9759,26 +9759,26 @@ button {
   box-shadow: 0 12px 32px rgb(16 24 40 / 8%);
 }
 
-.role-auth-card form header {
+.role-auth-card form:not(.role-auth-form) header {
   margin-bottom: 22px;
 }
 
-.role-auth-card h2 {
+.role-auth-card form:not(.role-auth-form) h2 {
   margin: 0 0 7px;
   font-size: 24px;
 }
 
-.role-auth-card header p {
+.role-auth-card form:not(.role-auth-form) header p {
   margin: 0;
   color: #667085;
 }
 
-.role-auth-card label {
+.role-auth-card form:not(.role-auth-form) label {
   display: block;
   margin-bottom: 15px;
 }
 
-.role-auth-card label span {
+.role-auth-card form:not(.role-auth-form) label span {
   display: block;
   margin-bottom: 7px;
   color: #344054;
@@ -9786,12 +9786,100 @@ button {
   font-weight: 700;
 }
 
-.role-auth-card input {
+.role-auth-card form:not(.role-auth-form) input {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #cfd7e5;
   border-radius: 6px;
   background: #fff;
+}
+
+.role-auth-card .role-auth-form {
+  padding: 32px;
+  border: 1px solid #dde3ec;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 20px 48px rgb(16 24 40 / 10%);
+}
+
+.role-auth-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 26px;
+}
+
+.role-auth-form-header > div {
+  min-width: 0;
+}
+
+.role-auth-form h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.role-auth-form header p {
+  margin: 0;
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.auth-role-entry {
+  min-height: 32px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid #c9dcfb;
+  border-radius: 999px;
+  background: #f4f8ff;
+  color: #175cd3;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.auth-role-entry:hover,
+.auth-role-entry:focus-visible {
+  border-color: #84adff;
+  background: #eaf2ff;
+  box-shadow: 0 0 0 3px rgb(39 115 246 / 10%);
+}
+
+.role-auth-form label {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.role-auth-form label span {
+  display: block;
+  margin-bottom: 8px;
+  color: #344054;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.role-auth-form input:not([type="checkbox"]) {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #172033;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.role-auth-form input:not([type="checkbox"]):hover {
+  border-color: #aebccd;
+}
+
+.role-auth-form input:not([type="checkbox"]):focus {
+  border-color: #2773f6;
+  outline: 0;
+  box-shadow: 0 0 0 3px rgb(39 115 246 / 12%);
 }
 
 .account-history-control {
@@ -9870,15 +9958,15 @@ button {
   color: #b42318;
 }
 
-.role-auth-card .remember-account-row {
+.role-auth-form .remember-account-row {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: -2px 0 14px;
+  margin: -1px 0 16px;
   cursor: pointer;
 }
 
-.role-auth-card .remember-account-row input {
+.role-auth-form .remember-account-row input {
   width: 16px;
   height: 16px;
   margin: 0;
@@ -9886,7 +9974,7 @@ button {
   accent-color: #175cd3;
 }
 
-.role-auth-card .remember-account-row span {
+.role-auth-form .remember-account-row span {
   display: inline;
   margin: 0;
   color: #475467;
@@ -9911,32 +9999,37 @@ button {
 
 .role-auth-submit {
   width: 100%;
-  min-height: 42px;
+  min-height: 44px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
+  font-weight: 750;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.role-auth-submit:not(:disabled):hover {
+  box-shadow: 0 8px 18px rgb(39 115 246 / 20%);
+  transform: translateY(-1px);
 }
 
 .role-auth-links {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-top: 14px;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .role-auth-links button {
+  padding: 2px 0;
   border: 0;
   background: transparent;
   color: #175cd3;
+  font-size: 13px;
+  font-weight: 650;
 }
 
-.teacher-login-entry {
-  width: 100%;
-  margin: 0 0 10px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #667085;
-  font-size: 13px;
-  text-align: right;
+.role-auth-links button:only-child {
+  margin-left: auto;
 }
 
 .teacher-invitation-login-link {
@@ -9950,8 +10043,6 @@ button {
   font-size: 13px;
 }
 
-.teacher-login-entry:hover,
-.teacher-login-entry:focus-visible,
 .teacher-invitation-login-link:hover,
 .teacher-invitation-login-link:focus-visible {
   color: #175cd3;
