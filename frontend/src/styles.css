@@ -9928,7 +9928,17 @@ button {
   color: #175cd3;
 }
 
-.teacher-login-entry,
+.teacher-login-entry {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #667085;
+  font-size: 13px;
+  text-align: right;
+}
+
 .teacher-invitation-login-link {
   width: 100%;
   margin-top: 18px;
