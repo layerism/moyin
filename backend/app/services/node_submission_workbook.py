@@ -1,3 +1,4 @@
+import json
 import re
 from datetime import UTC, datetime
 from io import BytesIO
@@ -432,6 +433,9 @@ def _format_answer_sheet_standard(question: dict[str, object], answer: object) -
             for value in option_ids
         ) if isinstance(option_ids, list) else ""
     if question.get("format") == "single_markdown_exact":
+        accepted = answer.get("acceptedAnswerMarkdowns")
+        if isinstance(accepted, list):
+            return json.dumps(accepted, ensure_ascii=False, separators=(",", ":"))
         answer_markdown = answer.get("answerMarkdown")
         return answer_markdown if isinstance(answer_markdown, str) else ""
     blanks = answer.get("blanks")

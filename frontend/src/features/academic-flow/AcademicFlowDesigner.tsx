@@ -451,8 +451,8 @@ export function AcademicFlowDesigner({
               question.id,
               createPrivateAnswer(question),
             ])),
-            graderVersion: "answer-sheet-v2" as const,
-            schemaVersion: "2.0" as const,
+            graderVersion: "answer-sheet-v3" as const,
+            schemaVersion: "3.0" as const,
           },
         }
       : workingProcess.answerSheetKeys;

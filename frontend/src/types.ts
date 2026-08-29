@@ -100,7 +100,7 @@ export type AnswerSheetConfig = {
     passingScore: number;
   };
   questions: AnswerSheetQuestion[];
-  schemaVersion: "1.0" | "2.0";
+  schemaVersion: "1.0" | "2.0" | "3.0";
 };
 
 export type AnswerSheetPrivateAnswer =
@@ -114,12 +114,17 @@ export type AnswerSheetPrivateAnswer =
       answerMarkdown: string;
       format: "single_markdown_exact";
       type: "fill_blank";
+    }
+  | {
+      acceptedAnswerMarkdowns: string[];
+      format: "single_markdown_exact";
+      type: "fill_blank";
     };
 
 export type AnswerSheetPrivateKey = {
   answers: Record<string, AnswerSheetPrivateAnswer>;
-  graderVersion: "answer-sheet-v1" | "answer-sheet-v2";
-  schemaVersion: "1.0" | "2.0";
+  graderVersion: "answer-sheet-v1" | "answer-sheet-v2" | "answer-sheet-v3";
+  schemaVersion: "1.0" | "2.0" | "3.0";
 };
 
 export type AnswerSheetQuestionResult = {
@@ -136,12 +141,12 @@ export type AnswerSheetQuestionResult = {
 };
 
 export type AnswerSheetGrade = {
-  graderVersion: "answer-sheet-v1" | "answer-sheet-v2";
+  graderVersion: "answer-sheet-v1" | "answer-sheet-v2" | "answer-sheet-v3";
   maxScore: number;
   passed: boolean;
   passingScore: number;
   questionResults?: AnswerSheetQuestionResult[];
-  schemaVersion: "1.0" | "2.0";
+  schemaVersion: "1.0" | "2.0" | "3.0";
   score: number;
   standardAnswers?: Record<string, AnswerSheetPrivateAnswer>;
 };

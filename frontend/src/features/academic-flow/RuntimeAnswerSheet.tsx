@@ -141,12 +141,22 @@ export function AnswerSheetGradeResult({
       {grade.standardAnswers ? (
         <div className="answer-sheet-standard-answers">
           <strong>标准答案</strong>
-          <ol>{node.answerSheet?.questions.map((question, index) => (
-            <li key={question.id}>
-              <span>第 {index + 1} 题：</span>
-              <AnswerSheetMarkdown>{formatStandardAnswer(question, grade.standardAnswers?.[question.id])}</AnswerSheetMarkdown>
-            </li>
-          ))}</ol>
+          <ol>{node.answerSheet?.questions.map((question, index) => {
+            const standardAnswers = formatStandardAnswers(question, grade.standardAnswers?.[question.id]);
+            return (
+              <li key={question.id}>
+                <span>第 {index + 1} 题：</span>
+                <ol className="answer-sheet-accepted-standard-list">
+                  {standardAnswers.map((markdown, answerIndex) => (
+                    <li key={`${question.id}-${answerIndex}`}>
+                      <span>答案 {answerIndex + 1}</span>
+                      <AnswerSheetMarkdown>{markdown}</AnswerSheetMarkdown>
+                    </li>
+                  ))}
+                </ol>
+              </li>
+            );
+          })}</ol>
         </div>
       ) : null}
       {completion ? (
@@ -240,25 +250,27 @@ function questionLabel(question: AnswerSheetQuestion): string {
   return "填空题";
 }
 
-function formatStandardAnswer(
+function formatStandardAnswers(
   question: AnswerSheetQuestion,
   answer: AnswerSheetPrivateAnswer | undefined,
-): string {
-  if (!answer) return "未提供";
+): string[] {
+  if (!answer) return ["未提供"];
   if (question.type === "single_choice" && answer.type === "single_choice") {
-    return question.options.find((option) => option.id === answer.correctOptionId)?.content ?? answer.correctOptionId;
+    return [question.options.find((option) => option.id === answer.correctOptionId)?.content ?? answer.correctOptionId];
   }
   if (question.type === "multiple_choice" && answer.type === "multiple_choice") {
-    return answer.correctOptionIds.map((id) => question.options.find((option) => option.id === id)?.content ?? id).join("；");
+    return [answer.correctOptionIds.map((id) => question.options.find((option) => option.id === id)?.content ?? id).join("；")];
   }
   if (question.type === "fill_blank" && answer.type === "fill_blank") {
-    if (isSingleMarkdownFillBlankQuestion(question) && "answerMarkdown" in answer) {
-      return answer.answerMarkdown;
+    if (isSingleMarkdownFillBlankQuestion(question)) {
+      if ("acceptedAnswerMarkdowns" in answer) return answer.acceptedAnswerMarkdowns;
+      if ("answerMarkdown" in answer) return [answer.answerMarkdown];
+      return ["未提供"];
     }
-    if (!("blanks" in answer) || isSingleMarkdownFillBlankQuestion(question)) return "未提供";
-    return question.blanks.map((blank) => answer.blanks[blank.id]?.acceptedAnswers.join(" / ") ?? "").join("；");
+    if (!("blanks" in answer)) return ["未提供"];
+    return [question.blanks.map((blank) => answer.blanks[blank.id]?.acceptedAnswers.join(" / ") ?? "").join("；")];
   }
-  return "未提供";
+  return ["未提供"];
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

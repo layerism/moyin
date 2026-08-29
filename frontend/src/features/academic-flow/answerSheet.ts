@@ -30,7 +30,7 @@ export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
         passingScore: question.points,
       },
       questions: [question],
-      schemaVersion: "2.0",
+      schemaVersion: "3.0",
     },
     key: {
       answers: {
@@ -39,8 +39,8 @@ export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
           type: "single_choice",
         },
       },
-      graderVersion: "answer-sheet-v2",
-      schemaVersion: "2.0",
+      graderVersion: "answer-sheet-v3",
+      schemaVersion: "3.0",
     },
   };
 }
@@ -83,7 +83,7 @@ export function createPrivateAnswer(question: AnswerSheetQuestion): AnswerSheetP
   }
   if (isSingleMarkdownFillBlankQuestion(question)) {
     return {
-      answerMarkdown: "",
+      acceptedAnswerMarkdowns: [""],
       format: "single_markdown_exact",
       type: question.type,
     };
@@ -120,13 +120,23 @@ export function upgradeAnswerSheetAuthoring(
   key: AnswerSheetPrivateKey,
 ): AnswerSheetAuthoring {
   const answers = { ...key.answers };
-  let changed = config.schemaVersion !== "2.0"
-    || key.schemaVersion !== "2.0"
-    || key.graderVersion !== "answer-sheet-v2";
+  let changed = config.schemaVersion !== "3.0"
+    || key.schemaVersion !== "3.0"
+    || key.graderVersion !== "answer-sheet-v3";
   const questions = config.questions.map((question) => {
-    if (question.type !== "fill_blank" || isSingleMarkdownFillBlankQuestion(question)) {
+    if (isSingleMarkdownFillBlankQuestion(question)) {
+      const answer = answers[question.id];
+      if (answer?.type === "fill_blank" && "answerMarkdown" in answer) {
+        answers[question.id] = {
+          acceptedAnswerMarkdowns: [answer.answerMarkdown],
+          format: "single_markdown_exact",
+          type: "fill_blank",
+        };
+        changed = true;
+      }
       return question;
     }
+    if (question.type !== "fill_blank") return question;
     const answer = answers[question.id];
     const upgraded = upgradeLegacyFillBlankQuestion(question, answer);
     if (!upgraded) return question;
@@ -136,12 +146,12 @@ export function upgradeAnswerSheetAuthoring(
   });
   if (!changed) return { config, key };
   return {
-    config: { ...config, questions, schemaVersion: "2.0" },
+    config: { ...config, questions, schemaVersion: "3.0" },
     key: {
       ...key,
       answers,
-      graderVersion: "answer-sheet-v2",
-      schemaVersion: "2.0",
+      graderVersion: "answer-sheet-v3",
+      schemaVersion: "3.0",
     },
   };
 }
@@ -187,7 +197,7 @@ export function validateAnswerSheetAuthoring(
       continue;
     }
     if (isSingleMarkdownFillBlankQuestion(question)) {
-      validateSingleMarkdownFillQuestion(question, privateAnswer, add);
+      validateSingleMarkdownFillQuestion(question, privateAnswer, key.graderVersion, add);
     } else {
       validateLegacyFillQuestion(question, privateAnswer, add);
     }
@@ -303,6 +313,7 @@ function validateSelectionQuestion(
 function validateSingleMarkdownFillQuestion(
   question: AnswerSheetSingleMarkdownFillBlankQuestion,
   privateAnswer: AnswerSheetPrivateAnswer | undefined,
+  graderVersion: AnswerSheetPrivateKey["graderVersion"],
   add: (id: string, message: string) => void,
 ) {
   if (!Number.isInteger(question.points) || question.points <= 0) {
@@ -312,9 +323,26 @@ function validateSingleMarkdownFillQuestion(
     privateAnswer?.type !== "fill_blank"
     || !("format" in privateAnswer)
     || privateAnswer.format !== "single_markdown_exact"
-    || !privateAnswer.answerMarkdown.trim()
   ) {
-    add(question.id, "请输入标准答案");
+    add(question.id, "至少需要一个可接受答案");
+    return;
+  }
+  if (graderVersion !== "answer-sheet-v3") {
+    if (!("answerMarkdown" in privateAnswer) || !privateAnswer.answerMarkdown.trim()) {
+      add(question.id, "请输入标准答案");
+    }
+    return;
+  }
+  if (!("acceptedAnswerMarkdowns" in privateAnswer) || !privateAnswer.acceptedAnswerMarkdowns.length) {
+    add(question.id, "至少需要一个可接受答案");
+    return;
+  }
+  const normalized = privateAnswer.acceptedAnswerMarkdowns.map((value) => value.trim());
+  if (normalized.some((value) => !value)) {
+    add(question.id, "可接受答案不能为空");
+  }
+  if (new Set(normalized).size !== normalized.length) {
+    add(question.id, "可接受答案不能重复");
   }
 }
 
@@ -382,7 +410,7 @@ function upgradeLegacyFillBlankQuestion(
   const legacyPlaceholder = `请输入题干，并在需要作答的位置保留 ${marker}。`;
   return {
     answer: {
-      answerMarkdown: "",
+      acceptedAnswerMarkdowns: [""],
       format: "single_markdown_exact",
       type: "fill_blank",
     },

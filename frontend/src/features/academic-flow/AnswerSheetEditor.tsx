@@ -522,25 +522,77 @@ function SingleMarkdownFillBlankEditor({
   disabled: boolean;
   onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
 }) {
-  const answerMarkdown = answer.type === "fill_blank" && "answerMarkdown" in answer
-    ? answer.answerMarkdown
-    : "";
+  const acceptedAnswers = answer.type === "fill_blank"
+    ? "acceptedAnswerMarkdowns" in answer
+      ? answer.acceptedAnswerMarkdowns
+      : "answerMarkdown" in answer
+        ? [answer.answerMarkdown]
+        : [""]
+    : [""];
+  const normalized = acceptedAnswers.map((value) => value.trim());
+  const duplicateValues = new Set(normalized.filter((value, index) => (
+    value && normalized.indexOf(value) !== index
+  )));
+  const [editRequest, setEditRequest] = useState({ index: -1, token: 0 });
+  const updateAnswers = (nextAnswers: string[]) => onAnswerChange({
+    acceptedAnswerMarkdowns: nextAnswers,
+    format: "single_markdown_exact",
+    type: "fill_blank",
+  });
+  const addAnswer = () => {
+    const index = acceptedAnswers.length;
+    updateAnswers([...acceptedAnswers, ""]);
+    setEditRequest((current) => ({ index, token: current.token + 1 }));
+  };
   return (
     <div className="answer-sheet-single-answer-editor">
       <div className="answer-sheet-single-answer-heading">
-        <strong>标准答案</strong>
-        <span>去除首尾空白后精确匹配</span>
+        <div>
+          <strong>可接受答案</strong>
+          <span>命中任意一个即正确</span>
+        </div>
+        <em>{acceptedAnswers.length} 项</em>
       </div>
-      <MarkdownBlurEditor
-        disabled={disabled}
-        onChange={(value) => onAnswerChange({
-          answerMarkdown: value,
-          format: "single_markdown_exact",
-          type: "fill_blank",
+      <div className="answer-sheet-accepted-answer-list">
+        {acceptedAnswers.map((value, index) => {
+          const error = !normalized[index]
+            ? "请输入答案"
+            : duplicateValues.has(normalized[index]) ? "与其他答案重复" : null;
+          return (
+            <div className={`answer-sheet-accepted-answer-row${error ? " is-invalid" : ""}${disabled ? " is-readonly" : ""}`} key={`answer-${index}`}>
+              <span className="answer-sheet-accepted-answer-index">{index + 1}</span>
+              <div className="answer-sheet-accepted-answer-content">
+                <MarkdownBlurEditor
+                  compact
+                  disabled={disabled}
+                  editRequest={editRequest.index === index ? editRequest.token : 0}
+                  onChange={(nextValue) => updateAnswers(acceptedAnswers.map((item, itemIndex) => (
+                    itemIndex === index ? nextValue : item
+                  )))}
+                  placeholder="请输入标准答案"
+                  value={value}
+                />
+                {error ? <small>{error}</small> : null}
+              </div>
+              {!disabled ? (
+                <button
+                  aria-label={`删除答案 ${index + 1}`}
+                  className="answer-sheet-accepted-answer-remove"
+                  disabled={acceptedAnswers.length === 1}
+                  onClick={() => updateAnswers(acceptedAnswers.filter((_, itemIndex) => itemIndex !== index))}
+                  type="button"
+                >×</button>
+              ) : null}
+            </div>
+          );
         })}
-        placeholder="请输入标准答案"
-        value={answerMarkdown}
-      />
+      </div>
+      {!disabled ? (
+        <div className="answer-sheet-single-answer-footer">
+          <button className="answer-sheet-add-accepted-answer" onClick={addAnswer} type="button">添加答案</button>
+          <span>去除首尾空白后精确匹配</span>
+        </div>
+      ) : null}
     </div>
   );
 }

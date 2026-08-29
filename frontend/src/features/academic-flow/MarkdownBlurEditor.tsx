@@ -7,6 +7,7 @@ export function MarkdownBlurEditor({
   clearOnEditValues = [],
   compact = false,
   disabled,
+  editRequest = 0,
   onChange,
   placeholder = "点击编辑 Markdown",
   value,
@@ -14,6 +15,7 @@ export function MarkdownBlurEditor({
   clearOnEditValues?: readonly string[];
   compact?: boolean;
   disabled: boolean;
+  editRequest?: number;
   onChange: (value: string) => void;
   placeholder?: string;
   value: string;
@@ -30,6 +32,10 @@ export function MarkdownBlurEditor({
   useEffect(() => {
     if (disabled) setFocused(false);
   }, [disabled]);
+
+  useEffect(() => {
+    if (editRequest > 0 && !disabled) setFocused(true);
+  }, [disabled, editRequest]);
 
   if (mode === "source") {
     return (
