@@ -238,7 +238,6 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                    s.id AS submission_id,
                    j.status AS audit_job_status, j.attempt_count AS audit_attempt_count,
                    j.result_json AS audit_result_json,
-                   j.effective_params_json AS audit_effective_params_json,
                    j.cancellation_reason AS audit_cancellation_reason
             FROM node_instances n
             LEFT JOIN node_drafts d ON d.node_instance_id = n.id
@@ -821,8 +820,6 @@ def _audit_summary(
             result = {}
     reason = result.get("reason") if isinstance(result.get("reason"), str) else None
     details = result.get("details") if isinstance(result.get("details"), dict) else None
-    effective_params = _json_object(row["audit_effective_params_json"])
-    audit_mode = effective_params.get("scanAuditMode", config_node.get("scanAuditMode"))
     if status == "audit_error":
         reason = "自动审核暂时失败，请重新审核"
         details = None
@@ -831,12 +828,6 @@ def _audit_summary(
             "script_updated": "审核程序已更新，请重新提交材料。",
             "policy_updated": "审核要求已更新，请重新提交材料。",
         }.get(row["audit_cancellation_reason"], "审核任务已取消，请重新提交材料。")
-        details = None
-    elif (
-        config_node.get("kind") == "confirmation"
-        and audit_mode == "score"
-    ):
-        reason = None
         details = None
     elif config_node.get("kind") == "confirmation" and isinstance(details, dict):
         details = None
