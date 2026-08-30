@@ -27,3 +27,11 @@ storage/generated/
 
 # System
 .DS_Store
+
+# Superpowers artifacts
+/docs/superpowers/
+/.superpowers/
+
+# Local agent context
+/MEMORY.md
+/AGENTS.md
