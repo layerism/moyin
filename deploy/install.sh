@@ -34,12 +34,12 @@ done
 mkdir -p "$local_bin" "$node_dir" "$python_dir" "$uv_cache_dir"
 
 uv_executable="$local_bin/uv"
-if [[ ! -x "$uv_executable" ]] || [[ "$($uv_executable --version 2>/dev/null || true)" != "uv $uv_version" ]]; then
+if [[ ! -x "$uv_executable" ]] || [[ "$($uv_executable --version 2>/dev/null || true)" != "uv $uv_version"* ]]; then
   curl -LsSf "https://astral.sh/uv/$uv_version/install.sh" \
     | env UV_UNMANAGED_INSTALL="$local_bin" sh
 fi
 
-if [[ "$($uv_executable --version)" != "uv $uv_version" ]]; then
+if [[ "$($uv_executable --version)" != "uv $uv_version"* ]]; then
   echo "uv 版本校验失败。" >&2
   exit 1
 fi
@@ -107,7 +107,7 @@ if [[ ! -f "$backend_dir/.env" ]]; then
   cp "$backend_dir/.env.example" "$backend_dir/.env"
 fi
 
-[[ "$($uv_executable --version)" == "uv $uv_version" ]]
+[[ "$($uv_executable --version)" == "uv $uv_version"* ]]
 [[ "$($venv_python --version 2>&1)" == "Python $python_version" ]]
 [[ "$(node --version)" == "v$node_version" ]]
 [[ "$(npm --version)" == "$npm_version" ]]
