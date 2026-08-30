@@ -820,7 +820,10 @@ def _audit_summary(
             result = {}
     reason = result.get("reason") if isinstance(result.get("reason"), str) else None
     details = result.get("details") if isinstance(result.get("details"), dict) else None
-    if status == "audit_error":
+    if status == "approved":
+        reason = None
+        details = None
+    elif status == "audit_error":
         reason = "自动审核暂时失败，请重新审核"
         details = None
     elif row["audit_job_status"] == "cancelled":
