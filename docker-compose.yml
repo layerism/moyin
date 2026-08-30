@@ -5,8 +5,9 @@ services:
     environment:
       APP_ENV: production
       STORAGE_ROOT: /app/storage
+      DATABASE_PATH: /app/storage/app.db
     volumes:
-      - ./storage:/app/storage
+      - ./backend/storage:/app/storage
     expose:
       - "8000"
 
