@@ -53,6 +53,7 @@ import {
 import {
   getPublishButtonState,
   getRevisionEditing,
+  getScanAuditConfigError,
 } from "./publishButtonState";
 import { FlowRosterDialog } from "./FlowRosterDialog";
 import { FormFieldEditor } from "./FormFieldEditor";
@@ -411,6 +412,15 @@ export function AcademicFlowDesigner({
   };
 
   const openPreview = async () => {
+    const auditIssue = workingProcess.nodes
+      .map((node) => ({ message: getScanAuditConfigError(node), node }))
+      .find((issue) => issue.message);
+    if (auditIssue) {
+      setActiveNodeId(auditIssue.node.id);
+      setInspectorNodeId(auditIssue.node.id);
+      setActionNotice(auditIssue.message ?? "请先修正扫描审核配置");
+      return;
+    }
     const previewWindow = window.open("", "_blank");
     if (!previewWindow) {
       setActionNotice("请允许本站打开新标签页");
