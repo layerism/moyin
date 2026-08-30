@@ -11,7 +11,7 @@ bash /path/to/moyin/deploy/install.sh
 即可将项目所需的 uv、Python、Node.js、npm 和应用依赖安装到仓库内部。安装完成后不自动启动服务，由用户显式运行：
 
 ```bash
-./deploy/start_server.sh
+./deploy/run_server.sh
 ```
 
 ## 固定版本与安装位置
@@ -52,7 +52,7 @@ bash /path/to/moyin/deploy/install.sh
 
 ## 启动脚本迁移
 
-根目录 `start_server.sh` 移至 `deploy/start_server.sh`。新脚本从自身目录的上一级解析项目根目录，并在启动前统一设置：
+根目录 `start_server.sh` 移至 `deploy/run_server.sh`。新脚本从自身目录的上一级解析项目根目录，并在启动前统一设置：
 
 ```bash
 PATH="$project_dir/.local/node/bin:$project_dir/.local/bin:$PATH"
@@ -67,7 +67,7 @@ PATH="$project_dir/.local/node/bin:$project_dir/.local/bin:$PATH"
 ## 文件范围
 
 - 新增 `deploy/install.sh`。
-- 新增 `deploy/start_server.sh`，删除根目录 `start_server.sh`。
+- 新增 `deploy/run_server.sh`，删除根目录 `start_server.sh`。
 - 更新 `README.md` 和 `INSTALL.md` 中的安装、启动路径与行为说明。
 - 不修改 Docker Compose、Nginx、数据库结构或业务源码。
 

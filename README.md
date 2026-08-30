@@ -124,7 +124,7 @@ OSS_ACCESS_KEY_SECRET=
 在项目根目录运行：
 
 ```bash
-./start_server.sh
+./deploy/run_server.sh
 ```
 
 也可以分别启动后端和前端：
@@ -195,12 +195,13 @@ npm run dev
 │   ├── storage/                # SQLite 数据库和后端持久化数据
 │   └── tests/                  # 后端测试
 ├── frontend/src/               # React 页面、功能模块和样式
-├── deploy/                     # Nginx 配置
+├── deploy/
+│   ├── run_server.sh           # 本地前后端联合启动脚本
+│   └── nginx.conf              # Nginx 配置
 ├── docs/                       # 架构、流程和节点设计文档
 ├── assets/                     # 项目业务模板资产
 ├── docker-compose.yml          # 容器部署编排
-├── INSTALL.md                  # Linux 固定版本安装说明
-└── start_server.sh             # 本地前后端联合启动脚本
+└── INSTALL.md                  # Linux 固定版本安装说明
 ```
 
 ---

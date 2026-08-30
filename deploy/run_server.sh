@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+project_dir="$(cd -- "$script_dir/.." && pwd)"
+export PATH="$project_dir/.local/node/bin:$project_dir/.local/bin:$PATH"
 
 cleanup() {
   trap - EXIT INT TERM
@@ -17,7 +19,6 @@ backend_pid=$!
 
 (
   cd "$project_dir/frontend"
-  export PATH="$project_dir/.local/node/bin:$PATH"
   exec npm run dev
 ) &
 frontend_pid=$!
