@@ -126,6 +126,15 @@ def _validate_confirmation_scan(
     mode = node.get("scanAuditMode")
     if mode is not None and mode not in {"pass_fail", "score"}:
         raise FlowValidationError("请选择扫描审核模式")
+    threshold = node.get("scanAuditThreshold")
+    if threshold is not None and (
+        isinstance(threshold, bool)
+        or not isinstance(threshold, int)
+        or not 0 <= threshold <= 100
+    ):
+        raise FlowValidationError("评分通过阈值必须是 0–100 的整数")
+    if mode == "score" and threshold is None:
+        raise FlowValidationError("请填写评分通过阈值")
     prompt = node.get("scanAuditPrompt")
     if prompt is not None and not isinstance(prompt, str):
         raise FlowValidationError("扫描审核标准格式无效")

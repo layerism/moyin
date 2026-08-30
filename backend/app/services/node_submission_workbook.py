@@ -103,6 +103,8 @@ def _audit_values(student: TeacherNodeExportStudent, node: dict[str, object]) ->
     elif mode == "score":
         if not isinstance(score, bool) and isinstance(score, (int, float)):
             audit_score = score
+        if isinstance(passed, bool):
+            conclusion = "通过" if passed else "不通过"
     elif isinstance(passed, bool):
         conclusion = "通过" if passed else "不通过"
     reason = result.get("reason")

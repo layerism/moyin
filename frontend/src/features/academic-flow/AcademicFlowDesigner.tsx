@@ -507,6 +507,9 @@ export function AcademicFlowDesigner({
         auditScriptParams: params,
         scanAuditMode: params.scanAuditMode as "pass_fail" | "score" | undefined,
         scanAuditPrompt: typeof params.scanAuditPrompt === "string" ? params.scanAuditPrompt : node.scanAuditPrompt,
+        scanAuditThreshold: typeof params.scanAuditThreshold === "number"
+          ? params.scanAuditThreshold
+          : undefined,
       } : node),
     }));
   };
@@ -2057,7 +2060,9 @@ function NodeInspector({
   }, [flowId, hasPublishedAuditPolicy, nodeKey]);
 
   const auditPolicyFieldErrors = auditPolicy ? Object.fromEntries(
-    auditPolicy.parameters.map((parameter) => [
+    auditPolicy.parameters.filter((parameter) => (
+      parameter.key !== "scanAuditThreshold" || auditPolicyParams.scanAuditMode === "score"
+    )).map((parameter) => [
       parameter.key,
       getAuditScriptParameterError(parameter, auditPolicyParams[parameter.key]),
     ]).filter(([, value]) => value),
@@ -2134,10 +2139,21 @@ function NodeInspector({
     scanAuditPrompt: typeof auditPolicyParams.scanAuditPrompt === "string"
       ? auditPolicyParams.scanAuditPrompt
       : node.scanAuditPrompt,
+    scanAuditThreshold: typeof auditPolicyParams.scanAuditThreshold === "number"
+      ? auditPolicyParams.scanAuditThreshold
+      : undefined,
   } : node;
-  const updateAuditPolicyParameter = (key: string, value: string | number | boolean) => {
+  const updateAuditPolicyParameter = (
+    key: string,
+    value: string | number | boolean | undefined,
+  ) => {
     setAuditPolicyError("");
-    setAuditPolicyParams((current) => ({ ...current, [key]: value }));
+    setAuditPolicyParams((current) => {
+      if (value !== undefined) return { ...current, [key]: value };
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
   };
   const settingCapabilities = getNodeSettingCapabilities(node.kind);
   const timeSettingsLabel = getTimeSettingsLabel(node);
@@ -2243,9 +2259,14 @@ function NodeInspector({
             onUpdate={(patch) => {
               if (
                 hasPublishedAuditPolicy &&
-                typeof patch.scanAuditPrompt === "string"
+                (typeof patch.scanAuditPrompt === "string"
+                  || "scanAuditThreshold" in patch)
               ) {
-                updateAuditPolicyParameter("scanAuditPrompt", patch.scanAuditPrompt);
+                if (typeof patch.scanAuditPrompt === "string") {
+                  updateAuditPolicyParameter("scanAuditPrompt", patch.scanAuditPrompt);
+                } else {
+                  updateAuditPolicyParameter("scanAuditThreshold", patch.scanAuditThreshold);
+                }
                 return;
               }
               onUpdateNode(node.id, patch);
@@ -2255,6 +2276,7 @@ function NodeInspector({
               ? !auditPolicy || auditPolicySaving
               : coreSettingsDisabled}
             promptError={auditPolicyFieldErrors.scanAuditPrompt}
+            thresholdError={auditPolicyFieldErrors.scanAuditThreshold}
           />
         ) : null}
 
@@ -2556,6 +2578,7 @@ function ConfirmationScanSettings({
   onUploadTemplate,
   promptDisabled,
   promptError,
+  thresholdError,
 }: {
   disabled: boolean;
   node: AcademicFlowNode;
@@ -2564,8 +2587,17 @@ function ConfirmationScanSettings({
   onUploadTemplate: (file: File) => void;
   promptDisabled: boolean;
   promptError?: string;
+  thresholdError?: string;
 }) {
   const enabled = Boolean(node.scanAuditEnabled);
+  const scoreThresholdError = thresholdError || (
+    node.scanAuditMode === "score"
+    && (!Number.isInteger(node.scanAuditThreshold)
+      || node.scanAuditThreshold! < 0
+      || node.scanAuditThreshold! > 100)
+      ? "请输入 0–100 的整数"
+      : ""
+  );
   const selectTemplate = (file: File | undefined, input: HTMLInputElement) => {
     input.value = "";
     if (file) onUploadTemplate(file);
@@ -2628,7 +2660,12 @@ function ConfirmationScanSettings({
             <input
               checked={!enabled}
               name={`scan-mode-${node.id}`}
-              onChange={() => onUpdate({ scanAuditEnabled: false, scanAuditMode: undefined, scanAuditPrompt: "" })}
+              onChange={() => onUpdate({
+                scanAuditEnabled: false,
+                scanAuditMode: undefined,
+                scanAuditPrompt: "",
+                scanAuditThreshold: undefined,
+              })}
               type="radio"
             />
             直接通过
@@ -2637,7 +2674,11 @@ function ConfirmationScanSettings({
             <input
               checked={enabled && node.scanAuditMode === "pass_fail"}
               name={`scan-mode-${node.id}`}
-              onChange={() => onUpdate({ scanAuditEnabled: true, scanAuditMode: "pass_fail" })}
+              onChange={() => onUpdate({
+                scanAuditEnabled: true,
+                scanAuditMode: "pass_fail",
+                scanAuditThreshold: undefined,
+              })}
               type="radio"
             />
             AI 通过/不通过
@@ -2661,25 +2702,53 @@ function ConfirmationScanSettings({
         </span>
       </div>
       {enabled ? (
-        <label className="confirmation-prompt-field">
-          <span>{node.scanAuditMode === "score" ? "评分标准" : "形式审核标准"}</span>
-          <span className="confirmation-prompt-input">
-            <textarea
-              disabled={promptDisabled}
-              maxLength={2000}
-              placeholder="请说明 AI 应检查的项目和判定标准"
-              value={node.scanAuditPrompt ?? ""}
-              onChange={(event) => onUpdate({ scanAuditPrompt: event.target.value })}
-            />
-            <small
-              className={promptError
-                ? "audit-script-error confirmation-prompt-feedback is-error"
-                : "confirmation-prompt-feedback"}
-            >
-              {promptError || `${(node.scanAuditPrompt ?? "").length}/2000`}
-            </small>
-          </span>
-        </label>
+        <div className="confirmation-audit-fields">
+          {node.scanAuditMode === "score" ? (
+            <label className="confirmation-threshold-field">
+              <span>通过阈值</span>
+              <span className="confirmation-threshold-input">
+                <input
+                  aria-invalid={scoreThresholdError ? true : undefined}
+                  disabled={promptDisabled}
+                  inputMode="numeric"
+                  max={100}
+                  min={0}
+                  placeholder="请输入 0–100 的整数"
+                  step={1}
+                  type="number"
+                  value={node.scanAuditThreshold ?? ""}
+                  onChange={(event) => onUpdate({
+                    scanAuditThreshold: event.currentTarget.value === ""
+                      ? undefined
+                      : event.currentTarget.valueAsNumber,
+                  })}
+                />
+                <small className={scoreThresholdError ? "is-error" : ""}>
+                  {scoreThresholdError || "达到或超过该分数时通过"}
+                </small>
+              </span>
+            </label>
+          ) : null}
+          <label className="confirmation-prompt-field">
+            <span>{node.scanAuditMode === "score" ? "评分标准" : "形式审核标准"}</span>
+            <span className="confirmation-prompt-input">
+              <textarea
+                disabled={promptDisabled}
+                maxLength={2000}
+                placeholder="请说明 AI 应检查的项目和判定标准"
+                value={node.scanAuditPrompt ?? ""}
+                onChange={(event) => onUpdate({ scanAuditPrompt: event.target.value })}
+              />
+              <small
+                className={promptError
+                  ? "audit-script-error confirmation-prompt-feedback is-error"
+                  : "confirmation-prompt-feedback"}
+              >
+                {promptError || `${(node.scanAuditPrompt ?? "").length}/2000`}
+              </small>
+            </span>
+          </label>
+        </div>
       ) : null}
     </section>
   );

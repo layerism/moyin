@@ -74,6 +74,14 @@ export function getScanAuditConfigError(node: AcademicFlowNode): string | undefi
   if (node.kind !== "confirmation") return undefined;
   if (!node.scanAuditEnabled) return undefined;
   if (!node.scanAuditMode) return `节点“${node.title}”需要选择审核模式`;
+  if (
+    node.scanAuditMode === "score"
+    && (!Number.isInteger(node.scanAuditThreshold)
+      || node.scanAuditThreshold! < 0
+      || node.scanAuditThreshold! > 100)
+  ) {
+    return `节点“${node.title}”需要填写 0–100 的整数评分阈值`;
+  }
   if (!node.scanAuditPrompt?.trim()) return `节点“${node.title}”需要填写审核标准`;
   return undefined;
 }

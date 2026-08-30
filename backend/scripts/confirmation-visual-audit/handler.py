@@ -159,6 +159,17 @@ def main() -> None:
     passed, score, reason = request_audit(
         pages, mode, params["scanAuditPrompt"], settings
     )
+    threshold = None
+    if mode == "score":
+        threshold_value = params.get("scanAuditThreshold")
+        if (
+            isinstance(threshold_value, bool)
+            or not isinstance(threshold_value, int)
+            or not 0 <= threshold_value <= 100
+        ):
+            raise ValueError("评分通过阈值无效")
+        threshold = threshold_value
+        passed = score is not None and score >= threshold
     issues = [] if passed else [{
         "fileId": files[0]["id"], "code": "visual_review_rejected", "message": reason,
     }]
@@ -168,7 +179,7 @@ def main() -> None:
         "reason": reason,
         "details": {
             "checkedFileCount": len(files), "issues": issues, "mode": mode,
-            "score": score, "pageCount": len(pages),
+            "score": score, "threshold": threshold, "pageCount": len(pages),
         },
     }, sys.stdout, ensure_ascii=False)
 

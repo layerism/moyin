@@ -30,6 +30,12 @@ def node_policy_values(node: dict[str, Any]) -> tuple[str, dict[str, object]] | 
     if node.get("kind") == "confirmation":
         params["scanAuditMode"] = node.get("scanAuditMode")
         params["scanAuditPrompt"] = str(node.get("scanAuditPrompt") or "").strip()
+        params.pop("scanAuditThreshold", None)
+        if (
+            node.get("scanAuditMode") == "score"
+            and node.get("scanAuditThreshold") is not None
+        ):
+            params["scanAuditThreshold"] = node["scanAuditThreshold"]
     record = find_audit_script(script_id)
     return script_id, validate_script_params(record.config, params)
 
@@ -222,6 +228,16 @@ def update_node_audit_policy(
             raise AuditPolicyConflictError("审核规则已被修改，请重新加载")
         record = find_audit_script(str(row["script_id"]))
         validated = validate_script_params(record.config, params)
+        if validated.get("scanAuditMode") == "score":
+            threshold = validated.get("scanAuditThreshold")
+            if (
+                isinstance(threshold, bool)
+                or not isinstance(threshold, int)
+                or not 0 <= threshold <= 100
+            ):
+                raise ValueError("评分通过阈值必须是 0–100 的整数")
+        else:
+            validated.pop("scanAuditThreshold", None)
         next_hash = policy_hash(record.id, validated)
         changed = next_hash != row["policy_hash"]
         if changed:

@@ -6107,8 +6107,33 @@ button {
   font-style: normal;
 }
 
-.confirmation-prompt-field {
+.confirmation-audit-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.confirmation-prompt-field,
+.confirmation-threshold-field {
   gap: 5px !important;
+}
+
+.confirmation-threshold-input {
+  display: grid;
+  gap: 4px;
+}
+
+.confirmation-threshold-input > input {
+  max-width: 220px;
+}
+
+.confirmation-threshold-input > small {
+  color: #667085;
+  font-size: 11px;
+}
+
+.confirmation-threshold-input > small.is-error {
+  color: #b42318;
+  font-size: 12px;
 }
 
 .confirmation-prompt-input {

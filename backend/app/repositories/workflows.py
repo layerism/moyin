@@ -82,6 +82,12 @@ def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
                 "scanAuditMode": node.get("scanAuditMode"),
                 "scanAuditPrompt": str(node.get("scanAuditPrompt", "")).strip(),
             })
+            params.pop("scanAuditThreshold", None)
+            if (
+                node.get("scanAuditMode") == "score"
+                and node.get("scanAuditThreshold") is not None
+            ):
+                params["scanAuditThreshold"] = node["scanAuditThreshold"]
             validate_script_params(record.config, params)
         except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
             raise FlowValidationError(str(exc)) from exc
