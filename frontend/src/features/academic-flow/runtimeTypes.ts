@@ -143,6 +143,7 @@ export type TeacherSubmissionDetail = {
   student: { name: string; studentNo: string };
   submissionId: string | null;
   submission: Record<string, unknown>;
+  threshold: number | null;
 };
 
 export type WorkflowProgress = {

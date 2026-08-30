@@ -362,7 +362,8 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                         or (
                             node.get("kind") == "confirmation"
                             and key in {
-                                "scanAuditMode", "scanAuditPrompt", "auditScriptId",
+                                "scanAuditMode", "scanAuditPrompt", "scanAuditThreshold",
+                                "auditScriptId",
                                 "auditScriptAcceptedExtensions",
                                 "auditScriptParams",
                             }
@@ -1103,6 +1104,15 @@ def get_teacher_submission_detail(
             and 0 <= float(score_value) <= 100
             else None
         )
+        threshold_value = effective_params.get("scanAuditThreshold")
+        threshold = (
+            int(threshold_value)
+            if mode == "score"
+            and not isinstance(threshold_value, bool)
+            and isinstance(threshold_value, int)
+            and 0 <= threshold_value <= 100
+            else None
+        )
         scans = connection.execute(
             """SELECT id, original_name, content_type, size_bytes, page_count, storage_key
                FROM uploaded_files WHERE submission_id = ?
@@ -1125,6 +1135,7 @@ def get_teacher_submission_detail(
             else result.get("passed") if isinstance(result.get("passed"), bool) else None
         ),
         "score": answer_sheet_grade.get("score") if answer_sheet_grade else score,
+        "threshold": None if answer_sheet_grade else threshold,
         "answerSheetGrade": answer_sheet_grade or None,
         "reason": result.get("reason") if isinstance(result.get("reason"), str) else None,
         "reviewSource": (

@@ -31,6 +31,15 @@
       "default": "请依据材料完整性进行审核。",
       "minimumLength": 1,
       "maximumLength": 2000
+    },
+    {
+      "key": "scanAuditThreshold",
+      "label": "评分通过阈值",
+      "type": "integer",
+      "required": false,
+      "default": 60,
+      "minimum": 0,
+      "maximum": 100
     }
   ],
   "runtimeSettings": [

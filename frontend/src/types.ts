@@ -198,6 +198,7 @@ export type AcademicFlowNode = {
   scanAuditEnabled?: boolean;
   scanAuditMode?: "pass_fail" | "score";
   scanAuditPrompt?: string;
+  scanAuditThreshold?: number;
   startAt?: string | null;
   status: AcademicFlowNodeStatus;
   templateAsset?: NodeTemplateAsset | null;
