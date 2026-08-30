@@ -15,15 +15,26 @@ dist/
 .vite/
 *.tsbuildinfo
 
+# Project-local runtime
+/.local/*
+!/.local/.gitignore
+
 # Local configuration
 .env
 .env.*
 !.env.example
 
-# Generated documents and uploads
-storage/uploads/
-storage/generated/
+# Runtime storage
+/backend/storage/*
+!/backend/storage/.gitkeep
+!/backend/storage/admin-backups/
+/backend/storage/admin-backups/*
+!/backend/storage/admin-backups/.gitkeep
+!/backend/storage/backups/
+/backend/storage/backups/*
+!/backend/storage/backups/.gitkeep
 /outputs/
+/assets/
 
 # System
 .DS_Store
