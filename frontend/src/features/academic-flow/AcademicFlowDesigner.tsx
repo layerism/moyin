@@ -89,7 +89,7 @@ const statusLabels: Record<AcademicFlowNodeStatus, string> = {
 const kindLabels: Record<AcademicFlowNodeKind, string> = {
   announcement: "通知公告",
   answer_sheet: "答题卡",
-  confirmation: "确认承诺",
+  confirmation: "视觉审核",
   file: "文件上传",
   form: "信息填写",
 };
@@ -2619,7 +2619,7 @@ function ConfirmationScanSettings({
           <i aria-hidden="true">✓</i>
           扫描件提交与审核
         </strong>
-        <small>确认承诺</small>
+        <small>视觉审核</small>
       </header>
       <div className="confirmation-template-row">
         {node.templateAsset ? (

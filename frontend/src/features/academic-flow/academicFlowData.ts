@@ -14,7 +14,7 @@ export const nodeTemplates: Array<{
   { kind: "form", title: "表单填写", description: "自定义文本与选择题" },
   { kind: "answer_sheet", title: "答题卡", description: "Markdown 题目与自动判分" },
   { kind: "file", title: "文件上传", description: "上传文件，支持类型与大小限制" },
-  { kind: "confirmation", title: "确认承诺", description: "签署承诺书或确认协议" },
+  { kind: "confirmation", title: "视觉审核", description: "上传扫描件并由 AI 进行视觉审核" },
   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
 ];
 
@@ -138,7 +138,7 @@ function getDefaultRequirement(kind: AcademicFlowNodeKind, title: string) {
     return `请按要求上传“${title}”相关文件，提交后等待系统审核。`;
   }
   if (kind === "confirmation") {
-    return `请阅读并确认“${title}”内容，确认后进入下一节点。`;
+    return "请按要求上传扫描件，提交后等待 AI 视觉审核。";
   }
   if (kind === "announcement") {
     return `请阅读“${title}”说明，按后续节点要求完成材料采集。`;
