@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement this plan task-by-task. Subagents are unavailable for this task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Provide a one-command Linux x86_64 installer that places Python and Node.js runtimes and all application dependencies inside the repository, while moving manual service startup into `deploy/start_server.sh`.
+**Goal:** Provide a one-command Linux x86_64 installer that places Python and Node.js runtimes and all application dependencies inside the repository, while moving manual service startup into `deploy/run_server.sh`.
 
-**Architecture:** `deploy/install.sh` resolves the repository from its own location, validates the platform, installs pinned runtimes under `.local/`, installs locked Python/npm dependencies, preserves existing secrets and exits without starting services. `deploy/start_server.sh` resolves the same root, exposes project-local runtime paths to both backend and frontend processes, and retains the existing bind addresses and coordinated shutdown behavior.
+**Architecture:** `deploy/install.sh` resolves the repository from its own location, validates the platform, installs pinned runtimes under `.local/`, installs locked Python/npm dependencies, preserves existing secrets and exits without starting services. `deploy/run_server.sh` resolves the same root, exposes project-local runtime paths to both backend and frontend processes, and retains the existing bind addresses and coordinated shutdown behavior.
 
 **Tech Stack:** Bash, uv 0.11.25, CPython 3.11.15, Node.js 24.18.0, npm 11.16.0, FastAPI/Uvicorn, React/Vite.
 
@@ -29,7 +29,7 @@
 ## File Map
 
 - Create `deploy/install.sh`: platform validation, pinned local runtime installation, dependency installation, environment bootstrap and final validation.
-- Create `deploy/start_server.sh`: manual local-development service entrypoint located under `deploy/`.
+- Create `deploy/run_server.sh`: manual local-development service entrypoint located under `deploy/`.
 - Delete `start_server.sh`: remove the obsolete root entrypoint after its behavior is preserved under `deploy/`.
 - Modify `README.md`: document the one-command installer and new manual startup path.
 - Modify `INSTALL.md`: replace the long manual procedure with the installer contract, fixed locations, prerequisites and recovery guidance.
@@ -208,17 +208,17 @@ npm --prefix "$frontend_dir" ls --depth=0
 npm --prefix "$audit_runtime_dir" ls --depth=0
 
 echo "安装完成。请检查 backend/.env，然后手动运行："
-echo "  $project_dir/deploy/start_server.sh"
+echo "  $project_dir/deploy/run_server.sh"
 ```
 
-Do not invoke `start_server.sh`, Uvicorn, Vite or Docker Compose from the installer.
+Do not invoke `run_server.sh`, Uvicorn, Vite or Docker Compose from the installer.
 
 ---
 
 ### Task 2: Move and harden the manual startup entrypoint
 
 **Files:**
-- Create: `deploy/start_server.sh`
+- Create: `deploy/run_server.sh`
 - Delete: `start_server.sh`
 
 **Interfaces:**
@@ -274,7 +274,7 @@ The globally exported project-local Node path is required by both frontend npm a
 
 - [ ] **Step 3: Remove the obsolete root script only after the deploy copy is complete**
 
-Delete `start_server.sh`; do not leave a symlink or compatibility wrapper because the approved public entrypoint is `deploy/start_server.sh`.
+Delete `start_server.sh`; do not leave a symlink or compatibility wrapper because the approved public entrypoint is `deploy/run_server.sh`.
 
 ---
 
@@ -285,7 +285,7 @@ Delete `start_server.sh`; do not leave a symlink or compatibility wrapper becaus
 - Modify: `INSTALL.md`
 
 **Interfaces:**
-- Consumes: completed `deploy/install.sh` and `deploy/start_server.sh` behavior.
+- Consumes: completed `deploy/install.sh` and `deploy/run_server.sh` behavior.
 - Produces: one canonical installation command and one canonical manual startup command.
 
 - [ ] **Step 1: Update README directory structure and local installation section**
@@ -294,7 +294,7 @@ Document:
 
 ```bash
 bash deploy/install.sh
-./deploy/start_server.sh
+./deploy/run_server.sh
 ```
 
 State that installation supports Linux x86_64, writes runtimes only under `.local/`, creates `backend/.env` only when absent, and never starts services automatically. Remove the old system `python -m venv`, `pip install`, `npm install` local-development sequence so there is only one canonical path.
@@ -319,7 +319,7 @@ rg -n "(^|[ /])start_server\.sh|python -m venv|pip install -e|npm install" \
   README.md INSTALL.md deploy docs --glob '!deploy/INSTALL_PLAN.md'
 ```
 
-Every user-facing local startup reference must resolve to `deploy/start_server.sh`; references describing historical architecture may remain only when clearly labeled historical.
+Every user-facing local startup reference must resolve to `deploy/run_server.sh`; references describing historical architecture may remain only when clearly labeled historical.
 
 ---
 
@@ -327,7 +327,7 @@ Every user-facing local startup reference must resolve to `deploy/start_server.s
 
 **Files:**
 - Verify: `deploy/install.sh`
-- Verify: `deploy/start_server.sh`
+- Verify: `deploy/run_server.sh`
 - Verify: `README.md`
 - Verify: `INSTALL.md`
 - Verify: `deploy/INSTALL_DESIGN.md`
@@ -343,8 +343,8 @@ Run:
 
 ```bash
 bash -n deploy/install.sh
-bash -n deploy/start_server.sh
-git diff --check -- deploy/install.sh deploy/start_server.sh start_server.sh README.md INSTALL.md deploy/INSTALL_DESIGN.md deploy/INSTALL_PLAN.md
+bash -n deploy/run_server.sh
+git diff --check -- deploy/install.sh deploy/run_server.sh start_server.sh README.md INSTALL.md deploy/INSTALL_DESIGN.md deploy/INSTALL_PLAN.md
 ```
 
 Do not execute `deploy/install.sh`, npm install/ci, uv install, tests, frontend build or browser automation during implementation.
@@ -354,8 +354,8 @@ Do not execute `deploy/install.sh`, npm install/ci, uv install, tests, frontend 
 Run:
 
 ```bash
-rg -n "0\.11\.25|3\.11\.15|24\.18\.0|11\.16\.0|mirrors\.aliyun\.com|registry\.npmmirror\.com|backend/storage/app\.db|deploy/start_server\.sh" \
-  deploy/install.sh deploy/start_server.sh README.md INSTALL.md
+rg -n "0\.11\.25|3\.11\.15|24\.18\.0|11\.16\.0|mirrors\.aliyun\.com|registry\.npmmirror\.com|backend/storage/app\.db|deploy/run_server\.sh" \
+  deploy/install.sh deploy/run_server.sh README.md INSTALL.md
 rg -n "uvicorn|npm run dev|docker compose" deploy/install.sh
 ```
 
@@ -366,7 +366,7 @@ The second command must return no service-start command from `deploy/install.sh`
 Stage exactly:
 
 ```bash
-git add deploy/install.sh deploy/start_server.sh deploy/INSTALL_PLAN.md README.md INSTALL.md
+git add deploy/install.sh deploy/run_server.sh deploy/INSTALL_PLAN.md README.md INSTALL.md
 git add -u start_server.sh
 git commit -m "feat: add project-local installer"
 ```
@@ -378,7 +378,7 @@ Before committing, confirm that `.gitignore`, `docker-compose.yml`, `storage/.gi
 Stop only the confirmed existing Moyin Vite/Uvicorn session, verify ports 5173 and 8000 are released, then launch:
 
 ```bash
-./deploy/start_server.sh
+./deploy/run_server.sh
 ```
 
 Verify `5173` and `8000` listeners, process commands and `/proc/<pid>/cwd`. Expected working directories are `frontend/` for Vite and `backend/` for Uvicorn. Do not send browser requests or claim full installer validation.
