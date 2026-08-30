@@ -215,7 +215,7 @@ export function StudentFlowTopology({
 function getKindLabel(node: AcademicFlowNode) {
   if (node.kind === "answer_sheet") return "答题卡";
   if (node.kind === "file") return "文件上传";
-  if (node.kind === "confirmation") return "确认承诺";
+  if (node.kind === "confirmation") return "视觉审核";
   if (node.kind === "announcement") return "通知公告";
   return "信息填写";
 }
