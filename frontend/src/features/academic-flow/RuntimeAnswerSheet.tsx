@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 import type {
   AcademicFlowNode,
   AnswerSheetGrade,
@@ -25,64 +27,100 @@ export function RuntimeAnswerSheet({
   readonly: boolean;
 }) {
   const config = node.answerSheet;
-  if (!config) return null;
+  const questions = config?.questions ?? [];
   const answers = asRecord(payload.answers);
+  const questionCount = questions.length;
+  const [activeStep, setActiveStep] = useState(0);
+  const activeContentRef = useRef<HTMLElement>(null);
+  const activeQuestion = activeStep < questionCount ? questions[activeStep] : null;
+  const activeAnswer = activeQuestion ? asRecord(answers[activeQuestion.id]) : {};
+  const answeredCount = questions.filter((question) => (
+    isQuestionAnswered(question, asRecord(answers[question.id]))
+  )).length;
+  const firstErrorId = Object.keys(errors)[0] ?? "";
+  const firstErrorQuestionIndex = firstErrorId
+    ? questions.findIndex((question) => isQuestionErrorId(question.id, firstErrorId))
+    : -1;
+
+  useEffect(() => {
+    setActiveStep((current) => Math.min(current, questionCount));
+  }, [questionCount]);
+
+  useEffect(() => {
+    if (firstErrorQuestionIndex < 0) return;
+    setActiveStep(firstErrorQuestionIndex);
+    window.requestAnimationFrame(() => activeContentRef.current?.focus());
+  }, [firstErrorId, firstErrorQuestionIndex]);
+
+  if (!config) return null;
+
   const update = (questionId: string, answer: Record<string, unknown>, fieldId?: string) => {
     onChange?.({ ...answers, [questionId]: answer }, fieldId ?? questionId);
   };
+  const moveToStep = (step: number) => {
+    setActiveStep(Math.max(0, Math.min(step, questionCount)));
+    window.requestAnimationFrame(() => activeContentRef.current?.focus());
+  };
+
   return (
     <div className={`runtime-answer-sheet${readonly ? " is-readonly" : ""}`}>
-      {config.questions.map((question, index) => {
-        const answer = asRecord(answers[question.id]);
-        return (
-          <section className="runtime-answer-question" key={question.id}>
+      <div className="runtime-answer-progress">
+        <div aria-live="polite">
+          <strong>{activeQuestion ? `第 ${activeStep + 1} / ${questionCount} 题` : "答题概览"}</strong>
+          <span>已答 {answeredCount} / {questionCount}</span>
+        </div>
+        <progress aria-label={`已答 ${answeredCount} 题，共 ${questionCount} 题`} max={questionCount || 1} value={answeredCount} />
+      </div>
+
+      {activeQuestion ? (
+          <section className="runtime-answer-question" key={activeQuestion.id} ref={activeContentRef} tabIndex={-1}>
             <header>
-              <strong>第 {index + 1} 题</strong>
-              <span>{questionLabel(question)} · {questionPoints(question)} 分</span>
-              {question.required ? <em>必答</em> : null}
+              <strong>第 {activeStep + 1} 题</strong>
+              <span>{questionLabel(activeQuestion)} · {questionPoints(activeQuestion)} 分</span>
+              {activeQuestion.required ? <em>必答</em> : null}
             </header>
-            {question.type === "fill_blank" ? (
-              isSingleMarkdownFillBlankQuestion(question) ? (
+            {activeQuestion.type === "fill_blank" ? (
+              isSingleMarkdownFillBlankQuestion(activeQuestion) ? (
                 <SingleMarkdownFillQuestion
-                  answer={answer}
+                  answer={activeAnswer}
                   instanceId={instanceId}
-                  onChange={(answerMarkdown) => update(question.id, { answerMarkdown })}
-                  question={question}
+                  onChange={(answerMarkdown) => update(activeQuestion.id, { answerMarkdown })}
+                  question={activeQuestion}
                   readonly={readonly}
                 />
               ) : (
                 <FillQuestion
-                  answer={answer}
+                  answer={activeAnswer}
                   errors={errors}
                   instanceId={instanceId}
-                  onChange={(blankValues, fieldId) => update(question.id, { blankValues }, fieldId)}
-                  question={question}
+                  onChange={(blankValues, fieldId) => update(activeQuestion.id, { blankValues }, fieldId)}
+                  question={activeQuestion}
                   readonly={readonly}
                 />
               )
             ) : (
               <>
-                <AnswerSheetMarkdown instanceId={instanceId}>{question.content}</AnswerSheetMarkdown>
+                <AnswerSheetMarkdown instanceId={instanceId}>{activeQuestion.content}</AnswerSheetMarkdown>
                 <fieldset disabled={readonly}>
-                  {question.options.map((option) => {
-                    const checked = question.type === "single_choice"
-                      ? answer.selectedOptionId === option.id
-                      : Array.isArray(answer.selectedOptionIds) && answer.selectedOptionIds.includes(option.id);
+                  {activeQuestion.options.map((option) => {
+                    const checked = activeQuestion.type === "single_choice"
+                      ? activeAnswer.selectedOptionId === option.id
+                      : Array.isArray(activeAnswer.selectedOptionIds) && activeAnswer.selectedOptionIds.includes(option.id);
                     return (
                       <label className={checked ? "is-selected" : ""} key={option.id}>
                         <input
                           checked={checked}
-                          name={`runtime-answer-${question.id}`}
-                          type={question.type === "single_choice" ? "radio" : "checkbox"}
+                          name={`runtime-answer-${activeQuestion.id}`}
+                          type={activeQuestion.type === "single_choice" ? "radio" : "checkbox"}
                           onChange={(event) => {
-                            if (question.type === "single_choice") {
-                              update(question.id, { selectedOptionId: option.id });
+                            if (activeQuestion.type === "single_choice") {
+                              update(activeQuestion.id, { selectedOptionId: option.id });
                               return;
                             }
-                            const current = Array.isArray(answer.selectedOptionIds)
-                              ? answer.selectedOptionIds.filter((value): value is string => typeof value === "string")
+                            const current = Array.isArray(activeAnswer.selectedOptionIds)
+                              ? activeAnswer.selectedOptionIds.filter((value): value is string => typeof value === "string")
                               : [];
-                            update(question.id, {
+                            update(activeQuestion.id, {
                               selectedOptionIds: event.target.checked
                                 ? [...current, option.id]
                                 : current.filter((id) => id !== option.id),
@@ -96,10 +134,54 @@ export function RuntimeAnswerSheet({
                 </fieldset>
               </>
             )}
-            {errors[question.id] ? <p className="runtime-field-error" role="alert">{errors[question.id]}</p> : null}
+            {errors[activeQuestion.id] ? <p className="runtime-field-error" role="alert">{errors[activeQuestion.id]}</p> : null}
           </section>
-        );
-      })}
+      ) : (
+        <section className="runtime-answer-overview" ref={activeContentRef} tabIndex={-1}>
+          <header>
+            <strong>答题概览</strong>
+            <span>点击题号可返回检查，不会展示其他题目的正文。</span>
+          </header>
+          {questionCount > 0 ? (
+            <ol>
+              {questions.map((question, index) => {
+                const answered = isQuestionAnswered(question, asRecord(answers[question.id]));
+                const hasError = Object.keys(errors).some((errorId) => isQuestionErrorId(question.id, errorId));
+                return (
+                  <li key={question.id}>
+                    <button
+                      className={hasError ? "has-error" : answered ? "is-answered" : "is-unanswered"}
+                      onClick={() => moveToStep(index)}
+                      type="button"
+                    >
+                      <span>第 {index + 1} 题</span>
+                      <small>{questionLabel(question)}</small>
+                      <em>{hasError ? "需检查" : answered ? "已答" : "未答"}</em>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : <p>当前答题卡暂无题目。</p>}
+        </section>
+      )}
+
+      {questionCount > 0 ? (
+        <nav aria-label="答题卡题目切换" className="runtime-answer-navigation">
+          <button disabled={activeStep === 0} onClick={() => moveToStep(activeStep - 1)} type="button">
+            上一题
+          </button>
+          {activeQuestion ? (
+            <button className="primary-action" onClick={() => moveToStep(activeStep + 1)} type="button">
+              {activeStep === questionCount - 1 ? "完成答题" : "下一题"}
+            </button>
+          ) : (
+            <button className="primary-action" onClick={() => moveToStep(0)} type="button">
+              返回第一题
+            </button>
+          )}
+        </nav>
+      ) : null}
     </div>
   );
 }
@@ -248,6 +330,26 @@ function questionLabel(question: AnswerSheetQuestion): string {
   if (question.type === "single_choice") return "单选题";
   if (question.type === "multiple_choice") return "多选题";
   return "填空题";
+}
+
+function isQuestionAnswered(question: AnswerSheetQuestion, answer: Record<string, unknown>): boolean {
+  if (question.type === "single_choice") {
+    return typeof answer.selectedOptionId === "string" && answer.selectedOptionId.length > 0;
+  }
+  if (question.type === "multiple_choice") {
+    return Array.isArray(answer.selectedOptionIds) && answer.selectedOptionIds.length > 0;
+  }
+  if (isSingleMarkdownFillBlankQuestion(question)) {
+    return typeof answer.answerMarkdown === "string" && answer.answerMarkdown.trim().length > 0;
+  }
+  const values = asRecord(answer.blankValues);
+  return question.blanks.length > 0 && question.blanks.every((blank) => (
+    typeof values[blank.id] === "string" && values[blank.id].trim().length > 0
+  ));
+}
+
+function isQuestionErrorId(questionId: string, errorId: string): boolean {
+  return errorId === questionId || errorId.startsWith(`${questionId}:`);
 }
 
 function formatStandardAnswers(
