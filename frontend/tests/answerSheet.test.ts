@@ -10,10 +10,7 @@ import {
   validateAnswerSheetAuthoring,
   validateAnswerSheetSubmission,
 } from "../src/features/academic-flow/answerSheet.ts";
-import {
-  fromStandardMathMarkdown,
-  toStandardMathMarkdown,
-} from "../src/features/academic-flow/answerSheetMarkdown.ts";
+import { normalizeStandardMathMarkdown } from "../src/features/academic-flow/answerSheetMarkdown.ts";
 import { getAnswerSheetPublishIssue } from "../src/features/academic-flow/answerSheetPublishPreflight.ts";
 import {
   getAnswerSheetQuestionMeta,
@@ -95,12 +92,29 @@ test("strict submission accepts a cleared optional question", () => {
   }, true), {});
 });
 
-test("custom math delimiters round-trip without changing code", () => {
-  const source = "速度 $$v=t^2$$。\n\n$$$$\n\\int_0^1 x dx\n$$$$\n\n`$$code$$`";
-  const standard = "速度 $v=t^2$。\n\n$$\n\\int_0^1 x dx\n$$\n\n`$$code$$`";
+test("standard math delimiters keep inline math and normalize one-line display math", () => {
+  const source = [
+    "速度 $v=t^2$。",
+    "",
+    "$$ \\int_0^1 x\\,\\mathrm{d}x $$",
+    "",
+    "```markdown",
+    "$$ code sample $$",
+    "```",
+  ].join("\n");
+  const expected = [
+    "速度 $v=t^2$。",
+    "",
+    "$$",
+    "\\int_0^1 x\\,\\mathrm{d}x",
+    "$$",
+    "",
+    "```markdown",
+    "$$ code sample $$",
+    "```",
+  ].join("\n");
 
-  assert.equal(toStandardMathMarkdown(source), standard);
-  assert.equal(fromStandardMathMarkdown(standard), source);
+  assert.equal(normalizeStandardMathMarkdown(source), expected);
 });
 
 test("markdown editor shows source only while focused", () => {

@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import "katex/dist/katex.min.css";
 
-import { toStandardMathMarkdown } from "./answerSheetMarkdown";
+import { normalizeStandardMathMarkdown } from "./answerSheetMarkdown";
 import { remarkBasicAnswerSheetMarkdown } from "./basicAnswerSheetMarkdown";
 
 export function AnswerSheetMarkdown({
@@ -29,7 +29,7 @@ export function AnswerSheetMarkdown({
         remarkPlugins={[remarkMath, remarkGfm, remarkBasicAnswerSheetMarkdown]}
         skipHtml
       >
-        {toStandardMathMarkdown(children)}
+        {normalizeStandardMathMarkdown(children)}
       </Markdown>
     </div>
   );
