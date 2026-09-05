@@ -5,7 +5,7 @@ import type { AcademicFlowNode } from "../../types";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
 import { validateFormAnswers } from "./formFields";
 import { answerSheetMaxScore, validateAnswerSheetSubmission } from "./answerSheet";
-import { AnswerSheetGradeResult, RuntimeAnswerSheet } from "./RuntimeAnswerSheet";
+import { AnswerSheetGradeResult, countUnansweredQuestions, RuntimeAnswerSheet } from "./RuntimeAnswerSheet";
 import { ReadonlyFormFields, RuntimeFormFields } from "./RuntimeFormFields";
 import {
   getScanFilenameError,
@@ -468,6 +468,7 @@ function RuntimeNodeDialog({
   const [uploadingFileName, setUploadingFileName] = useState("");
   const [clock, setClock] = useState(Date.now());
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const gradeDialogRef = useRef<HTMLDialogElement>(null);
   const [confirmationAttempted, setConfirmationAttempted] = useState(false);
   const [templateDownloadAttention, setTemplateDownloadAttention] = useState(false);
   const confirmationInputRef = useRef<HTMLInputElement>(null);
@@ -543,6 +544,9 @@ function RuntimeNodeDialog({
         templateFilename: runtime.template?.originalName ?? null,
       })
     : null;
+  const unansweredCount = node.kind === "answer_sheet"
+    ? countUnansweredQuestions(node.answerSheet?.questions ?? [], draft)
+    : 0;
   const submitDisabled = busy
     || (node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile))
     || Boolean(scanBlocker && !confirmationMissing);
@@ -678,6 +682,11 @@ function RuntimeNodeDialog({
                 <span>
                   {runtime.attemptsRemaining === null ? "截止前不限次" : `剩余 ${runtime.attemptsRemaining} 次`}
                 </span>
+                {runtime.grade ? (
+                  <button className="runtime-grade-trigger" onClick={() => gradeDialogRef.current?.showModal()} type="button">
+                    查看节点分数
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -694,13 +703,6 @@ function RuntimeNodeDialog({
           </p>
         ) : null}
         {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
-        {node.kind === "answer_sheet" && runtime.grade ? (
-          <AnswerSheetGradeResult
-            completion={answerSheetGradeCompletion}
-            grade={runtime.grade}
-            node={node}
-          />
-        ) : null}
         {readonly ? (
           <>
             {answerSheetGradeCompletion ? null : (
@@ -883,7 +885,7 @@ function RuntimeNodeDialog({
               {amendingApprovedForm ? "暂存修改" : "暂存"}
             </button>
             <div className="runtime-submit-control">
-              <button className="primary-action" disabled={submitDisabled} onClick={handleSubmit}>
+              <button className="primary-action" disabled={submitDisabled || (node.kind === "answer_sheet" && Object.keys(clientFieldErrors).length > 0)} onClick={handleSubmit}>
                 {isUploadingFile
                   ? "正在上传"
                   : busy
@@ -894,6 +896,11 @@ function RuntimeNodeDialog({
               </button>
               {node.kind === "file" && !fileReady ? (
                 <small>{needsFileReplacement ? "请重新上传文件" : "请先上传文件"}</small>
+              ) : null}
+              {unansweredCount > 0 ? (
+                <small aria-live="polite">还有 {unansweredCount} 题未完成</small>
+              ) : node.kind === "answer_sheet" && Object.keys(clientFieldErrors).length > 0 ? (
+                <small>请检查答案后再提交</small>
               ) : null}
             </div>
           </div>
@@ -909,6 +916,24 @@ function RuntimeNodeDialog({
           </div>
         ) : <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>}
       </section>
+      {node.kind === "answer_sheet" && runtime.grade ? (
+        <dialog
+          aria-label="节点分数"
+          className="runtime-grade-dialog"
+          onKeyDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => {
+            event.stopPropagation();
+            if (event.target === event.currentTarget) gradeDialogRef.current?.close();
+          }}
+          ref={gradeDialogRef}
+        >
+          <header>
+            <h3>节点分数</h3>
+            <button aria-label="关闭节点分数" onClick={() => gradeDialogRef.current?.close()} type="button">×</button>
+          </header>
+          <AnswerSheetGradeResult completion={answerSheetGradeCompletion} grade={runtime.grade} node={node} />
+        </dialog>
+      ) : null}
       {fileWarning ? (
         <RuntimeWarningDialog
           category="文件校验"

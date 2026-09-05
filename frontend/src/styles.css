@@ -8224,6 +8224,58 @@ button {
   line-height: 1;
 }
 
+.runtime-node-dialog > header .runtime-grade-trigger {
+  width: auto;
+  height: 24px;
+  flex: 0 0 auto;
+  padding: 0 8px;
+  border: 1px solid #d0d5dd;
+  border-radius: 5px;
+  background: #fff;
+  color: #175cd3;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.runtime-grade-dialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  box-sizing: border-box;
+  padding: 20px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  background: #fff;
+  color: #101828;
+  overflow-y: auto;
+}
+
+.runtime-grade-dialog::backdrop {
+  background: rgb(16 24 40 / 35%);
+}
+
+.runtime-grade-dialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.runtime-grade-dialog > header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.runtime-grade-dialog > header button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 20px;
+}
+
 .runtime-node-dialog > header button {
   width: 34px;
   height: 34px;

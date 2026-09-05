@@ -347,7 +347,7 @@ def normalize_answer_sheet_submission(
     for question_id, question in questions.items():
         raw_answer = raw_answers.get(question_id)
         if raw_answer is None:
-            if strict and question.get("required") is True:
+            if strict:
                 errors[question_id] = _required_answer_message(question)
             continue
         normalized = _normalize_question_submission(question, raw_answer, errors, strict)
@@ -375,7 +375,7 @@ def _normalize_question_submission(
         if (
             set(raw_answer) == {"selectedOptionId"}
             and selected in (None, "")
-            and (not strict or question.get("required") is False)
+            and not strict
         ):
             return None
         if set(raw_answer) != {"selectedOptionId"} or selected not in option_ids:
@@ -389,7 +389,7 @@ def _normalize_question_submission(
         if (
             set(raw_answer) == {"selectedOptionIds"}
             and selected == []
-            and (not strict or question.get("required") is False)
+            and not strict
         ):
             return None
         if (
@@ -410,7 +410,7 @@ def _normalize_question_submission(
             errors[question_id] = "填空内容格式无效"
             return None
         if not answer_markdown.strip():
-            if strict and question.get("required") is True:
+            if strict:
                 errors[question_id] = "请输入答案"
             return None
         return {"answerMarkdown": answer_markdown}
@@ -423,7 +423,7 @@ def _normalize_question_submission(
     if set(blank_values) - set(blank_ids):
         errors[question_id] = "填空标识无效"
         return None
-    if question.get("required") is False and all(
+    if not strict and all(
         isinstance(blank_values.get(blank_id, ""), str)
         and not str(blank_values.get(blank_id, "")).strip()
         for blank_id in blank_ids

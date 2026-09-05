@@ -234,12 +234,12 @@ export function validateAnswerSheetSubmission(
   for (const question of config.questions) {
     const answer = asRecord(rawAnswers[question.id]);
     if (!answer) {
-      if (strict && question.required) errors[question.id] = requiredMessage(question);
+      if (strict) errors[question.id] = requiredMessage(question);
       continue;
     }
     if (question.type === "single_choice") {
       const selected = answer.selectedOptionId;
-      if ((selected === undefined || selected === null || selected === "") && (!strict || !question.required)) {
+      if ((selected === undefined || selected === null || selected === "") && !strict) {
         continue;
       }
       if (!question.options.some((option) => option.id === selected)) {
@@ -249,7 +249,7 @@ export function validateAnswerSheetSubmission(
     }
     if (question.type === "multiple_choice") {
       const selected = answer.selectedOptionIds;
-      if (Array.isArray(selected) && !selected.length && (!strict || !question.required)) {
+      if (Array.isArray(selected) && !selected.length && !strict) {
         continue;
       }
       if (
@@ -268,7 +268,7 @@ export function validateAnswerSheetSubmission(
       const answerMarkdown = answer.answerMarkdown;
       if (
         typeof answerMarkdown !== "string"
-        || (strict && question.required && !answerMarkdown.trim())
+        || (strict && !answerMarkdown.trim())
       ) {
         errors[question.id] = "请输入答案";
       }
@@ -277,7 +277,7 @@ export function validateAnswerSheetSubmission(
     const values = asRecord(answer.blankValues);
     if (
       values
-      && (!strict || !question.required)
+      && !strict
       && question.blanks.every((blank) => (
         typeof values[blank.id] === "string" && !(values[blank.id] as string).trim()
       ))

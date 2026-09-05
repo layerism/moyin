@@ -34,9 +34,7 @@ export function RuntimeAnswerSheet({
   const activeContentRef = useRef<HTMLElement>(null);
   const activeQuestion = activeStep < questionCount ? questions[activeStep] : null;
   const activeAnswer = activeQuestion ? asRecord(answers[activeQuestion.id]) : {};
-  const answeredCount = questions.filter((question) => (
-    isQuestionAnswered(question, asRecord(answers[question.id]))
-  )).length;
+  const answeredCount = questionCount - countUnansweredQuestions(questions, payload);
   const firstErrorId = Object.keys(errors)[0] ?? "";
   const firstErrorQuestionIndex = firstErrorId
     ? questions.findIndex((question) => isQuestionErrorId(question.id, firstErrorId))
@@ -77,7 +75,7 @@ export function RuntimeAnswerSheet({
             <header>
               <strong>第 {activeStep + 1} 题</strong>
               <span>{questionLabel(activeQuestion)} · {questionPoints(activeQuestion)} 分</span>
-              {activeQuestion.required ? <em>必答</em> : null}
+              <em>必答</em>
             </header>
             {activeQuestion.type === "fill_blank" ? (
               isSingleMarkdownFillBlankQuestion(activeQuestion) ? (
@@ -330,6 +328,11 @@ function questionLabel(question: AnswerSheetQuestion): string {
   if (question.type === "single_choice") return "单选题";
   if (question.type === "multiple_choice") return "多选题";
   return "填空题";
+}
+
+export function countUnansweredQuestions(questions: AnswerSheetQuestion[], payload: Record<string, unknown>): number {
+  const answers = asRecord(payload.answers);
+  return questions.filter((question) => !isQuestionAnswered(question, asRecord(answers[question.id]))).length;
 }
 
 function isQuestionAnswered(question: AnswerSheetQuestion, answer: Record<string, unknown>): boolean {
