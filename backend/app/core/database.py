@@ -401,6 +401,67 @@ def initialize_database() -> None:
         _apply_scan_file_metadata_migration(connection)
         _apply_flow_preview_migration(connection)
         _apply_audit_hot_reload_migration(connection)
+    _initialize_super_admin()
+
+
+def _initialize_super_admin() -> None:
+    from app.services.security import hash_password
+
+    migration_id = "20260905_initialize_super_admin"
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        if connection.execute(
+            "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)
+        ).fetchone() is not None:
+            return
+
+        name = settings.initial_admin_name.strip()
+        account = settings.initial_admin_account.strip()
+        password = settings.initial_admin_password
+        if (
+            not 1 <= len(name) <= 64
+            or len(account) != 5
+            or not account.isascii()
+            or not account.isdigit()
+            or not 8 <= len(password) <= 128
+        ):
+            raise RuntimeError(
+                "首次启动请在 backend/.env 配置 INITIAL_ADMIN_NAME（1 至 64 字符）、"
+                "INITIAL_ADMIN_ACCOUNT（5 位数字）、INITIAL_ADMIN_PASSWORD（8 至 128 字符）"
+            )
+
+        existing = connection.execute(
+            "SELECT id, name FROM teacher_accounts WHERE employee_no = ?", (account,)
+        ).fetchone()
+        if existing is not None and existing["name"] != name:
+            raise RuntimeError("初始管理员账号已属于其他姓名，请核实配置和现有账户")
+
+        now = datetime.now(UTC).isoformat()
+        password_hash = hash_password(password)
+        if existing is None:
+            connection.execute(
+                """
+                INSERT INTO teacher_accounts
+                    (employee_no, name, password_hash, status, role, created_at, updated_at)
+                VALUES (?, ?, ?, 'active', 'super_admin', ?, ?)
+                """,
+                (account, name, password_hash, now, now),
+            )
+        else:
+            connection.execute(
+                """
+                UPDATE teacher_accounts
+                SET password_hash = ?, role = 'super_admin', status = 'active', updated_at = ?
+                WHERE id = ?
+                """,
+                (password_hash, now, existing["id"]),
+            )
+            connection.execute(
+                "DELETE FROM teacher_sessions WHERE teacher_account_id = ?", (existing["id"],)
+            )
+        connection.execute(
+            "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)", (migration_id, now)
+        )
 
 
 def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:

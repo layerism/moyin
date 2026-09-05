@@ -116,6 +116,10 @@ docker compose up --build
 cp backend/.env.example backend/.env
 ```
 
+首次启动前还须填写 `INITIAL_ADMIN_NAME`、`INITIAL_ADMIN_ACCOUNT`（5 位数字，保留前导零）和 `INITIAL_ADMIN_PASSWORD`（8 至 128 字符）。后端在开放服务前初始化超级管理员，无需注册；当前使用 `/teacher/login`，填写姓名、账号和密码登录。
+
+初始化只执行一次：同账号同姓名的已有账户保留 ID，更新初始密码并启用管理员权限、注销旧会话；姓名不一致或配置无效时启动失败。成功后可删除初始密码配置，重启不会覆盖密码或账户状态。密码仅以哈希写入数据库；请勿将真实初始密码写进版本库。
+
 至少按实际环境填写 OSS 配置：
 
 ```dotenv

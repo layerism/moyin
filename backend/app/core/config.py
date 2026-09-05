@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     storage_root: str = "storage"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost"]
     database_path: str = "storage/app.db"
+    initial_admin_name: str = ""
+    initial_admin_account: str = ""
+    initial_admin_password: str = ""
     oss_endpoint: str = ""
     oss_bucket: str = ""
     oss_prefix: str = "coze/files"
