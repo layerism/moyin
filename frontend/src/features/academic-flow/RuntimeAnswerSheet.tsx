@@ -73,7 +73,7 @@ export function RuntimeAnswerSheet({
               onClick={() => moveToStep(index)}
               type="button"
             >
-              {index + 1}{answered ? <span aria-hidden="true"> ✓</span> : null}
+              {index + 1}
             </button>
           );
         })}
