@@ -902,9 +902,7 @@ function RuntimeNodeDialog({
               {node.kind === "file" && !fileReady ? (
                 <small>{needsFileReplacement ? "请重新上传文件" : "请先上传文件"}</small>
               ) : null}
-              {unansweredCount > 0 ? (
-                <small aria-live="polite">还有 {unansweredCount} 题未完成</small>
-              ) : node.kind === "answer_sheet" && Object.keys(clientFieldErrors).length > 0 ? (
+              {node.kind === "answer_sheet" && unansweredCount === 0 && Object.keys(clientFieldErrors).length > 0 ? (
                 <small>请检查答案后再提交</small>
               ) : null}
             </div>

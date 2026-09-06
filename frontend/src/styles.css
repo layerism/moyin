@@ -976,13 +976,11 @@
   padding: 16px;
 }
 
-.runtime-answer-question:focus,
-.runtime-answer-overview:focus {
+.runtime-answer-question:focus {
   outline: none;
 }
 
-.runtime-answer-question:focus-visible,
-.runtime-answer-overview:focus-visible {
+.runtime-answer-question:focus-visible {
   outline: 3px solid rgb(29 111 235 / 20%);
   outline-offset: 3px;
 }
@@ -1007,150 +1005,43 @@
   padding: 2px 7px;
 }
 
-.runtime-answer-overview {
-  display: grid;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid #dfe5ee;
-  border-radius: 11px;
-  background: #fff;
-}
-
-.runtime-answer-overview > header {
-  display: grid;
-  gap: 4px;
-}
-
-.runtime-answer-overview > header strong {
-  color: #1d2939;
-  font-size: 16px;
-}
-
-.runtime-answer-overview > header span,
-.runtime-answer-overview > p {
-  margin: 0;
-  color: #667085;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.runtime-answer-overview > ol {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 9px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.runtime-answer-overview li button {
-  width: 100%;
-  min-height: 52px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 11px;
-  border: 1px solid #d9e0ea;
-  border-radius: 8px;
-  background: #fff;
-  color: #344054;
-  cursor: pointer;
-  text-align: left;
-}
-
-.runtime-answer-overview li button:hover {
-  border-color: #9dbcf5;
-  background: #f8faff;
-}
-
-.runtime-answer-overview li button:focus-visible,
-.runtime-answer-navigation button:focus-visible {
-  outline: 3px solid rgb(29 111 235 / 20%);
-  outline-offset: 2px;
-}
-
-.runtime-answer-overview li button > span {
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.runtime-answer-overview li button > small {
-  overflow: hidden;
-  color: #667085;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.runtime-answer-overview li button > em {
-  padding: 3px 7px;
-  border-radius: 999px;
-  background: #f2f4f7;
-  color: #667085;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.runtime-answer-overview li button.is-answered {
-  border-color: #b9dfca;
-  background: #f4fbf7;
-}
-
-.runtime-answer-overview li button.is-answered > em {
-  background: #dcfce7;
-  color: #217953;
-}
-
-.runtime-answer-overview li button.has-error {
-  border-color: #efb9b4;
-  background: #fff7f6;
-}
-
-.runtime-answer-overview li button.has-error > em {
-  background: #fee4e2;
-  color: #b42318;
-}
-
-.runtime-answer-navigation {
+.runtime-answer-numbers {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.runtime-answer-navigation button {
-  min-width: 104px;
-  min-height: 40px;
-  padding: 0 16px;
-  border: 1px solid #cfd7e5;
-  border-radius: 8px;
-  background: #fff;
-  color: #344054;
-  cursor: pointer;
-  font-size: 14px;
+.runtime-answer-numbers button {
+  min-width: 40px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  background: #f2f4f7;
+  color: #475467;
+  font: inherit;
   font-weight: 700;
+  cursor: pointer;
 }
 
-.runtime-answer-navigation button.primary-action {
+.runtime-answer-numbers button.is-answered {
+  border-color: #a6d9bd;
+  background: #ecfdf3;
+  color: #027a48;
+}
+
+.runtime-answer-numbers button[aria-current="step"] {
   border-color: #1d6feb;
-  background: #1d6feb;
-  box-shadow: 0 2px 4px rgb(29 111 235 / 20%);
-  color: #fff;
+  box-shadow: 0 0 0 1px #1d6feb;
 }
 
-.runtime-answer-navigation button:not(:disabled):hover {
-  border-color: #175cd3;
+.runtime-answer-numbers button:hover {
+  border-color: #1d6feb;
 }
 
-.runtime-answer-navigation button.primary-action:hover {
-  background: #175cd3;
-}
-
-.runtime-answer-navigation button:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
+.runtime-answer-numbers button:focus-visible {
+  outline: 3px solid rgb(29 111 235 / 25%);
+  outline-offset: 3px;
 }
 
 .runtime-answer-question fieldset {
@@ -1448,15 +1339,6 @@
   .runtime-answer-sheet.is-readonly {
     margin-right: 18px;
     margin-left: 18px;
-  }
-
-  .runtime-answer-overview > ol {
-    grid-template-columns: 1fr;
-  }
-
-  .runtime-answer-navigation button {
-    min-width: 0;
-    flex: 1;
   }
 
   .runtime-node-dialog:has(.runtime-answer-sheet) .runtime-node-form {

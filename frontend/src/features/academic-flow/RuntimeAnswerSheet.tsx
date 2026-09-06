@@ -40,7 +40,7 @@ export function RuntimeAnswerSheet({
     : -1;
 
   useEffect(() => {
-    setActiveStep((current) => Math.min(current, questionCount));
+    setActiveStep((current) => Math.min(current, Math.max(0, questionCount - 1)));
   }, [questionCount]);
 
   useEffect(() => {
@@ -55,12 +55,29 @@ export function RuntimeAnswerSheet({
     onChange?.({ ...answers, [questionId]: answer }, fieldId ?? questionId);
   };
   const moveToStep = (step: number) => {
-    setActiveStep(Math.max(0, Math.min(step, questionCount)));
+    setActiveStep(Math.max(0, Math.min(step, questionCount - 1)));
     window.requestAnimationFrame(() => activeContentRef.current?.focus());
   };
 
   return (
     <div className={`runtime-answer-sheet${readonly ? " is-readonly" : ""}`}>
+      <nav aria-label="答题卡题目切换" className="runtime-answer-numbers">
+        {questions.map((question, index) => {
+          const answered = isQuestionAnswered(question, asRecord(answers[question.id]));
+          return (
+            <button
+              aria-current={activeStep === index ? "step" : undefined}
+              aria-label={`第 ${index + 1} 题，${answered ? "已答" : "未答"}`}
+              className={answered ? "is-answered" : ""}
+              key={question.id}
+              onClick={() => moveToStep(index)}
+              type="button"
+            >
+              {index + 1}{answered ? <span aria-hidden="true"> ✓</span> : null}
+            </button>
+          );
+        })}
+      </nav>
       {activeQuestion ? (
           <section className="runtime-answer-question" key={activeQuestion.id} ref={activeContentRef} tabIndex={-1}>
             <header>
@@ -125,52 +142,8 @@ export function RuntimeAnswerSheet({
             )}
             {errors[activeQuestion.id] ? <p className="runtime-field-error" role="alert">{errors[activeQuestion.id]}</p> : null}
           </section>
-      ) : (
-        <section className="runtime-answer-overview" ref={activeContentRef} tabIndex={-1}>
-          <header>
-            <strong>答题概览</strong>
-            <span>点击题号可返回检查，不会展示其他题目的正文。</span>
-          </header>
-          {questionCount > 0 ? (
-            <ol>
-              {questions.map((question, index) => {
-                const answered = isQuestionAnswered(question, asRecord(answers[question.id]));
-                const hasError = Object.keys(errors).some((errorId) => isQuestionErrorId(question.id, errorId));
-                return (
-                  <li key={question.id}>
-                    <button
-                      className={hasError ? "has-error" : answered ? "is-answered" : "is-unanswered"}
-                      onClick={() => moveToStep(index)}
-                      type="button"
-                    >
-                      <span>第 {index + 1} 题</span>
-                      <small>{questionLabel(question)}</small>
-                      <em>{hasError ? "需检查" : answered ? "已答" : "未答"}</em>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : <p>当前答题卡暂无题目。</p>}
-        </section>
-      )}
+      ) : <p>当前答题卡暂无题目。</p>}
 
-      {questionCount > 0 ? (
-        <nav aria-label="答题卡题目切换" className="runtime-answer-navigation">
-          <button disabled={activeStep === 0} onClick={() => moveToStep(activeStep - 1)} type="button">
-            上一题
-          </button>
-          {activeQuestion ? (
-            <button className="primary-action" onClick={() => moveToStep(activeStep + 1)} type="button">
-              {activeStep === questionCount - 1 ? "完成答题" : "下一题"}
-            </button>
-          ) : (
-            <button className="primary-action" onClick={() => moveToStep(0)} type="button">
-              返回第一题
-            </button>
-          )}
-        </nav>
-      ) : null}
     </div>
   );
 }
