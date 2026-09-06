@@ -967,58 +967,6 @@
   gap: 16px;
 }
 
-.runtime-answer-progress {
-  display: grid;
-  gap: 8px;
-  padding: 14px 16px;
-  border: 1px solid #dfe5ee;
-  border-radius: 11px;
-  background: #f8faff;
-}
-
-.runtime-answer-progress > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.runtime-answer-progress strong {
-  color: #1d2939;
-  font-size: 14px;
-}
-
-.runtime-answer-progress span {
-  color: #667085;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.runtime-answer-progress progress {
-  width: 100%;
-  height: 7px;
-  overflow: hidden;
-  border: 0;
-  border-radius: 999px;
-  background: #e4eaf4;
-  color: #1d6feb;
-}
-
-.runtime-answer-progress progress::-webkit-progress-bar {
-  border-radius: 999px;
-  background: #e4eaf4;
-}
-
-.runtime-answer-progress progress::-webkit-progress-value {
-  border-radius: 999px;
-  background: #1d6feb;
-}
-
-.runtime-answer-progress progress::-moz-progress-bar {
-  border-radius: 999px;
-  background: #1d6feb;
-}
-
 .runtime-answer-question {
   background: #fff;
   border: 1px solid #dfe5ee;
@@ -1504,10 +1452,6 @@
 
   .runtime-answer-overview > ol {
     grid-template-columns: 1fr;
-  }
-
-  .runtime-answer-progress > div {
-    align-items: flex-start;
   }
 
   .runtime-answer-navigation button {

@@ -547,6 +547,10 @@ function RuntimeNodeDialog({
   const unansweredCount = node.kind === "answer_sheet"
     ? countUnansweredQuestions(node.answerSheet?.questions ?? [], draft)
     : 0;
+  const answerSheetQuestionCount = node.answerSheet?.questions.length ?? 0;
+  const answeredCount = node.kind === "answer_sheet"
+    ? answerSheetQuestionCount - countUnansweredQuestions(node.answerSheet?.questions ?? [], displayedPayload)
+    : 0;
   const submitDisabled = busy
     || (node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile))
     || Boolean(scanBlocker && !confirmationMissing);
@@ -682,6 +686,7 @@ function RuntimeNodeDialog({
                 <span>
                   {runtime.attemptsRemaining === null ? "截止前不限次" : `剩余 ${runtime.attemptsRemaining} 次`}
                 </span>
+                <span aria-live="polite">已答 {answeredCount} / {answerSheetQuestionCount}</span>
                 {runtime.grade ? (
                   <button className="runtime-grade-trigger" onClick={() => gradeDialogRef.current?.showModal()} type="button">
                     查看节点分数

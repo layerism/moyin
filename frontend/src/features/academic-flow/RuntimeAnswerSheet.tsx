@@ -34,7 +34,6 @@ export function RuntimeAnswerSheet({
   const activeContentRef = useRef<HTMLElement>(null);
   const activeQuestion = activeStep < questionCount ? questions[activeStep] : null;
   const activeAnswer = activeQuestion ? asRecord(answers[activeQuestion.id]) : {};
-  const answeredCount = questionCount - countUnansweredQuestions(questions, payload);
   const firstErrorId = Object.keys(errors)[0] ?? "";
   const firstErrorQuestionIndex = firstErrorId
     ? questions.findIndex((question) => isQuestionErrorId(question.id, firstErrorId))
@@ -62,14 +61,6 @@ export function RuntimeAnswerSheet({
 
   return (
     <div className={`runtime-answer-sheet${readonly ? " is-readonly" : ""}`}>
-      <div className="runtime-answer-progress">
-        <div aria-live="polite">
-          <strong>{activeQuestion ? `第 ${activeStep + 1} / ${questionCount} 题` : "答题概览"}</strong>
-          <span>已答 {answeredCount} / {questionCount}</span>
-        </div>
-        <progress aria-label={`已答 ${answeredCount} 题，共 ${questionCount} 题`} max={questionCount || 1} value={answeredCount} />
-      </div>
-
       {activeQuestion ? (
           <section className="runtime-answer-question" key={activeQuestion.id} ref={activeContentRef} tabIndex={-1}>
             <header>
