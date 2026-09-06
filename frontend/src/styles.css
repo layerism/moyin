@@ -1115,66 +1115,76 @@
 }
 
 .answer-sheet-grade {
-  margin: 16px 24px 0;
-  background: #fff;
-  border: 1px solid #e0e5ec;
-  border-left: 3px solid #c65346;
-  border-radius: 10px;
+  margin: 0;
   display: grid;
-  gap: 11px;
-  padding: 14px 16px 12px;
-}
-
-.answer-sheet-grade.is-passed {
-  border-left-color: #2e8a62;
+  gap: 20px;
+  min-width: 0;
 }
 
 .answer-sheet-grade > header {
-  align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
+  align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 8px 0 20px;
+  border-bottom: 1px solid #edf0f4;
 }
 
 .answer-sheet-grade-score {
-  align-items: baseline;
   display: flex;
-  gap: 4px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
 .answer-sheet-grade-score > span {
+  flex-basis: 100%;
+  margin-bottom: 4px;
   color: #667085;
   font-size: 12px;
-  font-weight: 700;
-  margin-right: 3px;
 }
 
 .answer-sheet-grade-score > strong {
   color: #172033;
-  font-size: 24px;
-  line-height: 1;
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -1px;
 }
 
 .answer-sheet-grade-score > small {
-  color: #475467;
-  font-size: 14px;
+  color: #667085;
+  font-size: 15px;
 }
 
-.answer-sheet-grade > header em {
+.answer-sheet-grade-status {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.answer-sheet-grade-status em {
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-style: normal;
-  padding: 5px 9px;
+  padding: 5px 10px;
 }
 
-.answer-sheet-grade.is-passed > header em {
+.answer-sheet-grade-status > span {
+  font-size: 12px;
+  color: #667085;
+}
+
+.answer-sheet-grade.is-passed .answer-sheet-grade-status em {
   background: #ecfdf3;
   color: #217953;
 }
 
-.answer-sheet-grade.is-failed > header em {
+.answer-sheet-grade.is-failed .answer-sheet-grade-status em {
   background: #fff1f0;
   color: #b54034;
 }
@@ -1186,32 +1196,27 @@
 }
 
 .answer-sheet-grade-breakdown {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
   list-style: none;
 }
 
 .answer-sheet-grade .answer-sheet-grade-breakdown li {
-  align-items: center;
-  border: 1px solid #e2e7ee;
-  border-radius: 6px;
   display: flex;
-  gap: 14px;
-  font-size: 13px;
+  align-items: center;
   justify-content: space-between;
-  min-width: 142px;
-  padding: 6px 9px;
+  gap: 16px;
+  padding: 11px 0;
+  color: #475467;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
-.answer-sheet-grade .answer-sheet-grade-breakdown li.is-correct {
-  background: #f4fbf7;
-  border-color: #cde9da;
+.answer-sheet-grade-breakdown li + li {
+  border-top: 1px solid #f2f4f7;
 }
 
-.answer-sheet-grade .answer-sheet-grade-breakdown li.is-wrong {
-  background: #fff7f6;
-  border-color: #efd5d1;
+.answer-sheet-grade-breakdown li strong {
+  font-weight: 600;
 }
 
 .answer-sheet-grade-breakdown li.is-correct strong { color: #217953; }
@@ -1268,22 +1273,17 @@
 }
 
 .answer-sheet-grade-completion {
-  align-items: center;
-  border-top: 1px solid #e3e7ed;
-  display: flex;
-  gap: 10px 16px;
-  justify-content: space-between;
-  padding-top: 10px;
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid #edf0f4;
+  padding-top: 16px;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .answer-sheet-grade-completion strong {
-  color: #344054;
-  font-size: 12px;
-}
-
-.answer-sheet-grade-completion span {
-  color: #667085;
-  font-size: 12px;
+  font-weight: 400;
 }
 
 @media (max-width: 760px) {
@@ -1334,11 +1334,6 @@
     justify-self: end;
   }
 
-  .answer-sheet-grade {
-    margin-right: 18px;
-    margin-left: 18px;
-  }
-
   .runtime-answer-sheet.is-readonly {
     margin-right: 18px;
     margin-left: 18px;
@@ -1348,11 +1343,6 @@
     padding: 14px 16px 18px;
   }
 
-  .answer-sheet-grade > header,
-  .answer-sheet-grade-completion {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 
 * {
@@ -8068,12 +8058,13 @@ button {
 }
 
 .runtime-grade-dialog {
-  width: min(760px, calc(100vw - 32px));
+  width: min(520px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   box-sizing: border-box;
-  padding: 20px;
-  border: 1px solid #d0d5dd;
-  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #e4e7ec;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgb(16 24 40 / 18%);
   background: #fff;
   color: #101828;
   overflow-y: auto;

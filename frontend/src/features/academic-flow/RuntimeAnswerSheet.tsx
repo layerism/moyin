@@ -169,7 +169,10 @@ export function AnswerSheetGradeResult({
           <strong>{grade.score}</strong>
           <small>/ {grade.maxScore} 分</small>
         </div>
-        <em>{grade.passed ? "已达到及格要求" : `未达到 ${grade.passingScore} 分的及格要求`}</em>
+        <div className="answer-sheet-grade-status">
+          <em>{grade.passed ? "已达标" : "未达标"}</em>
+          <span>及格分数 {grade.passingScore} 分</span>
+        </div>
       </header>
       {grade.questionResults?.length ? (
         <ol className="answer-sheet-grade-breakdown">
