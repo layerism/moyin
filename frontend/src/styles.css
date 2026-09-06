@@ -10842,24 +10842,92 @@ button {
   padding: 22px;
 }
 
+.audit-script-metadata-dialog.is-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.audit-script-metadata-dialog.is-list > header {
+  flex-shrink: 0;
+}
+
+.audit-script-metadata-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+}
+
+.audit-script-search-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid #edf0f4;
+  flex-shrink: 0;
+}
+
+.audit-script-search-toolbar input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d7deea;
+  border-radius: 6px;
+  background: #f9fafb;
+  font: inherit;
+  font-size: 13px;
+}
+
+.audit-script-search-toolbar input:focus-visible {
+  outline: 2px solid #1d6feb;
+  outline-offset: 2px;
+}
+
+.audit-script-search-toolbar > span {
+  flex-shrink: 0;
+  color: #667085;
+  font-size: 12px;
+}
+
+.audit-script-list-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 22px;
+}
+
 .audit-script-metadata-list {
   display: grid;
-  gap: 12px;
 }
 
 .audit-script-metadata-list article {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 18px;
-  padding: 16px;
-  border: 1px solid #d8e3f4;
-  border-radius: 8px;
-  background: #f8fbff;
+  gap: 14px;
+  min-height: 64px;
+  padding: 10px 0;
+  background: #fff;
+}
+
+.audit-script-metadata-list article + article {
+  border-top: 1px solid #edf0f4;
+}
+
+.audit-script-metadata-list article:hover {
+  background: #f9fafb;
 }
 
 .audit-script-metadata-list article > div {
   min-width: 0;
+}
+
+.audit-script-list-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 
 .audit-script-metadata-actions {
@@ -10869,14 +10937,21 @@ button {
 }
 
 .audit-script-metadata-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: #202733;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .audit-script-metadata-list p {
-  margin: 6px 0;
-  color: #475467;
-  line-height: 1.55;
+  margin: 4px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .audit-script-metadata-list small,
@@ -11140,14 +11215,6 @@ button {
 
   .audit-script-metadata-dialog {
     max-height: calc(100vh - 24px);
-  }
-
-  .audit-script-metadata-list article {
-    grid-template-columns: 1fr;
-  }
-
-  .audit-script-metadata-actions {
-    justify-self: start;
   }
 
   .audit-script-config-fields {

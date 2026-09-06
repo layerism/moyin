@@ -19,6 +19,7 @@ function formatUpdatedAt(value: string): string {
 
 export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) {
   const [scripts, setScripts] = useState<AuditScriptManagementSummary[] | null>(null);
+  const [search, setSearch] = useState("");
   const [loadError, setLoadError] = useState("");
   const [detail, setDetail] = useState<AuditScriptConfigDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -132,12 +133,17 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   );
   const hasEditableContent = Boolean(detail);
 
+  const query = search.trim().toLocaleLowerCase();
+  const filteredScripts = (scripts ?? []).filter((script) =>
+    `${script.name} ${script.description}`.toLocaleLowerCase().includes(query)
+  );
+
   return (
     <div className="modal-backdrop audit-script-metadata-backdrop">
       <section
         aria-labelledby="audit-script-metadata-title"
         aria-modal="true"
-        className="audit-script-metadata-dialog"
+        className={`audit-script-metadata-dialog${detail ? "" : " is-list"}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
@@ -157,7 +163,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
             void saveChanges();
           }}>
             <div className="audit-script-config-heading">
-              <small>{detail.language === "py" ? "Python" : "JavaScript"} · 代际 {detail.generation} · {detail.id}</small>
+              <small>{detail.language === "py" ? "Python" : "JavaScript"} · 代际 {detail.generation} · {detail.id} · 更新于 {formatUpdatedAt(detail.updatedAt)}</small>
             </div>
 
             <section className="audit-script-basic-section">
@@ -199,6 +205,18 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
           </form>
         ) : (
           <div className="audit-script-metadata-content">
+            <div className="audit-script-search-toolbar">
+              <input
+                aria-label="搜索脚本名称或说明"
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索脚本名称或说明"
+                type="search"
+                value={search}
+              />
+              <span aria-live="polite">{scripts === null ? "读取中" : query ? `${filteredScripts.length} / ${scripts.length} 个脚本` : `共 ${scripts.length} 个脚本`}</span>
+            </div>
+            <div className="audit-script-list-scroll">
+
             {detailLoading ? <p className="audit-script-metadata-state">正在读取脚本配置…</p> : null}
             {!detailLoading && scripts === null ? <p className="audit-script-metadata-state">正在读取审核脚本…</p> : null}
             {saveError && !detailLoading ? <p className="dialog-error" role="alert">{saveError}</p> : null}
@@ -207,20 +225,18 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
               <button onClick={loadScripts} type="button">重新读取</button>
             </div> : null}
             {!detailLoading && scripts?.length === 0 && !loadError ? (
-              <p className="audit-script-metadata-state">`backend/scripts` 下暂无有效审核脚本。</p>
+              <p className="audit-script-metadata-state">暂无可用审核脚本。</p>
             ) : null}
             {!detailLoading && scripts && scripts.length > 0 ? <div className="audit-script-metadata-list">
-              {scripts.map((script) => {
+              {filteredScripts.map((script) => {
                 const configurableCount = script.parameterCount + script.runtimeSettingCount;
                 return <article key={script.id}>
                   <div>
-                    <strong>{script.name}</strong>
-                    <p>{script.description}</p>
-                    <small>
-                      {script.language === "py" ? "Python" : "JavaScript"} · 代际 {script.generation} ·
-                      {configurableCount > 0 ? ` ${configurableCount} 项可调配置 ·` : " 暂无可调参数 ·"}
-                      更新于 {formatUpdatedAt(script.updatedAt)}
-                    </small>
+                    <div className="audit-script-list-heading">
+                      <strong title={script.name}>{script.name}</strong>
+                      <small>{script.language === "py" ? "Python" : "JavaScript"} · {configurableCount} 项可调配置</small>
+                    </div>
+                    <p title={script.description}>{script.description}</p>
                   </div>
                   <div className="audit-script-metadata-actions">
                     <button onClick={() => void openEditor(script)} type="button">
@@ -230,6 +246,13 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
                 </article>;
               })}
             </div> : null}
+            {!detailLoading && !loadError && scripts && scripts.length > 0 && filteredScripts.length === 0 ? (
+              <div className="audit-script-metadata-state">
+                <p>未找到匹配的脚本</p>
+                <button onClick={() => setSearch("")} type="button">清除搜索</button>
+              </div>
+            ) : null}
+            </div>
           </div>
         )}
       </section>
