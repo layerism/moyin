@@ -18,6 +18,8 @@ function formatUpdatedAt(value: string): string {
 }
 
 function ScriptCapabilityIcons({ script }: { script: AuditScriptManagementSummary }) {
+  const language = script.language === "py" ? "Python" : "JavaScript";
+  const configurableCount = script.parameterCount + script.runtimeSettingCount;
   const formats = new Map<string, string[]>();
   for (const extension of script.acceptedExtensions) {
     const format = extension.replace(/^\./, "").toLowerCase();
@@ -36,6 +38,24 @@ function ScriptCapabilityIcons({ script }: { script: AuditScriptManagementSummar
       </svg>
       <span>{kind}</span>
     </span>)}
+    <span className="audit-script-capability" role="img" aria-label={language} title={language}>
+      {script.language === "py" ? (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#3776ab" d="M12 2C7 2 7 3 7 6v2h6v1H5c-4 0-4 8 0 8h1v-3c0-3 2-4 5-4h5V6c0-3-1-4-4-4Z" />
+          <path fill="#ffd343" d="M12 22c5 0 5-1 5-4v-2h-6v-1h8c4 0 4-8 0-8h-1v3c0 3-2 4-5 4H8v4c0 3 1 4 4 4Z" />
+          <circle cx="10" cy="5" r="1" fill="#fff" /><circle cx="14" cy="19" r="1" fill="#fff" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2" fill="#f7df1e" /><text x="21" y="19" textAnchor="end" fontSize="12" fontWeight="700" fontFamily="sans-serif" fill="#202733">JS</text></svg>
+      )}
+    </span>
+    <span className="audit-script-capability" role="img" aria-label={`${configurableCount} 项可调配置`} title={`${configurableCount} 项可调配置`}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        <path d="M3 6h4m4 0h10M3 12h10m4 0h4M3 18h4m4 0h10" />
+        <circle cx="9" cy="6" r="2" /><circle cx="15" cy="12" r="2" /><circle cx="9" cy="18" r="2" />
+      </svg>
+      <span>{configurableCount}</span>
+    </span>
   </span>;
 }
 
@@ -251,13 +271,11 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
             ) : null}
             {!detailLoading && scripts && scripts.length > 0 ? <div className="audit-script-metadata-list">
               {filteredScripts.map((script) => {
-                const configurableCount = script.parameterCount + script.runtimeSettingCount;
                 return <article key={script.id}>
                   <div>
                     <div className="audit-script-list-heading">
                       <strong title={script.name}>{script.name}</strong>
                       <ScriptCapabilityIcons script={script} />
-                      <small>{script.language === "py" ? "Python" : "JavaScript"} · {configurableCount} 项可调配置</small>
                     </div>
                     <p title={script.description}>{script.description}</p>
                   </div>
