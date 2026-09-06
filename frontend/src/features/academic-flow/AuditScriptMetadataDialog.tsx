@@ -17,6 +17,28 @@ function formatUpdatedAt(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN");
 }
 
+function ScriptCapabilityIcons({ script }: { script: AuditScriptManagementSummary }) {
+  const formats = new Map<string, string[]>();
+  for (const extension of script.acceptedExtensions) {
+    const format = extension.replace(/^\./, "").toLowerCase();
+    const kind = ["png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff"].includes(format)
+      ? "图片" : ["doc", "docx"].includes(format) ? "Word" : format.toUpperCase();
+    formats.set(kind, [...(formats.get(kind) ?? []), format.toUpperCase()]);
+  }
+  return <span className="audit-script-capabilities">
+    {script.usesAi ? <span className="audit-script-capability is-ai" role="img" aria-label="调用 AI 接口" title="调用 AI 接口">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" /></svg>
+      <span>AI</span>
+    </span> : null}
+    {[...formats].map(([kind, extensions]) => <span className="audit-script-capability" key={kind} role="img" aria-label={`支持 ${extensions.join("、")}`} title={`支持 ${extensions.join("、")}`}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+        {kind === "图片" ? <><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></> : <><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" /><path d="M14 3v6h6M8 13h8M8 17h6" /></>}
+      </svg>
+      <span>{kind}</span>
+    </span>)}
+  </span>;
+}
+
 export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) {
   const [scripts, setScripts] = useState<AuditScriptManagementSummary[] | null>(null);
   const [search, setSearch] = useState("");
@@ -234,6 +256,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
                   <div>
                     <div className="audit-script-list-heading">
                       <strong title={script.name}>{script.name}</strong>
+                      <ScriptCapabilityIcons script={script} />
                       <small>{script.language === "py" ? "Python" : "JavaScript"} · {configurableCount} 项可调配置</small>
                     </div>
                     <p title={script.description}>{script.description}</p>

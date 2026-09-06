@@ -286,6 +286,7 @@ def _designer_response(record: AuditScriptRecord) -> dict[str, object]:
         "id": record.id, "name": record.name, "description": record.description,
         "language": record.language, "contentHash": record.content_hash,
         "configHash": record.config_sha256,
+        "usesAi": record.manifest_data.get("usesAi", False),
         "acceptedExtensions": list(record.accepted_extensions),
         "parameters": list(record.parameters),
         "runtimeSettings": list(record.runtime_settings),
@@ -298,6 +299,8 @@ def _management_summary(record: AuditScriptRecord) -> dict[str, object]:
     state = _ensure_runtime_state(record)
     return {
         "id": record.id, "name": record.name, "description": record.description,
+        "usesAi": record.manifest_data.get("usesAi", False),
+        "acceptedExtensions": list(record.accepted_extensions),
         "language": record.language, "parameterCount": len(record.parameters),
         "runtimeSettingCount": len(record.runtime_settings), "updatedAt": record.updated_at,
         "generation": int(state["generation"]), "status": state["status"],
@@ -347,6 +350,8 @@ def _read_manifest(manifest_path: Path) -> _AuditScriptManifest:
         raise AuditScriptCatalogError("审核脚本 ID 无效")
     name = _bounded_text(manifest.get("name"), "name", 120)
     description = _bounded_text(manifest.get("description"), "description", 500)
+    if not isinstance(manifest.get("usesAi", False), bool):
+        raise AuditScriptCatalogError("审核脚本 usesAi 必须为布尔值")
     language_value = manifest.get("language")
     if not isinstance(language_value, str) or language_value not in ENTRY_SUFFIXES:
         raise AuditScriptCatalogError("审核脚本语言无效")

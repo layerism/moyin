@@ -7,6 +7,8 @@ import {
 export type AuditScriptValue = string | number | boolean;
 
 export type AuditScriptManagementSummary = {
+  usesAi: boolean;
+  acceptedExtensions: string[];
   description: string;
   id: string;
   language: "js" | "py";

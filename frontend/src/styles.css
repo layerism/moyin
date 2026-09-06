@@ -10930,6 +10930,32 @@ button {
   gap: 4px 10px;
 }
 
+.audit-script-capabilities {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.audit-script-capability {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #667085;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.audit-script-capability svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.audit-script-capability.is-ai {
+  color: #1d6feb;
+}
+
 .audit-script-metadata-actions {
   display: flex;
   align-items: center;

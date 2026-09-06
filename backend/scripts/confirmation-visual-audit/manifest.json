@@ -4,5 +4,6 @@
   "description": "内部使用的多扫描件视觉审核程序",
   "language": "py",
   "entry": "handler.py",
-  "visibility": "internal"
+  "visibility": "internal",
+  "usesAi": true
 }
