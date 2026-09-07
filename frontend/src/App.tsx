@@ -59,6 +59,9 @@ function canonicalizeLegacyAuthPath() {
 
 function getRouteFromPathname(): AppRoute {
   canonicalizeLegacyAuthPath();
+  if (window.location.pathname === "/") {
+    window.history.replaceState(null, "", "/login");
+  }
   const pathname = window.location.pathname;
   const base = {
     processId: null,
@@ -257,15 +260,6 @@ export function App() {
   useEffect(() => {
     if (!authReady) return;
     const currentRoute = getRouteFromPathname();
-    if (
-      currentRoute.screen === "home"
-      && window.location.pathname === "/"
-      && !teacherIdentity
-    ) {
-      window.history.replaceState(null, "", "/login");
-      applyRoute(getRouteFromPathname());
-      return;
-    }
     if (TEACHER_AUTHENTICATED_SCREENS.includes(currentRoute.screen) && !teacherIdentity) {
       window.history.replaceState(null, "", "/teacher/login");
       applyRoute(getRouteFromPathname());
@@ -331,10 +325,6 @@ export function App() {
       if (cancelled) return;
       if (teacher.status === "fulfilled") {
         setTeacherIdentity(teacher.value);
-        if (window.location.pathname === "/") {
-          window.history.replaceState(null, "", "/academic-flow");
-          applyRoute(getRouteFromPathname());
-        }
       }
       if (student.status === "fulfilled") setStudentIdentity(student.value);
       setAuthReady(true);
@@ -369,7 +359,7 @@ export function App() {
   };
 
   const openHome = () => {
-    pushAppPath("/");
+    pushAppPath("/materials");
     setActiveAcademicProcessId(null);
     setScreen("home");
   };
