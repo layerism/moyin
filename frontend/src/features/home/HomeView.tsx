@@ -1,3 +1,4 @@
+import { DriveNavIcon } from "./DriveNavIcon";
 import { useEffect, useRef, useState } from "react";
 
 import type { AcademicProcess } from "../../types";
@@ -174,8 +175,8 @@ export function AcademicFlowView({
         <button className="drive-primary">+ 新建</button>
         <button className="drive-secondary">上传</button>
         <nav className="drive-nav" aria-label="主导航">
-          <button className="selected">教务流程</button>
-          <button onClick={() => onWorkflowTemplates()}>流程模板</button>
+          <button className="selected"><DriveNavIcon kind="flow" />教务流程</button>
+          <button onClick={() => onWorkflowTemplates()}><DriveNavIcon kind="template" />流程模板</button>
           <button
             onClick={onOssCloud}
             onContextMenu={(event) => {
@@ -183,7 +184,7 @@ export function AcademicFlowView({
               onOssCloud();
             }}
           >
-            ▾ OSS 云盘
+            <DriveNavIcon kind="cloud" />OSS 云盘
           </button>
         </nav>
       </aside>

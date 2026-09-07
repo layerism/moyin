@@ -1,3 +1,4 @@
+import { DriveNavIcon } from "../home/DriveNavIcon";
 import { useEffect, useState } from "react";
 
 import type { AcademicProcess } from "../../types";
@@ -81,9 +82,9 @@ export function WorkflowTemplatesPage({
       <button className="drive-primary" type="button">+ 新建</button>
       <button className="drive-secondary" type="button">上传</button>
       <nav className="drive-nav" aria-label="主导航">
-        <button onClick={onAcademicFlow}>教务流程</button>
-        <button className="selected" aria-current="page">流程模板</button>
-        <button onClick={onOssCloud}>▾ OSS 云盘</button>
+        <button onClick={onAcademicFlow}><DriveNavIcon kind="flow" />教务流程</button>
+        <button className="selected" aria-current="page"><DriveNavIcon kind="template" />流程模板</button>
+        <button onClick={onOssCloud}><DriveNavIcon kind="cloud" />OSS 云盘</button>
       </nav>
     </aside>
     <section className="drive-main">
