@@ -127,7 +127,7 @@ export function WorkflowTemplatesPage({
           <label>来源流程<select autoFocus required disabled={busy !== null} value={draft.sourceFlowId} onChange={(event) => {
             const source = processes.find((process) => process.id === event.target.value);
             setDraft({ ...draft, sourceFlowId: event.target.value, name: draft.name || source?.name || "" });
-          }}><option value="">选择自己的流程</option>{processes.map((process) => <option key={process.id} value={process.serverId ?? process.id}>{process.name}</option>)}</select></label>
+          }}><option value="" disabled hidden>选择自己的流程</option>{processes.map((process) => <option key={process.id} value={process.serverId ?? process.id}>{process.name}</option>)}</select></label>
           <label>模板名称<input required maxLength={120} disabled={busy !== null} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
           <label>模板简介<textarea maxLength={500} rows={3} disabled={busy !== null} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
           <p>保存来源流程的当前草稿及附件；不包含学生数据，开始和截止时间会清空。更新后重新上架，已创建的流程不受影响。</p>
