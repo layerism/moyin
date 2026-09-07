@@ -98,6 +98,25 @@ CREATE TABLE IF NOT EXISTS flows (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS workflow_blueprints (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    snapshot_flow_id TEXT NOT NULL REFERENCES flows(id),
+    active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
+    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_blueprint_versions (
+    id TEXT PRIMARY KEY,
+    blueprint_id TEXT NOT NULL REFERENCES workflow_blueprints(id),
+    snapshot_flow_id TEXT NOT NULL UNIQUE REFERENCES flows(id),
+    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS flow_roster_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,

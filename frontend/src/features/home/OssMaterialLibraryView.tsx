@@ -53,12 +53,14 @@ function pathExists(library: MaterialLibrary, path: MaterialLibraryPath) {
 
 export function OssMaterialLibraryView({
   onAcademicFlow,
+  onWorkflowTemplates,
   onDatabaseAdmin,
   onTeacherLogout,
   onTeacherInvitations,
   teacherIdentity,
 }: {
   onAcademicFlow: () => void;
+  onWorkflowTemplates: () => void;
   onDatabaseAdmin: () => void;
   onTeacherLogout: () => void;
   onTeacherInvitations: () => void;
@@ -169,6 +171,7 @@ export function OssMaterialLibraryView({
         <button className="drive-secondary" type="button">上传</button>
         <nav className="drive-nav" aria-label="主导航">
           <button onClick={onAcademicFlow}>教务流程</button>
+          <button onClick={onWorkflowTemplates}>流程模板</button>
           <button className="selected">▾ OSS 云盘</button>
         </nav>
       </aside>

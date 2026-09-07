@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AcademicFlowDesigner, StudentFlowPage } from "./features/academic-flow/AcademicFlowDesigner";
 import { createAcademicProcess, createFallbackAcademicProcess } from "./features/academic-flow/academicFlowData";
 import { workflowApi, type ServerFlow } from "./features/academic-flow/api";
+import { WorkflowTemplatesPage } from "./features/academic-flow/WorkflowTemplatesPage";
 import { StudentRuntimePage } from "./features/academic-flow/StudentRuntimePage";
 import type { RuntimeFlowInstance } from "./features/academic-flow/runtimeTypes";
 import { DatabaseAdminPage } from "./features/admin/DatabaseAdminPage";
@@ -69,6 +70,9 @@ function getRouteFromPathname(): AppRoute {
     studentSlug: null,
     teacherInvitationToken: null,
   };
+  if (pathname === "/workflow-templates") {
+    return { ...base, authRole: "teacher", screen: "workflowTemplates" };
+  }
   if (pathname === "/login") {
     return { ...base, authRole: "student", screen: "authLogin" };
   }
@@ -168,6 +172,7 @@ const STUDENT_AUTHENTICATED_SCREENS: Screen[] = [
 ];
 
 const TEACHER_AUTHENTICATED_SCREENS: Screen[] = [
+  "workflowTemplates",
   "academicFlow",
   "academicFlowDetail",
   "adminDatabase",
@@ -399,6 +404,11 @@ export function App() {
     if (role === "teacher") setTeacherIdentity(null);
     else setStudentIdentity(null);
     navigateAuth("login", role);
+  };
+
+  const openWorkflowTemplates = (sourceId?: string) => {
+    pushAppPath(`/workflow-templates${sourceId ? `?source=${encodeURIComponent(sourceId)}` : ""}`);
+    setScreen("workflowTemplates");
   };
 
   const openAcademicFlow = () => {
@@ -760,12 +770,32 @@ export function App() {
     return (
       <OssMaterialLibraryView
         onAcademicFlow={openAcademicFlow}
+        onWorkflowTemplates={() => openWorkflowTemplates()}
         onDatabaseAdmin={openDatabaseAdmin}
         onTeacherLogout={() => void logoutRole("teacher")}
         onTeacherInvitations={openTeacherInvitationsAdmin}
         teacherIdentity={teacherIdentity!}
       />
     );
+  }
+
+  if (screen === "workflowTemplates") {
+    if (!academicFlowsLoaded) return <main className="auth-loading-page"><strong>正在读取流程…</strong></main>;
+    return <WorkflowTemplatesPage
+      processes={academicProcesses}
+      sourceFlowId={new URLSearchParams(window.location.search).get("source")}
+      teacherIdentity={teacherIdentity!}
+      onAcademicFlow={openAcademicFlow}
+      onOssCloud={openHome}
+      onDatabaseAdmin={openDatabaseAdmin}
+      onTeacherInvitations={openTeacherInvitationsAdmin}
+      onTeacherLogout={() => void logoutRole("teacher")}
+      onCreated={(flow) => {
+        const process = mapServerFlow(flow);
+        setAcademicProcesses((current) => [process, ...current]);
+        openAcademicProcess(process.id);
+      }}
+    />;
   }
 
   if (screen === "academicFlow") {
@@ -803,6 +833,7 @@ export function App() {
         }}
         onDatabaseAdmin={openDatabaseAdmin}
         onOssCloud={openHome}
+        onWorkflowTemplates={openWorkflowTemplates}
         onOpenProcess={openAcademicProcess}
         onTeacherLogout={() => void logoutRole("teacher")}
         onTeacherInvitations={openTeacherInvitationsAdmin}

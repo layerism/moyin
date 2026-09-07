@@ -4,6 +4,7 @@ export type Screen =
   | "authRegister"
   | "adminDatabase"
   | "home"
+  | "workflowTemplates"
   | "academicFlow"
   | "academicFlowDetail"
   | "academicFlowShared"

@@ -16,6 +16,7 @@ export function AcademicFlowView({
   onDatabaseAdmin,
   onDeleteProcess,
   onOssCloud,
+  onWorkflowTemplates,
   onOpenProcess,
   onRenameProcess,
   onTeacherLogout,
@@ -28,6 +29,7 @@ export function AcademicFlowView({
   onDatabaseAdmin: () => void;
   onDeleteProcess: (process: AcademicProcess) => Promise<void>;
   onOssCloud: () => void;
+  onWorkflowTemplates: (sourceId?: string) => void;
   onOpenProcess: (processId: string) => void;
   onRenameProcess: (process: AcademicProcess, name: string) => Promise<AcademicProcess>;
   onTeacherLogout: () => void;
@@ -173,6 +175,7 @@ export function AcademicFlowView({
         <button className="drive-secondary">上传</button>
         <nav className="drive-nav" aria-label="主导航">
           <button className="selected">教务流程</button>
+          <button onClick={() => onWorkflowTemplates()}>流程模板</button>
           <button
             onClick={onOssCloud}
             onContextMenu={(event) => {
@@ -239,6 +242,11 @@ export function AcademicFlowView({
                     <em>进入</em>
                   </button>
                   <div className="academic-flow-actions">
+                    {teacherIdentity.role === "super_admin" ? <button
+                      className="academic-flow-clone"
+                      onClick={() => onWorkflowTemplates(process.serverId ?? process.id)}
+                      type="button"
+                    >发布为模板</button> : null}
                     <button
                       aria-label={`复制流程 ${process.name}`}
                       className="academic-flow-clone"

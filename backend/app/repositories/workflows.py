@@ -4,7 +4,8 @@ import logging
 import secrets
 import uuid
 from collections import deque
-from typing import Any
+from typing import Any, Callable
+from sqlite3 import Connection
 
 from app.core.config import settings
 from app.core.database import get_connection
@@ -477,19 +478,29 @@ def rename_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
 
 
 def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
+    new_id = copy_flow_definition(flow_id, name, teacher_id, str(teacher_id), str(teacher_id))
+    return get_flow(new_id, teacher_id)
+
+
+def copy_flow_definition(
+    flow_id: str, name: str, teacher_id: int, source_owner: str, target_owner: str,
+    *, auto_name: bool = False, clear_dates: bool = False,
+    finalize: Callable[[Connection, str], None] | None = None,
+) -> str:
+    """Copy only a definition and its assets; finalize runs in the same DB transaction."""
     new_name = name.strip()
     if not new_name or len(new_name) > 120:
         raise FlowValidationError("流程名称不能为空且不能超过 120 个字符")
 
-    owner_id = str(teacher_id)
+    owner_id = target_owner
     with get_connection() as connection:
         source = connection.execute(
             "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
-            (flow_id, owner_id),
+            (flow_id, source_owner),
         ).fetchone()
         if source is None:
             raise KeyError(flow_id)
-        if new_name == source["name"]:
+        if not auto_name and source_owner == target_owner and new_name == source["name"]:
             raise DuplicateFlowNameError("副本名称不能与原流程相同")
         duplicate = connection.execute(
             """
@@ -499,10 +510,14 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
             """,
             (owner_id, new_name),
         ).fetchone()
-        if duplicate is not None:
+        if duplicate is not None and not auto_name:
             raise DuplicateFlowNameError("已存在同名流程")
 
         config = json.loads(source["draft_config"])
+        if clear_dates:
+            for node in config.get("nodes", []):
+                node.pop("startAt", None)
+                node.pop("deadlineAt", None)
         source_assets: list[tuple[dict[str, Any], dict[str, Any]]] = []
         for node in config.get("nodes", []):
             template = node.get("templateAsset")
@@ -617,6 +632,16 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
         now = utc_now_iso()
         with get_connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            if auto_name:
+                base_name = new_name
+                suffix = 1
+                while connection.execute(
+                    "SELECT 1 FROM flows WHERE owner_id = ? AND name = ? AND status != 'archived'",
+                    (owner_id, new_name),
+                ).fetchone():
+                    suffix += 1
+                    ending = f" ({suffix})"
+                    new_name = base_name[:120 - len(ending)] + ending
             duplicate = connection.execute(
                 """
                 SELECT 1 FROM flows
@@ -671,6 +696,8 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
                         asset["sha256"], asset["etag"], teacher_id, now,
                     ),
                 )
+            if finalize is not None:
+                finalize(connection, new_flow_id)
             replace_answer_sheet_drafts(
                 connection,
                 new_flow_id,
@@ -687,7 +714,7 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
                 VALUES (?, 'workflow_cloned', 'workflow', ?, ?, ?, ?)
                 """,
                 (
-                    owner_id,
+                    str(teacher_id),
                     new_flow_id,
                     canonical_json({"sourceFlowId": flow_id}),
                     canonical_json(
@@ -705,7 +732,7 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
         compensate()
         raise
 
-    return get_flow(new_flow_id, teacher_id)
+    return new_flow_id
 
 
 def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:

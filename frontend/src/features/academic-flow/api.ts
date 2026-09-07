@@ -19,6 +19,15 @@ import { createFlowConfig, createPublishRequestPayload } from "./flowRevision";
 
 export const FLOW_PREVIEW_TOKEN_KEY = "oa-flow-preview-token";
 
+export type WorkflowTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  nodeCount: number;
+  active: boolean;
+  updatedAt: string;
+};
+
 export type ServerFlow = {
   answerSheetKeys: Record<string, AnswerSheetPrivateKey>;
   config: AcademicFlowConfig;
@@ -207,6 +216,20 @@ async function downloadRequest(
 }
 
 export const workflowApi = {
+  listWorkflowTemplates() {
+    return request<WorkflowTemplate[]>("/api/workflow-templates");
+  },
+  publishWorkflowTemplate(payload: { sourceFlowId: string; name: string; description: string }, id?: string) {
+    return request<{ id: string }>(id ? `/api/workflow-templates/${encodeURIComponent(id)}` : "/api/workflow-templates", {
+      method: id ? "PUT" : "POST", body: JSON.stringify(payload),
+    });
+  },
+  setWorkflowTemplateActive(id: string, active: boolean) {
+    return request(`/api/workflow-templates/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ active }) });
+  },
+  useWorkflowTemplate(id: string) {
+    return request<ServerFlow>(`/api/workflow-templates/${encodeURIComponent(id)}/use`, { method: "POST" });
+  },
   listFlows() {
     return request<ServerFlow[]>("/api/workflows");
   },

@@ -12,6 +12,7 @@ from app.api.routes import (
     templates,
     workflow_admin,
     workflows,
+    workflow_blueprints,
 )
 
 api_router = APIRouter()
@@ -33,3 +34,5 @@ api_router.include_router(flow_roster.router, prefix="/workflows", tags=["flow-r
 api_router.include_router(workflows.shared_router, prefix="/shared-flows", tags=["shared-flows"])
 api_router.include_router(student_flows.router, prefix="/student", tags=["student-flows"])
 api_router.include_router(workflow_admin.router, prefix="/workflow-admin", tags=["workflow-admin"])
+
+api_router.include_router(workflow_blueprints.router, prefix="/workflow-templates", tags=["workflow-templates"])
