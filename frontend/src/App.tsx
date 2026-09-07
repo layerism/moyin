@@ -14,6 +14,7 @@ import { OssMaterialLibraryView } from "./features/home/OssMaterialLibraryView";
 import { TopBar } from "./features/workspace/TopBar";
 import { LoginView, PasswordChangeView, PasswordResetView } from "./features/auth/AuthViews";
 import { AuthPortal, ForgotPasswordPlaceholder } from "./features/auth/AuthPortal";
+import { FreshLoginPortal } from "./features/auth/FreshLoginPortal";
 import { StudentAccountPage } from "./features/auth/StudentAccountPage";
 import { StudentAccessGate } from "./features/auth/StudentAccessGate";
 import { StudentPasswordChangeForm } from "./features/auth/StudentPasswordChangeForm";
@@ -382,6 +383,11 @@ export function App() {
     applyRoute(getRouteFromPathname());
   };
 
+  const clearRoleIdentity = useCallback((role: AuthRole) => {
+    if (role === "teacher") setTeacherIdentity(null);
+    else setStudentIdentity(null);
+  }, []);
+
   const completeAuthentication = (role: AuthRole, identity: AuthIdentity) => {
     if (role === "teacher") {
       setTeacherIdentity(identity);
@@ -618,21 +624,28 @@ export function App() {
     setTab("stats");
   };
 
-  if (screen === "authLogin" || screen === "authRegister") {
-    return (
-      <AuthPortal
-        key={`${screen}-${authRole}`}
-        mode={screen === "authRegister" ? "register" : "login"}
-        notice={
-          new URLSearchParams(window.location.search).get("notice") === "invitation-required"
-            ? "教师账号需要通过超级管理员邀请链接注册"
-            : ""
-        }
-        onAuthenticated={completeAuthentication}
-        onNavigate={navigateAuth}
-        role={authRole}
-      />
-    );
+  if (screen === "authLogin") {
+    // Finish initial session restoration before clearing this role's session.
+    if (!authReady) return <main className="auth-loading-page"><strong>正在准备登录…</strong></main>;
+    return <FreshLoginPortal
+      key={authRole}
+      notice={new URLSearchParams(window.location.search).get("notice") === "invitation-required"
+        ? "教师账号需要通过超级管理员邀请链接注册" : ""}
+      onAuthenticated={completeAuthentication}
+      onNavigate={navigateAuth}
+      onSessionCleared={clearRoleIdentity}
+      role={authRole}
+    />;
+  }
+
+  if (screen === "authRegister") {
+    return <AuthPortal
+      key={`${screen}-${authRole}`}
+      mode="register"
+      onAuthenticated={completeAuthentication}
+      onNavigate={navigateAuth}
+      role={authRole}
+    />;
   }
 
   if (screen === "teacherInvitation" && teacherInvitationToken) {

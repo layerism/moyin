@@ -60,6 +60,8 @@ function payload(role: AuthRole, credentials: RoleCredentials) {
       };
 }
 
+const pendingLogouts = new Map<AuthRole, Promise<void>>();
+
 export const authApi = {
   changeStudentPassword(newPassword: string) {
     return request<AuthIdentity>("/api/auth/student/change-password", {
@@ -67,7 +69,8 @@ export const authApi = {
       body: JSON.stringify({ newPassword }),
     });
   },
-  login(role: AuthRole, credentials: RoleCredentials) {
+  async login(role: AuthRole, credentials: RoleCredentials) {
+    await pendingLogouts.get(role);
     return request<AuthIdentity>(`/api/auth/${role}/login`, {
       method: "POST",
       body: JSON.stringify(payload(role, credentials)),
@@ -83,7 +86,12 @@ export const authApi = {
     return request<AuthIdentity>(`/api/auth/${role}/me`);
   },
   logout(role: AuthRole) {
-    return request<void>(`/api/auth/${role}/logout`, { method: "POST" });
+    const pending = pendingLogouts.get(role);
+    if (pending) return pending;
+    const logout = request<void>(`/api/auth/${role}/logout`, { method: "POST" })
+      .finally(() => pendingLogouts.delete(role));
+    pendingLogouts.set(role, logout);
+    return logout;
   },
   studentFlows() {
     return request<StudentFlowSummary[]>("/api/student/flows");
