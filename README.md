@@ -116,7 +116,9 @@ docker compose up --build
 cp backend/.env.example backend/.env
 ```
 
-首次启动前还须填写 `INITIAL_ADMIN_NAME`、`INITIAL_ADMIN_ACCOUNT`（5 位数字，保留前导零）和 `INITIAL_ADMIN_PASSWORD`（8 至 128 字符）。后端在开放服务前初始化超级管理员，无需注册；当前使用 `/teacher/login`，填写姓名、账号和密码登录。
+首次启动前填写 `SUPER_ADMINS` JSON 数组，例如 `[{"name":"管理员姓名","account":"00001","password":"初始密码至少8字符"}]`，支持多名管理员。工号为 5 位数字字符串，保留前导零。已有账号姓名必须匹配，启动时提升权限但不重置密码；新账号需要 8 至 128 字符的初始密码。从名单移除不会自动降权。使用 `/teacher/login` 登录。
+
+大模型连接在“审核脚本管理 → 大模型配置”中维护，仅超级管理员可修改。API Key 加密保存在数据库，`AUDIT_CONFIG_ENCRYPTION_KEY` 留在服务器 `.env`，可在 backend 目录运行 `./.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` 生成。主密钥必须备份并与数据库分开保管，不可随意重新生成。旧大模型环境变量仅用于首次导入；迁移后删除，后续以管理端配置为准。保存对新启动的审核脚本生效，已运行的请求继续使用原连接。视觉模型和超时仍在脚本配置中维护。
 
 初始化只执行一次：同账号同姓名的已有账户保留 ID，更新初始密码并启用管理员权限、注销旧会话；姓名不一致或配置无效时启动失败。成功后可删除初始密码配置，重启不会覆盖密码或账户状态。密码仅以哈希写入数据库；请勿将真实初始密码写进版本库。
 
@@ -162,8 +164,8 @@ npm run dev
 | `OSS_ENDPOINT`、`OSS_BUCKET` | OSS 服务地址和存储桶 |
 | `OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET` | OSS 访问凭据 |
 | `OSS_SIGNED_URL_EXPIRES_SECONDS` | 下载签名地址有效期 |
-| `VISION_API_BASE_URL`、`VISION_API_KEY` | 视觉审核服务 |
-| `DEEPSEEK_API_URL`、`DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL` | DeepSeek 审核脚本配置 |
+| `SUPER_ADMINS` | 超级管理员名单（JSON 数组） |
+| `AUDIT_CONFIG_ENCRYPTION_KEY` | 数据库中大模型密钥的加密主密钥 |
 | `AUDIT_WORKER_COUNT` | 自动审核 worker 数量 |
 
 ---

@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     ai,
+    model_connections,
     auth,
     database_admin,
     flow_roster,
@@ -36,3 +37,5 @@ api_router.include_router(student_flows.router, prefix="/student", tags=["studen
 api_router.include_router(workflow_admin.router, prefix="/workflow-admin", tags=["workflow-admin"])
 
 api_router.include_router(workflow_blueprints.router, prefix="/workflow-templates", tags=["workflow-templates"])
+
+api_router.include_router(model_connections.router, prefix="/workflow-admin/model-connections", tags=["model-connections"])

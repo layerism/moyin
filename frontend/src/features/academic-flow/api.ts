@@ -1,3 +1,4 @@
+import type { ModelConnection } from "./ModelConnectionsForm";
 import type { AcademicFlowConfig, AcademicProcess, AnswerSheetPrivateKey } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
 import type { AuditScriptSummary, NodeAuditPolicy } from "./auditScripts";
@@ -433,6 +434,15 @@ export const workflowApi = {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
       { method: "PUT", body: JSON.stringify(payload) },
+    );
+  },
+  listModelConnections() {
+    return request<ModelConnection[]>("/api/workflow-admin/model-connections");
+  },
+  updateModelConnection(connection: ModelConnection, apiKey: string) {
+    return request<ModelConnection>(
+      `/api/workflow-admin/model-connections/${connection.provider}`,
+      { method: "PUT", body: JSON.stringify({ apiUrl: connection.apiUrl, model: connection.model, revision: connection.revision, apiKey: apiKey || null }) },
     );
   },
   listManageableAuditScripts() {

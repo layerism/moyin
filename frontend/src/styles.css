@@ -12418,3 +12418,13 @@ td {
     flex-wrap: wrap;
   }
 }
+
+.model-connections-entry {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 0;
+}
+
+.model-connections-form {
+  overflow-y: auto;
+}

@@ -387,6 +387,15 @@ CREATE TABLE IF NOT EXISTS node_audit_policies (
     PRIMARY KEY(flow_id, node_key)
 );
 
+CREATE TABLE IF NOT EXISTS audit_model_connections (
+    provider TEXT PRIMARY KEY CHECK (provider IN ('document', 'vision')),
+    api_url TEXT NOT NULL DEFAULT '',
+    encrypted_api_key TEXT NOT NULL DEFAULT '',
+    model TEXT NOT NULL DEFAULT '',
+    revision INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS student_deadline_overrides (
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
@@ -421,66 +430,52 @@ def initialize_database() -> None:
         _apply_flow_preview_migration(connection)
         _apply_audit_hot_reload_migration(connection)
     _initialize_super_admin()
+    from app.services.audit_model_connections import initialize_model_connections
+    initialize_model_connections()
 
 
 def _initialize_super_admin() -> None:
     from app.services.security import hash_password
 
-    migration_id = "20260905_initialize_super_admin"
+    admins = settings.super_admins
+    if not admins and settings.initial_admin_account:
+        from app.core.config import SuperAdminConfig
+        admins = [SuperAdminConfig(name=settings.initial_admin_name,
+                                  account=settings.initial_admin_account,
+                                  password=settings.initial_admin_password)]
+    accounts = [admin.account for admin in admins]
+    if len(accounts) != len(set(accounts)):
+        raise RuntimeError("SUPER_ADMINS 中工号不能重复")
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
-        if connection.execute(
-            "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)
-        ).fetchone() is not None:
-            return
-
-        name = settings.initial_admin_name.strip()
-        account = settings.initial_admin_account.strip()
-        password = settings.initial_admin_password
-        if (
-            not 1 <= len(name) <= 64
-            or len(account) != 5
-            or not account.isascii()
-            or not account.isdigit()
-            or not 8 <= len(password) <= 128
-        ):
-            raise RuntimeError(
-                "首次启动请在 backend/.env 配置 INITIAL_ADMIN_NAME（1 至 64 字符）、"
-                "INITIAL_ADMIN_ACCOUNT（5 位数字）、INITIAL_ADMIN_PASSWORD（8 至 128 字符）"
-            )
-
-        existing = connection.execute(
-            "SELECT id, name FROM teacher_accounts WHERE employee_no = ?", (account,)
-        ).fetchone()
-        if existing is not None and existing["name"] != name:
-            raise RuntimeError("初始管理员账号已属于其他姓名，请核实配置和现有账户")
-
+        if not admins and not connection.execute(
+            "SELECT 1 FROM teacher_accounts WHERE role = 'super_admin' AND status = 'active'"
+        ).fetchone():
+            raise RuntimeError("请在 backend/.env 配置 SUPER_ADMINS 管理员名单")
         now = datetime.now(UTC).isoformat()
-        password_hash = hash_password(password)
-        if existing is None:
-            connection.execute(
-                """
-                INSERT INTO teacher_accounts
-                    (employee_no, name, password_hash, status, role, created_at, updated_at)
-                VALUES (?, ?, ?, 'active', 'super_admin', ?, ?)
-                """,
-                (account, name, password_hash, now, now),
-            )
-        else:
-            connection.execute(
-                """
-                UPDATE teacher_accounts
-                SET password_hash = ?, role = 'super_admin', status = 'active', updated_at = ?
-                WHERE id = ?
-                """,
-                (password_hash, now, existing["id"]),
-            )
-            connection.execute(
-                "DELETE FROM teacher_sessions WHERE teacher_account_id = ?", (existing["id"],)
-            )
-        connection.execute(
-            "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)", (migration_id, now)
-        )
+        for admin in admins:
+            name = admin.name.strip()
+            if not name:
+                raise RuntimeError("超级管理员姓名不能为空")
+            existing = connection.execute(
+                "SELECT id, name, role FROM teacher_accounts WHERE employee_no = ?", (admin.account,)
+            ).fetchone()
+            if existing is not None:
+                if existing["name"] != name:
+                    raise RuntimeError("管理员工号已属于其他姓名，请核实名单")
+                if existing["role"] != "super_admin":
+                    connection.execute(
+                        "UPDATE teacher_accounts SET role = 'super_admin', updated_at = ? WHERE id = ?",
+                        (now, existing["id"]),
+                    )
+                    connection.execute("DELETE FROM teacher_sessions WHERE teacher_account_id = ?", (existing["id"],))
+            else:
+                if not 8 <= len(admin.password) <= 128:
+                    raise RuntimeError("新管理员需要配置 8 至 128 字符的初始密码")
+                connection.execute(
+                    "INSERT INTO teacher_accounts (employee_no, name, password_hash, status, role, created_at, updated_at) VALUES (?, ?, ?, 'active', 'super_admin', ?, ?)",
+                    (admin.account, name, hash_password(admin.password), now, now),
+                )
 
 
 def _apply_super_admin_role_migration(connection: sqlite3.Connection) -> None:

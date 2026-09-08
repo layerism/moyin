@@ -1,6 +1,14 @@
 from pathlib import Path
 
+from pydantic import BaseModel, Field
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class SuperAdminConfig(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    account: str = Field(pattern=r"^[0-9]{5}$")
+    password: str = ""
 
 
 class Settings(BaseSettings):
@@ -9,6 +17,8 @@ class Settings(BaseSettings):
     storage_root: str = "storage"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost"]
     database_path: str = "storage/app.db"
+    super_admins: list[SuperAdminConfig] = Field(default_factory=list)
+    audit_config_encryption_key: str = ""
     initial_admin_name: str = ""
     initial_admin_account: str = ""
     initial_admin_password: str = ""
@@ -29,16 +39,14 @@ class Settings(BaseSettings):
     audit_script_stdout_max_bytes: int = 1_048_576
     audit_script_stderr_max_bytes: int = 262_144
     audit_temp_root: str = ""
-    audit_script_env_allowlist: str = "DEEPSEEK_API_URL,DEEPSEEK_API_KEY,DEEPSEEK_MODEL"
+    audit_script_env_allowlist: str = ""
     deepseek_api_url: str = ""
     deepseek_api_key: str = ""
     deepseek_model: str = ""
     vision_api_base_url: str = ""
     vision_api_key: str = ""
-    vision_model: str = ""
-    vision_api_timeout_seconds: int = 60
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", hide_input_in_errors=True)
 
 
 settings = Settings()

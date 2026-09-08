@@ -18,7 +18,6 @@ from dotenv import dotenv_values
 
 from app.core.config import settings
 from app.services.audit_script_runtime import AuditScriptRuntimeDescriptor
-from app.services.audit_script_catalog import CONFIRMATION_VISUAL_AUDIT_ID
 from app.services.object_storage import get_object_storage
 
 
@@ -231,15 +230,13 @@ def _script_environment(descriptor: AuditScriptRuntimeDescriptor) -> dict[str, s
         "NODE_PATH": settings.audit_node_modules_path,
     }
     dotenv = dotenv_values(Path(__file__).resolve().parents[2] / ".env")
+    from app.services.audit_model_connections import ENV_NAMES, model_environment
+    managed_names = {name for names in ENV_NAMES.values() for name in names if name}
     names: list[str] = []
     for candidate in settings.audit_script_env_allowlist.split(","):
         name = candidate.strip()
-        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) and name not in names:
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) and name not in names and name not in managed_names:
             names.append(name)
-    if descriptor.script_id == CONFIRMATION_VISUAL_AUDIT_ID:
-        names.extend([
-            "VISION_API_BASE_URL", "VISION_API_KEY",
-        ])
     for name in names:
         value = os.environ.get(name)
         if value is None:
@@ -247,6 +244,7 @@ def _script_environment(descriptor: AuditScriptRuntimeDescriptor) -> dict[str, s
             value = dotenv_value if isinstance(dotenv_value, str) else None
         if value is not None:
             environment[name] = value
+    environment.update(model_environment(descriptor.script_id))
     return environment
 
 
