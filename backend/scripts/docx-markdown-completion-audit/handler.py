@@ -434,8 +434,10 @@ def request_review(
         "response_format": {"type": "json_object"},
         "temperature": settings["temperature"],
     }
-    if settings["thinkingEnabled"] is True:
-        body["thinking"] = {"type": "enabled"}
+    options = json.loads(os.environ.get("AUDIT_CHAT_OPTIONS", "{}"))
+    body.update(options.get("body", {}))
+    if options.get("omitTemperature"):
+        body.pop("temperature", None)
     request = Request(
         f"{base_url}/chat/completions",
         data=json.dumps(body, ensure_ascii=False).encode("utf-8"),

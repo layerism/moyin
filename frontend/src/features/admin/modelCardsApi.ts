@@ -8,6 +8,8 @@ export const MODEL_VENDORS = [
   { id: "custom", name: "自定义" },
 ] as const;
 export type ModelVendor = typeof MODEL_VENDORS[number]["id"];
+export interface ModelThinking { mode: "default" | "off" | "on"; effort: string; budget: number | null }
+export interface ThinkingProfile { id: string; modes: ModelThinking["mode"][]; efforts: string[]; budgetSupported: boolean; note: string }
 export interface ModelCard {
   id: string;
   vendor: ModelVendor;
@@ -16,6 +18,7 @@ export interface ModelCard {
   hasApiKey: boolean;
   model: string;
   revision: number;
+  thinking: ModelThinking;
 }
 export interface ModelBinding {
   scriptId: string;
@@ -29,7 +32,7 @@ export interface ModelCardsState {
 }
 export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey"> & { apiKey: string };
 const BASE = "/api/workflow-admin/model-connections";
-async function request(path: string, init?: RequestInit): Promise<ModelCardsState> {
+async function request<T = ModelCardsState>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, {
     ...init, credentials: "include",
     headers: init?.body ? { "Content-Type": "application/json" } : undefined,
@@ -38,7 +41,7 @@ async function request(path: string, init?: RequestInit): Promise<ModelCardsStat
     const data = await response.json().catch(() => null) as { detail?: unknown } | null;
     throw new Error(typeof data?.detail === "string" ? data.detail : "模型配置请求失败");
   }
-  return response.json() as Promise<ModelCardsState>;
+  return response.json() as Promise<T>;
 }
 export const modelCardsApi = {
   list: () => request(""),
@@ -46,7 +49,5 @@ export const modelCardsApi = {
     method: id ? "PUT" : "POST", body: JSON.stringify(draft),
   }),
   delete: (card: ModelCard) => request(`/cards/${encodeURIComponent(card.id)}?revision=${card.revision}`, { method: "DELETE" }),
-  bind: (binding: ModelBinding, cardId: string) => request(`/bindings/${encodeURIComponent(binding.scriptId)}`, {
-    method: "PUT", body: JSON.stringify({ cardId, revision: binding.revision }),
-  }),
+  thinkingProfile: (vendor: ModelVendor, model: string) => request<ThinkingProfile>(`/thinking-profile?vendor=${encodeURIComponent(vendor)}&model=${encodeURIComponent(model)}`),
 };

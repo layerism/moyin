@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { AuditScriptParameter, AuditScriptRuntimeSetting } from "./auditScripts";
 import type { AuditScriptValue } from "./auditScriptConfig";
 
@@ -27,7 +28,7 @@ function ConfigInput({
 
   if (definition.type === "boolean") {
     return (
-      <div className="audit-script-config-field">
+      <div className="audit-script-config-field" title={definition.description}>
         <span>{definition.label}</span>
         {definition.description ? <small id={descriptionId}>{definition.description}</small> : null}
         <label className="audit-script-config-boolean-control" htmlFor={inputId}>
@@ -46,7 +47,7 @@ function ConfigInput({
   }
 
   return (
-    <label className="audit-script-config-field" htmlFor={inputId}>
+    <label className="audit-script-config-field" htmlFor={inputId} title={definition.description}>
       <span>{definition.label}</span>
       {definition.description ? <small id={descriptionId}>{definition.description}</small> : null}
       {definition.type === "select" ? (
@@ -107,7 +108,9 @@ export function AuditScriptConfigForm({
   parameters,
   runtimeSettings,
   settingValues,
+  concurrency,
 }: {
+  concurrency?: ReactNode;
   disabled: boolean;
   errors: Record<string, string>;
   onParameterChange: (key: string, value: AuditScriptValue) => void;
@@ -117,50 +120,25 @@ export function AuditScriptConfigForm({
   runtimeSettings: AuditScriptRuntimeSetting[];
   settingValues: Record<string, AuditScriptValue>;
 }) {
-  if (parameters.length === 0 && runtimeSettings.length === 0) {
-    return <p className="audit-script-config-empty">当前脚本暂无可调参数</p>;
-  }
-
-  return (
-    <div className="audit-script-config-sections">
-      {parameters.length > 0 ? (
-        <section>
-          <h3>节点参数默认值</h3>
-          <p>用于新选择该脚本的流程节点，具体流程仍可单独调整。</p>
-          <div className="audit-script-config-fields">
-            {parameters.map((parameter) => (
-              <ConfigInput
-                definition={parameter}
-                disabled={disabled}
-                error={errors[`parameter:${parameter.key}`] ?? ""}
-                key={parameter.key}
-                namespace="parameter"
-                onChange={(value) => onParameterChange(parameter.key, value)}
-                value={parameterDefaults[parameter.key] ?? ""}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-      {runtimeSettings.length > 0 ? (
-        <section>
-          <h3>运行配置</h3>
-          <p>发布或预览时会将当前值固定到流程快照。</p>
-          <div className="audit-script-config-fields">
-            {runtimeSettings.map((setting) => (
-              <ConfigInput
-                definition={setting}
-                disabled={disabled}
-                error={errors[`setting:${setting.key}`] ?? ""}
-                key={setting.key}
-                namespace="setting"
-                onChange={(value) => onSettingChange(setting.key, value)}
-                value={settingValues[setting.key] ?? ""}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
-    </div>
-  );
+  const common = runtimeSettings.filter((setting) => ["temperature", "requestTimeoutSeconds"].includes(setting.key));
+  const advanced = runtimeSettings.filter((setting) => !common.includes(setting));
+  const renderSetting = (setting: AuditScriptRuntimeSetting) => <ConfigInput
+    definition={setting} disabled={disabled} error={errors[`setting:${setting.key}`] ?? ""}
+    key={setting.key} namespace="setting" onChange={(value) => onSettingChange(setting.key, value)}
+    value={settingValues[setting.key] ?? ""}
+  />;
+  return <div className="audit-script-config-sections">
+    {parameters.length ? <section><h3>审核设置</h3><p>作为新选用该脚本的节点默认值，流程内仍可调整。</p>
+      <div className="audit-script-config-fields">{parameters.map((parameter) => <ConfigInput
+        definition={parameter} disabled={disabled} error={errors[`parameter:${parameter.key}`] ?? ""}
+        key={parameter.key} namespace="parameter" onChange={(value) => onParameterChange(parameter.key, value)}
+        value={parameterDefaults[parameter.key] ?? ""}
+      />)}</div>
+    </section> : null}
+    {concurrency || common.length ? <section><h3>运行参数</h3><div className="audit-script-config-fields">{concurrency}{common.map(renderSetting)}</div></section> : null}
+    {advanced.length ? <details className="script-advanced-settings" open={advanced.some((setting) => Boolean(errors[`setting:${setting.key}`])) || undefined}>
+      <summary>高级设置 <span>{advanced.length} 项</span></summary>
+      <div className="audit-script-config-fields">{advanced.map(renderSetting)}</div>
+    </details> : null}
+  </div>;
 }

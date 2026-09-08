@@ -118,20 +118,21 @@ def request_audit(
         {"type": "image_url", "image_url": {"url": str(page["dataUrl"])}}
         for page in pages
     )
-    body = json.dumps({
+    body = {
         "model": settings["modelName"],
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": content},
         ],
         "response_format": {"type": "json_object"},
-        "thinking": {
-            "type": "enabled" if settings["thinkingEnabled"] else "disabled"
-        },
         "temperature": settings["temperature"],
-    }).encode("utf-8")
+    }
+    options = json.loads(os.environ.get("AUDIT_CHAT_OPTIONS", "{}"))
+    body.update(options.get("body", {}))
+    if options.get("omitTemperature"):
+        body.pop("temperature", None)
     request = Request(
-        f"{base_url}/chat/completions", data=body, method="POST",
+        f"{base_url}/chat/completions", data=json.dumps(body).encode("utf-8"), method="POST",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
     )
     try:

@@ -99,14 +99,17 @@ def list_model_connections() -> dict[str, object]:
     return {
         "cards": [{"id": row["id"], "vendor": row["vendor"], "name": row["name"],
                    "apiUrl": row["api_url"], "hasApiKey": bool(row["encrypted_api_key"]),
-                   "model": row["model"], "revision": row["revision"]} for row in cards],
+                   "model": row["model"], "revision": row["revision"],
+                   "thinking": json.loads(row["thinking_json"])} for row in cards],
         "bindings": [{"scriptId": row["script_id"], "name": SCRIPT_NAMES[row["script_id"]],
                       "cardId": row["card_id"], "revision": row["revision"]} for row in bindings],
     }
 
 
 def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str,
-                    api_key: str | None, model: str, revision: int) -> None:
+                    api_key: str | None, model: str, revision: int, thinking: dict[str, object]) -> None:
+    from app.services.model_thinking import validate_thinking
+    thinking_json = json.dumps(validate_thinking(vendor, model, thinking))
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         encrypted = ""
@@ -122,13 +125,13 @@ def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str
         now = datetime.now(UTC).isoformat()
         if card_id is None:
             connection.execute(
-                "INSERT INTO audit_model_cards (id, vendor, name, api_url, encrypted_api_key, model, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (uuid.uuid4().hex, vendor, name, api_url, encrypted, model, now),
+                "INSERT INTO audit_model_cards (id, vendor, name, api_url, encrypted_api_key, model, updated_at, thinking_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (uuid.uuid4().hex, vendor, name, api_url, encrypted, model, now, thinking_json),
             )
         else:
             connection.execute(
-                "UPDATE audit_model_cards SET vendor = ?, name = ?, api_url = ?, encrypted_api_key = ?, model = ?, revision = revision + 1, updated_at = ? WHERE id = ?",
-                (vendor, name, api_url, encrypted, model, now, card_id),
+                "UPDATE audit_model_cards SET vendor = ?, name = ?, api_url = ?, encrypted_api_key = ?, model = ?, revision = revision + 1, updated_at = ?, thinking_json = ? WHERE id = ?",
+                (vendor, name, api_url, encrypted, model, now, thinking_json, card_id),
             )
 
 
@@ -141,20 +144,6 @@ def delete_model_card(card_id: str, revision: int) -> None:
         if connection.execute("SELECT 1 FROM audit_model_bindings WHERE card_id = ?", (card_id,)).fetchone():
             raise ModelConfigConflict("模型卡正在被审核脚本使用，请先更换脚本的模型")
         connection.execute("DELETE FROM audit_model_cards WHERE id = ?", (card_id,))
-
-
-def bind_model_card(script_id: str, card_id: str, revision: int) -> None:
-    with get_connection() as connection:
-        connection.execute("BEGIN IMMEDIATE")
-        card = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
-        if card is None or not card["api_url"] or not card["encrypted_api_key"] or not card["model"]:
-            raise ValueError("请选择已完整配置的模型卡")
-        result = connection.execute(
-            "UPDATE audit_model_bindings SET card_id = ?, revision = revision + 1 WHERE script_id = ? AND revision = ?",
-            (card_id, script_id, revision),
-        )
-        if result.rowcount != 1:
-            raise ModelConfigConflict("脚本模型已被其他管理员修改，请重新读取")
 
 
 def model_environment(script_id: str) -> dict[str, str]:
@@ -170,4 +159,58 @@ def model_environment(script_id: str) -> dict[str, str]:
         raise RuntimeError("审核模型未配置")
     url_name, key_name, model_name = ENV_NAMES[kind]
     key = _cipher().decrypt(row["encrypted_api_key"].encode()).decode() if row["encrypted_api_key"] else ""
-    return {url_name: row["api_url"], key_name: key, model_name: row["model"]}
+    from app.services.model_thinking import request_thinking_options
+    options = request_thinking_options(row["vendor"], row["model"], json.loads(row["thinking_json"]))
+    return {url_name: row["api_url"], key_name: key, model_name: row["model"],
+            "AUDIT_CHAT_OPTIONS": json.dumps(options)}
+
+
+def initialize_model_thinking() -> None:
+    from app.services.model_thinking import thinking_profile
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(audit_model_cards)")}
+        if "thinking_json" in columns:
+            return
+        connection.execute("ALTER TABLE audit_model_cards ADD COLUMN thinking_json TEXT NOT NULL DEFAULT '{\"mode\":\"default\",\"effort\":\"default\",\"budget\":null}'")
+        for card in connection.execute("SELECT * FROM audit_model_cards").fetchall():
+            modes = set()
+            for binding in connection.execute("SELECT script_id FROM audit_model_bindings WHERE card_id = ?", (card["id"],)):
+                config_path = Path(settings.audit_scripts_root) / binding["script_id"] / "config.json"
+                if config_path.exists():
+                    config = json.loads(config_path.read_text(encoding="utf-8"))
+                    modes.update("on" if item["value"] else "off" for item in config.get("runtimeSettings", []) if item["key"] == "thinkingEnabled")
+            mode = next(iter(modes)) if len(modes) == 1 else "default"
+            if mode not in thinking_profile(card["vendor"], card["model"])["modes"]:
+                mode = "default"
+            connection.execute("UPDATE audit_model_cards SET thinking_json = ? WHERE id = ?", (
+                json.dumps({"mode": mode, "effort": "default", "budget": None}), card["id"],
+            ))
+
+
+def script_model_selection(script_id: str) -> dict[str, object] | None:
+    if script_id not in SCRIPT_PROVIDERS:
+        return None
+    state = list_model_connections()
+    binding = next(item for item in state["bindings"] if item["scriptId"] == script_id)
+    return {"cardId": binding["cardId"], "revision": binding["revision"], "cards": state["cards"]}
+
+
+def validate_script_model(connection, script_id: str, card_id: str | None, revision: int | None) -> None:
+    if script_id not in SCRIPT_PROVIDERS:
+        if card_id is not None or revision is not None:
+            raise ValueError("该脚本不使用大模型")
+        return
+    row = connection.execute("SELECT * FROM audit_model_bindings WHERE script_id = ?", (script_id,)).fetchone()
+    if row is None or row["revision"] != revision:
+        raise ModelConfigConflict("脚本模型已被修改，请重新读取配置")
+    card = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+    if card is None or not card["api_url"] or not card["encrypted_api_key"] or not card["model"]:
+        raise ValueError("请选择已完整配置的模型卡")
+
+
+def save_script_model(connection, script_id: str, card_id: str | None, revision: int | None) -> None:
+    validate_script_model(connection, script_id, card_id, revision)
+    if script_id in SCRIPT_PROVIDERS:
+        connection.execute("UPDATE audit_model_bindings SET card_id = ?, revision = revision + 1 WHERE script_id = ? AND card_id != ?",
+                           (card_id, script_id, card_id))

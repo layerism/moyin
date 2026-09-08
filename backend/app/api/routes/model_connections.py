@@ -7,7 +7,7 @@ from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.services.audit_model_connections import (
-    ModelConfigConflict, bind_model_card, delete_model_card,
+    ModelConfigConflict, delete_model_card,
     list_model_connections, save_model_card,
 )
 from app.services.security import get_current_super_admin
@@ -29,8 +29,16 @@ class ConnectionRoute(APIRoute):
 router = APIRouter(dependencies=[Depends(get_current_super_admin)], route_class=ConnectionRoute)
 
 
+class ThinkingConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    mode: Literal["default", "off", "on"] = "default"
+    effort: str = "default"
+    budget: int | None = Field(default=None, ge=1, le=32768, strict=True)
+
+
 class CardUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    thinking: ThinkingConfig
     vendor: Literal["openai", "deepseek", "qwen", "doubao", "zhipu", "moonshot", "custom"]
     name: str = Field(min_length=1, max_length=100)
     apiUrl: str = Field(min_length=1, max_length=2048)
@@ -65,17 +73,11 @@ class CardUpdate(BaseModel):
         return value
 
 
-class BindingUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    cardId: str = Field(min_length=1, max_length=64)
-    revision: int = Field(ge=0)
-
-
 def _save(card_id: str | None, payload: CardUpdate) -> dict[str, object]:
     try:
         save_model_card(card_id, vendor=payload.vendor, name=payload.name,
                         api_url=payload.apiUrl, api_key=payload.apiKey.strip() if payload.apiKey else None,
-                        model=payload.model, revision=payload.revision)
+                        model=payload.model, revision=payload.revision, thinking=payload.thinking.model_dump())
     except ModelConfigConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
@@ -109,15 +111,7 @@ def remove_card(card_id: str, revision: int = Query(ge=0)) -> dict[str, object]:
     return list_model_connections()
 
 
-@router.put("/bindings/{script_id}")
-def put_binding(
-    script_id: Literal["docx-markdown-completion-audit", "confirmation-visual-audit"],
-    payload: BindingUpdate,
-) -> dict[str, object]:
-    try:
-        bind_model_card(script_id, payload.cardId, payload.revision)
-    except ModelConfigConflict as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    return list_model_connections()
+@router.get("/thinking-profile")
+def get_thinking_profile(vendor: str = Query(max_length=30), model: str = Query(max_length=200)) -> dict[str, object]:
+    from app.services.model_thinking import thinking_profile
+    return thinking_profile(vendor, model)

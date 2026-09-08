@@ -1,3 +1,4 @@
+import type { ModelCard } from "../admin/modelCardsApi";
 import {
   getAuditScriptParameterError,
   type AuditScriptParameter,
@@ -24,6 +25,7 @@ export type AuditScriptManagementSummary = {
 };
 
 export type AuditScriptConfigDetail = AuditScriptManagementSummary & {
+  modelSelection: { cardId: string; revision: number; cards: ModelCard[] } | null;
   configHash: string;
   contentHash: string;
   editorHash: string;
@@ -33,6 +35,8 @@ export type AuditScriptConfigDetail = AuditScriptManagementSummary & {
 };
 
 export type AuditScriptConfigUpdate = {
+  modelCardId: string | null;
+  expectedModelRevision: number | null;
   expectedEditorHash: string;
   maxConcurrency: number;
   parameterDefaults: Record<string, AuditScriptValue>;

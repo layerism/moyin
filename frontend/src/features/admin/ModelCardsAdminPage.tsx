@@ -1,15 +1,11 @@
+import { VendorLogo } from "./VendorLogo";
+import { ModelThinkingFields, thinkingLabel } from "./ModelThinkingFields";
 import { useEffect, useRef, useState } from "react";
 import type { AuthIdentity } from "../auth/authApi";
-import { MODEL_VENDORS, modelCardsApi, type ModelBinding, type ModelCard, type ModelCardDraft, type ModelCardsState, type ModelVendor } from "./modelCardsApi";
+import { MODEL_VENDORS, modelCardsApi, type ModelCard, type ModelCardDraft, type ModelCardsState, type ModelVendor } from "./modelCardsApi";
 
-function VendorLogo({ vendor }: { vendor: ModelVendor }) {
-  return <span className={`model-vendor-logo is-${vendor}`}>
-    {vendor === "custom" ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4" /><path d="m9 9-3 3 3 3m6-6 3 3-3 3" /></svg>
-      : <img src={`/model-providers/${vendor}.svg`} alt="" width={32} height={32} />}
-  </span>;
-}
 const vendorName = (id: ModelVendor) => MODEL_VENDORS.find((vendor) => vendor.id === id)?.name ?? "自定义";
-const emptyDraft: ModelCardDraft = { vendor: "custom", name: "", apiUrl: "", apiKey: "", model: "", revision: 0 };
+const emptyDraft: ModelCardDraft = { vendor: "custom", name: "", apiUrl: "", apiKey: "", model: "", revision: 0, thinking: { mode: "default", effort: "default", budget: null } };
 
 export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdentity; onBack: () => void }) {
   const [data, setData] = useState<ModelCardsState | null>(null);
@@ -20,12 +16,10 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
   const [editor, setEditor] = useState<{ card: ModelCard | null; draft: ModelCardDraft } | null>(null);
   const [editorError, setEditorError] = useState("");
   const [deleting, setDeleting] = useState<ModelCard | null>(null);
-  const [selection, setSelection] = useState<Record<string, string>>({});
   const dialogRef = useRef<HTMLElement>(null);
   const modalOpen = editor !== null || deleting !== null;
   const accept = (state: ModelCardsState) => {
     setData(state);
-    setSelection(Object.fromEntries(state.bindings.map((binding) => [binding.scriptId, binding.cardId])));
   };
   const load = () => {
     setLoading(true);
@@ -51,7 +45,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
   }, [modalOpen, busy]);
   const openEditor = (card: ModelCard | null) => {
     setEditorError("");
-    setEditor({ card, draft: card ? { vendor: card.vendor, name: card.name, apiUrl: card.apiUrl, apiKey: "", model: card.model, revision: card.revision } : { ...emptyDraft } });
+    setEditor({ card, draft: card ? { vendor: card.vendor, name: card.name, apiUrl: card.apiUrl, apiKey: "", model: card.model, revision: card.revision, thinking: card.thinking } : { ...emptyDraft } });
   };
   const save = async () => {
     if (!editor || busy) return;
@@ -60,12 +54,6 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
       accept(await modelCardsApi.save(editor.card?.id ?? null, editor.draft));
       setEditor(null); setError(""); setNotice("模型卡已保存，对新启动的审核生效。");
     } catch (err) { setEditorError(err instanceof Error ? err.message : "保存失败"); }
-    finally { setBusy(false); }
-  };
-  const bind = async (binding: ModelBinding) => {
-    setBusy(true); setError(""); setNotice("");
-    try { accept(await modelCardsApi.bind(binding, selection[binding.scriptId])); setNotice("审核脚本使用的模型已更新。"); }
-    catch (err) { setError(err instanceof Error ? err.message : "保存失败"); }
     finally { setBusy(false); }
   };
   const remove = async () => {
@@ -77,7 +65,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
   };
   if (identity.role !== "super_admin") return <main className="database-admin-denied"><h1>仅超级管理员可访问</h1><button onClick={onBack} type="button">返回</button></main>;
   return <main className="model-admin-page">
-    <header className="database-admin-header"><div><strong>大模型配置</strong><small>管理模型连接与审核脚本使用的模型</small></div><button disabled={busy} onClick={onBack} type="button">返回教务流程</button></header>
+    <header className="database-admin-header"><div><strong>大模型配置</strong><small>管理模型连接、思考模式与档位</small></div><button disabled={busy} onClick={onBack} type="button">返回教务流程</button></header>
     <div className="model-admin-content">
       <section className="model-admin-toolbar"><div><h1>模型卡</h1><p>仅支持 OpenAI Chat Completions 格式</p></div><div className="model-admin-actions"><button disabled={busy || loading} onClick={load} type="button">刷新</button><button className="primary-action" disabled={busy || loading} onClick={() => openEditor(null)} type="button"><span aria-hidden="true">＋</span> 新增模型</button></div></section>
       {error ? <p className="dialog-error" role="alert">{error}</p> : null}
@@ -90,23 +78,21 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
           const ready = card.hasApiKey && Boolean(card.apiUrl && card.model);
           return <article className="model-card" key={card.id}>
             <header><VendorLogo vendor={card.vendor} /><div><h2>{card.name}</h2><span>{vendorName(card.vendor)}</span></div><span className={`model-card-status${ready ? " is-ready" : ""}`}>{ready ? "已配置" : "待完善"}</span></header>
-            <dl><div><dt>模型</dt><dd title={card.model}>{card.model || "未填写"}</dd></div><div><dt>Base URL</dt><dd title={card.apiUrl}>{card.apiUrl || "未填写"}</dd></div><div><dt>API Key</dt><dd>{card.hasApiKey ? "已保存 · 不显示明文" : "未配置"}</dd></div></dl>
+            <dl><div><dt>模型</dt><dd title={card.model}>{card.model || "未填写"}</dd></div><div><dt>Base URL</dt><dd title={card.apiUrl}>{card.apiUrl || "未填写"}</dd></div><div><dt>API Key</dt><dd>{card.hasApiKey ? "已保存 · 不显示明文" : "未配置"}</dd></div><div><dt>思考</dt><dd>{thinkingLabel(card.thinking)}</dd></div></dl>
             <div className="model-card-usage">{uses.length ? uses.map((binding) => <span key={binding.scriptId}>{binding.name}</span>) : <small>暂未用于审核脚本</small>}</div>
             <footer><button type="button" disabled={busy || loading} onClick={() => openEditor(card)}>编辑配置</button><button className="model-delete" type="button" disabled={busy || loading || uses.length > 0} title={uses.length ? "请先更换审核脚本使用的模型" : "删除模型卡"} onClick={() => { setEditorError(""); setDeleting(card); }}>删除</button></footer>
           </article>;
         })}
       </div>
-      {data ? <section className="model-bindings"><div><h2>审核脚本使用的模型</h2><p>视觉审核请选择支持图片输入的模型；请求超时等参数仍在审核脚本中设置。</p></div>
-        {data.bindings.map((binding) => <div className="model-binding-row" key={binding.scriptId}><label htmlFor={`model-${binding.scriptId}`}>{binding.name}</label><select id={`model-${binding.scriptId}`} disabled={busy || loading} value={selection[binding.scriptId] ?? binding.cardId} onChange={(event) => setSelection((current) => ({ ...current, [binding.scriptId]: event.target.value }))}>{data.cards.map((card) => <option value={card.id} key={card.id} disabled={!card.hasApiKey || !card.apiUrl || !card.model}>{card.name} · {card.model || "待完善"}</option>)}</select><button type="button" disabled={busy || loading || !selection[binding.scriptId] || selection[binding.scriptId] === binding.cardId} onClick={() => void bind(binding)}>保存</button></div>)}
-      </section> : null}
     </div>
     {editor ? <div className="modal-backdrop model-card-backdrop"><section ref={dialogRef} className="model-card-dialog" role="dialog" aria-modal="true" aria-labelledby="model-editor-title"><header><div><h2 id="model-editor-title">{editor.card ? "编辑模型卡" : "新增模型卡"}</h2><p>OpenAI Chat Completions</p></div><button type="button" disabled={busy} aria-label="关闭" onClick={() => setEditor(null)}>×</button></header>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
-        <fieldset disabled={busy}><legend>选择厂商</legend><div className="model-vendor-options">{MODEL_VENDORS.map((vendor) => <button key={vendor.id} type="button" aria-pressed={editor.draft.vendor === vendor.id} onClick={() => setEditor({ ...editor, draft: { ...editor.draft, vendor: vendor.id } })}><VendorLogo vendor={vendor.id} /><span>{vendor.name}</span></button>)}</div></fieldset>
+        <fieldset disabled={busy}><legend>选择厂商</legend><div className="model-vendor-options">{MODEL_VENDORS.map((vendor) => <button key={vendor.id} type="button" aria-pressed={editor.draft.vendor === vendor.id} onClick={() => { if (editor.draft.vendor !== vendor.id) setEditor({ ...editor, draft: { ...editor.draft, vendor: vendor.id, thinking: { ...emptyDraft.thinking } } }); }}><VendorLogo vendor={vendor.id} /><span>{vendor.name}</span></button>)}</div></fieldset>
         <label className="audit-script-config-field">配置名称<input autoComplete="off" required maxLength={100} placeholder="例如：材料视觉审核" disabled={busy} value={editor.draft.name} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, name: event.target.value } })} /></label>
         <label className="audit-script-config-field">Base URL<input type="url" required maxLength={2048} placeholder="填写兼容接口的基础地址" disabled={busy} value={editor.draft.apiUrl} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiUrl: event.target.value } })} /><small>系统在地址后添加 /chat/completions，请保留服务商要求的版本路径。</small></label>
         <label className="audit-script-config-field">API Key<input type="password" autoComplete="new-password" required={!editor.card?.hasApiKey} maxLength={4096} placeholder={editor.card?.hasApiKey ? "留空保留原密钥，输入新密钥替换" : "填写 API Key"} disabled={busy} value={editor.draft.apiKey} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiKey: event.target.value } })} /></label>
-        <label className="audit-script-config-field">模型名称<input required maxLength={200} autoComplete="off" placeholder="填写接口接受的模型 ID" disabled={busy} value={editor.draft.model} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, model: event.target.value } })} /></label>
+        <label className="audit-script-config-field">模型名称<input required maxLength={200} autoComplete="off" placeholder="填写接口接受的模型 ID" disabled={busy} value={editor.draft.model} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, model: event.target.value, thinking: { ...emptyDraft.thinking } } })} /></label>
+        <ModelThinkingFields vendor={editor.draft.vendor} model={editor.draft.model} value={editor.draft.thinking} disabled={busy} onChange={(thinking) => setEditor({ ...editor, draft: { ...editor.draft, thinking } })} />
         {editorError ? <p className="dialog-error" role="alert">{editorError}</p> : null}
         <footer><button type="button" disabled={busy} onClick={() => setEditor(null)}>取消</button><button className="primary-action" type="submit" disabled={busy}>{busy ? "保存中…" : "保存模型卡"}</button></footer>
       </form></section></div> : null}

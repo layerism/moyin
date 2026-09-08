@@ -1,3 +1,5 @@
+import { VendorLogo } from "../admin/VendorLogo";
+import { thinkingLabel } from "../admin/ModelThinkingFields";
 import { useEffect, useState } from "react";
 
 import { ApiError, workflowApi } from "./api";
@@ -68,6 +70,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   const [parameterDefaults, setParameterDefaults] = useState<Record<string, AuditScriptValue>>({});
   const [runtimeSettings, setRuntimeSettings] = useState<Record<string, AuditScriptValue>>({});
   const [maxConcurrency, setMaxConcurrency] = useState(4);
+  const [modelCardId, setModelCardId] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -98,6 +101,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
       setParameterDefaults(createParameterDefaultDraft(nextDetail));
       setRuntimeSettings(createRuntimeSettingDraft(nextDetail));
       setMaxConcurrency(nextDetail.maxConcurrency);
+      setModelCardId(nextDetail.modelSelection?.cardId ?? "");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "读取脚本配置失败");
     } finally {
@@ -127,7 +131,11 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   const concurrencyError = !Number.isInteger(maxConcurrency)
     || maxConcurrency < 1
     || maxConcurrency > 32;
-  const canSave = configChanged
+  const modelChanged = Boolean(detail?.modelSelection && modelCardId !== detail.modelSelection.cardId);
+  const selectedModel = detail?.modelSelection?.cards.find((card) => card.id === modelCardId);
+  const validModel = !detail?.modelSelection || Boolean(selectedModel?.hasApiKey && selectedModel.apiUrl && selectedModel.model);
+  const canSave = (configChanged || modelChanged)
+    && validModel
     && !concurrencyError
     && Object.keys(configErrors).length === 0
     && !saving;
@@ -138,6 +146,8 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     clearSaveMessages();
     try {
       const updated = await workflowApi.updateAuditScriptConfig(detail.id, {
+        modelCardId: detail.modelSelection ? modelCardId : null,
+        expectedModelRevision: detail.modelSelection?.revision ?? null,
         expectedEditorHash: detail.editorHash,
         maxConcurrency,
         parameterDefaults,
@@ -145,6 +155,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
       });
       setDetail(updated);
       setMaxConcurrency(updated.maxConcurrency);
+      setModelCardId(updated.modelSelection?.cardId ?? "");
       setParameterDefaults(createParameterDefaultDraft(updated));
       setRuntimeSettings(createRuntimeSettingDraft(updated));
       setScripts((current) => (current ?? []).map((script) =>
@@ -167,14 +178,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     clearSaveMessages();
   };
 
-  const hasEditableConfig = Boolean(
-    detail && (
-      detail.parameters.length > 0
-      || detail.runtimeSettings.length > 0
-    ),
-  );
-  const hasEditableContent = Boolean(detail);
-
   const query = search.trim().toLocaleLowerCase();
   const filteredScripts = (scripts ?? []).filter((script) =>
     `${script.name} ${script.description}`.toLocaleLowerCase().includes(query)
@@ -185,15 +188,15 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
       <section
         aria-labelledby="audit-script-metadata-title"
         aria-modal="true"
-        className={`audit-script-metadata-dialog${detail ? "" : " is-list"}`}
+        className={`audit-script-metadata-dialog${detail ? " is-editor" : " is-list"}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
         <header>
           <div>
-            <span>预置脚本</span>
+            <span>{detail ? `${detail.language === "py" ? "Python" : "JavaScript"} · 更新于 ${formatUpdatedAt(detail.updatedAt)}` : "预置脚本"}</span>
             <h2 id="audit-script-metadata-title">
-              {detail ? "配置审核脚本" : "审核脚本管理"}
+              {detail ? detail.name : "审核脚本管理"}
             </h2>
           </div>
           <button aria-label="关闭审核脚本管理" disabled={saving} onClick={onClose} type="button">×</button>
@@ -204,45 +207,37 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
             event.preventDefault();
             void saveChanges();
           }}>
-            <div className="audit-script-config-heading">
-              <small>{detail.language === "py" ? "Python" : "JavaScript"} · 代际 {detail.generation} · {detail.id} · 更新于 {formatUpdatedAt(detail.updatedAt)}</small>
+            <div className="script-editor-scroll">
+              {detail.modelSelection ? <section className="script-model-section">
+                <div className="script-section-heading"><h3>使用模型</h3><span>思考设置由模型卡管理</span></div>
+                <details className="script-model-picker">
+                  <summary aria-label="选择审核模型">{selectedModel ? <><VendorLogo vendor={selectedModel.vendor} /><span><strong>{selectedModel.name}</strong><small>{selectedModel.model} · {thinkingLabel(selectedModel.thinking)}</small></span></> : <span>请选择已配置的模型</span>}<span className="script-picker-arrow" aria-hidden="true">⌄</span></summary>
+                  <fieldset disabled={saving}><legend>选择模型卡</legend>{detail.modelSelection.cards.map((card) => <label className="script-model-option" key={card.id}>
+                    <input type="radio" name="script-model" value={card.id} checked={modelCardId === card.id} disabled={!card.hasApiKey || !card.apiUrl || !card.model} onChange={(event) => { setModelCardId(card.id); clearSaveMessages(); const picker = event.currentTarget.closest("details"); if (picker) { picker.open = false; picker.querySelector("summary")?.focus(); } }} />
+                    <VendorLogo vendor={card.vendor} /><span><strong>{card.name}</strong><small>{card.model || "尚未填写模型"} · {card.hasApiKey && card.apiUrl && card.model ? thinkingLabel(card.thinking) : "配置未完成"}</small></span>
+                  </label>)}</fieldset>
+                </details>
+                {!validModel ? <p className="dialog-error" role="alert">请先由管理员完善模型配置，再选择模型。</p> : null}
+              </section> : null}
+              <AuditScriptConfigForm
+                disabled={saving} errors={configErrors}
+                onParameterChange={(key, value) => updateDraft("parameter", key, value)}
+                onSettingChange={(key, value) => updateDraft("setting", key, value)}
+                parameterDefaults={parameterDefaults} parameters={detail.parameters}
+                runtimeSettings={detail.runtimeSettings} settingValues={runtimeSettings}
+                concurrency={<label className="audit-script-config-field"><span>最大并发数</span>
+                  <input aria-invalid={concurrencyError} disabled={saving} max={32} min={1} step={1} onChange={(event) => { setMaxConcurrency(Number(event.target.value)); clearSaveMessages(); }} type="number" value={maxConcurrency} />
+                  {concurrencyError ? <small className="audit-script-config-error">请输入 1–32 的整数</small> : null}
+                </label>}
+              />
             </div>
-
-            <section className="audit-script-basic-section">
-              <div>
-                <h3>基本信息</h3>
-                <p>脚本基本信息由服务器代码维护，管理端仅提供配置修改。</p>
-              </div>
-              <div className="audit-script-basic-readonly">
-                <strong>{detail.name}</strong>
-                <p>{detail.description}</p>
-              </div>
-            </section>
-
-            <section className="audit-script-basic-section">
-              <div><h3>并发配置</h3><p>配置保存后立即生效；未完成审核将要求学生重新提交。</p></div>
-              <label><span>单脚本最大并发数</span>
-                <input aria-invalid={concurrencyError} disabled={saving} max={32} min={1} onChange={(event) => { setMaxConcurrency(Number(event.target.value)); clearSaveMessages(); }} type="number" value={maxConcurrency} />
-                {concurrencyError ? <small className="audit-script-config-error">请输入 1–32 的整数</small> : null}
-              </label>
-            </section>
-
-            {hasEditableConfig ? <AuditScriptConfigForm
-              disabled={saving}
-              errors={configErrors}
-              onParameterChange={(key, value) => updateDraft("parameter", key, value)}
-              onSettingChange={(key, value) => updateDraft("setting", key, value)}
-              parameterDefaults={parameterDefaults}
-              parameters={detail.parameters}
-              runtimeSettings={detail.runtimeSettings}
-              settingValues={runtimeSettings}
-            /> : null}
             {saveError ? <p className="dialog-error" role="alert">{saveError}</p> : null}
             <footer>
+              <p>{configChanged ? "参数修改会使未完成审核失效，需重新提交。" : "模型选择对新启动的审核生效。"}</p>
               <button disabled={saving} onClick={closeDetail} type="button">返回</button>
-              {hasEditableContent ? <button className="primary-action" disabled={!canSave} type="submit">
+              <button className="primary-action" disabled={!canSave} type="submit">
                 {saving ? "保存中…" : "保存修改"}
-              </button> : null}
+              </button>
             </footer>
           </form>
         ) : (
