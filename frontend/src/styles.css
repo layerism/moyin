@@ -12442,26 +12442,30 @@ td {
 .model-admin-page button:disabled { opacity: .5; cursor: not-allowed; }
 .model-admin-page button:focus-visible, .model-admin-page select:focus-visible,
 .model-admin-page input:focus-visible { outline: 2px solid #2878f0; outline-offset: 2px; }
-.model-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.model-card { min-width: 0; padding: 22px; border: 1px solid #e0e5ed; border-radius: 10px; background: #fff; }
+.model-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.model-card { min-width: 0; padding: 16px; border: 1px solid #e0e5ed; border-radius: 10px; background: #fff; }
 .model-vendor-logo { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 10px; background: #f5f7fb; }
 .model-vendor-logo > img, .model-vendor-logo > svg { width: 30px; height: 30px; object-fit: contain; }
 .model-vendor-logo.is-deepseek { background: #eef3ff; }
 .model-vendor-logo.is-qwen { background: #f3f0ff; }
 .model-vendor-logo.is-doubao { background: #eef7ff; }
 .model-card > header > div { flex: 1; min-width: 0; }
-.model-card h2 { margin: 0 0 5px; font-size: 17px; overflow-wrap: anywhere; }
+.model-card h2 { margin: 0 0 3px; font-size: 15px; overflow-wrap: anywhere; }
 .model-card > header > div > span { font-size: 13px; color: #667085; }
 .model-card-status { padding: 4px 8px; background: #fff8eb; border-radius: 5px; color: #946200; font-size: 12px; white-space: nowrap; }
 .model-card-status.is-ready { background: #ecfdf3; color: #087b51; }
-.model-card dl { display: grid; gap: 12px; margin: 24px 0 18px; font-size: 13px; }
-.model-card dl > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; }
+.model-card dl { display: grid; gap: 7px; margin: 14px 0 10px; font-size: 13px; }
+.model-card dl > div { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 8px; }
 .model-card dt { color: #667085; }
 .model-card dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.model-card-usage { min-height: 32px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
-.model-card-usage > span { font-size: 12px; padding: 4px 8px; border-radius: 4px; background: #f0f5ff; color: #36588c; }
+.model-card-usage { min-height: 24px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.model-card-usage > span { font-size: 12px; padding: 3px 6px; border-radius: 4px; background: #f0f5ff; color: #36588c; }
 .model-card-usage > small { color: #8a94a6; font-size: 12px; }
-.model-card > footer { border-top: 1px solid #edf0f4; padding-top: 16px; }
+.model-card > footer { border-top: 1px solid #edf0f4; padding-top: 10px; }
+.model-card > header { gap: 8px; }
+.model-card .model-vendor-logo { width: 36px; height: 36px; border-radius: 8px; }
+.model-card .model-vendor-logo > img, .model-card .model-vendor-logo > svg { width: 24px; height: 24px; }
+.model-card > footer button { min-height: 30px; padding: 5px 10px; font-size: 13px; }
 .model-admin-page button.model-delete { color: #c53434; }
 .model-bindings { padding: 24px; margin-top: 28px; border: 1px solid #e0e5ed; border-radius: 10px; background: #fff; }
 .model-bindings h2 { margin: 0; font-size: 18px; }
@@ -12484,6 +12488,9 @@ td {
 .model-card-dialog footer { justify-content: flex-end; padding-top: 16px; border-top: 1px solid #edf0f4; }
 .model-delete-dialog { max-width: 440px; }
 .model-delete-dialog > p { font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+@media (min-width: 721px) and (max-width: 1000px) {
+  .model-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 720px) {
   .model-admin-content { padding: 22px 16px; }
   .model-card-grid { grid-template-columns: minmax(0, 1fr); }
