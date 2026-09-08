@@ -1,3 +1,4 @@
+import { ModelCardBalance } from "./ModelCardBalance";
 import { VendorLogo } from "./VendorLogo";
 import { ModelThinkingFields, thinkingLabel } from "./ModelThinkingFields";
 import { useEffect, useRef, useState } from "react";
@@ -80,6 +81,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
             <header><VendorLogo vendor={card.vendor} /><div><h2>{card.name}</h2><span>{vendorName(card.vendor)}</span></div><span className={`model-card-status${ready ? " is-ready" : ""}`}>{ready ? "已配置" : "待完善"}</span></header>
             <dl><div><dt>模型</dt><dd title={card.model}>{card.model || "未填写"}</dd></div><div><dt>Base URL</dt><dd title={card.apiUrl}>{card.apiUrl || "未填写"}</dd></div><div><dt>API Key</dt><dd>{card.hasApiKey ? "已保存 · 不显示明文" : "未配置"}</dd></div><div><dt>思考</dt><dd>{thinkingLabel(card.thinking)}</dd></div></dl>
             <div className="model-card-usage">{uses.length ? uses.map((binding) => <span key={binding.scriptId}>{binding.name}</span>) : <small>暂未用于审核脚本</small>}</div>
+            <ModelCardBalance key={`${card.id}:${card.revision}`} card={card} />
             <footer><button type="button" disabled={busy || loading} onClick={() => openEditor(card)}>编辑配置</button><button className="model-delete" type="button" disabled={busy || loading || uses.length > 0} title={uses.length ? "请先更换审核脚本使用的模型" : "删除模型卡"} onClick={() => { setEditorError(""); setDeleting(card); }}>删除</button></footer>
           </article>;
         })}

@@ -9,6 +9,7 @@ from cryptography.fernet import Fernet
 
 from app.core.config import settings
 from app.core.database import get_connection
+from app.services.model_balance import balance_capability
 
 ENV_NAMES = {
     "document": ("DEEPSEEK_API_URL", "DEEPSEEK_API_KEY", "DEEPSEEK_MODEL"),
@@ -100,7 +101,8 @@ def list_model_connections() -> dict[str, object]:
         "cards": [{"id": row["id"], "vendor": row["vendor"], "name": row["name"],
                    "apiUrl": row["api_url"], "hasApiKey": bool(row["encrypted_api_key"]),
                    "model": row["model"], "revision": row["revision"],
-                   "thinking": json.loads(row["thinking_json"])} for row in cards],
+                   "thinking": json.loads(row["thinking_json"]),
+                   "balanceCapability": balance_capability(row["vendor"], row["api_url"])} for row in cards],
         "bindings": [{"scriptId": row["script_id"], "name": SCRIPT_NAMES[row["script_id"]],
                       "cardId": row["card_id"], "revision": row["revision"]} for row in bindings],
     }
@@ -214,3 +216,22 @@ def save_script_model(connection, script_id: str, card_id: str | None, revision:
     if script_id in SCRIPT_PROVIDERS:
         connection.execute("UPDATE audit_model_bindings SET card_id = ?, revision = revision + 1 WHERE script_id = ? AND card_id != ?",
                            (card_id, script_id, card_id))
+
+
+def query_model_balance(card_id: str, revision: int) -> dict:
+    from cryptography.fernet import InvalidToken
+    from app.services.model_balance import fetch_balance
+    with get_connection() as connection:
+        row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+    if row is None or row["revision"] != revision:
+        raise ModelConfigConflict("模型卡已被修改或删除，请刷新后重试")
+    capability = balance_capability(row["vendor"], row["api_url"])
+    if not capability["supported"]:
+        raise ValueError(capability["reason"])
+    if not row["encrypted_api_key"]:
+        raise ValueError("请先配置 API Key")
+    try:
+        key = _cipher().decrypt(row["encrypted_api_key"].encode()).decode()
+    except (InvalidToken, UnicodeError):
+        raise RuntimeError("模型密钥无法解密，请重新保存 API Key") from None
+    return fetch_balance(row["vendor"], row["api_url"], key)

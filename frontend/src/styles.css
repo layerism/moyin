@@ -12558,3 +12558,12 @@ td {
 }
 
 .script-model-picker legend { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.model-card-balance { padding: 9px 0; border-top: 1px solid #edf0f5; color: #64748b; font-size: 12px; }
+.model-balance-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.model-balance-heading button { padding: 3px 8px; border: 1px solid #d6e2f5; border-radius: 5px; color: #2563eb; background: #f5f8ff; font: inherit; cursor: pointer; }
+.model-balance-heading button:disabled { opacity: .55; cursor: default; }
+.model-card-balance small { display: block; margin-top: 4px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.model-balance-detail { margin-top: 6px; }
+.model-balance-detail strong { color: #172033; font-size: 17px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.model-balance-detail strong small { display: inline; font-weight: 400; }

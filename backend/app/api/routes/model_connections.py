@@ -115,3 +115,18 @@ def remove_card(card_id: str, revision: int = Query(ge=0)) -> dict[str, object]:
 def get_thinking_profile(vendor: str = Query(max_length=30), model: str = Query(max_length=200)) -> dict[str, object]:
     from app.services.model_thinking import thinking_profile
     return thinking_profile(vendor, model)
+
+
+@router.get("/cards/{card_id}/balance")
+def get_card_balance(card_id: str, revision: int = Query(ge=0)):
+    from fastapi.responses import JSONResponse
+    from app.services.audit_model_connections import query_model_balance
+    try:
+        result = query_model_balance(card_id, revision)
+    except ModelConfigConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})

@@ -19,7 +19,9 @@ export interface ModelCard {
   model: string;
   revision: number;
   thinking: ModelThinking;
+  balanceCapability: { supported: boolean; reason: string };
 }
+export interface ModelBalance { available: boolean; checkedAt: string; balances: { currency: string; available: string; credit: string; cash: string }[] }
 export interface ModelBinding {
   scriptId: string;
   name: string;
@@ -30,7 +32,7 @@ export interface ModelCardsState {
   cards: ModelCard[];
   bindings: ModelBinding[];
 }
-export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey"> & { apiKey: string };
+export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey" | "balanceCapability"> & { apiKey: string };
 const BASE = "/api/workflow-admin/model-connections";
 async function request<T = ModelCardsState>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, {
@@ -44,6 +46,7 @@ async function request<T = ModelCardsState>(path: string, init?: RequestInit): P
   return response.json() as Promise<T>;
 }
 export const modelCardsApi = {
+  balance: (card: ModelCard) => request<ModelBalance>(`/cards/${encodeURIComponent(card.id)}/balance?revision=${card.revision}`, { cache: "no-store" }),
   list: () => request(""),
   save: (id: string | null, draft: ModelCardDraft) => request(id ? `/cards/${encodeURIComponent(id)}` : "/cards", {
     method: id ? "PUT" : "POST", body: JSON.stringify(draft),
