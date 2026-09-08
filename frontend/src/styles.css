@@ -12567,3 +12567,33 @@ td {
 .model-balance-detail { margin-top: 6px; }
 .model-balance-detail strong { color: #172033; font-size: 17px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .model-balance-detail strong small { display: inline; font-weight: 400; }
+
+/* Model editor: grouped fields with stationary header and actions. */
+.model-editor-dialog { width: min(720px, 100%); padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.model-editor-dialog > header { flex-shrink: 0; padding: 18px 22px; border-bottom: 1px solid #e9edf3; }
+.model-editor-dialog h2 { font-size: 18px; }
+.model-editor-dialog header p { margin-top: 3px; font-size: 12px; }
+.model-editor-dialog > form { display: flex; flex-direction: column; gap: 0; margin: 0; min-height: 0; overflow: hidden; }
+.model-editor-body { display: grid; gap: 16px; padding: 16px 22px; min-height: 0; overflow-y: auto; }
+.model-editor-dialog legend { margin-bottom: 8px; font-size: 13px; }
+.model-editor-dialog .model-vendor-options { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.model-admin-page .model-editor-dialog .model-vendor-options button { padding: 5px 8px; min-height: 34px; }
+.model-editor-dialog .model-vendor-logo { width: 22px; height: 22px; }
+.model-editor-dialog .model-vendor-logo > img, .model-editor-dialog .model-vendor-logo > svg { width: 18px; height: 18px; }
+.model-editor-connection { display: grid; gap: 10px; border-top: 1px solid #e9edf3; padding-top: 12px; }
+.model-editor-connection h3 { margin: 0; font-size: 13px; }
+.model-editor-name-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.model-editor-dialog .audit-script-config-field { gap: 5px; min-width: 0; font-size: 12px; }
+.model-editor-dialog .audit-script-config-field input, .model-editor-dialog .audit-script-config-field select { box-sizing: border-box; width: 100%; min-width: 0; height: 36px; padding: 7px 10px; font-size: 13px; }
+.model-editor-dialog .audit-script-config-field small { font-size: 11px; line-height: 1.4; }
+.model-editor-dialog .model-thinking-settings { padding: 12px; border: 1px solid #e9edf3; border-radius: 8px; background: #f8fafc; }
+.model-editor-dialog .model-thinking-settings h3 { font-size: 13px; }
+.model-editor-dialog .model-thinking-settings > p { margin: 4px 0 8px; font-size: 11px; line-height: 1.5; }
+.model-editor-dialog form > footer { flex-shrink: 0; padding: 12px 22px; background: #fff; }
+@media (max-width: 560px) {
+  .model-editor-dialog > header { padding: 14px 16px; }
+  .model-editor-body { padding: 14px 16px; }
+  .model-editor-dialog .model-vendor-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .model-editor-name-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .model-editor-dialog form > footer { padding: 12px 16px; }
+}

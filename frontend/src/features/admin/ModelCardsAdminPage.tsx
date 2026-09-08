@@ -87,15 +87,22 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
         })}
       </div>
     </div>
-    {editor ? <div className="modal-backdrop model-card-backdrop"><section ref={dialogRef} className="model-card-dialog" role="dialog" aria-modal="true" aria-labelledby="model-editor-title"><header><div><h2 id="model-editor-title">{editor.card ? "编辑模型卡" : "新增模型卡"}</h2><p>OpenAI Chat Completions</p></div><button type="button" disabled={busy} aria-label="关闭" onClick={() => setEditor(null)}>×</button></header>
+    {editor ? <div className="modal-backdrop model-card-backdrop"><section ref={dialogRef} className="model-card-dialog model-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="model-editor-title"><header><div><h2 id="model-editor-title">{editor.card ? "编辑模型卡" : "新增模型卡"}</h2><p>OpenAI Chat Completions</p></div><button type="button" disabled={busy} aria-label="关闭" onClick={() => setEditor(null)}>×</button></header>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
+        <div className="model-editor-body">
         <fieldset disabled={busy}><legend>选择厂商</legend><div className="model-vendor-options">{MODEL_VENDORS.map((vendor) => <button key={vendor.id} type="button" aria-pressed={editor.draft.vendor === vendor.id} onClick={() => { if (editor.draft.vendor !== vendor.id) setEditor({ ...editor, draft: { ...editor.draft, vendor: vendor.id, thinking: { ...emptyDraft.thinking } } }); }}><VendorLogo vendor={vendor.id} /><span>{vendor.name}</span></button>)}</div></fieldset>
+        <section className="model-editor-connection" aria-labelledby="model-connection-title">
+          <h3 id="model-connection-title">连接配置</h3>
+          <div className="model-editor-name-row">
         <label className="audit-script-config-field">配置名称<input autoComplete="off" required maxLength={100} placeholder="例如：材料视觉审核" disabled={busy} value={editor.draft.name} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, name: event.target.value } })} /></label>
-        <label className="audit-script-config-field">Base URL<input type="url" required maxLength={2048} placeholder="填写兼容接口的基础地址" disabled={busy} value={editor.draft.apiUrl} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiUrl: event.target.value } })} /><small>系统在地址后添加 /chat/completions，请保留服务商要求的版本路径。</small></label>
-        <label className="audit-script-config-field">API Key<input type="password" autoComplete="new-password" required={!editor.card?.hasApiKey} maxLength={4096} placeholder={editor.card?.hasApiKey ? "留空保留原密钥，输入新密钥替换" : "填写 API Key"} disabled={busy} value={editor.draft.apiKey} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiKey: event.target.value } })} /></label>
         <label className="audit-script-config-field">模型名称<input required maxLength={200} autoComplete="off" placeholder="填写接口接受的模型 ID" disabled={busy} value={editor.draft.model} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, model: event.target.value, thinking: { ...emptyDraft.thinking } } })} /></label>
+          </div>
+        <label className="audit-script-config-field">Base URL<input type="url" required maxLength={2048} placeholder="填写兼容接口的基础地址" disabled={busy} value={editor.draft.apiUrl} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiUrl: event.target.value } })} /><small>保留版本路径，系统自动添加 /chat/completions。</small></label>
+        <label className="audit-script-config-field">API Key<input type="password" autoComplete="new-password" required={!editor.card?.hasApiKey} maxLength={4096} placeholder={editor.card?.hasApiKey ? "留空保留原密钥，输入新密钥替换" : "填写 API Key"} disabled={busy} value={editor.draft.apiKey} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiKey: event.target.value } })} /></label>
+        </section>
         <ModelThinkingFields vendor={editor.draft.vendor} model={editor.draft.model} value={editor.draft.thinking} disabled={busy} onChange={(thinking) => setEditor({ ...editor, draft: { ...editor.draft, thinking } })} />
         {editorError ? <p className="dialog-error" role="alert">{editorError}</p> : null}
+        </div>
         <footer><button type="button" disabled={busy} onClick={() => setEditor(null)}>取消</button><button className="primary-action" type="submit" disabled={busy}>{busy ? "保存中…" : "保存模型卡"}</button></footer>
       </form></section></div> : null}
     {deleting ? <div className="modal-backdrop model-card-backdrop"><section ref={dialogRef} className="model-card-dialog model-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="model-delete-title"><h2 id="model-delete-title">删除模型卡</h2><p>确定删除“{deleting.name}”及其保存的连接配置？</p>{editorError ? <p className="dialog-error" role="alert">{editorError}</p> : null}<footer><button disabled={busy} onClick={() => setDeleting(null)} type="button">取消</button><button disabled={busy} className="model-delete" onClick={() => void remove()} type="button">确认删除</button></footer></section></div> : null}
