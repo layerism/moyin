@@ -12574,9 +12574,10 @@ td {
 .model-card-popover small { display: block; margin-top: 4px; color: #667085; font-size: 11px; line-height: 1.5; }
 .model-card-popover > div + div { margin-top: 8px; }
 .model-card > header > .model-card-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
-.model-test-control { display: flex; position: relative; align-items: center; gap: 2px; }
+.model-test-control { display: flex; position: relative; align-items: center; gap: 5px; }
 .model-admin-page .model-test-button { min-height: 26px; padding: 3px 6px; font-size: 11px; color: #2563eb; }
-.model-admin-page .model-test-result { min-height: 22px; width: 18px; padding: 0; border: 0; background: transparent; font-size: 12px; }
+.model-admin-page .model-test-result { min-height: 22px; padding: 0; border: 0; background: transparent; font-size: 11px; line-height: 22px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.model-test-error { width: min(240px, 75vw); padding: 10px 12px; line-height: 1.5; }
 .model-admin-page .model-test-result.is-success { color: #087b51; }
 .model-admin-page .model-test-result.is-error { color: #c53434; }
 .model-billing-fields > p { margin: 0; font-size: 11px; color: #667085; line-height: 1.5; }
