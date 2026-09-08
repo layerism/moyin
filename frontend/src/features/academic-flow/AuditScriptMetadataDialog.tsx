@@ -154,7 +154,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     setSaving(true);
     clearSaveMessages();
     try {
-      const updated = await workflowApi.updateAuditScriptConfig(detail.id, {
+      await workflowApi.updateAuditScriptConfig(detail.id, {
         modelCardId: detail.modelSelection ? modelCardId : null,
         expectedModelRevision: detail.modelSelection?.revision ?? null,
         expectedEditorHash: detail.editorHash,
@@ -162,14 +162,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
         parameterDefaults,
         runtimeSettings,
       });
-      setDetail(updated);
-      setMaxConcurrency(updated.maxConcurrency);
-      setModelCardId(updated.modelSelection?.cardId ?? "");
-      setParameterDefaults(createParameterDefaultDraft(updated));
-      setRuntimeSettings(createRuntimeSettingDraft(updated));
-      setScripts((current) => (current ?? []).map((script) =>
-        script.id === updated.id ? { ...script, ...updated } : script
-      ).sort((left, right) => left.name.localeCompare(right.name, "zh-CN")));
+      onClose();
     } catch (error) {
       const message = error instanceof ApiError && error.status === 409
         ? "审核脚本已被其他管理员修改，请重新加载"
