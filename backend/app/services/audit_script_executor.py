@@ -141,11 +141,15 @@ def _run_process(
 ) -> bytes:
     _raise_if_cancelled(cancelled)
     command = _command_for(descriptor)
+    environment = _script_environment(descriptor)
+    if "VISION_MODEL" in environment:
+        context = dict(payload["context"])
+        context["scriptSettings"] = {**context["scriptSettings"], "modelName": environment["VISION_MODEL"]}
+        payload = {**payload, "context": context}
     try:
         stdin = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     except (TypeError, ValueError):
         raise AuditScriptExecutionError("审核脚本输入协议无效") from None
-    environment = _script_environment(descriptor)
 
     try:
         process = subprocess.Popen(

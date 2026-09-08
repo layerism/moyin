@@ -10,7 +10,7 @@ type TemplateDraft = { id?: string; sourceFlowId: string; name: string; descript
 
 export function WorkflowTemplatesPage({
   processes, sourceFlowId, teacherIdentity, onAcademicFlow, onOssCloud,
-  onCreated, onDatabaseAdmin, onTeacherInvitations, onTeacherLogout,
+  onCreated, onDatabaseAdmin, onModelAdmin, onTeacherInvitations, onTeacherLogout,
 }: {
   processes: AcademicProcess[];
   sourceFlowId: string | null;
@@ -19,6 +19,7 @@ export function WorkflowTemplatesPage({
   onOssCloud: () => void;
   onCreated: (flow: ServerFlow) => void;
   onDatabaseAdmin: () => void;
+  onModelAdmin: () => void;
   onTeacherInvitations: () => void;
   onTeacherLogout: () => void;
 }) {
@@ -90,7 +91,7 @@ export function WorkflowTemplatesPage({
     <section className="drive-main">
       <header className="drive-topbar">
         <label className="drive-search"><span>⌕</span><input aria-label="搜索流程模板" placeholder="搜索流程模板" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-        <TeacherAccountMenu identity={teacherIdentity} onDatabaseAdmin={onDatabaseAdmin} onTeacherInvitations={onTeacherInvitations} onLogout={onTeacherLogout} />
+        <TeacherAccountMenu identity={teacherIdentity} onDatabaseAdmin={onDatabaseAdmin} onModelAdmin={onModelAdmin} onTeacherInvitations={onTeacherInvitations} onLogout={onTeacherLogout} />
       </header>
       <section className="drive-panel workflow-template-panel" aria-label="流程模板">
         <header className="workflow-template-heading">

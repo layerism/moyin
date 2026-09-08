@@ -1,4 +1,3 @@
-import { ModelConnectionsForm } from "./ModelConnectionsForm";
 import { useEffect, useState } from "react";
 
 import { ApiError, workflowApi } from "./api";
@@ -61,7 +60,6 @@ function ScriptCapabilityIcons({ script }: { script: AuditScriptManagementSummar
 }
 
 export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) {
-  const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [scripts, setScripts] = useState<AuditScriptManagementSummary[] | null>(null);
   const [search, setSearch] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -195,13 +193,13 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
           <div>
             <span>预置脚本</span>
             <h2 id="audit-script-metadata-title">
-              {connectionsOpen ? "大模型配置" : detail ? "配置审核脚本" : "审核脚本管理"}
+              {detail ? "配置审核脚本" : "审核脚本管理"}
             </h2>
           </div>
           <button aria-label="关闭审核脚本管理" disabled={saving} onClick={onClose} type="button">×</button>
         </header>
 
-        {connectionsOpen ? <ModelConnectionsForm onBack={() => setConnectionsOpen(false)} onSavingChange={setSaving} /> : detail ? (
+        {detail ? (
           <form className="audit-script-metadata-form audit-script-config-form" onSubmit={(event) => {
             event.preventDefault();
             void saveChanges();
@@ -249,7 +247,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
           </form>
         ) : (
           <div className="audit-script-metadata-content">
-            <div className="model-connections-entry"><button className="primary-action" type="button" disabled={detailLoading} onClick={() => setConnectionsOpen(true)}>大模型配置</button></div>
             <div className="audit-script-search-toolbar">
               <input
                 aria-label="搜索脚本名称或说明"

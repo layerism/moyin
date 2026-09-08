@@ -4,12 +4,13 @@ import type { AuthIdentity } from "./authApi";
 
 export function TeacherAccountMenu({
   identity,
-  onDatabaseAdmin,
+  onDatabaseAdmin, onModelAdmin,
   onLogout,
   onTeacherInvitations,
 }: {
   identity: AuthIdentity;
   onDatabaseAdmin: () => void;
+  onModelAdmin: () => void;
   onLogout: () => void;
   onTeacherInvitations: () => void;
 }) {
@@ -56,6 +57,9 @@ export function TeacherAccountMenu({
             <div className="teacher-account-admin-actions">
               <button className="teacher-account-admin" onClick={onTeacherInvitations} type="button">
                 教师邀请
+              </button>
+              <button className="teacher-account-admin" onClick={onModelAdmin} type="button">
+                大模型配置
               </button>
               <button className="teacher-account-admin" onClick={onDatabaseAdmin} type="button">
                 数据库管理

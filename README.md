@@ -118,7 +118,7 @@ cp backend/.env.example backend/.env
 
 首次启动前填写 `SUPER_ADMINS` JSON 数组，例如 `[{"name":"管理员姓名","account":"00001","password":"初始密码至少8字符"}]`，支持多名管理员。工号为 5 位数字字符串，保留前导零。已有账号姓名必须匹配，启动时提升权限但不重置密码；新账号需要 8 至 128 字符的初始密码。从名单移除不会自动降权。使用 `/teacher/login` 登录。
 
-大模型连接在“审核脚本管理 → 大模型配置”中维护，仅超级管理员可修改。API Key 加密保存在数据库，`AUDIT_CONFIG_ENCRYPTION_KEY` 留在服务器 `.env`，可在 backend 目录运行 `./.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` 生成。主密钥必须备份并与数据库分开保管，不可随意重新生成。旧大模型环境变量仅用于首次导入；迁移后删除，后续以管理端配置为准。保存对新启动的审核脚本生效，已运行的请求继续使用原连接。视觉模型和超时仍在脚本配置中维护。
+大模型连接在“超级管理员账户菜单 → 大模型配置”中维护，仅超级管理员可修改。API Key 加密保存在数据库，`AUDIT_CONFIG_ENCRYPTION_KEY` 留在服务器 `.env`，可在 backend 目录运行 `./.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` 生成。主密钥必须备份并与数据库分开保管，不可随意重新生成。旧大模型环境变量仅用于首次导入；迁移后删除，后续以管理端配置为准。保存对新启动的审核脚本生效，已运行的请求继续使用原连接。文档和视觉审核分别选择模型卡，模型名称统一由卡片维护，请求超时等参数仍在脚本配置中维护。仅支持 OpenAI Chat Completions：Base URL 后统一添加 `/chat/completions`，不支持 Responses 或 Messages 接口。模型卡支持新增、编辑、删除；被脚本引用时必须先更换引用才能删除。厂商 Logo 为本地静态资源，来源和许可见 `frontend/public/model-providers/README.md`。
 
 初始化只执行一次：同账号同姓名的已有账户保留 ID，更新初始密码并启用管理员权限、注销旧会话；姓名不一致或配置无效时启动失败。成功后可删除初始密码配置，重启不会覆盖密码或账户状态。密码仅以哈希写入数据库；请勿将真实初始密码写进版本库。
 

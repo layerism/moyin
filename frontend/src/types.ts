@@ -3,6 +3,7 @@ export type Screen =
   | "authLogin"
   | "authRegister"
   | "adminDatabase"
+  | "adminModels"
   | "home"
   | "workflowTemplates"
   | "academicFlow"

@@ -100,6 +100,8 @@ def get_audit_script_config(script_id: str) -> dict[str, object]:
     state = _ensure_runtime_state(record)
     return {
         **_designer_response(record),
+        "runtimeSettings": [item for item in record.runtime_settings
+                            if not (script_id == CONFIRMATION_VISUAL_AUDIT_ID and item["key"] == "modelName")],
         "editorHash": record.editor_hash,
         "generation": int(state["generation"]),
         "status": state["status"],
@@ -122,6 +124,11 @@ def update_audit_script_config(
         if record.editor_hash != expected_editor_hash:
             raise AuditScriptConfigConflictError("审核脚本已被其他管理员修改，请重新加载")
         parameter_keys = {str(item["key"]) for item in record.parameters}
+        runtime_settings = dict(runtime_settings)
+        if script_id == CONFIRMATION_VISUAL_AUDIT_ID:
+            for item in record.runtime_settings:
+                if item["key"] == "modelName":
+                    runtime_settings["modelName"] = item["value"]
         setting_keys = {str(item["key"]) for item in record.runtime_settings}
         if set(parameter_defaults) != parameter_keys or set(runtime_settings) != setting_keys:
             raise AuditScriptParameterError("审核脚本配置项不完整")
@@ -302,7 +309,9 @@ def _management_summary(record: AuditScriptRecord) -> dict[str, object]:
         "usesAi": record.manifest_data.get("usesAi", False),
         "acceptedExtensions": list(record.accepted_extensions),
         "language": record.language, "parameterCount": len(record.parameters),
-        "runtimeSettingCount": len(record.runtime_settings), "updatedAt": record.updated_at,
+        "runtimeSettingCount": sum(1 for item in record.runtime_settings
+                                   if not (record.id == CONFIRMATION_VISUAL_AUDIT_ID and item["key"] == "modelName")),
+        "updatedAt": record.updated_at,
         "generation": int(state["generation"]), "status": state["status"],
         "maxConcurrency": record.config.max_concurrency, **_job_counts(record.id),
     }

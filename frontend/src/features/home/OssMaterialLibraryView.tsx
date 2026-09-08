@@ -55,7 +55,7 @@ function pathExists(library: MaterialLibrary, path: MaterialLibraryPath) {
 export function OssMaterialLibraryView({
   onAcademicFlow,
   onWorkflowTemplates,
-  onDatabaseAdmin,
+  onDatabaseAdmin, onModelAdmin,
   onTeacherLogout,
   onTeacherInvitations,
   teacherIdentity,
@@ -63,6 +63,7 @@ export function OssMaterialLibraryView({
   onAcademicFlow: () => void;
   onWorkflowTemplates: () => void;
   onDatabaseAdmin: () => void;
+  onModelAdmin: () => void;
   onTeacherLogout: () => void;
   onTeacherInvitations: () => void;
   teacherIdentity: AuthIdentity;
@@ -190,7 +191,7 @@ export function OssMaterialLibraryView({
           </label>
           <TeacherAccountMenu
             identity={teacherIdentity}
-            onDatabaseAdmin={onDatabaseAdmin}
+            onDatabaseAdmin={onDatabaseAdmin} onModelAdmin={onModelAdmin}
             onLogout={onTeacherLogout}
             onTeacherInvitations={onTeacherInvitations}
           />

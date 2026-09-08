@@ -387,13 +387,21 @@ CREATE TABLE IF NOT EXISTS node_audit_policies (
     PRIMARY KEY(flow_id, node_key)
 );
 
-CREATE TABLE IF NOT EXISTS audit_model_connections (
-    provider TEXT PRIMARY KEY CHECK (provider IN ('document', 'vision')),
-    api_url TEXT NOT NULL DEFAULT '',
-    encrypted_api_key TEXT NOT NULL DEFAULT '',
-    model TEXT NOT NULL DEFAULT '',
+CREATE TABLE IF NOT EXISTS audit_model_cards (
+    id TEXT PRIMARY KEY,
+    vendor TEXT NOT NULL,
+    name TEXT NOT NULL,
+    api_url TEXT NOT NULL,
+    encrypted_api_key TEXT NOT NULL,
+    model TEXT NOT NULL,
     revision INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS audit_model_bindings (
+    script_id TEXT PRIMARY KEY,
+    card_id TEXT NOT NULL REFERENCES audit_model_cards(id) ON DELETE RESTRICT,
+    revision INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS student_deadline_overrides (

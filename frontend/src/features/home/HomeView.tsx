@@ -14,7 +14,7 @@ export function AcademicFlowView({
   processes,
   onCreateProcess,
   onCloneProcess,
-  onDatabaseAdmin,
+  onDatabaseAdmin, onModelAdmin,
   onDeleteProcess,
   onOssCloud,
   onWorkflowTemplates,
@@ -28,6 +28,7 @@ export function AcademicFlowView({
   onCreateProcess: (name: string) => Promise<void> | void;
   onCloneProcess: (source: AcademicProcess, name: string) => Promise<AcademicProcess>;
   onDatabaseAdmin: () => void;
+  onModelAdmin: () => void;
   onDeleteProcess: (process: AcademicProcess) => Promise<void>;
   onOssCloud: () => void;
   onWorkflowTemplates: (sourceId?: string) => void;
@@ -197,7 +198,7 @@ export function AcademicFlowView({
           </label>
           <TeacherAccountMenu
             identity={teacherIdentity}
-            onDatabaseAdmin={onDatabaseAdmin}
+            onDatabaseAdmin={onDatabaseAdmin} onModelAdmin={onModelAdmin}
             onLogout={onTeacherLogout}
             onTeacherInvitations={onTeacherInvitations}
           />

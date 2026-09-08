@@ -1,3 +1,4 @@
+import { ModelCardsAdminPage } from "./features/admin/ModelCardsAdminPage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AcademicFlowDesigner, StudentFlowPage } from "./features/academic-flow/AcademicFlowDesigner";
@@ -106,6 +107,9 @@ function getRouteFromPathname(): AppRoute {
   if (pathname === "/academic-flow") {
     return { ...base, authRole: "teacher", screen: "academicFlow" };
   }
+  if (pathname === "/admin/models") {
+    return { ...base, authRole: "teacher", screen: "adminModels" };
+  }
   if (pathname === "/admin/database") {
     return { ...base, authRole: "teacher", screen: "adminDatabase" };
   }
@@ -176,6 +180,7 @@ const TEACHER_AUTHENTICATED_SCREENS: Screen[] = [
   "academicFlow",
   "academicFlowDetail",
   "adminDatabase",
+  "adminModels",
   "home",
   "teacherInvitationsAdmin",
   "workspace",
@@ -415,6 +420,11 @@ export function App() {
     pushAppPath("/academic-flow");
     setActiveAcademicProcessId(null);
     setScreen("academicFlow");
+  };
+
+  const openModelAdmin = () => {
+    pushAppPath("/admin/models");
+    setScreen("adminModels");
   };
 
   const openDatabaseAdmin = () => {
@@ -732,6 +742,10 @@ export function App() {
     return <main className="auth-loading-page"><strong>正在进入学生中心</strong></main>;
   }
 
+  if (screen === "adminModels") {
+    return <ModelCardsAdminPage identity={teacherIdentity!} onBack={openAcademicFlow} />;
+  }
+
   if (screen === "adminDatabase") {
     return <DatabaseAdminPage identity={teacherIdentity!} onBack={openHome} />;
   }
@@ -771,7 +785,7 @@ export function App() {
       <OssMaterialLibraryView
         onAcademicFlow={openAcademicFlow}
         onWorkflowTemplates={() => openWorkflowTemplates()}
-        onDatabaseAdmin={openDatabaseAdmin}
+        onDatabaseAdmin={openDatabaseAdmin} onModelAdmin={openModelAdmin}
         onTeacherLogout={() => void logoutRole("teacher")}
         onTeacherInvitations={openTeacherInvitationsAdmin}
         teacherIdentity={teacherIdentity!}
@@ -787,7 +801,7 @@ export function App() {
       teacherIdentity={teacherIdentity!}
       onAcademicFlow={openAcademicFlow}
       onOssCloud={openHome}
-      onDatabaseAdmin={openDatabaseAdmin}
+      onDatabaseAdmin={openDatabaseAdmin} onModelAdmin={openModelAdmin}
       onTeacherInvitations={openTeacherInvitationsAdmin}
       onTeacherLogout={() => void logoutRole("teacher")}
       onCreated={(flow) => {
@@ -831,7 +845,7 @@ export function App() {
           );
           return renamed;
         }}
-        onDatabaseAdmin={openDatabaseAdmin}
+        onDatabaseAdmin={openDatabaseAdmin} onModelAdmin={openModelAdmin}
         onOssCloud={openHome}
         onWorkflowTemplates={openWorkflowTemplates}
         onOpenProcess={openAcademicProcess}

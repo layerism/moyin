@@ -1,12 +1,15 @@
 from typing import Literal
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.services.audit_model_connections import list_model_connections, update_model_connection
+from app.services.audit_model_connections import (
+    ModelConfigConflict, bind_model_card, delete_model_card,
+    list_model_connections, save_model_card,
+)
 from app.services.security import get_current_super_admin
 
 class ConnectionRoute(APIRoute):
@@ -26,12 +29,21 @@ class ConnectionRoute(APIRoute):
 router = APIRouter(dependencies=[Depends(get_current_super_admin)], route_class=ConnectionRoute)
 
 
-class ConnectionUpdate(BaseModel):
+class CardUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    vendor: Literal["openai", "deepseek", "qwen", "doubao", "zhipu", "moonshot", "custom"]
+    name: str = Field(min_length=1, max_length=100)
     apiUrl: str = Field(min_length=1, max_length=2048)
     apiKey: str | None = Field(default=None, max_length=4096)
-    model: str = Field(default="", max_length=200)
-    revision: int = Field(ge=0)
+    model: str = Field(min_length=1, max_length=200)
+    revision: int = Field(default=0, ge=0)
+
+    @field_validator("name", "model")
+    @classmethod
+    def non_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("名称不能为空")
+        return value.strip()
 
     @field_validator("apiUrl")
     @classmethod
@@ -39,28 +51,73 @@ class ConnectionUpdate(BaseModel):
         value = value.strip().rstrip("/")
         try:
             parsed = urlsplit(value)
-            valid = parsed.scheme in {"http", "https"} and parsed.hostname and not parsed.username and not parsed.password and not parsed.query and not parsed.fragment
+            valid = (parsed.scheme in {"http", "https"} and parsed.hostname
+                     and parsed.username is None and parsed.password is None
+                     and not parsed.query and not parsed.fragment
+                     and not any(char.isspace() for char in value))
             _ = parsed.port
         except ValueError:
             valid = False
         if not valid:
-            raise ValueError("请输入不含账密、查询参数或片段的 HTTP(S) 接口地址")
+            raise ValueError("请输入有效的 HTTP(S) Base URL")
+        if parsed.path.endswith(("/chat/completions", "/responses", "/messages")):
+            raise ValueError("只填写 Base URL，无需填写具体请求路径")
         return value
 
 
-@router.get("")
-def get_connections() -> list[dict[str, object]]:
+class BindingUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cardId: str = Field(min_length=1, max_length=64)
+    revision: int = Field(ge=0)
+
+
+def _save(card_id: str | None, payload: CardUpdate) -> dict[str, object]:
+    try:
+        save_model_card(card_id, vendor=payload.vendor, name=payload.name,
+                        api_url=payload.apiUrl, api_key=payload.apiKey.strip() if payload.apiKey else None,
+                        model=payload.model, revision=payload.revision)
+    except ModelConfigConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return list_model_connections()
 
 
-@router.put("/{provider}")
-def put_connection(provider: Literal["document", "vision"], payload: ConnectionUpdate) -> dict[str, object]:
-    model = payload.model.strip() if provider == "document" else ""
-    if provider == "document" and not model:
-        raise HTTPException(status_code=422, detail="请填写文档审核模型名称")
+@router.get("")
+def get_connections() -> dict[str, object]:
+    return list_model_connections()
+
+
+@router.post("/cards")
+def create_card(payload: CardUpdate) -> dict[str, object]:
+    return _save(None, payload)
+
+
+@router.put("/cards/{card_id}")
+def put_card(card_id: str, payload: CardUpdate) -> dict[str, object]:
+    return _save(card_id, payload)
+
+
+@router.delete("/cards/{card_id}")
+def remove_card(card_id: str, revision: int = Query(ge=0)) -> dict[str, object]:
     try:
-        return update_model_connection(provider, payload.apiUrl, payload.apiKey.strip() if payload.apiKey else None, model, payload.revision)
-    except ValueError as exc:
+        delete_model_card(card_id, revision)
+    except ModelConfigConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return list_model_connections()
+
+
+@router.put("/bindings/{script_id}")
+def put_binding(
+    script_id: Literal["docx-markdown-completion-audit", "confirmation-visual-audit"],
+    payload: BindingUpdate,
+) -> dict[str, object]:
+    try:
+        bind_model_card(script_id, payload.cardId, payload.revision)
+    except ModelConfigConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return list_model_connections()
