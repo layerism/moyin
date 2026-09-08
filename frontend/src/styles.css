@@ -12651,3 +12651,14 @@ td {
 .palette-panel .node-function-colors > span { background: var(--node-icon-bg); color: var(--node-accent); }
 .palette-panel .node-function-colors:hover:not(:disabled) { border-color: var(--node-accent); }
 .palette-panel[aria-disabled="true"] .node-function-colors { opacity: .85; }
+
+/* The student runtime and its preview share the designer's function palette. */
+.student-topology-node.node-function-colors { background: var(--node-tint); border-color: var(--node-border); border-left: 4px solid var(--node-accent); color: #253044; }
+.student-topology-node.node-function-colors .student-topology-node-meta em { background: transparent; color: var(--node-accent); }
+.student-topology-node .flow-node-heading { align-self: center; align-items: center; }
+.student-topology-node .flow-node-heading strong { display: -webkit-box; overflow: hidden; overflow-wrap: anywhere; font-size: 17px; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.student-topology-node.node-function-colors:focus-visible { outline-color: var(--node-accent); }
+.student-topology-node.rejected .student-topology-node-meta i,
+.student-topology-node.audit_error .student-topology-node-meta i { color: #b42318; background: #fee4e2; }
+.student-topology-node.reviewing .student-topology-node-meta i,
+.student-topology-node.submitted .student-topology-node-meta i { color: #6941c6; background: #f0e7ff; }
