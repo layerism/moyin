@@ -7,7 +7,7 @@ import type { AuthIdentity } from "../auth/authApi";
 import { MODEL_VENDORS, modelCardsApi, modelConsoleUrl, type ModelCard, type ModelCardDraft, type ModelCardsState, type ModelVendor } from "./modelCardsApi";
 
 const vendorName = (id: ModelVendor) => MODEL_VENDORS.find((vendor) => vendor.id === id)?.name ?? "自定义";
-const emptyDraft: ModelCardDraft = { vendor: "custom", name: "", apiUrl: "", apiKey: "", billingAccessKey: "", billingSecretKey: "", clearBilling: false, model: "", revision: 0, thinking: { mode: "default", effort: "default", budget: null } };
+const emptyDraft: ModelCardDraft = { vendor: "custom", name: "", apiUrl: "", apiKey: "", billingAccessKey: "", billingSecretKey: "", billingConsoleToken: "", clearBilling: false, model: "", revision: 0, thinking: { mode: "default", effort: "default", budget: null } };
 
 export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdentity; onBack: () => void }) {
   const [data, setData] = useState<ModelCardsState | null>(null);
@@ -47,7 +47,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
   }, [modalOpen, busy]);
   const openEditor = (card: ModelCard | null) => {
     setEditorError("");
-    setEditor({ card, draft: card ? { vendor: card.vendor, name: card.name, apiUrl: card.apiUrl, apiKey: "", billingAccessKey: "", billingSecretKey: "", clearBilling: false, model: card.model, revision: card.revision, thinking: card.thinking } : { ...emptyDraft } });
+    setEditor({ card, draft: card ? { vendor: card.vendor, name: card.name, apiUrl: card.apiUrl, apiKey: "", billingAccessKey: "", billingSecretKey: "", billingConsoleToken: "", clearBilling: false, model: card.model, revision: card.revision, thinking: card.thinking } : { ...emptyDraft } });
   };
   const save = async () => {
     if (!editor || busy) return;
@@ -92,7 +92,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
     {editor ? <div className="modal-backdrop model-card-backdrop"><section ref={dialogRef} className="model-card-dialog model-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="model-editor-title"><header><div><h2 id="model-editor-title">{editor.card ? "编辑模型卡" : "新增模型卡"}</h2><p>OpenAI Chat Completions</p></div><button type="button" disabled={busy} aria-label="关闭" onClick={() => setEditor(null)}>×</button></header>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <div className="model-editor-body">
-        <fieldset disabled={busy}><legend>选择厂商</legend><div className="model-vendor-options">{MODEL_VENDORS.map((vendor) => <button key={vendor.id} type="button" aria-pressed={editor.draft.vendor === vendor.id} onClick={() => { if (editor.draft.vendor !== vendor.id) setEditor({ ...editor, draft: { ...editor.draft, vendor: vendor.id, billingAccessKey: "", billingSecretKey: "", clearBilling: false, thinking: { ...emptyDraft.thinking } } }); }}><VendorLogo vendor={vendor.id} /><span>{vendor.name}</span></button>)}</div></fieldset>
+        <fieldset disabled={busy}><legend>选择厂商</legend><div className="model-vendor-options">{MODEL_VENDORS.map((vendor) => <button key={vendor.id} type="button" aria-pressed={editor.draft.vendor === vendor.id} onClick={() => { if (editor.draft.vendor !== vendor.id) setEditor({ ...editor, draft: { ...editor.draft, vendor: vendor.id, billingAccessKey: "", billingSecretKey: "", billingConsoleToken: "", clearBilling: false, thinking: { ...emptyDraft.thinking } } }); }}><VendorLogo vendor={vendor.id} /><span>{vendor.name}</span></button>)}</div></fieldset>
         <section className="model-editor-connection" aria-labelledby="model-connection-title">
           <h3 id="model-connection-title">连接配置</h3>
           <div className="model-editor-name-row">
@@ -102,14 +102,19 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
         <label className="audit-script-config-field">Base URL<input type="url" required maxLength={2048} placeholder="填写兼容接口的基础地址" disabled={busy} value={editor.draft.apiUrl} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiUrl: event.target.value } })} /><small>保留版本路径，系统自动添加 /chat/completions。</small></label>
         <label className="audit-script-config-field">API Key<input type="password" autoComplete="new-password" required={!editor.card?.hasApiKey} maxLength={4096} placeholder={editor.card?.hasApiKey ? "留空保留原密钥，输入新密钥替换" : "填写 API Key"} disabled={busy} value={editor.draft.apiKey} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiKey: event.target.value } })} /></label>
         </section>
-        {editor.draft.vendor === "doubao" ? <section className="model-editor-connection model-billing-fields" aria-labelledby="model-billing-title">
-          <h3 id="model-billing-title">财务凭据 <small>{editor.card?.hasBillingCredentials ? "已保存" : "可选"}</small></h3>
+        {["doubao", "zhipu"].includes(editor.draft.vendor) ? <section className="model-editor-connection model-billing-fields" aria-labelledby="model-billing-title">
+          <h3 id="model-billing-title">财务凭据 <small>{editor.card?.vendor === editor.draft.vendor && editor.card.hasBillingCredentials ? "已保存" : "可选"}</small></h3>
+          {editor.draft.vendor === "doubao" ? <>
           <p>仅查询火山云账户余额；填写具有余额查询权限的 AK/SK。两项留空保留原凭据。</p>
           <div className="model-editor-name-row">
             <label className="audit-script-config-field">Access Key ID<input type="password" autoComplete="new-password" maxLength={256} disabled={busy || editor.draft.clearBilling} value={editor.draft.billingAccessKey} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, billingAccessKey: event.target.value } })} placeholder="填写或替换 AK" /></label>
             <label className="audit-script-config-field">Secret Access Key<input type="password" autoComplete="new-password" maxLength={4096} disabled={busy || editor.draft.clearBilling} value={editor.draft.billingSecretKey} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, billingSecretKey: event.target.value } })} placeholder="填写或替换 SK" /></label>
           </div>
-          {editor.card?.hasBillingCredentials ? <label className="model-billing-clear"><input type="checkbox" disabled={busy} checked={editor.draft.clearBilling} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, clearBilling: event.target.checked, billingAccessKey: "", billingSecretKey: "" } })} />保存时清除财务凭据</label> : null}
+          </> : <>
+            <p>使用控制台登录 Token 查询现金余额，过期后需更新。</p>
+            <label className="audit-script-config-field">控制台 Token<input type="password" autoComplete="new-password" maxLength={8192} disabled={busy || editor.draft.clearBilling} value={editor.draft.billingConsoleToken} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, billingConsoleToken: event.target.value } })} placeholder="留空保留原 Token，输入新值替换" /><small>登录智谱控制台，在浏览器开发者工具的 Cookie 中复制 bigmodel_token_production 的值，不加 Bearer。</small></label>
+          </>}
+          {editor.card?.vendor === editor.draft.vendor && editor.card.hasBillingCredentials ? <label className="model-billing-clear"><input type="checkbox" disabled={busy} checked={editor.draft.clearBilling} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, clearBilling: event.target.checked, billingAccessKey: "", billingSecretKey: "", billingConsoleToken: "" } })} />保存时清除财务凭据</label> : null}
         </section> : null}
         <ModelThinkingFields vendor={editor.draft.vendor} model={editor.draft.model} value={editor.draft.thinking} disabled={busy} onChange={(thinking) => setEditor({ ...editor, draft: { ...editor.draft, thinking } })} />
         {editorError ? <p className="dialog-error" role="alert">{editorError}</p> : null}

@@ -16,12 +16,13 @@ ENDPOINTS = {
 def balance_capability(vendor: str, api_url: str, has_billing: bool = False) -> dict:
     if vendor == "doubao":
         return {"supported": has_billing, "reason": "火山云账户余额，不代表单模型配额。" if has_billing else "请在编辑配置中填写财务 AK/SK。"}
+    if vendor == "zhipu":
+        return {"supported": has_billing, "reason": "通过智谱控制台会话查询；Token 过期后需更新。" if has_billing else "请在编辑配置中填写智谱控制台 Token。"}
     supported = (vendor, api_url.rstrip("/")) in ENDPOINTS
     reason = {
         "openai": "暂未接入：官方 Usage / Costs 查询的是用量与费用，不是剩余余额。",
         "qwen": "暂未接入：阿里云账户余额需独立的云账户财务鉴权。",
         "doubao": "暂未接入：火山引擎账户余额需独立的云账户财务鉴权。",
-        "zhipu": "暂未查到可使用模型 API Key 的官方余额接口。",
     }.get(vendor, "此地址未接入官方余额查询接口。")
     return {"supported": supported, "reason": "查询账户余额，同账户模型共享。" if supported else reason}
 

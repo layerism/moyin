@@ -13,7 +13,7 @@ export function ModelCardBalance({ card }: { card: ModelCard }) {
     finally { setLoading(false); }
   };
   const capability = card.balanceCapability;
-  const summary = loading ? "查询中…" : error ? "查询失败" : result ? result.balances.map((item) => `${item.available} ${item.currency}`).join(" / ") : capability.supported ? "未查询" : card.vendor === "doubao" ? "待配财务凭据" : "暂未接入";
+  const summary = loading ? "查询中…" : error ? "查询失败" : result ? result.balances.map((item) => `${item.available} ${item.currency}`).join(" / ") : capability.supported ? "未查询" : ["doubao", "zhipu"].includes(card.vendor) ? "待配财务凭据" : "暂未接入";
   return <section className="model-card-balance" aria-label="账户余额">
     <span>账户余额</span>
     <details className="model-balance-info" onKeyDown={(event) => { if (event.key === "Escape") event.currentTarget.open = false; }}>

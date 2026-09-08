@@ -45,6 +45,7 @@ class CardUpdate(BaseModel):
     apiKey: str | None = Field(default=None, max_length=4096)
     billingAccessKey: str = Field(default="", max_length=256)
     billingSecretKey: str = Field(default="", max_length=4096)
+    billingConsoleToken: str = Field(default="", max_length=8192)
     clearBilling: bool = False
     model: str = Field(min_length=1, max_length=200)
     revision: int = Field(default=0, ge=0)
@@ -82,7 +83,8 @@ def _save(card_id: str | None, payload: CardUpdate) -> dict[str, object]:
                         api_url=payload.apiUrl, api_key=payload.apiKey.strip() if payload.apiKey else None,
                         model=payload.model, revision=payload.revision, thinking=payload.thinking.model_dump(),
                         billing_access_key=payload.billingAccessKey.strip(),
-                        billing_secret_key=payload.billingSecretKey.strip(), clear_billing=payload.clearBilling)
+                        billing_secret_key=payload.billingSecretKey.strip(),
+                        billing_console_token=payload.billingConsoleToken.strip(), clear_billing=payload.clearBilling)
     except ModelConfigConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:

@@ -34,7 +34,7 @@ export interface ModelCardsState {
   cards: ModelCard[];
   bindings: ModelBinding[];
 }
-export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey" | "hasBillingCredentials" | "balanceCapability"> & { apiKey: string; billingAccessKey: string; billingSecretKey: string; clearBilling: boolean };
+export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey" | "hasBillingCredentials" | "balanceCapability"> & { apiKey: string; billingAccessKey: string; billingSecretKey: string; billingConsoleToken: string; clearBilling: boolean };
 const BASE = "/api/workflow-admin/model-connections";
 async function request<T = ModelCardsState>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, {

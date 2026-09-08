@@ -111,7 +111,7 @@ def list_model_connections() -> dict[str, object]:
 
 def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str,
                     api_key: str | None, model: str, revision: int, thinking: dict[str, object],
-                    billing_access_key: str = "", billing_secret_key: str = "", clear_billing: bool = False) -> None:
+                    billing_access_key: str = "", billing_secret_key: str = "", billing_console_token: str = "", clear_billing: bool = False) -> None:
     from app.services.model_thinking import validate_thinking
     thinking_json = json.dumps(validate_thinking(vendor, model, thinking))
     with get_connection() as connection:
@@ -123,13 +123,19 @@ def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str
             if row is None or row["revision"] != revision:
                 raise ModelConfigConflict("模型卡已被修改或删除，请重新读取")
             encrypted = row["encrypted_api_key"]
-            billing = row["encrypted_billing_credentials"]
-        if vendor != "doubao" or clear_billing:
+            billing = row["encrypted_billing_credentials"] if row["vendor"] == vendor else ""
+        if vendor not in {"doubao", "zhipu"} or clear_billing:
             billing = ""
         if billing_access_key or billing_secret_key:
             if vendor != "doubao" or clear_billing or not (billing_access_key and billing_secret_key):
                 raise ValueError("财务凭据须同时填写 AK 和 SK，且不能同时选择清除")
             billing = _cipher().encrypt(json.dumps({"ak": billing_access_key, "sk": billing_secret_key}).encode()).decode()
+        if billing_console_token:
+            if vendor != "zhipu" or clear_billing:
+                raise ValueError("控制台 Token 仅用于智谱，且不能同时选择清除")
+            if not billing_console_token.isascii() or any(char.isspace() for char in billing_console_token) or ";" in billing_console_token:
+                raise ValueError("请仅填写控制台 Token 原始值，不要包含 Bearer、完整 Cookie 或空白字符")
+            billing = _cipher().encrypt(json.dumps({"token": billing_console_token}).encode()).decode()
         if api_key:
             encrypted = _cipher().encrypt(api_key.encode()).decode()
         if not encrypted:
@@ -238,12 +244,15 @@ def query_model_balance(card_id: str, revision: int) -> dict:
     capability = balance_capability(row["vendor"], row["api_url"], bool(row["encrypted_billing_credentials"]))
     if not capability["supported"]:
         raise ValueError(capability["reason"])
-    if row["vendor"] == "doubao":
+    if row["vendor"] in {"doubao", "zhipu"}:
         from app.services.volc_billing import fetch_volc_balance
+        from app.services.zhipu_billing import fetch_zhipu_balance
         try:
             credentials = json.loads(_cipher().decrypt(row["encrypted_billing_credentials"].encode()).decode())
         except (InvalidToken, ValueError, UnicodeError):
-            raise RuntimeError("财务凭据无法解密，请重新保存 AK/SK") from None
+            raise RuntimeError("财务凭据无法解密，请重新保存") from None
+        if row["vendor"] == "zhipu":
+            return fetch_zhipu_balance(credentials["token"])
         return fetch_volc_balance(credentials["ak"], credentials["sk"])
     if not row["encrypted_api_key"]:
         raise ValueError("请先配置 API Key")
