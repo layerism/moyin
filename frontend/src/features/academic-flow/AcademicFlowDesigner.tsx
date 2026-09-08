@@ -920,7 +920,8 @@ function ComponentPalette({
       <div className="node-template-list">
         {nodeTemplates.map((template) => (
           <button
-            className={`node-template ${template.kind}`}
+            className={`node-template ${template.kind} node-function-colors`}
+            data-node-kind={template.kind}
             disabled={locked}
             draggable={!locked}
             key={`${template.kind}-${template.title}`}
@@ -933,7 +934,7 @@ function ComponentPalette({
             onClick={() => onAddNode(template.kind, template.title)}
             type="button"
           >
-            <span>{getTemplateIcon(template.kind)}</span>
+            <span aria-hidden="true">{getTemplateIcon(template.kind)}</span>
             <strong>{template.title}</strong>
             <small>{template.description}</small>
           </button>
@@ -941,13 +942,13 @@ function ComponentPalette({
       </div>
       <h3>流程控制</h3>
       <div className="node-template-list compact">
-        <button disabled={locked} type="button">
-          <span>↳</span>
+        <button className="node-function-colors" data-node-kind="branch" disabled={locked} type="button">
+          <span aria-hidden="true">↳</span>
           <strong>条件分支</strong>
           <small>根据条件走不同分支</small>
         </button>
-        <button disabled={locked} type="button">
-          <span>⇄</span>
+        <button className="node-function-colors" data-node-kind="parallel" disabled={locked} type="button">
+          <span aria-hidden="true">⇄</span>
           <strong>并行节点</strong>
           <small>多个分支并行进行</small>
         </button>
@@ -1821,9 +1822,10 @@ function FlowNodeCanvas({
             style={{ left: node.x, top: node.y }}
           >
             <button
-              className={`flow-node ${node.status} ${
+              className={`flow-node node-function-colors ${node.status} ${
                 canMoveNode(node.id) ? "movable" : "protected"
               } ${selectedNodeIds.has(node.id) ? "selected" : ""}`}
+              data-node-kind={node.kind}
               data-flow-node-id={node.id}
               onClick={(event) => {
                 if (
@@ -1924,7 +1926,7 @@ function FlowNodeCanvas({
                   title={`${getPortLabel(port)}连接点`}
                 />
               ))}
-              <strong>{node.title}</strong>
+              <span className="flow-node-heading"><span className="flow-node-kind-icon" aria-hidden="true">{getTemplateIcon(node.kind)}</span><strong>{node.title}</strong></span>
               <span className="node-meta">
                 <em>{kindLabels[node.kind]}</em>
                 <i>{statusLabels[node.status]}</i>
@@ -2831,19 +2833,13 @@ function StudentNode({ node }: { node: AcademicFlowNode }) {
 }
 
 function getTemplateIcon(kind: AcademicFlowNodeKind) {
-  if (kind === "answer_sheet") {
-    return "▣";
-  }
-  if (kind === "file") {
-    return "⇧";
-  }
-  if (kind === "confirmation") {
-    return "☑";
-  }
-  if (kind === "announcement") {
-    return "◫";
-  }
-  return "▤";
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {kind === "file" ? <><path d="M12 16V3m-4 4 4-4 4 4M4 15v5h16v-5" /></> :
+      kind === "confirmation" ? <><rect x="3" y="3" width="18" height="18" rx="3" /><path d="m7 12 3 3 7-7" /></> :
+      kind === "announcement" ? <><path d="m4 9 15-5v16L4 15ZM4 9v6m4 1 1 5h4l-2-4" /></> :
+      kind === "answer_sheet" ? <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="m7 8 1 1 2-2m-3 7 1 1 2-2m3-5h4m-4 6h4" /></> :
+      <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>}
+  </svg>;
 }
 
 function getTimeWindowStatus(node: AcademicFlowNode) {

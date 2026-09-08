@@ -12632,3 +12632,22 @@ td {
 .model-console-link:hover h2, .model-console-link:hover h2 > span { color: #2563eb; }
 .model-console-link:focus-visible { outline: 2px solid #2878f0; outline-offset: 3px; }
 .script-model-picker > summary:focus-visible { outline: 2px solid #2878f0; outline-offset: 2px; border-radius: 8px; }
+
+/* Shared function palette for designer nodes and the component library. */
+.node-function-colors { --node-accent: #2563eb; --node-tint: #f0f6ff; --node-border: #b9d3fc; --node-icon-bg: #dbeafe; }
+.node-function-colors[data-node-kind="answer_sheet"] { --node-accent: #4f46e5; --node-tint: #f3f2ff; --node-border: #c8c4fa; --node-icon-bg: #e4e1ff; }
+.node-function-colors[data-node-kind="file"] { --node-accent: #9333ea; --node-tint: #faf3ff; --node-border: #e1c3f7; --node-icon-bg: #f0ddff; }
+.node-function-colors[data-node-kind="confirmation"] { --node-accent: #c65c12; --node-tint: #fff6ec; --node-border: #f4ceaa; --node-icon-bg: #ffead3; }
+.node-function-colors[data-node-kind="announcement"] { --node-accent: #0f766e; --node-tint: #effbf8; --node-border: #a9ded5; --node-icon-bg: #ccf3e9; }
+.node-function-colors[data-node-kind="branch"] { --node-accent: #a16207; --node-tint: #fffbeb; --node-border: #efdc9c; --node-icon-bg: #fef0ba; }
+.node-function-colors[data-node-kind="parallel"] { --node-accent: #0284c7; --node-tint: #eff9ff; --node-border: #b5dff4; --node-icon-bg: #d5f0ff; }
+.flow-node.node-function-colors { background: var(--node-tint); border-color: var(--node-border); border-left: 4px solid var(--node-accent); color: #253044; }
+.flow-node.node-function-colors.selected { border-color: var(--node-accent); box-shadow: 0 0 0 3px var(--node-icon-bg), 0 6px 18px #17203312; }
+.flow-node-heading { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.flow-node-heading strong { flex: 1; min-width: 0; }
+.flow-node-kind-icon { display: grid; place-items: center; width: 28px; height: 28px; flex-shrink: 0; border-radius: 7px; color: var(--node-accent); background: var(--node-icon-bg); }
+.flow-node.node-function-colors .node-meta em { color: var(--node-accent); }
+.palette-panel .node-function-colors { background: var(--node-tint); border-color: var(--node-border); border-left: 3px solid var(--node-accent); }
+.palette-panel .node-function-colors > span { background: var(--node-icon-bg); color: var(--node-accent); }
+.palette-panel .node-function-colors:hover:not(:disabled) { border-color: var(--node-accent); }
+.palette-panel[aria-disabled="true"] .node-function-colors { opacity: .85; }
