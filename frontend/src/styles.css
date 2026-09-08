@@ -12269,16 +12269,25 @@ td {
   font-size: 13px;
 }
 
+.workflow-template-list { display: grid; gap: 12px; }
+
 .workflow-template-list article {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 20px 0;
-  border-bottom: 1px solid #edf0f4;
+  padding: 18px;
+  border: 1px solid #e3e8f0;
+  border-radius: 10px;
+  background: #fff;
+  transition: border-color .15s, box-shadow .15s;
 }
 
+.workflow-template-list article:hover { border-color: #bfd3f5; box-shadow: 0 3px 12px #14284408; }
+.workflow-template-symbol { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #eff5ff; color: #2878f0; }
+.workflow-template-symbol svg { width: 24px; height: 24px; }
 .workflow-template-info {
+  flex: 1;
   min-width: 0;
 }
 
@@ -12306,10 +12315,8 @@ td {
   overflow-wrap: anywhere;
 }
 
-.workflow-template-info > span {
-  color: #667085;
-  font-size: 12px;
-}
+.workflow-template-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; color: #667085; font-size: 12px; }
+.workflow-template-meta > span { display: inline-flex; align-items: center; gap: 5px; }
 
 .workflow-template-actions {
   display: flex;
@@ -12410,11 +12417,16 @@ td {
 
 @media (max-width: 760px) {
   .workflow-template-list article {
-    align-items: stretch;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    align-items: start;
     gap: 12px;
+    padding: 14px;
   }
+  .workflow-template-symbol { width: 36px; height: 36px; }
   .workflow-template-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
     flex-wrap: wrap;
   }
 }

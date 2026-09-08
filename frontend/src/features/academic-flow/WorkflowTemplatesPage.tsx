@@ -105,10 +105,11 @@ export function WorkflowTemplatesPage({
           : loadError ? <div className="workflow-template-empty" role="alert"><p>{loadError}</p><button onClick={() => void load()}>重新读取</button></div>
           : visible.length === 0 ? <div className="workflow-template-empty"><p>{query.trim() ? "没有找到匹配的模板" : "暂无已发布模板"}</p>{query.trim() ? <button onClick={() => setQuery("")}>清除搜索</button> : null}</div>
           : <div className="workflow-template-list">{visible.map((template) => <article key={template.id}>
+            <div className="workflow-template-symbol"><DriveNavIcon kind="flow" /></div>
             <div className="workflow-template-info">
               <h3>{template.name}{!template.active ? <small>已下架</small> : null}</h3>
-              <p>{template.description || "暂无简介"}</p>
-              <span>{template.nodeCount} 个节点 · 更新于 {new Date(template.updatedAt).toLocaleDateString("zh-CN")}</span>
+              {template.description.trim() ? <p>{template.description}</p> : null}
+              <div className="workflow-template-meta"><span><DriveNavIcon kind="flow" />{template.nodeCount} 个节点</span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>更新于 {new Date(template.updatedAt).toLocaleDateString("zh-CN")}</span></div>
             </div>
             <div className="workflow-template-actions">
               {admin ? <>
