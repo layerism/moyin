@@ -57,3 +57,20 @@ export const modelCardsApi = {
   delete: (card: ModelCard) => request(`/cards/${encodeURIComponent(card.id)}?revision=${card.revision}`, { method: "DELETE" }),
   thinkingProfile: (vendor: ModelVendor, model: string) => request<ThinkingProfile>(`/thinking-profile?vendor=${encodeURIComponent(vendor)}&model=${encodeURIComponent(model)}`),
 };
+
+export function modelConsoleUrl(card: ModelCard): string | null {
+  const consoles: Partial<Record<ModelVendor, string>> = {
+    openai: "https://platform.openai.com/",
+    deepseek: "https://platform.deepseek.com/",
+    qwen: "https://bailian.console.aliyun.com/",
+    doubao: "https://console.volcengine.com/ark",
+    zhipu: "https://bigmodel.cn/console/overview",
+  };
+  if (card.vendor === "moonshot") {
+    try {
+      if (new URL(card.apiUrl).hostname === "api.moonshot.ai") return "https://platform.kimi.ai/console";
+    } catch { /* An incomplete card can still link to the provider console. */ }
+    return "https://platform.kimi.com/console";
+  }
+  return consoles[card.vendor] ?? null;
+}

@@ -12527,7 +12527,7 @@ td {
 .script-model-section { margin-bottom: 20px; }
 .script-section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
 .script-section-heading > span { font-size: 12px; color: #667085; }
-.script-model-picker { border: 1px solid #d7dce5; border-radius: 8px; background: #fff; }
+.script-model-picker { position: relative; border: 1px solid #d7dce5; border-radius: 8px; background: #fff; }
 .script-model-picker > summary { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; list-style: none; }
 .script-model-picker > summary::-webkit-details-marker { display: none; }
 .script-model-picker .model-vendor-logo { width: 34px; height: 34px; border-radius: 7px; }
@@ -12536,7 +12536,7 @@ td {
 .script-model-picker strong { font-size: 13px; color: #253044; }
 .script-model-picker small { font-size: 12px; color: #667085; margin-top: 3px; }
 .script-picker-arrow { margin-left: auto; }
-.script-model-picker fieldset { margin: 0; padding: 6px; border: 0; border-top: 1px solid #e4e9f1; max-height: 220px; overflow-y: auto; }
+.script-model-picker fieldset { position: absolute; z-index: 30; top: calc(100% + 5px); left: 0; right: 0; box-sizing: border-box; margin: 0; padding: 6px; border: 1px solid #d7dce5; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px #14284424; max-height: 220px; overflow-y: auto; }
 .script-model-option { display: flex; align-items: center; gap: 10px; padding: 9px; border-radius: 6px; cursor: pointer; }
 .script-model-option:has(input:checked) { background: #eff6ff; }
 .script-model-option:has(input:disabled) { opacity: .5; cursor: not-allowed; }
@@ -12613,3 +12613,10 @@ td {
   .model-editor-name-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .model-editor-dialog form > footer { padding: 12px 16px; }
 }
+
+.model-console-link { display: block; color: inherit; text-decoration: none; border-radius: 4px; }
+.model-console-link > span { font-size: 13px; color: #667085; }
+.model-console-link h2 > span { font-size: 12px; color: #8a94a6; }
+.model-console-link:hover h2, .model-console-link:hover h2 > span { color: #2563eb; }
+.model-console-link:focus-visible { outline: 2px solid #2878f0; outline-offset: 3px; }
+.script-model-picker > summary:focus-visible { outline: 2px solid #2878f0; outline-offset: 2px; border-radius: 8px; }

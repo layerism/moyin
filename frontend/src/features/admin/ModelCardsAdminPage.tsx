@@ -4,7 +4,7 @@ import { VendorLogo } from "./VendorLogo";
 import { ModelThinkingFields, thinkingLabel } from "./ModelThinkingFields";
 import { useEffect, useRef, useState } from "react";
 import type { AuthIdentity } from "../auth/authApi";
-import { MODEL_VENDORS, modelCardsApi, type ModelCard, type ModelCardDraft, type ModelCardsState, type ModelVendor } from "./modelCardsApi";
+import { MODEL_VENDORS, modelCardsApi, modelConsoleUrl, type ModelCard, type ModelCardDraft, type ModelCardsState, type ModelVendor } from "./modelCardsApi";
 
 const vendorName = (id: ModelVendor) => MODEL_VENDORS.find((vendor) => vendor.id === id)?.name ?? "自定义";
 const emptyDraft: ModelCardDraft = { vendor: "custom", name: "", apiUrl: "", apiKey: "", billingAccessKey: "", billingSecretKey: "", clearBilling: false, model: "", revision: 0, thinking: { mode: "default", effort: "default", budget: null } };
@@ -76,11 +76,12 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
       {!loading && data?.cards.length === 0 ? <div className="model-admin-empty"><h2>还没有模型卡</h2><p>添加模型连接后，即可供审核脚本选择。</p></div> : null}
       <div className="model-card-grid">
         {data?.cards.map((card) => {
+          const consoleUrl = modelConsoleUrl(card);
           const uses = data.bindings.filter((binding) => binding.cardId === card.id);
           const ready = card.hasApiKey && Boolean(card.apiUrl && card.model);
           return <article className="model-card" key={card.id}>
-            <header><VendorLogo vendor={card.vendor} /><div><h2>{card.name}</h2><span>{vendorName(card.vendor)}</span></div><div className="model-card-header-actions"><span className={`model-card-status${ready ? " is-ready" : ""}`}>{ready ? "已配置" : "待完善"}</span><ModelCardTest key={`${card.id}:${card.revision}`} card={card} disabled={busy || loading || !ready} /></div></header>
-            <dl><div><dt>模型</dt><dd title={card.model}>{card.model || "未填写"}</dd></div><div><dt>Base URL</dt><dd title={card.apiUrl}>{card.apiUrl || "未填写"}</dd></div><div><dt>API Key</dt><dd>{card.hasApiKey ? "已保存 · 不显示明文" : "未配置"}</dd></div><div><dt>思考</dt><dd>{thinkingLabel(card.thinking)}</dd></div></dl>
+            <header><VendorLogo vendor={card.vendor} /><div>{consoleUrl ? <a className="model-console-link" href={consoleUrl} target="_blank" rel="noopener noreferrer" title="打开厂商控制台"><h2>{card.name} <span aria-hidden="true">↗</span></h2><span>{vendorName(card.vendor)}</span></a> : <><h2>{card.name}</h2><span>{vendorName(card.vendor)}</span></>}</div><div className="model-card-header-actions"><span className={`model-card-status${ready ? " is-ready" : ""}`}>{ready ? "已配置" : "待完善"}</span><ModelCardTest key={`${card.id}:${card.revision}`} card={card} disabled={busy || loading || !ready} /></div></header>
+            <dl><div><dt>模型</dt><dd title={card.model}>{card.model || "未填写"}</dd></div><div><dt>思考</dt><dd>{thinkingLabel(card.thinking)}</dd></div></dl>
             <div className="model-card-usage">{uses.length ? uses.map((binding) => <span key={binding.scriptId}>{binding.name}</span>) : <small>暂未用于审核脚本</small>}</div>
             <ModelCardBalance key={`${card.id}:${card.revision}`} card={card} />
             <footer><button type="button" disabled={busy || loading} onClick={() => openEditor(card)}>编辑配置</button><button className="model-delete" type="button" disabled={busy || loading || uses.length > 0} title={uses.length ? "请先更换审核脚本使用的模型" : "删除模型卡"} onClick={() => { setEditorError(""); setDeleting(card); }}>删除</button></footer>

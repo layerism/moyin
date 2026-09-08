@@ -1,6 +1,6 @@
 import { VendorLogo } from "../admin/VendorLogo";
 import { thinkingLabel } from "../admin/ModelThinkingFields";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ApiError, workflowApi } from "./api";
 import { AuditScriptConfigForm } from "./AuditScriptConfigForm";
@@ -62,6 +62,15 @@ function ScriptCapabilityIcons({ script }: { script: AuditScriptManagementSummar
 }
 
 export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) {
+  const modelPickerRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => {
+      const picker = modelPickerRef.current;
+      if (picker?.open && !picker.contains(event.target as Node)) picker.open = false;
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, []);
   const [scripts, setScripts] = useState<AuditScriptManagementSummary[] | null>(null);
   const [search, setSearch] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -210,7 +219,9 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
             <div className="script-editor-scroll">
               {detail.modelSelection ? <section className="script-model-section">
                 <div className="script-section-heading"><h3>使用模型</h3><span>思考设置由模型卡管理</span></div>
-                <details className="script-model-picker">
+                <details ref={modelPickerRef} className="script-model-picker" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false; }} onKeyDown={(event) => {
+                  if (event.key === "Escape" && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); }
+                }}>
                   <summary aria-label="选择审核模型">{selectedModel ? <><VendorLogo vendor={selectedModel.vendor} /><span><strong>{selectedModel.name}</strong><small>{selectedModel.model} · {thinkingLabel(selectedModel.thinking)}</small></span></> : <span>请选择已配置的模型</span>}<span className="script-picker-arrow" aria-hidden="true">⌄</span></summary>
                   <fieldset disabled={saving}><legend>选择模型卡</legend>{detail.modelSelection.cards.map((card) => <label className="script-model-option" key={card.id}>
                     <input type="radio" name="script-model" value={card.id} checked={modelCardId === card.id} disabled={!card.hasApiKey || !card.apiUrl || !card.model} onChange={(event) => { setModelCardId(card.id); clearSaveMessages(); const picker = event.currentTarget.closest("details"); if (picker) { picker.open = false; picker.querySelector("summary")?.focus(); } }} />
