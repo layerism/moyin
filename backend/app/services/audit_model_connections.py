@@ -102,24 +102,34 @@ def list_model_connections() -> dict[str, object]:
                    "apiUrl": row["api_url"], "hasApiKey": bool(row["encrypted_api_key"]),
                    "model": row["model"], "revision": row["revision"],
                    "thinking": json.loads(row["thinking_json"]),
-                   "balanceCapability": balance_capability(row["vendor"], row["api_url"])} for row in cards],
+                   "hasBillingCredentials": bool(row["encrypted_billing_credentials"]),
+                   "balanceCapability": balance_capability(row["vendor"], row["api_url"], bool(row["encrypted_billing_credentials"]))} for row in cards],
         "bindings": [{"scriptId": row["script_id"], "name": SCRIPT_NAMES[row["script_id"]],
                       "cardId": row["card_id"], "revision": row["revision"]} for row in bindings],
     }
 
 
 def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str,
-                    api_key: str | None, model: str, revision: int, thinking: dict[str, object]) -> None:
+                    api_key: str | None, model: str, revision: int, thinking: dict[str, object],
+                    billing_access_key: str = "", billing_secret_key: str = "", clear_billing: bool = False) -> None:
     from app.services.model_thinking import validate_thinking
     thinking_json = json.dumps(validate_thinking(vendor, model, thinking))
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         encrypted = ""
+        billing = ""
         if card_id is not None:
             row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
             if row is None or row["revision"] != revision:
                 raise ModelConfigConflict("模型卡已被修改或删除，请重新读取")
             encrypted = row["encrypted_api_key"]
+            billing = row["encrypted_billing_credentials"]
+        if vendor != "doubao" or clear_billing:
+            billing = ""
+        if billing_access_key or billing_secret_key:
+            if vendor != "doubao" or clear_billing or not (billing_access_key and billing_secret_key):
+                raise ValueError("财务凭据须同时填写 AK 和 SK，且不能同时选择清除")
+            billing = _cipher().encrypt(json.dumps({"ak": billing_access_key, "sk": billing_secret_key}).encode()).decode()
         if api_key:
             encrypted = _cipher().encrypt(api_key.encode()).decode()
         if not encrypted:
@@ -127,13 +137,13 @@ def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str
         now = datetime.now(UTC).isoformat()
         if card_id is None:
             connection.execute(
-                "INSERT INTO audit_model_cards (id, vendor, name, api_url, encrypted_api_key, model, updated_at, thinking_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (uuid.uuid4().hex, vendor, name, api_url, encrypted, model, now, thinking_json),
+                "INSERT INTO audit_model_cards (id, vendor, name, api_url, encrypted_api_key, model, updated_at, thinking_json, encrypted_billing_credentials) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (uuid.uuid4().hex, vendor, name, api_url, encrypted, model, now, thinking_json, billing),
             )
         else:
             connection.execute(
-                "UPDATE audit_model_cards SET vendor = ?, name = ?, api_url = ?, encrypted_api_key = ?, model = ?, revision = revision + 1, updated_at = ?, thinking_json = ? WHERE id = ?",
-                (vendor, name, api_url, encrypted, model, now, thinking_json, card_id),
+                "UPDATE audit_model_cards SET vendor = ?, name = ?, api_url = ?, encrypted_api_key = ?, model = ?, revision = revision + 1, updated_at = ?, thinking_json = ?, encrypted_billing_credentials = ? WHERE id = ?",
+                (vendor, name, api_url, encrypted, model, now, thinking_json, billing, card_id),
             )
 
 
@@ -225,9 +235,16 @@ def query_model_balance(card_id: str, revision: int) -> dict:
         row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
     if row is None or row["revision"] != revision:
         raise ModelConfigConflict("模型卡已被修改或删除，请刷新后重试")
-    capability = balance_capability(row["vendor"], row["api_url"])
+    capability = balance_capability(row["vendor"], row["api_url"], bool(row["encrypted_billing_credentials"]))
     if not capability["supported"]:
         raise ValueError(capability["reason"])
+    if row["vendor"] == "doubao":
+        from app.services.volc_billing import fetch_volc_balance
+        try:
+            credentials = json.loads(_cipher().decrypt(row["encrypted_billing_credentials"].encode()).decode())
+        except (InvalidToken, ValueError, UnicodeError):
+            raise RuntimeError("财务凭据无法解密，请重新保存 AK/SK") from None
+        return fetch_volc_balance(credentials["ak"], credentials["sk"])
     if not row["encrypted_api_key"]:
         raise ValueError("请先配置 API Key")
     try:
@@ -235,3 +252,27 @@ def query_model_balance(card_id: str, revision: int) -> dict:
     except (InvalidToken, UnicodeError):
         raise RuntimeError("模型密钥无法解密，请重新保存 API Key") from None
     return fetch_balance(row["vendor"], row["api_url"], key)
+
+
+def initialize_model_billing() -> None:
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(audit_model_cards)")}
+        if "encrypted_billing_credentials" not in columns:
+            connection.execute("ALTER TABLE audit_model_cards ADD COLUMN encrypted_billing_credentials TEXT NOT NULL DEFAULT ''")
+
+
+def test_model_connection(card_id: str, revision: int) -> dict:
+    from cryptography.fernet import InvalidToken
+    from app.services.model_diagnostics import probe_model
+    with get_connection() as connection:
+        row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+    if row is None or row["revision"] != revision:
+        raise ModelConfigConflict("模型卡已被修改或删除，请刷新后重试")
+    if not row["encrypted_api_key"] or not row["model"]:
+        raise ValueError("请先完善模型及 API Key 配置")
+    try:
+        key = _cipher().decrypt(row["encrypted_api_key"].encode()).decode()
+    except (InvalidToken, UnicodeError):
+        raise RuntimeError("模型密钥无法解密，请重新保存 API Key") from None
+    return probe_model(row["vendor"], row["api_url"], row["model"], key, json.loads(row["thinking_json"]))

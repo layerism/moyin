@@ -438,9 +438,10 @@ def initialize_database() -> None:
         _apply_flow_preview_migration(connection)
         _apply_audit_hot_reload_migration(connection)
     _initialize_super_admin()
-    from app.services.audit_model_connections import initialize_model_connections, initialize_model_thinking
+    from app.services.audit_model_connections import initialize_model_connections, initialize_model_thinking, initialize_model_billing
     initialize_model_connections()
     initialize_model_thinking()
+    initialize_model_billing()
 
 
 def _initialize_super_admin() -> None:

@@ -13,7 +13,9 @@ ENDPOINTS = {
 }
 
 
-def balance_capability(vendor: str, api_url: str) -> dict:
+def balance_capability(vendor: str, api_url: str, has_billing: bool = False) -> dict:
+    if vendor == "doubao":
+        return {"supported": has_billing, "reason": "火山云账户余额，不代表单模型配额。" if has_billing else "请在编辑配置中填写财务 AK/SK。"}
     supported = (vendor, api_url.rstrip("/")) in ENDPOINTS
     reason = {
         "openai": "暂未接入：官方 Usage / Costs 查询的是用量与费用，不是剩余余额。",

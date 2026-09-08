@@ -60,6 +60,7 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
 
 SENSITIVE_COLUMNS = frozenset({
     "encrypted_api_key",
+    "encrypted_billing_credentials",
     "grading_config",
     "grading_snapshot",
     "password_hash",

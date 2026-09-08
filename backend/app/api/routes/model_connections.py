@@ -43,6 +43,9 @@ class CardUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     apiUrl: str = Field(min_length=1, max_length=2048)
     apiKey: str | None = Field(default=None, max_length=4096)
+    billingAccessKey: str = Field(default="", max_length=256)
+    billingSecretKey: str = Field(default="", max_length=4096)
+    clearBilling: bool = False
     model: str = Field(min_length=1, max_length=200)
     revision: int = Field(default=0, ge=0)
 
@@ -77,7 +80,9 @@ def _save(card_id: str | None, payload: CardUpdate) -> dict[str, object]:
     try:
         save_model_card(card_id, vendor=payload.vendor, name=payload.name,
                         api_url=payload.apiUrl, api_key=payload.apiKey.strip() if payload.apiKey else None,
-                        model=payload.model, revision=payload.revision, thinking=payload.thinking.model_dump())
+                        model=payload.model, revision=payload.revision, thinking=payload.thinking.model_dump(),
+                        billing_access_key=payload.billingAccessKey.strip(),
+                        billing_secret_key=payload.billingSecretKey.strip(), clear_billing=payload.clearBilling)
     except ModelConfigConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
@@ -129,4 +134,19 @@ def get_card_balance(card_id: str, revision: int = Query(ge=0)):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/cards/{card_id}/test")
+def test_card_connection(card_id: str, revision: int = Query(ge=0)):
+    from fastapi.responses import JSONResponse
+    from app.services.audit_model_connections import test_model_connection
+    try:
+        result = test_model_connection(card_id, revision)
+    except ModelConfigConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     return JSONResponse(result, headers={"Cache-Control": "no-store"})

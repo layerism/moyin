@@ -12559,14 +12559,29 @@ td {
 
 .script-model-picker legend { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.model-card-balance { padding: 9px 0; border-top: 1px solid #edf0f5; color: #64748b; font-size: 12px; }
-.model-balance-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.model-balance-heading button { padding: 3px 8px; border: 1px solid #d6e2f5; border-radius: 5px; color: #2563eb; background: #f5f8ff; font: inherit; cursor: pointer; }
-.model-balance-heading button:disabled { opacity: .55; cursor: default; }
-.model-card-balance small { display: block; margin-top: 4px; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
-.model-balance-detail { margin-top: 6px; }
-.model-balance-detail strong { color: #172033; font-size: 17px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.model-balance-detail strong small { display: inline; font-weight: 400; }
+/* Diagnostics occupy one line; their detail panels do not resize cards. */
+.model-card-balance { display: flex; align-items: center; gap: 8px; height: 46px; box-sizing: border-box; position: relative; border-top: 1px solid #edf0f5; color: #64748b; font-size: 12px; }
+.model-card-balance > span:first-child { flex-shrink: 0; }
+.model-balance-info { flex: 1; min-width: 0; }
+.model-balance-info > summary { list-style: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; cursor: pointer; color: #26364c; font-variant-numeric: tabular-nums; }
+.model-balance-info > summary::-webkit-details-marker { display: none; }
+.model-balance-info > summary:focus-visible { outline: 2px solid #2878f0; outline-offset: 3px; }
+.model-balance-info > summary.is-error { color: #c53434; }
+.model-admin-page .model-balance-refresh { flex-shrink: 0; width: 26px; min-height: 26px; padding: 2px; color: #2563eb; font-size: 18px; line-height: 20px; }
+.model-balance-placeholder { width: 26px; flex-shrink: 0; }
+.model-card-popover { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; width: min(280px, 75vw); padding: 12px; box-sizing: border-box; border: 1px solid #dce3ee; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px #14284424; color: #344054; font-size: 12px; overflow-wrap: anywhere; text-align: left; }
+.model-card-popover p { margin: 6px 0; line-height: 1.5; }
+.model-card-popover small { display: block; margin-top: 4px; color: #667085; font-size: 11px; line-height: 1.5; }
+.model-card-popover > div + div { margin-top: 8px; }
+.model-card > header > .model-card-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+.model-test-control { display: flex; position: relative; align-items: center; gap: 2px; }
+.model-admin-page .model-test-button { min-height: 26px; padding: 3px 6px; font-size: 11px; color: #2563eb; }
+.model-admin-page .model-test-result { min-height: 22px; width: 18px; padding: 0; border: 0; background: transparent; font-size: 12px; }
+.model-admin-page .model-test-result.is-success { color: #087b51; }
+.model-admin-page .model-test-result.is-error { color: #c53434; }
+.model-billing-fields > p { margin: 0; font-size: 11px; color: #667085; line-height: 1.5; }
+.model-billing-fields h3 small { margin-left: 6px; font-size: 11px; color: #667085; font-weight: 400; }
+.model-billing-clear { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #667085; }
 
 /* Model editor: grouped fields with stationary header and actions. */
 .model-editor-dialog { width: min(720px, 100%); padding: 0; display: flex; flex-direction: column; overflow: hidden; }

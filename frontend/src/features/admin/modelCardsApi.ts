@@ -16,12 +16,14 @@ export interface ModelCard {
   name: string;
   apiUrl: string;
   hasApiKey: boolean;
+  hasBillingCredentials: boolean;
   model: string;
   revision: number;
   thinking: ModelThinking;
   balanceCapability: { supported: boolean; reason: string };
 }
-export interface ModelBalance { available: boolean; checkedAt: string; balances: { currency: string; available: string; credit: string; cash: string }[] }
+export interface ModelBalance { available: boolean; checkedAt: string; balances: { currency: string; available: string; credit?: string; cash?: string; details?: { label: string; value: string }[] }[] }
+export interface ModelTestResult { success: boolean; detail: string; elapsedMs: number | null }
 export interface ModelBinding {
   scriptId: string;
   name: string;
@@ -32,7 +34,7 @@ export interface ModelCardsState {
   cards: ModelCard[];
   bindings: ModelBinding[];
 }
-export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey" | "balanceCapability"> & { apiKey: string };
+export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey" | "hasBillingCredentials" | "balanceCapability"> & { apiKey: string; billingAccessKey: string; billingSecretKey: string; clearBilling: boolean };
 const BASE = "/api/workflow-admin/model-connections";
 async function request<T = ModelCardsState>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, {
@@ -46,6 +48,7 @@ async function request<T = ModelCardsState>(path: string, init?: RequestInit): P
   return response.json() as Promise<T>;
 }
 export const modelCardsApi = {
+  test: (card: ModelCard) => request<ModelTestResult>(`/cards/${encodeURIComponent(card.id)}/test?revision=${card.revision}`, { method: "POST" }),
   balance: (card: ModelCard) => request<ModelBalance>(`/cards/${encodeURIComponent(card.id)}/balance?revision=${card.revision}`, { cache: "no-store" }),
   list: () => request(""),
   save: (id: string | null, draft: ModelCardDraft) => request(id ? `/cards/${encodeURIComponent(id)}` : "/cards", {
