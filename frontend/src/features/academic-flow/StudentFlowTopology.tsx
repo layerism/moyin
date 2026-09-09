@@ -1,4 +1,3 @@
-import { FlowNodeIcon } from "./FlowNodeIcon";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import type { AcademicFlowEdge, AcademicFlowNode, AcademicFlowPort } from "../../types";
@@ -185,8 +184,7 @@ export function StudentFlowTopology({
             return (
               <button
                 aria-label={`${node.title}，${statusLabels[runtime.status]}`}
-                className={`student-topology-node node-function-colors ${runtime.status}`}
-                data-node-kind={node.kind}
+                className={`student-topology-node ${runtime.status}`}
                 disabled={!openable}
                 key={node.id}
                 onClick={() => onOpenNode(node.id)}
@@ -198,7 +196,7 @@ export function StudentFlowTopology({
                 }}
                 type="button"
               >
-                <span className="flow-node-heading"><span className="flow-node-kind-icon" aria-hidden="true"><FlowNodeIcon kind={node.kind} /></span><strong>{node.title}</strong></span>
+                <strong>{node.title}</strong>
                 <span className="student-topology-node-meta">
                   <em>{getKindLabel(node)}</em>
                   <i>{getTopologyStatusLabel(runtime.status, node.kind)}</i>
