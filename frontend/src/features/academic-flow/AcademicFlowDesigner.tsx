@@ -1038,10 +1038,25 @@ function FlowNodeCanvas({
   const [zoomDraft, setZoomDraft] = useState<string | null>(null);
   const cancelZoomEditRef = useRef(false);
 
-  const applyZoomDraft = () => {
-    const value = Number(zoomDraft);
-    if (!cancelZoomEditRef.current && zoomDraft?.trim() && Number.isFinite(value) && canvasRef.current && canvasSurfaceRef.current) {
-      const nextZoom = Math.min(1.5, Math.max(0.25, value / 100));
+  const [zoomMenuOpen, setZoomMenuOpen] = useState(false);
+  const zoomMenuRef = useRef<HTMLDivElement | null>(null);
+  const zoomMenuButtonRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!zoomMenuOpen) return;
+    const outside = (event: globalThis.PointerEvent) => {
+      if (event.target instanceof Node && !zoomMenuRef.current?.contains(event.target)) setZoomMenuOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setZoomMenuOpen(false); zoomMenuButtonRef.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
+  }, [zoomMenuOpen]);
+
+  const applyZoom = (value: number) => {
+    if (Number.isFinite(value) && canvasRef.current && canvasSurfaceRef.current) {
+      const nextZoom = Math.min(1.5, Math.max(0.25, value));
       const viewport = canvasRef.current.getBoundingClientRect();
       const surface = canvasSurfaceRef.current.getBoundingClientRect();
       const x = viewport.left + viewport.width / 2 - surface.left;
@@ -1052,6 +1067,9 @@ function FlowNodeCanvas({
       }));
       setZoom(nextZoom);
     }
+  };
+  const applyZoomDraft = () => {
+    if (!cancelZoomEditRef.current && zoomDraft?.trim()) applyZoom(Number(zoomDraft) / 100);
     setZoomDraft(null);
   };
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
@@ -1699,15 +1717,22 @@ function FlowNodeCanvas({
           ) : null}
         </div>
         <div className="canvas-toolbar">
+          <div className="canvas-tool-group" role="group" aria-label="画布操作模式">
+          <button type="button" className={!handTool ? "active" : ""} aria-label="选择工具" aria-pressed={!handTool} title="选择与移动节点" onClick={() => setHandTool(false)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true"><path d="m5 3 14 10-7 1-3 7Z" /></svg>
+          </button>
           <button type="button" className={handTool ? "active" : ""}
             aria-label="手形平移工具" aria-pressed={handTool} title="手形工具：拖拽平移画布"
-            onClick={() => { setHandTool(!handTool); setNodeContextMenu(null); setConnectionSource(null); }}>
+            onClick={() => { setHandTool(true); setNodeContextMenu(null); setConnectionSource(null); }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M8 13V5a1.5 1.5 0 0 1 3 0v7M11 10V3a1.5 1.5 0 0 1 3 0v9M14 10V5a1.5 1.5 0 0 1 3 0v8M17 10a1.5 1.5 0 0 1 3 0v5c0 4-2 7-6 7h-1c-2 0-4-1-5-3l-4-6a1.5 1.5 0 0 1 2-2l2 2" />
             </svg>
           </button>
+          </div>
+          <div className="canvas-tool-group" role="group" aria-label="画布缩放">
+          <button type="button" aria-label="缩小" title="缩小 10%" disabled={zoom <= .25} onClick={() => applyZoom(Math.round(zoom * 100 - 10) / 100)}>−</button>
           {zoomDraft === null ? (
-            <button type="button" title="修改缩放比例（25%–150%）" onClick={() => {
+            <button className="canvas-zoom-value" type="button" title="修改缩放比例（25%–150%）" onClick={() => {
               cancelZoomEditRef.current = false;
               setZoomDraft(String(Math.round(zoom * 100)));
             }}>{Math.round(zoom * 100)}%</button>
@@ -1727,6 +1752,14 @@ function FlowNodeCanvas({
               <span>%</span>
             </label>
           )}
+          <div className="canvas-zoom-presets" ref={zoomMenuRef}>
+            <button type="button" ref={zoomMenuButtonRef} aria-label="快捷缩放比例" aria-expanded={zoomMenuOpen} title="快捷比例" onClick={() => setZoomMenuOpen(!zoomMenuOpen)}>⌄</button>
+            {zoomMenuOpen && <div className="canvas-zoom-menu" role="group" aria-label="快捷缩放比例">
+              {[25, 50, 75, 100, 150].map(value => <button key={value} type="button" className={Math.round(zoom * 100) === value ? "active" : ""} aria-pressed={Math.round(zoom * 100) === value} onClick={() => { applyZoom(value / 100); setZoomMenuOpen(false); zoomMenuButtonRef.current?.focus(); }}>{value}%</button>)}
+            </div>}
+          </div>
+          <button type="button" aria-label="放大" title="放大 10%" disabled={zoom >= 1.5} onClick={() => applyZoom(Math.round(zoom * 100 + 10) / 100)}>＋</button>
+          </div>
         </div>
       </div>
       <div

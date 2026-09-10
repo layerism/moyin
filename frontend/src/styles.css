@@ -12661,3 +12661,16 @@ td {
 .dag-canvas.is-hand-tool, .dag-canvas.is-hand-tool * { cursor: grab; }
 .dag-canvas.is-hand-tool { touch-action: none; user-select: none; }
 .dag-canvas.is-hand-tool.is-panning, .dag-canvas.is-hand-tool.is-panning * { cursor: grabbing; }
+
+/* Stable segmented canvas toolbar and floating zoom presets. */
+.canvas-tool-group { display: flex; align-items: center; padding: 3px; border: 1px solid #dce3ed; border-radius: 8px; background: #f8fafc; gap: 2px; }
+.canvas-tool-group > button, .canvas-zoom-presets > button { height: 28px; min-height: 28px; min-width: 28px; padding: 0 6px; color: #526078; }
+.canvas-tool-group button:hover:not(:disabled) { background: #eaf0f8; }
+.canvas-tool-group button.active { background: #e5efff; color: #2563eb; border-color: transparent; }
+.canvas-tool-group button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 1px; }
+.canvas-tool-group .canvas-zoom-value, .canvas-tool-group .canvas-zoom-editor { box-sizing: border-box; width: 54px; height: 28px; min-height: 28px; font-variant-numeric: tabular-nums; }
+.canvas-tool-group .canvas-zoom-editor { padding: 0 4px; gap: 0; }
+.canvas-tool-group .canvas-zoom-editor input { width: 34px; min-width: 0; }
+.canvas-zoom-presets { position: relative; }
+.canvas-zoom-menu { position: absolute; right: 0; top: calc(100% + 9px); z-index: 40; width: 100px; padding: 5px; border: 1px solid #dce3ed; border-radius: 8px; background: white; box-shadow: 0 6px 20px #24344d1a; }
+.canvas-zoom-menu button { width: 100%; justify-content: space-between; font-variant-numeric: tabular-nums; }
