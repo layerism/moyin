@@ -12658,9 +12658,6 @@ td {
 .canvas-zoom-editor { display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 7px; border: 1px solid #93c5fd; border-radius: 5px; background: #fff; font-size: 12px; }
 .canvas-zoom-editor input { width: 38px; padding: 0; border: 0; outline: 0; text-align: right; font: inherit; background: transparent; }
 .canvas-zoom-editor:focus-within { box-shadow: 0 0 0 2px #dbeafe; }
-.dag-canvas.is-hand-tool, .dag-canvas.is-hand-tool * { cursor: grab; }
-.dag-canvas.is-hand-tool { touch-action: none; user-select: none; }
-.dag-canvas.is-hand-tool.is-panning, .dag-canvas.is-hand-tool.is-panning * { cursor: grabbing; }
 
 /* Stable segmented canvas toolbar and floating zoom presets. */
 .canvas-tool-group { display: flex; align-items: center; padding: 3px; border: 1px solid #dce3ed; border-radius: 8px; background: #f8fafc; gap: 2px; }

@@ -1026,7 +1026,6 @@ function FlowNodeCanvas({
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.5);
-  const [handTool, setHandTool] = useState(false);
   const [zoomDraft, setZoomDraft] = useState<string | null>(null);
   const cancelZoomEditRef = useRef(false);
 
@@ -1554,7 +1553,6 @@ function FlowNodeCanvas({
     );
     if (
       (event.button === 0 && blankCanvas && !connectingFromRef.current)
-      || (handTool && event.button === 0)
       || (isCanvasControlModifierActive(event)
       && shouldStartCanvasPan({ button: event.button }))
     ) {
@@ -1661,18 +1659,6 @@ function FlowNodeCanvas({
           ) : null}
         </div>
         <div className="canvas-toolbar">
-          <div className="canvas-tool-group" role="group" aria-label="画布操作模式">
-          <button type="button" className={!handTool ? "active" : ""} aria-label="选择工具" aria-pressed={!handTool} title="选择与移动节点" onClick={() => setHandTool(false)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true"><path d="m5 3 14 10-7 1-3 7Z" /></svg>
-          </button>
-          <button type="button" className={handTool ? "active" : ""}
-            aria-label="手形平移工具" aria-pressed={handTool} title="手形工具：拖拽平移画布"
-            onClick={() => { setHandTool(true); setNodeContextMenu(null); setConnectionSource(null); }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M8 13V5a1.5 1.5 0 0 1 3 0v7M11 10V3a1.5 1.5 0 0 1 3 0v9M14 10V5a1.5 1.5 0 0 1 3 0v8M17 10a1.5 1.5 0 0 1 3 0v5c0 4-2 7-6 7h-1c-2 0-4-1-5-3l-4-6a1.5 1.5 0 0 1 2-2l2 2" />
-            </svg>
-          </button>
-          </div>
           <div className="canvas-tool-group" role="group" aria-label="画布缩放">
           <button type="button" aria-label="缩小" title="缩小 10%" disabled={zoom <= .25} onClick={() => applyZoom(Math.round(zoom * 100 - 10) / 100)}>−</button>
           {zoomDraft === null ? (
@@ -1707,7 +1693,7 @@ function FlowNodeCanvas({
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${handTool ? "is-hand-tool" : ""} ${panStart ? "is-panning" : ""}`}
+        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""}`}
         onContextMenu={(event) => {
           event.preventDefault();
           if (
@@ -1733,14 +1719,6 @@ function FlowNodeCanvas({
         }}
         onDrop={dropNode}
         onPointerCancel={cancelCanvasPointer}
-        onPointerDownCapture={event => {
-          if (handTool && event.button === 0) {
-            event.stopPropagation();
-            startCanvasPointer(event);
-          }
-        }}
-        onClickCapture={event => { if (handTool) { event.preventDefault(); event.stopPropagation(); } }}
-        onDoubleClickCapture={event => { if (handTool) { event.preventDefault(); event.stopPropagation(); } }}
         onPointerDown={startCanvasPointer}
         onPointerMove={moveCanvasPointer}
         onPointerUp={endCanvasPointer}
