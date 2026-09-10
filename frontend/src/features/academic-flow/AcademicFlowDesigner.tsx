@@ -1034,6 +1034,26 @@ function FlowNodeCanvas({
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.5);
+  const [handTool, setHandTool] = useState(false);
+  const [zoomDraft, setZoomDraft] = useState<string | null>(null);
+  const cancelZoomEditRef = useRef(false);
+
+  const applyZoomDraft = () => {
+    const value = Number(zoomDraft);
+    if (!cancelZoomEditRef.current && zoomDraft?.trim() && Number.isFinite(value) && canvasRef.current && canvasSurfaceRef.current) {
+      const nextZoom = Math.min(1.5, Math.max(0.25, value / 100));
+      const viewport = canvasRef.current.getBoundingClientRect();
+      const surface = canvasSurfaceRef.current.getBoundingClientRect();
+      const x = viewport.left + viewport.width / 2 - surface.left;
+      const y = viewport.top + viewport.height / 2 - surface.top;
+      setViewportOffset(current => ({
+        x: current.x + x * (1 - nextZoom / zoom),
+        y: current.y + y * (1 - nextZoom / zoom),
+      }));
+      setZoom(nextZoom);
+    }
+    setZoomDraft(null);
+  };
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
     () => new Set(activeNodeId ? [activeNodeId] : []),
   );
@@ -1527,8 +1547,9 @@ function FlowNodeCanvas({
   const startCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (!canvasRef.current) return;
     if (
-      isCanvasControlModifierActive(event)
-      && shouldStartCanvasPan({ button: event.button })
+      (handTool && event.button === 0)
+      || (isCanvasControlModifierActive(event)
+      && shouldStartCanvasPan({ button: event.button }))
     ) {
       event.preventDefault();
       suppressContextMenuUntilRef.current = Date.now() + 1000;
@@ -1678,11 +1699,38 @@ function FlowNodeCanvas({
           ) : null}
         </div>
         <div className="canvas-toolbar">
-          <button type="button">{Math.round(zoom * 100)}%</button>
+          <button type="button" className={handTool ? "active" : ""}
+            aria-label="手形平移工具" aria-pressed={handTool} title="手形工具：拖拽平移画布"
+            onClick={() => { setHandTool(!handTool); setNodeContextMenu(null); setConnectionSource(null); }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M8 13V5a1.5 1.5 0 0 1 3 0v7M11 10V3a1.5 1.5 0 0 1 3 0v9M14 10V5a1.5 1.5 0 0 1 3 0v8M17 10a1.5 1.5 0 0 1 3 0v5c0 4-2 7-6 7h-1c-2 0-4-1-5-3l-4-6a1.5 1.5 0 0 1 2-2l2 2" />
+            </svg>
+          </button>
+          {zoomDraft === null ? (
+            <button type="button" title="修改缩放比例（25%–150%）" onClick={() => {
+              cancelZoomEditRef.current = false;
+              setZoomDraft(String(Math.round(zoom * 100)));
+            }}>{Math.round(zoom * 100)}%</button>
+          ) : (
+            <label className="canvas-zoom-editor">
+              <input autoFocus aria-label="缩放百分比" type="text" inputMode="decimal"
+                value={zoomDraft} onFocus={event => event.currentTarget.select()}
+                onChange={event => setZoomDraft(event.target.value)} onBlur={applyZoomDraft}
+                onKeyDown={event => {
+                  if (event.key === "Enter" || event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    cancelZoomEditRef.current = event.key === "Escape";
+                    event.currentTarget.blur();
+                  }
+                }} />
+              <span>%</span>
+            </label>
+          )}
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""} ${
+        className={`flow-canvas dag-canvas ${handTool ? "is-hand-tool" : ""} ${panStart ? "is-panning" : ""} ${
           selectionDraft ? "is-selecting" : ""
         }`}
         onContextMenu={(event) => {
@@ -1710,6 +1758,14 @@ function FlowNodeCanvas({
         }}
         onDrop={dropNode}
         onPointerCancel={cancelCanvasPointer}
+        onPointerDownCapture={event => {
+          if (handTool && event.button === 0) {
+            event.stopPropagation();
+            startCanvasPointer(event);
+          }
+        }}
+        onClickCapture={event => { if (handTool) { event.preventDefault(); event.stopPropagation(); } }}
+        onDoubleClickCapture={event => { if (handTool) { event.preventDefault(); event.stopPropagation(); } }}
         onPointerDown={startCanvasPointer}
         onPointerMove={moveCanvasPointer}
         onPointerUp={endCanvasPointer}
