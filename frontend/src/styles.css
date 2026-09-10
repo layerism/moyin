@@ -12674,3 +12674,7 @@ td {
 .canvas-zoom-presets { position: relative; }
 .canvas-zoom-menu { position: absolute; right: 0; top: calc(100% + 9px); z-index: 40; width: 100px; padding: 5px; border: 1px solid #dce3ed; border-radius: 8px; background: white; box-shadow: 0 6px 20px #24344d1a; }
 .canvas-zoom-menu button { width: 100%; justify-content: space-between; font-variant-numeric: tabular-nums; }
+
+/* Blank canvas pans; node and edge controls keep their own cursors. */
+.dag-canvas { cursor: grab; touch-action: none; }
+.dag-canvas.is-panning { cursor: grabbing; }

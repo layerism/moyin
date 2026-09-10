@@ -26,7 +26,6 @@ import {
 } from "./auditScripts";
 import {
   bindCanvasZoomWheelListener,
-  canvasRectsIntersect,
   constrainCanvasGroupDelta,
   getCanvasArrowKeyDelta,
   getCanvasEdgePanDelta,
@@ -34,11 +33,9 @@ import {
   getCanvasViewportZoomState,
   isCanvasControlModifierActive,
   isCanvasKeyboardEditingTarget,
-  normalizeCanvasRect,
   shouldStartCanvasPan,
   type CanvasPoint,
   type CanvasPanStart,
-  type CanvasRect,
 } from "./canvasPan";
 import {
   canAddRevisionEdge,
@@ -117,11 +114,6 @@ function snapCanvasPoint(position: { x: number; y: number }) {
 type ConnectionDraft = {
   nodeId: string;
   port: AcademicFlowPort;
-};
-
-type CanvasSelectionDraft = {
-  current: CanvasPoint;
-  start: CanvasPoint;
 };
 
 type NodeGroupDrag = {
@@ -1075,7 +1067,6 @@ function FlowNodeCanvas({
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
     () => new Set(activeNodeId ? [activeNodeId] : []),
   );
-  const [selectionDraft, setSelectionDraft] = useState<CanvasSelectionDraft | null>(null);
   const [draggingNodes, setDraggingNodes] = useState<NodeGroupDrag | null>(null);
   const [nodeHeights, setNodeHeights] = useState<Record<string, number>>({});
   const nodeIdKey = nodes.map((node) => node.id).join("|");
@@ -1152,7 +1143,6 @@ function FlowNodeCanvas({
     setConnectionPreviewPoint(null);
     setConnectionPreviewPort(null);
     setDraggingNodes(null);
-    setSelectionDraft(null);
     setSelectedNodeIds(new Set());
     setSelectedEdgeId(null);
     setNodeContextMenu(null);
@@ -1191,12 +1181,6 @@ function FlowNodeCanvas({
   const edgeGeometries = useMemo(
     () => createCurvedEdgeGeometries(edges, curveNodes),
     [curveNodes, edges],
-  );
-  const selectionRect = useMemo<CanvasRect | null>(
-    () => selectionDraft
-      ? normalizeCanvasRect(selectionDraft.start, selectionDraft.current)
-      : null,
-    [selectionDraft],
   );
   const edgeLines = edges
     .map((edge) => {
@@ -1564,8 +1548,13 @@ function FlowNodeCanvas({
 
   const startCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (!canvasRef.current) return;
+    const target = event.target;
+    const blankCanvas = target instanceof Element && !target.closest(
+      ".flow-node, .connection-port, .flow-edge-hitbox, .flow-edge-delete, .node-context-menu, button, input, [role='menu']",
+    );
     if (
-      (handTool && event.button === 0)
+      (event.button === 0 && blankCanvas && !connectingFromRef.current)
+      || (handTool && event.button === 0)
       || (isCanvasControlModifierActive(event)
       && shouldStartCanvasPan({ button: event.button }))
     ) {
@@ -1582,48 +1571,11 @@ function FlowNodeCanvas({
       event.currentTarget.setPointerCapture(event.pointerId);
       return;
     }
-    if (event.button === 2) return;
-    const target = event.target as HTMLElement;
-    if (
-      event.button !== 0 ||
-      locked ||
-      connectingFromRef.current ||
-      target.closest(
-        ".flow-node, .flow-edge-hitbox, .flow-edge-delete",
-      )
-    ) {
-      return;
-    }
-    event.preventDefault();
-    const point = getCanvasPoint(event.clientX, event.clientY);
-    setSelectedEdgeId(null);
-    setSelectedNodeIds(new Set());
-    setSelectionDraft({ current: point, start: point });
-    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const moveCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (panStart) {
       setViewportOffset(getCanvasPanOffset(panStart, event));
-      return;
-    }
-    if (selectionDraft) {
-      const point = getCanvasPoint(event.clientX, event.clientY);
-      const nextRect = normalizeCanvasRect(selectionDraft.start, point);
-      const nextIds = layoutNodes
-        .filter((node) => canMoveNode(node.id))
-        .filter((node) => canvasRectsIntersect(nextRect, {
-          x: node.x,
-          y: node.y,
-          width: nodeSize.width,
-          height: node.renderedHeight,
-        }))
-        .map((node) => node.id);
-      setSelectionDraft({ ...selectionDraft, current: point });
-      setSelectedNodeIds(new Set(nextIds));
-      if (nextIds[0] && nextIds[0] !== activeNodeId) {
-        onSelectNode(nextIds[0]);
-      }
       return;
     }
     updateConnectionPreview(event.clientX, event.clientY);
@@ -1637,13 +1589,6 @@ function FlowNodeCanvas({
       setPanStart(null);
       return;
     }
-    if (selectionDraft) {
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
-      setSelectionDraft(null);
-      return;
-    }
     finishConnectionAt(event.clientX, event.clientY);
   };
 
@@ -1652,7 +1597,6 @@ function FlowNodeCanvas({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     setPanStart(null);
-    setSelectionDraft(null);
     setConnectionSource(null);
   };
   const previewSourceNode = connectingFrom ? nodeById.get(connectingFrom.nodeId) ?? null : null;
@@ -1763,9 +1707,7 @@ function FlowNodeCanvas({
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${handTool ? "is-hand-tool" : ""} ${panStart ? "is-panning" : ""} ${
-          selectionDraft ? "is-selecting" : ""
-        }`}
+        className={`flow-canvas dag-canvas ${handTool ? "is-hand-tool" : ""} ${panStart ? "is-panning" : ""}`}
         onContextMenu={(event) => {
           event.preventDefault();
           if (
@@ -1880,17 +1822,6 @@ function FlowNodeCanvas({
               </>
             )}
             </svg>
-            {selectionRect ? (
-              <div
-                className="canvas-selection-box"
-                style={{
-                  height: selectionRect.height,
-                  left: selectionRect.x,
-                  top: selectionRect.y,
-                  width: selectionRect.width,
-                }}
-              />
-            ) : null}
             {!locked && selectedEdge && canDeleteEdge(selectedEdge.id) && (
           <button
             aria-label="删除连接线"
