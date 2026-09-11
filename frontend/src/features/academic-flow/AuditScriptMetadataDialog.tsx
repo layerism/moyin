@@ -118,16 +118,8 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     }
   };
 
-  const updateDraft = (
-    target: "parameter" | "setting",
-    key: string,
-    value: AuditScriptValue,
-  ) => {
-    if (target === "parameter") {
-      setParameterDefaults((current) => ({ ...current, [key]: value }));
-    } else {
-      setRuntimeSettings((current) => ({ ...current, [key]: value }));
-    }
+  const updateSetting = (key: string, value: AuditScriptValue) => {
+    setRuntimeSettings((current) => ({ ...current, [key]: value }));
     clearSaveMessages();
   };
 
@@ -225,9 +217,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
               </section> : null}
               <AuditScriptConfigForm
                 disabled={saving} errors={configErrors}
-                onParameterChange={(key, value) => updateDraft("parameter", key, value)}
-                onSettingChange={(key, value) => updateDraft("setting", key, value)}
-                parameterDefaults={parameterDefaults} parameters={detail.parameters}
+                onSettingChange={updateSetting}
                 runtimeSettings={detail.runtimeSettings} settingValues={runtimeSettings}
                 concurrency={<label className="audit-script-config-field"><span>最大并发数</span>
                   <input aria-invalid={concurrencyError} disabled={saving} max={32} min={1} step={1} onChange={(event) => { setMaxConcurrency(Number(event.target.value)); clearSaveMessages(); }} type="number" value={maxConcurrency} />

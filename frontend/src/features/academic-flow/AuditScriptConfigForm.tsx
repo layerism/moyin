@@ -1,25 +1,21 @@
 import type { ReactNode } from "react";
-import type { AuditScriptParameter, AuditScriptRuntimeSetting } from "./auditScripts";
+import type { AuditScriptRuntimeSetting } from "./auditScripts";
 import type { AuditScriptValue } from "./auditScriptConfig";
-
-type ConfigField = AuditScriptParameter | AuditScriptRuntimeSetting;
 
 function ConfigInput({
   definition,
   disabled,
   error,
-  namespace,
   onChange,
   value,
 }: {
-  definition: ConfigField;
+  definition: AuditScriptRuntimeSetting;
   disabled: boolean;
   error: string;
-  namespace: "parameter" | "setting";
   onChange: (value: AuditScriptValue) => void;
   value: AuditScriptValue;
 }) {
-  const inputId = `audit-script-config-${namespace}-${definition.key}`;
+  const inputId = `audit-script-config-setting-${definition.key}`;
   const errorId = `${inputId}-error`;
   const descriptionId = `${inputId}-description`;
   const describedBy = [definition.description ? descriptionId : "", error ? errorId : ""]
@@ -102,10 +98,7 @@ function ConfigInput({
 export function AuditScriptConfigForm({
   disabled,
   errors,
-  onParameterChange,
   onSettingChange,
-  parameterDefaults,
-  parameters,
   runtimeSettings,
   settingValues,
   concurrency,
@@ -113,29 +106,18 @@ export function AuditScriptConfigForm({
   concurrency?: ReactNode;
   disabled: boolean;
   errors: Record<string, string>;
-  onParameterChange: (key: string, value: AuditScriptValue) => void;
   onSettingChange: (key: string, value: AuditScriptValue) => void;
-  parameterDefaults: Record<string, AuditScriptValue>;
-  parameters: AuditScriptParameter[];
   runtimeSettings: AuditScriptRuntimeSetting[];
   settingValues: Record<string, AuditScriptValue>;
 }) {
-  const editableParameters = parameters.filter((parameter) => parameter.key !== "documentReviewPrompt");
   const common = runtimeSettings.filter((setting) => ["temperature", "requestTimeoutSeconds"].includes(setting.key));
   const advanced = runtimeSettings.filter((setting) => !common.includes(setting));
   const renderSetting = (setting: AuditScriptRuntimeSetting) => <ConfigInput
     definition={setting} disabled={disabled} error={errors[`setting:${setting.key}`] ?? ""}
-    key={setting.key} namespace="setting" onChange={(value) => onSettingChange(setting.key, value)}
+    key={setting.key} onChange={(value) => onSettingChange(setting.key, value)}
     value={settingValues[setting.key] ?? ""}
   />;
   return <div className="audit-script-config-sections">
-    {editableParameters.length ? <section><h3>审核设置</h3><p>作为新选用该脚本的节点默认值，流程内仍可调整。</p>
-      <div className="audit-script-config-fields">{editableParameters.map((parameter) => <ConfigInput
-        definition={parameter} disabled={disabled} error={errors[`parameter:${parameter.key}`] ?? ""}
-        key={parameter.key} namespace="parameter" onChange={(value) => onParameterChange(parameter.key, value)}
-        value={parameterDefaults[parameter.key] ?? ""}
-      />)}</div>
-    </section> : null}
     {concurrency || common.length ? <section><h3>运行参数</h3><div className="audit-script-config-fields">{concurrency}{common.map(renderSetting)}</div></section> : null}
     {advanced.length ? <details className="script-advanced-settings" open={advanced.some((setting) => Boolean(errors[`setting:${setting.key}`])) || undefined}>
       <summary>高级设置 <span>{advanced.length} 项</span></summary>
