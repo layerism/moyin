@@ -120,6 +120,7 @@ export function AuditScriptConfigForm({
   runtimeSettings: AuditScriptRuntimeSetting[];
   settingValues: Record<string, AuditScriptValue>;
 }) {
+  const editableParameters = parameters.filter((parameter) => parameter.key !== "documentReviewPrompt");
   const common = runtimeSettings.filter((setting) => ["temperature", "requestTimeoutSeconds"].includes(setting.key));
   const advanced = runtimeSettings.filter((setting) => !common.includes(setting));
   const renderSetting = (setting: AuditScriptRuntimeSetting) => <ConfigInput
@@ -128,8 +129,8 @@ export function AuditScriptConfigForm({
     value={settingValues[setting.key] ?? ""}
   />;
   return <div className="audit-script-config-sections">
-    {parameters.length ? <section><h3>审核设置</h3><p>作为新选用该脚本的节点默认值，流程内仍可调整。</p>
-      <div className="audit-script-config-fields">{parameters.map((parameter) => <ConfigInput
+    {editableParameters.length ? <section><h3>审核设置</h3><p>作为新选用该脚本的节点默认值，流程内仍可调整。</p>
+      <div className="audit-script-config-fields">{editableParameters.map((parameter) => <ConfigInput
         definition={parameter} disabled={disabled} error={errors[`parameter:${parameter.key}`] ?? ""}
         key={parameter.key} namespace="parameter" onChange={(value) => onParameterChange(parameter.key, value)}
         value={parameterDefaults[parameter.key] ?? ""}
