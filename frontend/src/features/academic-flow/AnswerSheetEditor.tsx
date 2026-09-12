@@ -148,10 +148,16 @@ export function AnswerSheetEditor({
   };
 
   const openQuestion = (question: AnswerSheetQuestion) => {
+    const draftQuestion = !disabled
+      && question.type !== "fill_blank"
+      && question.options.length === 2
+      && question.options.every((option) => !option.content.trim())
+      ? { ...question, options: [...question.options, createAnswerSheetOption(), createAnswerSheetOption()] }
+      : question;
     setQuestionDraft({
       answer: activeKey.answers[question.id] ?? createPrivateAnswer(question),
       isNew: false,
-      question,
+      question: draftQuestion,
     });
     setOpenMenu(null);
   };
