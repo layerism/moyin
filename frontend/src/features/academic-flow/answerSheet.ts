@@ -63,6 +63,8 @@ export function createAnswerSheetQuestion(type: AnswerSheetQuestionType): Answer
     options: [
       createAnswerSheetOption(),
       createAnswerSheetOption(),
+      createAnswerSheetOption(),
+      createAnswerSheetOption(),
     ],
     points: 1,
     required: true,

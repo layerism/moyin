@@ -366,6 +366,7 @@ export function AnswerSheetEditor({
       {activeConfig.questions.length === 0 ? <p className="muted-line">该答题卡暂无题目。</p> : null}
       {questionDraft ? (
         <AnswerSheetQuestionDialog
+          key={questionDraft.question.id}
           answer={questionDraft.answer}
           disabled={disabled}
           errors={draftErrors}
@@ -382,6 +383,27 @@ export function AnswerSheetEditor({
         />
       ) : null}
     </section>
+  );
+}
+
+function QuestionPointsInput({ value, disabled, onChange }: {
+  value: number;
+  disabled: boolean;
+  onChange: (value: number) => void;
+}) {
+  const [text, setText] = useState(String(value));
+  return (
+    <input
+      disabled={disabled}
+      min="1"
+      step="1"
+      type="number"
+      value={text}
+      onChange={(event) => {
+        setText(event.target.value);
+        onChange(Number(event.target.value));
+      }}
+    />
   );
 }
 
@@ -429,14 +451,12 @@ function AnswerSheetQuestionDialog({
               {"points" in question ? (
                 <label className="answer-sheet-question-points">
                   <span>分值</span>
-                  <input
+                  <QuestionPointsInput
                     disabled={disabled}
-                    min="1"
-                    type="number"
                     value={question.points}
-                    onChange={(event) => onQuestionChange({
+                    onChange={(points) => onQuestionChange({
                       ...question,
-                      points: Number(event.target.value),
+                      points,
                     })}
                   />
                 </label>
@@ -730,9 +750,9 @@ function FillBlankEditor({
         return (
           <div className="answer-sheet-blank-row" key={blank.id}>
             <code title="在题干 Markdown 中移动此标记">{`[[blank:${blank.id}]]`}</code>
-            <label>分值 <input disabled={disabled} min="1" type="number" value={blank.points} onChange={(event) => onQuestionChange({
+            <label>分值 <QuestionPointsInput disabled={disabled} value={blank.points} onChange={(points) => onQuestionChange({
               ...question,
-              blanks: question.blanks.map((item) => item.id === blank.id ? { ...item, points: Number(event.target.value) } : item),
+              blanks: question.blanks.map((item) => item.id === blank.id ? { ...item, points } : item),
             })} /></label>
             <label className="answer-sheet-accepted-answers">
               可接受答案（每行一个）
