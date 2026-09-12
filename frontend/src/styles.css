@@ -889,6 +889,10 @@
   text-align: var(--answer-sheet-markdown-display-align, center);
 }
 
+.answer-sheet-question-markdown .katex-display > .katex {
+  font-size: 1em;
+}
+
 .answer-sheet-markdown strong {
   font-weight: 700;
 }
