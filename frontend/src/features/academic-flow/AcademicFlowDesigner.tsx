@@ -1038,6 +1038,27 @@ function FlowNodeCanvas({
   );
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
+  const marqueeStartRef = useRef<(CanvasPoint & { pointerId: number }) | null>(null);
+  const [selectionBox, setSelectionBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const cancelMarquee = useCallback(() => {
+    const start = marqueeStartRef.current;
+    marqueeStartRef.current = null;
+    setSelectionBox(null);
+    if (start && canvasRef.current?.hasPointerCapture(start.pointerId)) {
+      canvasRef.current.releasePointerCapture(start.pointerId);
+    }
+  }, []);
+  useEffect(() => {
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") cancelMarquee();
+    };
+    window.addEventListener("keydown", escape);
+    window.addEventListener("blur", cancelMarquee);
+    return () => {
+      window.removeEventListener("keydown", escape);
+      window.removeEventListener("blur", cancelMarquee);
+    };
+  }, [cancelMarquee]);
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.5);
@@ -1150,6 +1171,7 @@ function FlowNodeCanvas({
 
   useEffect(() => {
     if (!locked) return;
+    cancelMarquee();
     connectingFromRef.current = null;
     connectionPointerRef.current = null;
     connectionPreviewPortRef.current = null;
@@ -1160,7 +1182,7 @@ function FlowNodeCanvas({
     setSelectedNodeIds(new Set());
     setSelectedEdgeId(null);
     setNodeContextMenu(null);
-  }, [locked]);
+  }, [locked, cancelMarquee]);
 
   const layoutNodes = useMemo<FlowNodeLayout[]>(() => nodes.map((node) => ({
     ...node,
@@ -1277,7 +1299,7 @@ function FlowNodeCanvas({
   };
 
   const zoomCanvas = (event: WheelEvent) => {
-    if (!canvasSurfaceRef.current) return;
+    if (!canvasSurfaceRef.current || marqueeStartRef.current) return;
     setNodeContextMenu(null);
     const surfaceRect = canvasSurfaceRef.current.getBoundingClientRect();
     const next = getCanvasViewportZoomState({
@@ -1562,10 +1584,21 @@ function FlowNodeCanvas({
 
   const startCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
     if (!canvasRef.current) return;
+    if (marqueeStartRef.current) return;
     const target = event.target;
     const blankCanvas = target instanceof Element && !target.closest(
       ".flow-node, .connection-port, .flow-edge-hitbox, .flow-edge-delete, .node-context-menu, button, input, [role='menu']",
     );
+    if (event.button === 0 && blankCanvas && !locked && !connectingFromRef.current && isCanvasControlModifierActive(event)) {
+      event.preventDefault();
+      const start = getCanvasPoint(event.clientX, event.clientY);
+      marqueeStartRef.current = { ...start, pointerId: event.pointerId };
+      setSelectionBox({ left: start.x, top: start.y, width: 0, height: 0 });
+      setNodeContextMenu(null);
+      setSelectedEdgeId(null);
+      event.currentTarget.setPointerCapture(event.pointerId);
+      return;
+    }
     if (
       (event.button === 0 && blankCanvas && !connectingFromRef.current)
       || (isCanvasControlModifierActive(event)
@@ -1587,6 +1620,13 @@ function FlowNodeCanvas({
   };
 
   const moveCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const start = marqueeStartRef.current;
+    if (start) {
+      if (event.pointerId !== start.pointerId) return;
+      const point = getCanvasPoint(event.clientX, event.clientY);
+      setSelectionBox({ left: Math.min(start.x, point.x), top: Math.min(start.y, point.y), width: Math.abs(point.x - start.x), height: Math.abs(point.y - start.y) });
+      return;
+    }
     if (panStart) {
       setViewportOffset(getCanvasPanOffset(panStart, event));
       return;
@@ -1595,6 +1635,22 @@ function FlowNodeCanvas({
   };
 
   const endCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
+    const start = marqueeStartRef.current;
+    if (start) {
+      if (event.pointerId !== start.pointerId) return;
+      const point = getCanvasPoint(event.clientX, event.clientY);
+      const left = Math.min(start.x, point.x);
+      const top = Math.min(start.y, point.y);
+      const right = Math.max(start.x, point.x);
+      const bottom = Math.max(start.y, point.y);
+      const selected = layoutNodes.filter((node) => right > left && bottom > top
+        && node.x < right && node.x + nodeSize.width > left
+        && node.y < bottom && node.y + node.renderedHeight > top);
+      setSelectedNodeIds(new Set(selected.map((node) => node.id)));
+      if (selected[0]) onSelectNode(selected[0].id);
+      cancelMarquee();
+      return;
+    }
     if (panStart) {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -1606,6 +1662,7 @@ function FlowNodeCanvas({
   };
 
   const cancelCanvasPointer = (event: PointerEvent<HTMLDivElement>) => {
+    cancelMarquee();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
@@ -1708,7 +1765,7 @@ function FlowNodeCanvas({
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""}`}
+        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""} ${selectionBox ? "is-selecting" : ""}`}
         onContextMenu={(event) => {
           event.preventDefault();
           if (
@@ -1760,6 +1817,7 @@ function FlowNodeCanvas({
               width: canvasSurfaceWidth,
             }}
           >
+            {selectionBox ? <div className="canvas-selection-box" style={selectionBox} aria-hidden="true" /> : null}
             <svg
               className="flow-edge-layer"
               style={{ height: canvasSurfaceHeight, width: canvasSurfaceWidth }}
