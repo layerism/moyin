@@ -473,9 +473,9 @@ export const workflowApi = {
   getManualReview(nodeInstanceId: string) {
     return request<ManualReviewDetail>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review`);
   },
-  approveManualReview(nodeInstanceId: string, evidenceHash: string, remark: string, feedbackRevision: number) {
+  approveManualReview(nodeInstanceId: string, evidenceHash: string, remark: string, feedbackRevision: number, sourceNodeKey: string | null, sourceRemark: string) {
     return request<{ approved: boolean }>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review/approve`, {
-      method: "POST", body: JSON.stringify({ evidenceHash, remark, feedbackRevision }),
+      method: "POST", body: JSON.stringify({ evidenceHash, remark, feedbackRevision, sourceNodeKey, sourceRemark }),
     });
   },
   saveManualFeedback(nodeInstanceId: string, evidenceHash: string, remark: string, feedbackRevision: number) {

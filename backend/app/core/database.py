@@ -277,6 +277,16 @@ CREATE TABLE IF NOT EXISTS manual_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_manual_reviews_node ON manual_reviews(node_instance_id, created_at);
 
+CREATE TABLE IF NOT EXISTS manual_source_reviews (
+    node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
+    evidence_hash TEXT NOT NULL,
+    source_node_key TEXT NOT NULL,
+    teacher_id INTEGER NOT NULL,
+    remark TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (node_instance_id, evidence_hash, source_node_key)
+);
+
 CREATE TABLE IF NOT EXISTS manual_feedback_files (
     id TEXT PRIMARY KEY,
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,

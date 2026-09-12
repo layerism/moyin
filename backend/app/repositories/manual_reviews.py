@@ -6,7 +6,7 @@ from app.core.database import get_connection
 from app.domain.workflow_runtime import node_by_key
 from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready
-from app.repositories.manual_review_state import latest_review, review_evidence, sync_manual_reviews
+from app.repositories.manual_review_state import latest_review, review_evidence, sync_manual_reviews, source_reviews
 from app.services.security import utc_now_iso
 
 
@@ -96,6 +96,7 @@ def get_manual_review(node_instance_id, teacher_id):
         ).fetchall()
         from app.repositories.manual_feedback import draft_feedback, published_feedback
         return {
+            'sourceReviews': source_reviews(connection, node_instance_id, evidence, fingerprint),
             'feedbackDraft': draft_feedback(connection, node_instance_id, fingerprint),
             'feedback': published_feedback(connection, row['flow_instance_id'], row['node_key'], fingerprint),
             'nodeInstanceId': node_instance_id, 'title': node['title'], 'requirement': node.get('requirement', ''),
@@ -106,22 +107,34 @@ def get_manual_review(node_instance_id, teacher_id):
         }
 
 
-def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark, feedback_revision):
+def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark, feedback_revision, source_node_key, source_remark):
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
         row, config, node, status = _context(connection, node_instance_id, teacher_id)
         evidence, fingerprint = review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
         if fingerprint != evidence_hash:
             raise ManualReviewConflict('材料已更新，请重新查看后审核')
+        source_keys = {source['nodeKey'] for source in evidence['sources']}
+        if source_keys and source_node_key not in source_keys:
+            raise ValueError('请选择一个前置节点进行审核')
+        if not source_keys and source_node_key is not None:
+            raise ValueError('该人工审核节点没有前置节点')
         from app.repositories.manual_feedback import publish_feedback
         publish_feedback(connection, node_instance_id, teacher_id, evidence_hash, feedback_revision, remark)
         if status == 'approved':
             previous = latest_review(connection, node_instance_id)
             if previous and previous['evidence_hash'] == fingerprint:
-                return
+                return True
         if status != 'reviewing':
             raise ManualReviewConflict('前置材料尚未全部通过或尚未到审核开始时间')
         now = utc_now_iso()
+        if source_node_key is not None:
+            connection.execute('''INSERT INTO manual_source_reviews
+                (node_instance_id, evidence_hash, source_node_key, teacher_id, remark, created_at)
+                VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING''',
+                (node_instance_id, fingerprint, source_node_key, teacher_id, source_remark.strip(), now))
+            if not all(item['approved'] for item in source_reviews(connection, node_instance_id, evidence, fingerprint)):
+                return False
         connection.execute(
             """INSERT INTO manual_reviews
                (id, flow_instance_id, node_instance_id, node_key, evidence_hash, evidence_snapshot, teacher_id, remark, created_at)
@@ -132,3 +145,4 @@ def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark, f
         connection.execute("UPDATE node_instances SET status = 'approved', approved_at = ? WHERE id = ?", (now, node_instance_id))
         advance_downstream(connection, row['flow_instance_id'], row['flow_version_id'], config)
         complete_flow_if_ready(connection, row['flow_instance_id'], now)
+        return True

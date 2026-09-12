@@ -58,6 +58,20 @@ def latest_review(connection, node_instance_id):
     ).fetchone()
 
 
+def source_reviews(connection, node_instance_id, evidence, fingerprint):
+    rows = {row['source_node_key']: row for row in connection.execute(
+        'SELECT * FROM manual_source_reviews WHERE node_instance_id = ? AND evidence_hash = ?',
+        (node_instance_id, fingerprint),
+    ).fetchall()}
+    previous = latest_review(connection, node_instance_id)
+    legacy = previous if previous and previous['evidence_hash'] == fingerprint else None
+    return [{'nodeKey': source['nodeKey'], 'title': source['title'],
+             'approved': source['nodeKey'] in rows or legacy is not None,
+             'remark': rows[source['nodeKey']]['remark'] if source['nodeKey'] in rows else '',
+             'reviewedAt': rows[source['nodeKey']]['created_at'] if source['nodeKey'] in rows else legacy['created_at'] if legacy else None}
+            for source in evidence['sources']]
+
+
 def sync_manual_reviews(connection, instance_id, config):
     manual_nodes = [node for node in config['nodes'] if node.get('kind') == 'manual_review']
     if not manual_nodes:

@@ -12739,7 +12739,6 @@ td {
 .manual-feedback-published-file button { white-space: nowrap; }
 .manual-review-dialog .primary-action { color: white; background: #2563eb; border-color: #2563eb; justify-self: end; }
 .manual-review-dialog > .dialog-error { margin: 8px 24px; color: #b91c1c; }
-.manual-review-student-state { margin: 20px 24px; padding: 20px; border: 1px solid #dce3ed; border-radius: 10px; background: #f8fafc; }
 @media (max-width: 700px) {
   .manual-review-dialog { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
   .manual-review-layout { grid-template-columns: 1fr; grid-template-rows: 150px minmax(0, 1fr); }
@@ -12751,4 +12750,34 @@ td {
   .manual-review-file-row > :last-child { grid-column: 2; }
   .manual-review-student-heading h3 small { display: block; margin: 4px 0 0; }
   .manual-review-action-buttons > small { flex-basis: 100%; }
+}
+
+.manual-source-decision { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+.manual-source-decision textarea { flex: 1; min-width: 0; padding: 8px; font: inherit; font-size: 13px; border: 1px solid #d6dfec; border-radius: 6px; resize: vertical; }
+.manual-source-decision button { flex: none; }
+.manual-source-approved { margin: 0; color: #15803d; font-size: 13px; white-space: pre-wrap; }
+.manual-review-student-state { margin: 0; padding: 22px 24px; border: 0; border-radius: 0; background: white; }
+.manual-review-result { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 9px; background: #eff6ff; }
+.manual-review-result.is-approved { background: #f0fdf4; }
+.manual-review-result-icon { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 50%; background: #dbeafe; color: #2563eb; font-size: 21px; }
+.manual-review-result.is-approved .manual-review-result-icon { background: #dcfce7; color: #15803d; }
+.manual-review-result h3 { margin: 0; font-size: 16px; }
+.manual-review-result p { margin: 5px 0 0; font-size: 13px; color: #64748b; }
+.manual-feedback-source { margin: 10px 0; padding: 14px; border: 1px solid #e2e8f0; border-radius: 8px; }
+.manual-feedback-source > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; }
+.manual-feedback-source > header span { font-size: 12px; color: #64748b; }
+.manual-feedback-source > header .is-approved { color: #15803d; }
+.manual-feedback-source > small { display: block; margin-top: 5px; color: #64748b; font-size: 12px; }
+.manual-feedback-source > p, .manual-feedback-overall { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+.manual-review-student-state .manual-feedback-list { margin-top: 20px; }
+.manual-review-student-state .manual-feedback-published-file { padding-top: 10px; border-top: 1px solid #eef2f7; }
+.manual-review-student-state .manual-feedback-published-file button { padding: 7px 10px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; color: #1d4ed8; cursor: pointer; font: inherit; font-size: 12px; }
+.manual-review-student-state .manual-feedback-published-file button:disabled { opacity: .55; cursor: default; }
+.manual-review-student-state .manual-feedback-published-file button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.manual-review-student-state .manual-feedback-list > details { margin-top: 14px; color: #64748b; font-size: 13px; }
+@media (max-width: 700px) {
+  .manual-review-student-state { padding: 16px; }
+  .manual-source-decision { flex-wrap: wrap; }
+  .manual-source-decision textarea { flex-basis: 100%; }
+  .manual-feedback-published-file { align-items: flex-start; flex-wrap: wrap; }
 }

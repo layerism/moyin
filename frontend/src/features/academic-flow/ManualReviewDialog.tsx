@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, workflowApi } from "./api";
-import type { ManualReviewDetail, ManualReviewQueue, ManualFeedbackFile, RuntimeNodeStatus } from "./runtimeTypes";
+import type { ManualReviewDetail, ManualReviewQueue, ManualFeedbackFile, ManualSourceReview, RuntimeNodeStatus } from "./runtimeTypes";
 import { AnswerSheetMarkdown } from "./AnswerSheetMarkdown";
 import { ReadonlyFormFields } from "./RuntimeFormFields";
 import { AnswerSheetGradeResult, RuntimeAnswerSheet } from "./RuntimeAnswerSheet";
@@ -69,13 +69,14 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
 
   useEffect(() => { setSaved(false); }, [activeId]);
 
-  const saveFeedback = async (pass: boolean) => {
+  const saveFeedback = async (pass: boolean, sourceNodeKey: string | null = null, sourceRemark = "") => {
     if (!detail || detail.nodeInstanceId !== activeId || saving) return;
     setSaving(true);
     setError("");
     try {
       if (pass) {
-        await workflowApi.approveManualReview(detail.nodeInstanceId, detail.evidenceHash, remark, detail.feedbackDraft.revision);
+        const result = await workflowApi.approveManualReview(detail.nodeInstanceId, detail.evidenceHash, remark, detail.feedbackDraft.revision, sourceNodeKey, sourceRemark);
+        if (!result.approved) { setRefresh((value) => value + 1); return; }
       } else {
         await workflowApi.saveManualFeedback(detail.nodeInstanceId, detail.evidenceHash, remark, detail.feedbackDraft.revision);
         setSaved(true);
@@ -134,6 +135,7 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
           <div className="manual-review-content">
             <details className="manual-review-instructions"><summary>审核说明</summary><AnswerSheetMarkdown>{detail.requirement}</AnswerSheetMarkdown></details>
             {detail.sources.map((source) => <SourceMaterial key={`${detail.nodeInstanceId}-${source.nodeKey}`} source={source}
+              review={detail.sourceReviews.find((item) => item.nodeKey === source.nodeKey)} onApprove={(text) => void saveFeedback(true, source.nodeKey, text)}
               feedbackFiles={detail.feedbackDraft.files} busy={saving} editable={detail.status === "reviewing" || detail.status === "approved"}
               onUpload={(sourceId, file) => void changeFile(sourceId, file)} onRemove={(id) => void changeFile("", undefined, id)} />)}
             <ManualFeedbackList feedback={detail.feedback} />
@@ -143,9 +145,9 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
           </div>
           {detail.status === "reviewing" || detail.status === "approved" ? <div className="manual-review-action">
             <label>反馈备注<textarea rows={2} placeholder="填写批改意见，保存后学生可见" maxLength={1000} disabled={saving} value={remark} onChange={(event) => { setSaved(false); setRemark(event.target.value); }} /></label>
-            <div className="manual-review-action-buttons"><small role="status">{saved ? "反馈已保存，学生可查看并下载。" : "批改件每份不超过 50 MB；保存后学生可下载。"}</small>
+            <div className="manual-review-action-buttons"><small role="status">{saved ? "反馈已保存，学生可查看并下载。" : "逐节点确认后自动放行；确认时会同时保存反馈。"}</small>
               <button disabled={saving} onClick={() => void saveFeedback(false)} type="button">保存反馈</button>
-              {detail.status === "reviewing" ? <button className="primary-action" disabled={saving} onClick={() => void saveFeedback(true)} type="button">{saving ? "正在处理…" : "审核通过"}</button> : <span>已通过</span>}
+              {detail.status === "reviewing" && !detail.sources.length ? <button className="primary-action" disabled={saving} onClick={() => void saveFeedback(true)} type="button">{saving ? "正在处理…" : "审核通过"}</button> : <span>{detail.status === "approved" ? "已通过" : `${detail.sourceReviews.filter((item) => item.approved).length}/${detail.sources.length} 节点已确认`}</span>}
             </div>
           </div> : <p>前置材料就绪且到达开始时间后可审核。</p>}
         </> : active && !activeId ? <p>该学生尚未进入流程，暂无提交材料。</p> : !error && !loading ? <p>请选择待审核学生。</p> : null}
@@ -154,10 +156,12 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
   </dialog>;
 }
 
-function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRemove }: {
+function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRemove, review, onApprove }: {
+  review?: ManualSourceReview; onApprove: (remark: string) => void;
   source: ManualReviewDetail["sources"][number]; feedbackFiles: ManualFeedbackFile[]; busy: boolean; editable: boolean;
   onUpload: (sourceId: string, file: File) => void; onRemove: (id: string) => void;
 }) {
+  const [sourceRemark, setSourceRemark] = useState(review?.remark ?? "");
   const node: AcademicFlowNode = {
     id: source.nodeKey, title: source.title, kind: source.kind, requirement: source.requirement,
     infoFields: source.infoFields, answerSheet: source.answerSheet ?? undefined,
@@ -196,5 +200,11 @@ function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRem
     {source.manualReview ? <p>人工审核：{source.manualReview.remark || "审核通过"} · {date(source.manualReview.reviewedAt)}</p> : null}
     {!source.submissionId && !source.manualReview ? <p>暂无正式提交内容</p> : null}
     {source.kind === "announcement" && source.submissionId ? <p>{source.submission.confirmed ? "已阅读确认" : "尚未确认"}</p> : null}
+    <div className="manual-source-decision">
+      {review?.approved ? <p className="manual-source-approved">✓ 已确认通过{review.remark ? ` · ${review.remark}` : ""}</p> : <>
+        <textarea aria-label={`${source.title}审核意见`} rows={2} maxLength={1000} placeholder="该节点的审核意见（选填）" disabled={busy || !editable} value={sourceRemark} onChange={(event) => setSourceRemark(event.target.value)} />
+        <button className="primary-action" type="button" disabled={busy || !editable} onClick={() => onApprove(sourceRemark)}>{busy ? "正在处理…" : "该节点审核通过"}</button>
+      </>}
+    </div>
   </section>;
 }

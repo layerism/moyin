@@ -25,9 +25,9 @@ def draft_feedback(connection, node_instance_id, evidence_hash):
 def file_items(connection, ids):
     result = []
     for file_id in ids:
-        row = connection.execute('SELECT id, source_file_id, source_name, original_name, size_bytes FROM manual_feedback_files WHERE id = ?', (file_id,)).fetchone()
+        row = connection.execute('SELECT f.id, f.source_file_id, f.source_name, f.original_name, f.size_bytes, n.node_key AS source_node_key FROM manual_feedback_files f LEFT JOIN uploaded_files u ON u.id = f.source_file_id LEFT JOIN node_instances n ON n.id = u.node_instance_id WHERE f.id = ?', (file_id,)).fetchone()
         if row:
-            result.append({'id': row['id'], 'sourceFileId': row['source_file_id'], 'sourceName': row['source_name'], 'name': row['original_name'], 'sizeBytes': row['size_bytes']})
+            result.append({'id': row['id'], 'sourceFileId': row['source_file_id'], 'sourceNodeKey': row['source_node_key'], 'sourceName': row['source_name'], 'name': row['original_name'], 'sizeBytes': row['size_bytes']})
     return result
 
 

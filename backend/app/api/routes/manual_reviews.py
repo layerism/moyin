@@ -54,11 +54,16 @@ def detail(node_instance_id: str, teacher=Depends(get_current_teacher)):
         raise HTTPException(422, str(exc)) from exc
 
 
+class SourceApprovalRequest(ApprovalRequest):
+    sourceNodeKey: str | None = None
+    sourceRemark: str = Field(default='', max_length=1000)
+
+
 @router.post('/node-instances/{node_instance_id}/manual-review/approve')
-def approve(node_instance_id: str, payload: ApprovalRequest, teacher=Depends(get_current_teacher)):
+def approve(node_instance_id: str, payload: SourceApprovalRequest, teacher=Depends(get_current_teacher)):
     try:
-        approve_manual_review(node_instance_id, int(teacher['id']), payload.evidenceHash, payload.remark, payload.feedbackRevision)
-        return {'approved': True}
+        approved = approve_manual_review(node_instance_id, int(teacher['id']), payload.evidenceHash, payload.remark, payload.feedbackRevision, payload.sourceNodeKey, payload.sourceRemark)
+        return {'approved': approved}
     except KeyError as exc:
         raise HTTPException(404, '审核节点不存在或预览已失效') from exc
     except RosterAccessError as exc:

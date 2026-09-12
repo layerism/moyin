@@ -696,10 +696,14 @@ function RuntimeNodeDialog({
         {runtime.requiresResubmission ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
         {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
         {node.kind === "manual_review" ? <section className="manual-review-student-state">
-          <h3>{runtime.status === "approved" ? "教师已审核通过" : runtime.status === "reviewing" ? "等待教师审核" : runtime.status === "scheduled" ? "尚未到审核开始时间" : "请先完成前置节点"}</h3>
-          <p>{runtime.status === "reviewing" ? "前置材料已就绪，无需再次提交。教师审核通过后将解锁后续节点。" : runtime.status === "approved" ? "本节点已完成。" : "完成前置节点后，材料将自动进入教师审核列表。"}</p>
-          {runtime.manualReview ? <><p>审核时间：{formatDateTime(runtime.manualReview.reviewedAt)}</p>{runtime.manualReview.remark && !runtime.feedback?.length ? <p>教师备注：{runtime.manualReview.remark}</p> : null}</> : null}
-          <ManualFeedbackList feedback={runtime.feedback ?? []} student />
+          <div className={`manual-review-result${runtime.status === "approved" ? " is-approved" : ""}`}>
+            <span className="manual-review-result-icon" aria-hidden="true">{runtime.status === "approved" ? "✓" : "◷"}</span>
+            <div><h3>{runtime.status === "approved" ? "审核通过" : runtime.status === "reviewing" ? "等待教师审核" : "等待前置节点就绪"}</h3>
+              <p>{runtime.status === "approved" ? "本节点已完成，可继续办理后续节点。" : `教师逐项确认后开放下一阶段${runtime.sourceReviews?.length ? ` · ${runtime.sourceReviews.filter((item) => item.approved).length}/${runtime.sourceReviews.length} 已确认` : ""}`}</p>
+            </div>
+          </div>
+          {runtime.manualReview && !runtime.sourceReviews?.length ? <small>审核时间：{formatDateTime(runtime.manualReview.reviewedAt)}</small> : null}
+          <ManualFeedbackList feedback={runtime.feedback ?? []} sources={runtime.sourceReviews ?? []} student />
           {onPreviewReview ? <button onClick={onPreviewReview} type="button">教师预览：模拟审核</button> : null}
         </section> : readonly ? (
           <>
