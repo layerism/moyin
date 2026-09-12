@@ -12793,8 +12793,6 @@ td {
 .dag-canvas.is-control-pressed:not(.is-selecting),
 .dag-canvas.is-control-pressed:not(.is-selecting) .flow-node { cursor: default; }
 
-.node-reference-settings { display: grid; gap: 8px; min-width: 0; }
-.node-reference-settings > small { color: #64748b; }
 .runtime-node-reference { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 24px; padding: 14px 16px; border: 1px solid #dce3ed; border-radius: 8px; background: #f8fafc; }
 .runtime-node-reference > div { flex: 1; min-width: 0; }
 .runtime-node-reference strong { font-size: 14px; }
@@ -12803,3 +12801,24 @@ td {
 .runtime-node-reference button { border: 1px solid #bfdbfe; border-radius: 6px; padding: 8px 12px; color: #1d4ed8; background: #eff6ff; cursor: pointer; }
 .runtime-node-reference button:disabled { opacity: .55; cursor: default; }
 .runtime-node-reference > .dialog-error { flex-basis: 100%; color: #b91c1c; }
+
+.node-reference-card { display: grid; gap: 12px; padding: 12px; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; min-width: 0; }
+.node-reference-card > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.node-reference-card > header strong { font-size: 13px; color: #34435c; }
+.node-reference-card > header span { padding: 2px 7px; border-radius: 10px; background: #f1f5f9; color: #64748b; font-size: 11px; }
+.node-reference-file-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.node-reference-icon { display: grid; place-items: center; flex: none; width: 34px; height: 38px; border-radius: 6px; background: #eff6ff; color: #2563eb; font-size: 20px; }
+.node-reference-copy { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.node-reference-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
+.node-reference-copy small, .node-reference-locked { color: #64748b; font-size: 11px; }
+.node-reference-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.node-reference-upload, .node-reference-actions button { position: relative; margin: 0; padding: 6px 10px; border: 1px solid #d6dfec; border-radius: 6px; background: white; color: #64748b; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.node-reference-upload { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+.node-reference-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.node-reference-upload:focus-within, .node-reference-actions button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.node-reference-card > footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding-top: 9px; border-top: 1px solid #eef2f7; color: #64748b; }
+.node-reference-card > footer small { font-size: 11px; }
+@media (max-width: 700px) {
+  .node-reference-file-row { flex-wrap: wrap; }
+  .node-reference-actions { margin-left: 44px; }
+}

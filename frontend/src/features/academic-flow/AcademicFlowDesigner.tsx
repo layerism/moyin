@@ -2543,22 +2543,27 @@ function NodeInspector({
                 )}
               </div>
 
-              <div className="node-file-template-row">
-                <strong className="node-file-material-label">填写参考</strong>
-                <div className="node-reference-settings">
-                  {node.referenceAsset ? <div className="node-template-file node-file-template-file">
-                    <div className="node-template-file-copy"><strong title={node.referenceAsset.originalName}>{node.referenceAsset.originalName}</strong><small>{formatTemplateSize(node.referenceAsset.sizeBytes)}</small></div>
-                    {!coreSettingsDisabled ? <button type="button" onClick={onDeleteReference}>删除参考</button> : <small>发布版固化</small>}
-                  </div> : <small>可选，供学生参考填写，不影响提交。</small>}
-                  {!coreSettingsDisabled ? <label className="node-file-template-upload">
-                    <input type="file" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
-                      const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
-                      if (file) onUploadReference(file);
-                    }} />
-                    <strong>{node.referenceAsset ? "替换参考文件" : "上传参考文件"}</strong><small>DOCX、PDF 或图片 · 最大 50 MB</small>
-                  </label> : null}
+              <section className="node-reference-card" aria-label="填写参考">
+                <header><strong>填写参考</strong><span>可选</span></header>
+                <div className="node-reference-file-row">
+                  <span className="node-reference-icon" aria-hidden="true">▤</span>
+                  <div className="node-reference-copy">
+                    <strong title={node.referenceAsset?.originalName}>{node.referenceAsset?.originalName ?? "未上传参考文件"}</strong>
+                    {node.referenceAsset ? <small>{formatTemplateSize(node.referenceAsset.sizeBytes)}</small> : null}
+                  </div>
+                  {coreSettingsDisabled ? <small className="node-reference-locked">发布版固化</small> : <div className="node-reference-actions">
+                    <label className="node-reference-upload">
+                      <input type="file" aria-label={node.referenceAsset ? "替换参考文件" : "上传参考文件"} accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
+                        const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
+                        if (file) onUploadReference(file);
+                      }} />
+                      {node.referenceAsset ? "替换" : "上传参考"}
+                    </label>
+                    {node.referenceAsset ? <button type="button" onClick={onDeleteReference}>删除</button> : null}
+                  </div>}
                 </div>
-              </div>
+                <footer><small>DOCX、PDF 或图片 · ≤50 MB</small><small>发布后学生可查看、下载</small></footer>
+              </section>
 
               <AuditScriptSelector
                 disabled={coreSettingsDisabled}
