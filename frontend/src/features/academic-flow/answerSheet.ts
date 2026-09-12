@@ -26,7 +26,7 @@ export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
     config: {
       gradingPolicy: {
         feedback: "question_result",
-        maxAttempts: null,
+        maxAttempts: 2,
         passingScore: question.points,
       },
       questions: [question],
