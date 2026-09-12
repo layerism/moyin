@@ -530,7 +530,7 @@
 
 .answer-sheet-question-dialog .answer-sheet-question-markdown .markdown-blur-source,
 .answer-sheet-question-dialog .answer-sheet-question-markdown .markdown-blur-preview {
-  min-height: 144px;
+  min-height: 240px;
   padding: 10px 12px;
 }
 
