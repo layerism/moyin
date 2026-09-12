@@ -183,11 +183,6 @@ export function StudentRuntimePage({
     setActionWarning("");
     try {
       setInstance(await workflowApi.saveNodeDraft(runtime.id, drafts[runtime.id] ?? {}));
-      setNotice(
-        runtime.status === "approved"
-          ? "修改内容已暂存，原通过内容仍然有效"
-          : "当前节点已暂存",
-      );
     } catch (reason) {
       setActionWarning(reason instanceof Error ? reason.message : "暂存失败");
     } finally {
@@ -197,7 +192,7 @@ export function StudentRuntimePage({
 
   const uploadFile = async (runtime: RuntimeNodeInstance, file: File) => {
     setBusyNodeId(runtime.id);
-    setNotice("正在上传文件");
+    setNotice("");
     try {
       const uploaded = await workflowApi.uploadFile(runtime.id, file);
       setDrafts((current) => ({
@@ -212,7 +207,6 @@ export function StudentRuntimePage({
           },
         },
       }));
-      setNotice("文件上传成功，可以提交节点");
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "文件上传失败";
       setNotice("");
@@ -223,8 +217,6 @@ export function StudentRuntimePage({
   };
 
   const submit = async (runtime: RuntimeNodeInstance) => {
-    const approvedFormAmendment = runtime.status === "approved"
-      && instance?.config.nodes.find((node) => node.id === runtime.nodeKey)?.kind === "form";
     setBusyNodeId(runtime.id);
     setNotice("");
     setActionWarning("");
@@ -239,17 +231,6 @@ export function StudentRuntimePage({
       const submittedNode = next.nodeInstances.find((node) => node.id === runtime.id);
       if (submittedNode?.status === "approved") {
         setAmendingNodeId(null);
-        setNotice(
-          approvedFormAmendment
-            ? "表单修改已提交并通过"
-            : "自动审核通过，后续节点已按流程规则开放",
-        );
-      } else if (submittedNode?.status === "rejected" && submittedNode.grade) {
-        setNotice(
-          `本次得分 ${submittedNode.grade.score} / ${submittedNode.grade.maxScore}，未达到及格要求`,
-        );
-      } else {
-        setNotice("节点已提交，正在自动审核");
       }
     } catch (reason) {
       if (reason instanceof ApiError && Object.keys(reason.fieldErrors).length > 0) {
@@ -270,7 +251,6 @@ export function StudentRuntimePage({
     setActionWarning("");
     try {
       setInstance(await workflowApi.retryAudit(runtime.id));
-      setNotice("已重新发起自动审核");
     } catch (reason) {
       setActionWarning(reason instanceof Error ? reason.message : "重新审核失败");
     } finally {
@@ -292,7 +272,6 @@ export function StudentRuntimePage({
       anchor.click();
       anchor.remove();
       setInstance(await workflowApi.getInstance(instanceId));
-      setNotice("模板已下载，请填写后上传");
     } catch (reason) {
       setActionWarning(reason instanceof Error ? reason.message : "模板下载失败");
     } finally {
@@ -313,7 +292,6 @@ export function StudentRuntimePage({
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      setNotice("文件下载已开始");
     } catch (reason) {
       setActionWarning(reason instanceof Error ? reason.message : "文件下载失败");
     } finally {
