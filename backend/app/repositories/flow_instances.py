@@ -21,7 +21,7 @@ from app.domain.workflow_runtime import (
     validate_submission,
 )
 from app.repositories.audit_jobs import create_audit_job
-from app.repositories.manual_review_state import sync_manual_reviews, latest_review, review_evidence, source_reviews
+from app.repositories.manual_review_state import sync_manual_reviews, latest_review, review_evidence, source_reviews, current_rejection
 from app.repositories.audit_policies import (
     AuditPolicyConflictError,
     resolve_effective_audit_policy,
@@ -316,6 +316,13 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     connection, str(instance["flow_version_id"]), str(row["node_key"])
                 )["gradingKey"]
             manual_review = latest_review(connection, row["id"]) if config_node.get("kind") == "manual_review" else None
+            rejection = current_rejection(connection, row["id"])
+            rejection_files = []
+            if rejection and rejection["feedback_id"]:
+                from app.repositories.manual_feedback import file_items
+                saved_feedback = connection.execute("SELECT files_json FROM manual_feedback WHERE id = ?", (rejection["feedback_id"],)).fetchone()
+                if saved_feedback:
+                    rejection_files = [file for file in file_items(connection, json.loads(saved_feedback["files_json"])) if file["sourceNodeKey"] == row["node_key"]]
             feedback = []
             reviews = []
             if config_node.get("kind") == "manual_review":
@@ -332,6 +339,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "requiresResubmission": requires_resubmission,
                     "feedback": feedback,
                     "sourceReviews": reviews,
+                    "manualRejection": {"id": rejection["id"], "remark": rejection["remark"], "reviewedAt": rejection["created_at"], "files": rejection_files} if rejection else None,
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),
@@ -347,7 +355,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
                     "manualReview": {"remark": manual_review["remark"], "reviewedAt": manual_review["created_at"]} if manual_review and status == "approved" else None,
-                    "audit": _audit_summary(row, status, config_node),
+                    "audit": None if rejection else _audit_summary(row, status, config_node),
                     "grade": (
                         student_grade_view(
                             grade,
@@ -544,8 +552,8 @@ def save_node_draft(
         )
         if not approved_form_amendment:
             connection.execute(
-                "UPDATE node_instances SET status = 'draft' WHERE id = ?",
-                (node_instance_id,),
+                "UPDATE node_instances SET status = ? WHERE id = ?",
+                ('rejected' if current_rejection(connection, node_instance_id) else 'draft', node_instance_id),
             )
     return get_instance(row["flow_instance_id"], student_id)
 

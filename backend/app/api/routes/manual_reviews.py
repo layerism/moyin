@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.repositories.flow_roster import RosterAccessError
 from app.repositories.manual_reviews import (
-    ManualReviewConflict, approve_manual_review, get_manual_review, list_manual_reviews,
+    ManualReviewConflict, approve_manual_review, get_manual_review, list_manual_reviews, reject_manual_source,
 )
 from app.services.object_storage import ObjectStorageError, ObjectStorageNotConfigured, get_object_storage
 from app.services.security import get_current_teacher, get_current_runtime_student
@@ -72,6 +72,16 @@ def approve(node_instance_id: str, payload: SourceApprovalRequest, teacher=Depen
         raise HTTPException(409, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@router.post('/node-instances/{node_instance_id}/manual-review/reject')
+def reject(node_instance_id: str, payload: SourceApprovalRequest, teacher=Depends(get_current_teacher)):
+    try:
+        reject_manual_source(node_instance_id, int(teacher['id']), payload.evidenceHash,
+                             payload.feedbackRevision, payload.sourceNodeKey, payload.sourceRemark)
+        return {'rejected': True}
+    except (KeyError, ValueError, RosterAccessError) as exc:
+        raise feedback_error(exc) from exc
 
 
 def feedback_error(exc):

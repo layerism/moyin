@@ -4,9 +4,10 @@ import uuid
 
 from app.core.database import get_connection
 from app.domain.workflow_runtime import node_by_key
+from app.domain.workflow_revision import reachable_successors
 from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready
-from app.repositories.manual_review_state import latest_review, review_evidence, sync_manual_reviews, source_reviews
+from app.repositories.manual_review_state import latest_review, review_evidence, sync_manual_reviews, source_reviews, invalidate_nodes
 from app.services.security import utc_now_iso
 
 
@@ -125,13 +126,14 @@ def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark, f
             previous = latest_review(connection, node_instance_id)
             if previous and previous['evidence_hash'] == fingerprint:
                 return True
-        if status != 'reviewing':
+        if status not in {'reviewing', 'rejected'}:
             raise ManualReviewConflict('前置材料尚未全部通过或尚未到审核开始时间')
         now = utc_now_iso()
         if source_node_key is not None:
             connection.execute('''INSERT INTO manual_source_reviews
                 (node_instance_id, evidence_hash, source_node_key, teacher_id, remark, created_at)
-                VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING''',
+                VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(node_instance_id, evidence_hash, source_node_key) DO UPDATE SET
+                teacher_id = excluded.teacher_id, remark = excluded.remark, created_at = excluded.created_at''',
                 (node_instance_id, fingerprint, source_node_key, teacher_id, source_remark.strip(), now))
             if not all(item['approved'] for item in source_reviews(connection, node_instance_id, evidence, fingerprint)):
                 return False
@@ -146,3 +148,33 @@ def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark, f
         advance_downstream(connection, row['flow_instance_id'], row['flow_version_id'], config)
         complete_flow_if_ready(connection, row['flow_instance_id'], now)
         return True
+
+
+def reject_manual_source(node_instance_id, teacher_id, evidence_hash, feedback_revision, source_node_key, source_remark):
+    if not source_remark.strip():
+        raise ValueError('审核不通过时必须填写该节点的审核意见')
+    with get_connection() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        from app.repositories.manual_feedback import checked_draft, publish_feedback
+        row, evidence, draft = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, feedback_revision)
+        if not any(source['nodeKey'] == source_node_key for source in evidence['sources']):
+            raise ValueError('只能退回当前审核的前置节点')
+        source = connection.execute('SELECT * FROM node_instances WHERE flow_instance_id = ? AND node_key = ?',
+                                    (row['flow_instance_id'], source_node_key)).fetchone()
+        if source is None or source['status'] != 'approved':
+            raise ManualReviewConflict('该节点当前不可退回，请刷新材料后重试')
+        # Publish the correction files before changing the evidence and locking descendants.
+        publish_feedback(connection, node_instance_id, teacher_id, evidence_hash, feedback_revision, draft['remark'])
+        feedback = connection.execute('SELECT id FROM manual_feedback WHERE node_instance_id = ? AND evidence_hash = ? ORDER BY revision DESC LIMIT 1',
+                                      (node_instance_id, evidence_hash)).fetchone()
+        now = utc_now_iso()
+        connection.execute("""INSERT INTO manual_node_rejections
+            (id, node_instance_id, reviewer_node_instance_id, feedback_id, attempt_no, teacher_id, remark, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (str(uuid.uuid4()), source['id'], node_instance_id, feedback['id'] if feedback else None,
+             source['attempt_no'], teacher_id, source_remark.strip(), now))
+        config = json.loads(connection.execute('SELECT config_snapshot FROM flow_versions WHERE id = ?',
+                                               (row['flow_version_id'],)).fetchone()['config_snapshot'])
+        affected = {source_node_key} | reachable_successors(config, {source_node_key})
+        invalidate_nodes(connection, row['flow_instance_id'], config, affected, now)
+        connection.execute("UPDATE node_instances SET status = 'rejected' WHERE id = ?", (source['id'],))

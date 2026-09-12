@@ -63,13 +63,64 @@ def source_reviews(connection, node_instance_id, evidence, fingerprint):
         'SELECT * FROM manual_source_reviews WHERE node_instance_id = ? AND evidence_hash = ?',
         (node_instance_id, fingerprint),
     ).fetchall()}
+    rejected_self = current_rejection(connection, node_instance_id)
+    if rejected_self:
+        rows = {key: row for key, row in rows.items() if row['created_at'] > rejected_self['created_at']}
     previous = latest_review(connection, node_instance_id)
-    legacy = previous if previous and previous['evidence_hash'] == fingerprint else None
-    return [{'nodeKey': source['nodeKey'], 'title': source['title'],
-             'approved': source['nodeKey'] in rows or legacy is not None,
-             'remark': rows[source['nodeKey']]['remark'] if source['nodeKey'] in rows else '',
-             'reviewedAt': rows[source['nodeKey']]['created_at'] if source['nodeKey'] in rows else legacy['created_at'] if legacy else None}
-            for source in evidence['sources']]
+    legacy = previous if previous and previous['evidence_hash'] == fingerprint and not rejected_self else None
+    instance = connection.execute('SELECT flow_instance_id FROM node_instances WHERE id = ?', (node_instance_id,)).fetchone()
+    result = []
+    for source in evidence['sources']:
+        source_row = connection.execute('SELECT id FROM node_instances WHERE flow_instance_id = ? AND node_key = ?',
+                                        (instance['flow_instance_id'], source['nodeKey'])).fetchone()
+        rejected = current_rejection(connection, source_row['id']) if source_row else None
+        decision = rows.get(source['nodeKey'])
+        approved = rejected is None and (decision is not None or legacy is not None)
+        result.append({'nodeKey': source['nodeKey'], 'title': source['title'], 'approved': approved,
+                       'rejected': rejected is not None,
+                       'remark': rejected['remark'] if rejected else decision['remark'] if decision else '',
+                       'reviewedAt': rejected['created_at'] if rejected else decision['created_at'] if decision else legacy['created_at'] if legacy else None})
+    return result
+
+
+def current_rejection(connection, node_instance_id):
+    return connection.execute(
+        """SELECT r.* FROM manual_node_rejections r JOIN node_instances n ON n.id = r.node_instance_id
+           WHERE r.node_instance_id = ? AND r.attempt_no = n.attempt_no
+             AND (n.approved_at IS NULL OR n.approved_at <= r.created_at)
+           ORDER BY r.created_at DESC, r.id DESC LIMIT 1""", (node_instance_id,),
+    ).fetchone()
+
+
+def invalidate_nodes(connection, instance_id, config, node_keys, now):
+    rows = {row['node_key']: row for row in connection.execute(
+        'SELECT * FROM node_instances WHERE flow_instance_id = ?', (instance_id,),
+    ).fetchall()}
+    for node_key in node_keys:
+        row = rows.get(node_key)
+        if row is None:
+            continue
+        connection.execute(
+            "UPDATE node_instances SET status = 'locked', approved_at = NULL, attempt_reset_no = attempt_no WHERE id = ?", (row['id'],),
+        )
+        node = next(item for item in config['nodes'] if item['id'] == node_key)
+        if node.get('kind') in {'form', 'answer_sheet'}:
+            connection.execute(
+                """INSERT INTO node_drafts (node_instance_id, payload, updated_at)
+                   SELECT node_instance_id, payload_snapshot, ? FROM submissions
+                   WHERE node_instance_id = ? AND attempt_no = ?
+                   ON CONFLICT(node_instance_id) DO NOTHING""",
+                (now, row['id'], row['attempt_no']),
+            )
+        connection.execute(
+            """UPDATE audit_jobs SET status = 'cancelled', cancellation_reason = 'source_updated',
+               finished_at = ?, updated_at = ?
+               WHERE node_instance_id = ? AND status IN ('pending', 'running')""",
+            (now, now, row['id']),
+        )
+    connection.execute(
+        "UPDATE flow_instances SET status = 'in_progress', completed_at = NULL WHERE id = ?", (instance_id,),
+    )
 
 
 def sync_manual_reviews(connection, instance_id, config):
@@ -91,31 +142,7 @@ def sync_manual_reviews(connection, instance_id, config):
             invalidated.add(node['id'])
     if invalidated:
         invalidated |= reachable_successors(config, invalidated)
-        for node_key in invalidated:
-            row = rows.get(node_key)
-            if row is None:
-                continue
-            connection.execute(
-                "UPDATE node_instances SET status = 'locked', approved_at = NULL, attempt_reset_no = attempt_no WHERE id = ?", (row['id'],),
-            )
-            node = next(item for item in config['nodes'] if item['id'] == node_key)
-            if node.get('kind') in {'form', 'answer_sheet'}:
-                connection.execute(
-                    """INSERT INTO node_drafts (node_instance_id, payload, updated_at)
-                       SELECT node_instance_id, payload_snapshot, ? FROM submissions
-                       WHERE node_instance_id = ? AND attempt_no = ?
-                       ON CONFLICT(node_instance_id) DO NOTHING""",
-                    (now, row['id'], row['attempt_no']),
-                )
-            connection.execute(
-                """UPDATE audit_jobs SET status = 'cancelled', cancellation_reason = 'source_updated',
-                   finished_at = ?, updated_at = ?
-                   WHERE node_instance_id = ? AND status IN ('pending', 'running')""",
-                (now, now, row['id']),
-            )
-        connection.execute(
-            "UPDATE flow_instances SET status = 'in_progress', completed_at = NULL WHERE id = ?", (instance_id,),
-        )
+        invalidate_nodes(connection, instance_id, config, invalidated, now)
     statuses = {row['node_key']: row['status'] for row in connection.execute(
         'SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?', (instance_id,),
     ).fetchall()}
@@ -131,7 +158,7 @@ def sync_manual_reviews(connection, instance_id, config):
             None if preview else node.get('startAt'), None,
         )
         if status == 'available':
-            status = 'reviewing'
+            status = 'rejected' if current_rejection(connection, row['id']) else 'reviewing'
         if status != statuses[node['id']]:
             connection.execute(
                 'UPDATE node_instances SET status = ?, opened_at = ? WHERE id = ?',

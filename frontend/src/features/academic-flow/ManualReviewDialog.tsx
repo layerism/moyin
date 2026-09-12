@@ -7,7 +7,7 @@ import { AnswerSheetMarkdown } from "./AnswerSheetMarkdown";
 import { ReadonlyFormFields } from "./RuntimeFormFields";
 import { AnswerSheetGradeResult, RuntimeAnswerSheet } from "./RuntimeAnswerSheet";
 
-const category = (status: RuntimeNodeStatus) => status === "approved" ? "approved" : status === "reviewing" ? "reviewing" : "locked";
+const category = (status: RuntimeNodeStatus) => status === "approved" ? "approved" : (status === "reviewing" || status === "rejected") ? "reviewing" : "locked";
 const labels = { all: "全部", locked: "未就绪", reviewing: "待审核", approved: "已通过" };
 const parameterLabels: Record<string, string> = { documentReviewPrompt: "文档审核要求", scanAuditPrompt: "审核标准", scanAuditMode: "审核模式", scanAuditThreshold: "通过阈值" };
 const date = (value: string | null) => value ? new Date(value).toLocaleString("zh-CN") : "尚未提交";
@@ -21,7 +21,6 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
   const [detail, setDetail] = useState<ManualReviewDetail | null>(null);
   const [filter, setFilter] = useState<keyof typeof labels>("reviewing");
   const [query, setQuery] = useState("");
-  const [remark, setRemark] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -56,12 +55,11 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
   useEffect(() => {
     let cancelled = false;
     setDetail(null);
-    setRemark("");
     setError("");
     if (!activeId) { setLoading(false); return; }
     setLoading(true);
     workflowApi.getManualReview(activeId).then((next) => {
-      if (!cancelled) { setDetail(next); setRemark(next.feedbackDraft.remark); }
+      if (!cancelled) { setDetail(next); }
     }).catch((reason: Error) => { if (!cancelled) setError(reason.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -75,22 +73,36 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
     setError("");
     try {
       if (pass) {
-        const result = await workflowApi.approveManualReview(detail.nodeInstanceId, detail.evidenceHash, remark, detail.feedbackDraft.revision, sourceNodeKey, sourceRemark);
+        const result = await workflowApi.approveManualReview(detail.nodeInstanceId, detail.evidenceHash, detail.feedbackDraft.remark, detail.feedbackDraft.revision, sourceNodeKey, sourceRemark);
         if (!result.approved) { setRefresh((value) => value + 1); return; }
       } else {
-        await workflowApi.saveManualFeedback(detail.nodeInstanceId, detail.evidenceHash, remark, detail.feedbackDraft.revision);
+        await workflowApi.saveManualFeedback(detail.nodeInstanceId, detail.evidenceHash, detail.feedbackDraft.remark, detail.feedbackDraft.revision);
         setSaved(true);
         setRefresh((value) => value + 1);
         return;
       }
       setDetail(null);
-      setRemark("");
       const next = await loadQueue();
-      const nextStudent = next.students.find((student) => student.status === "reviewing" && student.nodeInstanceId !== activeId);
+      const nextStudent = next.students.find((student) => category(student.status) === "reviewing" && student.nodeInstanceId !== activeId);
       setSelected(nextStudent?.id ?? null);
       setRefresh((value) => value + 1);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "审核操作失败");
+      if (reason instanceof ApiError && reason.status === 409) setDetail(null);
+    } finally { setSaving(false); }
+  };
+
+  const rejectSource = async (sourceNodeKey: string, sourceRemark: string) => {
+    if (!detail || saving) return;
+    if (!sourceRemark.trim()) { setError("审核不通过时，请填写该节点的审核意见。"); return; }
+    setSaving(true); setError(""); setSaved(false);
+    try {
+      await workflowApi.rejectManualSource(detail.nodeInstanceId, detail.evidenceHash, detail.feedbackDraft.revision, sourceNodeKey, sourceRemark);
+      setFilter("all");
+      setSelected(active?.id ?? null);
+      setRefresh((value) => value + 1);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "退回失败");
       if (reason instanceof ApiError && reason.status === 409) setDetail(null);
     } finally { setSaving(false); }
   };
@@ -135,18 +147,17 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
           <div className="manual-review-content">
             <details className="manual-review-instructions"><summary>审核说明</summary><AnswerSheetMarkdown>{detail.requirement}</AnswerSheetMarkdown></details>
             {detail.sources.map((source) => <SourceMaterial key={`${detail.nodeInstanceId}-${source.nodeKey}`} source={source}
-              review={detail.sourceReviews.find((item) => item.nodeKey === source.nodeKey)} onApprove={(text) => void saveFeedback(true, source.nodeKey, text)}
-              feedbackFiles={detail.feedbackDraft.files} busy={saving} editable={detail.status === "reviewing" || detail.status === "approved"}
+              review={detail.sourceReviews.find((item) => item.nodeKey === source.nodeKey)} onApprove={(text) => void saveFeedback(true, source.nodeKey, text)} onReject={(text) => void rejectSource(source.nodeKey, text)}
+              feedbackFiles={detail.feedbackDraft.files} busy={saving} editable={detail.status === "reviewing" || detail.status === "approved" || detail.status === "rejected"}
               onUpload={(sourceId, file) => void changeFile(sourceId, file)} onRemove={(id) => void changeFile("", undefined, id)} />)}
             <ManualFeedbackList feedback={detail.feedback} />
             {detail.history.length ? <details><summary>历史审核记录（{detail.history.length}）</summary>
               {detail.history.map((record) => <p key={record.id}>{date(record.reviewedAt)} · {record.teacherName} · {record.remark || "审核通过"}</p>)}
             </details> : null}
           </div>
-          {detail.status === "reviewing" || detail.status === "approved" ? <div className="manual-review-action">
-            <label>反馈备注<textarea rows={2} placeholder="填写批改意见，保存后学生可见" maxLength={1000} disabled={saving} value={remark} onChange={(event) => { setSaved(false); setRemark(event.target.value); }} /></label>
-            <div className="manual-review-action-buttons"><small role="status">{saved ? "反馈已保存，学生可查看并下载。" : "逐节点确认后自动放行；确认时会同时保存反馈。"}</small>
-              <button disabled={saving} onClick={() => void saveFeedback(false)} type="button">保存反馈</button>
+          {detail.status === "reviewing" || detail.status === "approved" || detail.status === "rejected" ? <div className="manual-review-action">
+            <div className="manual-review-action-buttons"><small role="status">{saved ? "批改文件已保存，学生可下载。" : "逐节点确认后自动放行；确认时会同时保存反馈。"}</small>
+              <button disabled={saving} onClick={() => void saveFeedback(false)} type="button">保存批改文件</button>
               {detail.status === "reviewing" && !detail.sources.length ? <button className="primary-action" disabled={saving} onClick={() => void saveFeedback(true)} type="button">{saving ? "正在处理…" : "审核通过"}</button> : <span>{detail.status === "approved" ? "已通过" : `${detail.sourceReviews.filter((item) => item.approved).length}/${detail.sources.length} 节点已确认`}</span>}
             </div>
           </div> : <p>前置材料就绪且到达开始时间后可审核。</p>}
@@ -156,8 +167,8 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
   </dialog>;
 }
 
-function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRemove, review, onApprove }: {
-  review?: ManualSourceReview; onApprove: (remark: string) => void;
+function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRemove, review, onApprove, onReject }: {
+  review?: ManualSourceReview; onApprove: (remark: string) => void; onReject: (remark: string) => void;
   source: ManualReviewDetail["sources"][number]; feedbackFiles: ManualFeedbackFile[]; busy: boolean; editable: boolean;
   onUpload: (sourceId: string, file: File) => void; onRemove: (id: string) => void;
 }) {
@@ -169,7 +180,6 @@ function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRem
   };
   return <section className="manual-review-source">
     <header><h4>{source.title}</h4><small>{source.status === "approved" ? "已通过" : "尚未通过"} · {date(source.submittedAt)}</small></header>
-    <details className="manual-review-instructions"><summary>节点要求</summary><AnswerSheetMarkdown>{source.requirement}</AnswerSheetMarkdown></details>
     {source.submissionId && source.kind === "form" ? <ReadonlyFormFields fields={source.infoFields} payload={source.submission} /> : null}
     {source.submissionId && source.kind === "answer_sheet" ? <>
       <RuntimeAnswerSheet errors={{}} instanceId="" node={node} payload={source.submission} readonly />
@@ -201,8 +211,9 @@ function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRem
     {!source.submissionId && !source.manualReview ? <p>暂无正式提交内容</p> : null}
     {source.kind === "announcement" && source.submissionId ? <p>{source.submission.confirmed ? "已阅读确认" : "尚未确认"}</p> : null}
     <div className="manual-source-decision">
-      {review?.approved ? <p className="manual-source-approved">✓ 已确认通过{review.remark ? ` · ${review.remark}` : ""}</p> : <>
-        <textarea aria-label={`${source.title}审核意见`} rows={2} maxLength={1000} placeholder="该节点的审核意见（选填）" disabled={busy || !editable} value={sourceRemark} onChange={(event) => setSourceRemark(event.target.value)} />
+      {review?.rejected ? <p className="manual-source-rejected">未通过 · {review.remark}</p> : review?.approved ? <p className="manual-source-approved">✓ 已确认通过{review.remark ? ` · ${review.remark}` : ""}</p> : <>
+        <textarea aria-label={`${source.title}审核意见`} rows={2} maxLength={1000} placeholder="该节点的审核意见（不通过时必填）" disabled={busy || !editable} value={sourceRemark} onChange={(event) => setSourceRemark(event.target.value)} />
+        <button className="manual-source-reject" type="button" disabled={busy || !editable} onClick={() => onReject(sourceRemark)}>审核不通过</button>
         <button className="primary-action" type="button" disabled={busy || !editable} onClick={() => onApprove(sourceRemark)}>{busy ? "正在处理…" : "该节点审核通过"}</button>
       </>}
     </div>

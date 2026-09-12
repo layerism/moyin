@@ -478,6 +478,11 @@ export const workflowApi = {
       method: "POST", body: JSON.stringify({ evidenceHash, remark, feedbackRevision, sourceNodeKey, sourceRemark }),
     });
   },
+  rejectManualSource(nodeInstanceId: string, evidenceHash: string, feedbackRevision: number, sourceNodeKey: string, sourceRemark: string) {
+    return request<{ rejected: boolean }>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review/reject`, {
+      method: "POST", body: JSON.stringify({ evidenceHash, feedbackRevision, sourceNodeKey, sourceRemark }),
+    });
+  },
   saveManualFeedback(nodeInstanceId: string, evidenceHash: string, remark: string, feedbackRevision: number) {
     return request<{ saved: boolean }>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review/feedback`, {
       method: "POST", body: JSON.stringify({ evidenceHash, remark, feedbackRevision }),

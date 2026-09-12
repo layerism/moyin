@@ -319,6 +319,19 @@ CREATE TABLE IF NOT EXISTS manual_feedback (
 );
 CREATE INDEX IF NOT EXISTS idx_manual_feedback_node ON manual_feedback(flow_instance_id, node_key);
 
+CREATE TABLE IF NOT EXISTS manual_node_rejections (
+    id TEXT PRIMARY KEY,
+    node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
+    reviewer_node_instance_id TEXT REFERENCES node_instances(id) ON DELETE SET NULL,
+    feedback_id TEXT REFERENCES manual_feedback(id) ON DELETE SET NULL,
+    attempt_no INTEGER NOT NULL,
+    teacher_id INTEGER NOT NULL,
+    remark TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_manual_node_rejections_node
+    ON manual_node_rejections(node_instance_id, attempt_no, created_at);
+
 CREATE TABLE IF NOT EXISTS node_drafts (
     node_instance_id TEXT PRIMARY KEY REFERENCES node_instances(id) ON DELETE CASCADE,
     payload TEXT NOT NULL,

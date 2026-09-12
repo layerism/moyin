@@ -1,4 +1,4 @@
-import { ManualFeedbackList } from "./ManualFeedbackList";
+import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import Markdown from "react-markdown";
@@ -49,6 +49,7 @@ export function StudentRuntimePage({
   preview?: boolean;
 }) {
   const [instance, setInstance] = useState<RuntimeFlowInstance | null>(initialInstance ?? null);
+  const seenRejections = useRef<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, Record<string, unknown>>>({});
   const [notice, setNotice] = useState("");
   const [actionWarning, setActionWarning] = useState("");
@@ -78,10 +79,14 @@ export function StudentRuntimePage({
 
   useEffect(() => {
     if (!instance) return;
+    const newlyRejected = new Set(instance.nodeInstances.filter((node) => node.manualRejection && seenRejections.current[node.id] !== node.manualRejection.id).map((node) => node.id));
+    for (const node of instance.nodeInstances) {
+      if (node.manualRejection) seenRejections.current[node.id] = node.manualRejection.id;
+    }
     setDrafts((current) => {
       const next = { ...current };
       for (const node of instance.nodeInstances) {
-        if (!(node.id in next)) {
+        if (!(node.id in next) || newlyRejected.has(node.id)) {
           const configNode = instance.config.nodes.find((item) => item.id === node.nodeKey);
           next[node.id] = (
             configNode?.kind === "answer_sheet"
@@ -693,12 +698,21 @@ function RuntimeNodeDialog({
             开放时间：{new Date(runtime.effectiveStartAt).toLocaleString("zh-CN")} · {formatCountdown(runtime.effectiveStartAt, clock)}
           </p>
         ) : null}
-        {runtime.requiresResubmission ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
+        {runtime.manualRejection ? <section className="runtime-manual-rejection" aria-label="教师审核意见">
+          <header><strong>教师审核未通过</strong><small>{formatDateTime(runtime.manualRejection.reviewedAt)}</small></header>
+          <p>{runtime.manualRejection.remark}</p>
+          <small>{node.kind === "manual_review" ? "请等待教师重新审核本节点。" : "请根据审核意见修改本节点内容，并重新提交。"}</small>
+          {runtime.manualRejection.files.map((file) => <div className="manual-feedback-published-file" key={file.id}>
+            <span><strong>{file.name}</strong><small>对应原件：{file.sourceName}</small></span>
+            <FeedbackDownload fileId={file.id} student>下载批改件</FeedbackDownload>
+          </div>)}
+        </section> : null}
+        {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
         {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
         {node.kind === "manual_review" ? <section className="manual-review-student-state">
           <div className={`manual-review-result${runtime.status === "approved" ? " is-approved" : ""}`}>
             <span className="manual-review-result-icon" aria-hidden="true">{runtime.status === "approved" ? "✓" : "◷"}</span>
-            <div><h3>{runtime.status === "approved" ? "审核通过" : runtime.status === "reviewing" ? "等待教师审核" : "等待前置节点就绪"}</h3>
+            <div><h3>{runtime.status === "approved" ? "审核通过" : runtime.status === "rejected" ? "审核未通过" : runtime.status === "reviewing" ? "等待教师审核" : "等待前置节点就绪"}</h3>
               <p>{runtime.status === "approved" ? "本节点已完成，可继续办理后续节点。" : `教师逐项确认后开放下一阶段${runtime.sourceReviews?.length ? ` · ${runtime.sourceReviews.filter((item) => item.approved).length}/${runtime.sourceReviews.length} 已确认` : ""}`}</p>
             </div>
           </div>

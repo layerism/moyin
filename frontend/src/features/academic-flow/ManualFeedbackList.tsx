@@ -39,7 +39,7 @@ export function ManualFeedbackList({ feedback, student = false, sources = [] }: 
     {sources.length ? <>
       {current?.remark ? <p className="manual-feedback-overall">{current.remark}</p> : null}
       {sources.map((source) => <article key={source.nodeKey} className="manual-feedback-source">
-        <header><strong>{source.title}</strong><span className={source.approved ? "is-approved" : ""}>{source.approved ? "已通过" : "待教师审核"}</span></header>
+        <header><strong>{source.title}</strong><span className={source.rejected ? "is-rejected" : source.approved ? "is-approved" : ""}>{source.rejected ? "未通过" : source.approved ? "已通过" : "待教师审核"}</span></header>
         {source.reviewedAt ? <small>审核于 {new Date(source.reviewedAt).toLocaleString("zh-CN")}</small> : null}
         {source.remark ? <p>{source.remark}</p> : null}
         <FeedbackFiles files={current?.files.filter((file) => file.sourceNodeKey === source.nodeKey) ?? []} student={student} />

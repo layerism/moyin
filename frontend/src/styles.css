@@ -12724,8 +12724,6 @@ td {
 .manual-feedback-upload.is-disabled { opacity: .55; cursor: default; }
 .manual-review-audit-summary { margin: 10px 0 4px; font-size: 13px; }
 .manual-review-action { flex: none; padding: 12px 18px; border-top: 1px solid #e2e8f0; display: grid; gap: 8px; background: #fff; }
-.manual-review-action label { display: grid; gap: 6px; font-size: 13px; }
-.manual-review-action textarea { min-height: 56px; max-height: 140px; width: 100%; padding: 8px; border: 1px solid #d6dfec; border-radius: 6px; resize: vertical; font: inherit; }
 .manual-review-action-buttons { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .manual-review-action-buttons > small { flex: 1; color: #64748b; font-size: 12px; }
 .manual-feedback-list { margin-top: 14px; min-width: 0; }
@@ -12781,3 +12779,13 @@ td {
   .manual-source-decision textarea { flex-basis: 100%; }
   .manual-feedback-published-file { align-items: flex-start; flex-wrap: wrap; }
 }
+
+.manual-review-dialog .manual-source-reject { color: #b91c1c; border-color: #fecaca; background: #fff; }
+.manual-source-rejected, .manual-feedback-source > header .is-rejected { color: #b91c1c; }
+.manual-source-rejected { margin: 0; font-size: 13px; white-space: pre-wrap; }
+.runtime-manual-rejection { margin: 16px 24px; padding: 14px 16px; border: 1px solid #fecaca; border-radius: 8px; background: #fff7f7; }
+.runtime-manual-rejection > header { display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.runtime-manual-rejection > header strong { color: #b91c1c; font-size: 15px; }
+.runtime-manual-rejection small { color: #64748b; font-size: 12px; }
+.runtime-manual-rejection p { margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.runtime-manual-rejection button { padding: 7px 10px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; color: #1d4ed8; cursor: pointer; }

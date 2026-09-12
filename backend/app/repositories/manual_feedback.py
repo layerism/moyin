@@ -45,7 +45,7 @@ def checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revis
     draft = draft_feedback(connection, node_instance_id, current_hash)
     if draft['revision'] != revision:
         raise ManualReviewConflict('反馈已被修改，请刷新后重试')
-    if status not in {'reviewing', 'approved'}:
+    if status not in {'reviewing', 'approved', 'rejected'}:
         raise ManualReviewConflict('材料尚未就绪，暂不能提交教师反馈')
     return row, evidence, draft
 
