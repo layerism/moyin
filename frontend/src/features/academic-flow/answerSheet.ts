@@ -27,7 +27,8 @@ export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
       gradingPolicy: {
         feedback: "question_result",
         maxAttempts: 2,
-        passingScore: question.points,
+        passingScore: 60,
+        scoringMode: "equal_100",
       },
       questions: [question],
       schemaVersion: "3.0",
@@ -100,6 +101,7 @@ export function createPrivateAnswer(question: AnswerSheetQuestion): AnswerSheetP
 }
 
 export function answerSheetMaxScore(config: AnswerSheetConfig): number {
+  if (config.gradingPolicy.scoringMode === "equal_100") return 100;
   return config.questions.reduce((total, question) => total + (
     question.type === "fill_blank"
       ? isSingleMarkdownFillBlankQuestion(question)
@@ -122,7 +124,7 @@ export function upgradeAnswerSheetAuthoring(
   key: AnswerSheetPrivateKey,
 ): AnswerSheetAuthoring {
   const answers = { ...key.answers };
-  let changed = config.schemaVersion !== "3.0"
+  let changed = config.gradingPolicy.scoringMode !== "equal_100" || config.schemaVersion !== "3.0"
     || key.schemaVersion !== "3.0"
     || key.graderVersion !== "answer-sheet-v3";
   const questions = config.questions.map((question) => {
@@ -148,7 +150,12 @@ export function upgradeAnswerSheetAuthoring(
   });
   if (!changed) return { config, key };
   return {
-    config: { ...config, questions, schemaVersion: "3.0" },
+    config: { ...config, questions, schemaVersion: "3.0", gradingPolicy: {
+      ...config.gradingPolicy, scoringMode: "equal_100",
+      passingScore: config.gradingPolicy.scoringMode === "equal_100"
+        ? config.gradingPolicy.passingScore
+        : Math.round(config.gradingPolicy.passingScore / (answerSheetMaxScore(config) || 1) * 100),
+    } },
     key: {
       ...key,
       answers,

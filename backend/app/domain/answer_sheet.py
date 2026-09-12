@@ -1,3 +1,5 @@
+from fractions import Fraction
+from decimal import Decimal, ROUND_HALF_UP
 import re
 import unicodedata
 from typing import Any
@@ -63,8 +65,10 @@ def validate_public_answer_sheet(
         )
 
     policy = config.get("gradingPolicy")
-    if not isinstance(policy, dict) or set(policy) != _GRADING_POLICY_KEYS:
+    if not isinstance(policy, dict) or set(policy) not in (_GRADING_POLICY_KEYS, _GRADING_POLICY_KEYS | {"scoringMode"}):
         raise AnswerSheetConfigError(f"答题卡“{title}”评分策略格式无效")
+    if "scoringMode" in policy and policy["scoringMode"] != "equal_100":
+        raise AnswerSheetConfigError("评分模式无效")
     passing_score = policy.get("passingScore")
     if type(passing_score) is not int or passing_score < 0:
         raise AnswerSheetConfigError(f"答题卡“{title}”及格分必须是非负整数")
@@ -456,7 +460,21 @@ def grade_answer_sheet(
         )
         for question in node["answerSheet"]["questions"]
     ]
-    score = sum(result["awardedPoints"] for result in results)
+    if node["answerSheet"]["gradingPolicy"].get("scoringMode") == "equal_100":
+        weight = Fraction(100, len(results))
+        total = Fraction(0)
+        for result in results:
+            original_maximum = result["maxPoints"]
+            awarded = weight * Fraction(result["awardedPoints"], original_maximum)
+            total += awarded
+            for blank in result.get("blankResults", []):
+                blank["awardedPoints"] = _round_points(weight * Fraction(blank["awardedPoints"], original_maximum))
+                blank["maxPoints"] = _round_points(weight * Fraction(blank["maxPoints"], original_maximum))
+            result["awardedPoints"] = _round_points(awarded)
+            result["maxPoints"] = _round_points(weight)
+        score = _round_points(total)
+    else:
+        score = sum(result["awardedPoints"] for result in results)
     maximum = answer_sheet_max_score(node)
     passing_score = node["answerSheet"]["gradingPolicy"]["passingScore"]
     schema_version = node["answerSheet"]["schemaVersion"]
@@ -540,11 +558,19 @@ def _selection_result(question_id: str, points: int, correct: bool) -> dict[str,
     }
 
 
+def _round_points(value: Fraction) -> float:
+    return float((Decimal(value.numerator) / Decimal(value.denominator)).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP,
+    ))
+
+
 def answer_sheet_max_score(node: dict[str, Any]) -> int:
     total = 0
     config = node.get("answerSheet")
     if not isinstance(config, dict) or not isinstance(config.get("questions"), list):
         return total
+    if config.get("gradingPolicy", {}).get("scoringMode") == "equal_100":
+        return 100
     for question in config["questions"]:
         if not isinstance(question, dict):
             continue

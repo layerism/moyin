@@ -342,7 +342,7 @@ export function AnswerSheetEditor({
                   <strong className="answer-sheet-question-index">第 {index + 1} 题</strong>
                   <span className="answer-sheet-question-meta">
                     <small>
-                      {questionTypeLabels[question.type]} · {getAnswerSheetQuestionMeta(question)}
+                      {questionTypeLabels[question.type]} · {activeConfig.gradingPolicy.scoringMode === "equal_100" ? `${Number((100 / activeConfig.questions.length).toFixed(2))} 分（均分）` : getAnswerSheetQuestionMeta(question)}
                     </small>
                     {questionErrors.length ? <span className="answer-sheet-error-badge">需修正</span> : null}
                     <span aria-hidden="true" className="answer-sheet-chevron">
@@ -392,27 +392,6 @@ export function AnswerSheetEditor({
   );
 }
 
-function QuestionPointsInput({ value, disabled, onChange }: {
-  value: number;
-  disabled: boolean;
-  onChange: (value: number) => void;
-}) {
-  const [text, setText] = useState(String(value));
-  return (
-    <input
-      disabled={disabled}
-      min="1"
-      step="1"
-      type="number"
-      value={text}
-      onChange={(event) => {
-        setText(event.target.value);
-        onChange(Number(event.target.value));
-      }}
-    />
-  );
-}
-
 function AnswerSheetQuestionDialog({
   answer,
   disabled,
@@ -454,19 +433,6 @@ function AnswerSheetQuestionDialog({
             </h2>
             <span className="answer-sheet-question-dialog-type">{questionTypeLabels[question.type]}</span>
             <div className="answer-sheet-question-dialog-settings">
-              {"points" in question ? (
-                <label className="answer-sheet-question-points">
-                  <span>分值</span>
-                  <QuestionPointsInput
-                    disabled={disabled}
-                    value={question.points}
-                    onChange={(points) => onQuestionChange({
-                      ...question,
-                      points,
-                    })}
-                  />
-                </label>
-              ) : null}
               <label className="answer-sheet-required">
                 <input
                   checked={question.required}
@@ -756,10 +722,6 @@ function FillBlankEditor({
         return (
           <div className="answer-sheet-blank-row" key={blank.id}>
             <code title="在题干 Markdown 中移动此标记">{`[[blank:${blank.id}]]`}</code>
-            <label>分值 <QuestionPointsInput disabled={disabled} value={blank.points} onChange={(points) => onQuestionChange({
-              ...question,
-              blanks: question.blanks.map((item) => item.id === blank.id ? { ...item, points } : item),
-            })} /></label>
             <label className="answer-sheet-accepted-answers">
               可接受答案（每行一个）
               <textarea

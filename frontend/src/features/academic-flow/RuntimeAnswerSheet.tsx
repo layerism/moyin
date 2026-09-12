@@ -82,7 +82,7 @@ export function RuntimeAnswerSheet({
           <section className="runtime-answer-question" key={activeQuestion.id} ref={activeContentRef} tabIndex={-1}>
             <header>
               <strong>第 {activeStep + 1} 题</strong>
-              <span>{questionLabel(activeQuestion)} · {questionPoints(activeQuestion)} 分</span>
+              <span>{questionLabel(activeQuestion)} · {questionPoints(activeQuestion, node)} 分</span>
               <em>必答</em>
             </header>
             {activeQuestion.type === "fill_blank" ? (
@@ -180,7 +180,7 @@ export function AnswerSheetGradeResult({
             const result = results.get(question.id);
             return <li className={result?.correct ? "is-correct" : "is-wrong"} key={question.id}>
               <span>第 {index + 1} 题</span>
-              <strong>{result?.awardedPoints ?? 0} / {result?.maxPoints ?? questionPoints(question)} 分</strong>
+              <strong>{result?.awardedPoints ?? 0} / {result?.maxPoints ?? questionPoints(question, node)} 分</strong>
             </li>;
           })}
         </ol>
@@ -283,7 +283,10 @@ function FillQuestion({
   );
 }
 
-function questionPoints(question: AnswerSheetQuestion): number {
+function questionPoints(question: AnswerSheetQuestion, node: AcademicFlowNode): number {
+  if (node.answerSheet?.gradingPolicy.scoringMode === "equal_100") {
+    return Number((100 / node.answerSheet.questions.length).toFixed(2));
+  }
   return question.type === "fill_blank"
     ? isSingleMarkdownFillBlankQuestion(question)
       ? question.points

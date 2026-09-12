@@ -99,6 +99,7 @@ export type AnswerSheetQuestion = AnswerSheetSelectionQuestion | AnswerSheetFill
 
 export type AnswerSheetConfig = {
   gradingPolicy: {
+    scoringMode?: "equal_100";
     feedback: "full_after_deadline" | "question_result" | "score_only";
     maxAttempts: number | null;
     passingScore: number;

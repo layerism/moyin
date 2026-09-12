@@ -22,7 +22,7 @@ def insert_answer_sheet_grade(
         """,
         (
             submission_id,
-            int(grade["score"]),
+            grade["score"],
             int(grade["maxScore"]),
             int(grade["passingScore"]),
             int(bool(grade["passed"])),
