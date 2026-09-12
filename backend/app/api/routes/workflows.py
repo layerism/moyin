@@ -49,6 +49,7 @@ from app.repositories.flow_templates import (
     get_editable_template_node,
     remove_template_asset,
     save_template_asset,
+    validate_reference_metadata,
 )
 from app.repositories.flow_content_assets import (
     CONTENT_ASSET_LIMIT_BYTES,
@@ -142,15 +143,59 @@ def put_audit_policy_route(
 
 
 @router.post("/{flow_id}/nodes/{node_key}/template")
-def upload_node_template(
+def upload_node_template(flow_id: str, node_key: str, file: UploadFile = File(...), teacher=Depends(get_current_teacher)):
+    return _upload_node_asset(flow_id, node_key, file, teacher)
+
+
+@router.post("/{flow_id}/nodes/{node_key}/reference")
+def upload_node_reference(flow_id: str, node_key: str, file: UploadFile = File(...), teacher=Depends(get_current_teacher)):
+    return _upload_node_asset(flow_id, node_key, file, teacher, reference=True)
+
+
+@router.delete("/{flow_id}/nodes/{node_key}/template")
+def delete_node_template(flow_id: str, node_key: str, teacher=Depends(get_current_teacher)):
+    return _delete_node_asset(flow_id, node_key, teacher)
+
+
+@router.delete("/{flow_id}/nodes/{node_key}/reference")
+def delete_node_reference(flow_id: str, node_key: str, teacher=Depends(get_current_teacher)):
+    return _delete_node_asset(flow_id, node_key, teacher, reference=True)
+
+
+def _validate_reference_content(file: UploadFile, filename: str) -> None:
+    from zipfile import ZipFile, BadZipFile
+    from PIL import Image, UnidentifiedImageError
+    extension = PurePosixPath(filename).suffix.lower()
+    try:
+        if extension == '.docx':
+            with ZipFile(file.file) as archive:
+                if not {'[Content_Types].xml', 'word/document.xml'}.issubset(archive.namelist()):
+                    raise ValueError('请选择有效的 DOCX 文件')
+        elif extension == '.pdf':
+            if not file.file.read(1024).lstrip().startswith(b'%PDF-'):
+                raise ValueError('请选择有效的 PDF 文件')
+        else:
+            formats = {'.png': 'PNG', '.jpg': 'JPEG', '.jpeg': 'JPEG', '.webp': 'WEBP', '.gif': 'GIF', '.bmp': 'BMP', '.tif': 'TIFF', '.tiff': 'TIFF'}
+            with Image.open(file.file) as image:
+                if image.format != formats[extension]:
+                    raise ValueError('图片格式与文件扩展名不一致')
+                image.verify()
+    except (BadZipFile, UnidentifiedImageError, OSError, SyntaxError, Image.DecompressionBombError) as exc:
+        raise ValueError('参考文件内容无效，请选择 DOCX、PDF 或图片') from exc
+    finally:
+        file.file.seek(0)
+
+
+def _upload_node_asset(
     flow_id: str,
     node_key: str,
     file: UploadFile = File(...),
     teacher: dict[str, object] = Depends(get_current_teacher),
+    reference: bool = False,
 ) -> dict[str, object]:
     teacher_id = int(teacher["id"])
     try:
-        node = get_editable_template_node(flow_id, node_key, teacher_id)
+        node = get_editable_template_node(flow_id, node_key, teacher_id, reference)
     except KeyError as exc:
         raise not_found() from exc
     except TemplateMutationError as exc:
@@ -166,7 +211,10 @@ def upload_node_template(
         digest.update(chunk)
     file.file.seek(0)
     try:
-        if node.get("kind") == "confirmation":
+        if reference:
+            validate_reference_metadata(filename, size_bytes)
+            _validate_reference_content(file, filename)
+        elif node.get("kind") == "confirmation":
             if not filename.lower().endswith(".docx"):
                 raise ValueError("确认承诺模板必须为 DOCX 文件")
         else:
@@ -187,7 +235,7 @@ def upload_node_template(
         metadata, old_id, draft_hash = save_template_asset(
             flow_id=flow_id, node_key=node_key, teacher_id=teacher_id,
             storage_key=storage_key, original_name=filename, content_type=content_type,
-            size_bytes=size_bytes, sha256=sha256, etag=uploaded.etag,
+            size_bytes=size_bytes, sha256=sha256, etag=uploaded.etag, reference=reference,
         )
     except ObjectStorageNotConfigured as exc:
         raise HTTPException(status_code=503, detail="模板存储服务未配置，请联系管理员") from exc
@@ -210,17 +258,17 @@ def upload_node_template(
                 storage.delete_object(str(old["storage_key"]))
             except Exception:
                 pass
-    return {"templateAsset": metadata, "draftConfigHash": draft_hash}
+    return {"referenceAsset" if reference else "templateAsset": metadata, "draftConfigHash": draft_hash}
 
 
-@router.delete("/{flow_id}/nodes/{node_key}/template")
-def delete_node_template(
+def _delete_node_asset(
     flow_id: str,
     node_key: str,
     teacher: dict[str, object] = Depends(get_current_teacher),
+    reference: bool = False,
 ) -> dict[str, object]:
     try:
-        asset = remove_template_asset(flow_id, node_key, int(teacher["id"]))
+        asset = remove_template_asset(flow_id, node_key, int(teacher["id"]), reference)
     except KeyError as exc:
         raise not_found() from exc
     except TemplateMutationError as exc:
@@ -232,7 +280,7 @@ def delete_node_template(
                 get_object_storage().delete_object(str(removed["storage_key"]))
             except Exception:
                 pass
-    return {"templateAsset": None}
+    return {"referenceAsset" if reference else "templateAsset": None}
 
 
 @router.post("/{flow_id}/nodes/{node_key}/answer-sheet-assets")

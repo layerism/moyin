@@ -52,6 +52,8 @@ def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     }
     if snapshot.get("templateAsset") is None:
         snapshot.pop("templateAsset", None)
+    if snapshot.get("referenceAsset") is None:
+        snapshot.pop("referenceAsset", None)
     return snapshot
 
 

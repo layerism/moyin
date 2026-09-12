@@ -12792,3 +12792,14 @@ td {
 
 .dag-canvas.is-control-pressed:not(.is-selecting),
 .dag-canvas.is-control-pressed:not(.is-selecting) .flow-node { cursor: default; }
+
+.node-reference-settings { display: grid; gap: 8px; min-width: 0; }
+.node-reference-settings > small { color: #64748b; }
+.runtime-node-reference { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 24px; padding: 14px 16px; border: 1px solid #dce3ed; border-radius: 8px; background: #f8fafc; }
+.runtime-node-reference > div { flex: 1; min-width: 0; }
+.runtime-node-reference strong { font-size: 14px; }
+.runtime-node-reference p { margin: 6px 0; font-size: 13px; overflow-wrap: anywhere; }
+.runtime-node-reference small { color: #64748b; font-size: 12px; }
+.runtime-node-reference button { border: 1px solid #bfdbfe; border-radius: 6px; padding: 8px 12px; color: #1d4ed8; background: #eff6ff; cursor: pointer; }
+.runtime-node-reference button:disabled { opacity: .55; cursor: default; }
+.runtime-node-reference > .dialog-error { flex-basis: 100%; color: #b91c1c; }

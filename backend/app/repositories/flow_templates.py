@@ -23,7 +23,9 @@ class TemplateDownloadError(ValueError):
     pass
 
 
-def supports_template(node: dict[str, Any]) -> bool:
+def supports_template(node: dict[str, Any], reference: bool = False) -> bool:
+    if reference:
+        return node.get("kind") == "file"
     return node.get("kind") in {"file", "confirmation"}
 
 
@@ -46,7 +48,7 @@ def _historical_node_ids(connection: Any, flow_id: str) -> set[str]:
     return result
 
 
-def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int) -> dict[str, Any]:
+def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int, reference: bool = False) -> dict[str, Any]:
     with get_connection() as connection:
         flow = connection.execute(
             "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
@@ -56,7 +58,7 @@ def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int) -> 
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if not supports_template(node):
+        if not supports_template(node, reference):
             raise TemplateMutationError("当前节点不支持模板")
         if node_key in _historical_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
@@ -74,6 +76,7 @@ def save_template_asset(
     size_bytes: int,
     sha256: str,
     etag: str,
+    reference: bool = False,
 ) -> tuple[dict[str, object], str | None, str]:
     asset_id = str(uuid.uuid4())
     now = utc_now_iso()
@@ -87,10 +90,13 @@ def save_template_asset(
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if not supports_template(node) or node_key in _historical_node_ids(connection, flow_id):
+        if not supports_template(node, reference) or node_key in _historical_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
-        _validate_template_name(node, original_name)
-        old_id = (node.get("templateAsset") or {}).get("assetId")
+        if reference:
+            validate_reference_metadata(original_name, size_bytes)
+        else:
+            _validate_template_name(node, original_name)
+        old_id = (node.get("referenceAsset" if reference else "templateAsset") or {}).get("assetId")
         connection.execute(
             """
             INSERT INTO flow_template_assets
@@ -108,7 +114,7 @@ def save_template_asset(
             "sha256": sha256,
             "sizeBytes": size_bytes,
         }
-        node["templateAsset"] = metadata
+        node["referenceAsset" if reference else "templateAsset"] = metadata
         serialized = _canonical_json(config)
         connection.execute(
             "UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?",
@@ -127,7 +133,7 @@ def save_template_asset(
     return metadata, str(old_id) if old_id else None, hashlib.sha256(serialized.encode()).hexdigest()
 
 
-def remove_template_asset(flow_id: str, node_key: str, teacher_id: int) -> dict[str, object] | None:
+def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, reference: bool = False) -> dict[str, object] | None:
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
@@ -139,9 +145,9 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int) -> dict[
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if not supports_template(node) or node_key in _historical_node_ids(connection, flow_id):
+        if not supports_template(node, reference) or node_key in _historical_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
-        asset_id = (node.get("templateAsset") or {}).get("assetId")
+        asset_id = (node.get("referenceAsset" if reference else "templateAsset") or {}).get("assetId")
         if not asset_id:
             return None
         asset = connection.execute(
@@ -150,7 +156,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int) -> dict[
         ).fetchone()
         if asset is None:
             raise KeyError(asset_id)
-        node["templateAsset"] = None
+        node["referenceAsset" if reference else "templateAsset"] = None
         connection.execute(
             "UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?",
             (_canonical_json(config), now, flow_id),
@@ -172,7 +178,15 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
         referenced = connection.execute(
             "SELECT 1 FROM flow_version_templates WHERE template_asset_id = ? LIMIT 1", (asset_id,)
         ).fetchone()
-        if referenced is not None:
+        reference = connection.execute(
+            "SELECT 1 FROM flow_versions v, json_each(v.config_snapshot, '$.nodes') n WHERE json_extract(n.value, '$.referenceAsset.assetId') = ? LIMIT 1", (asset_id,),
+        ).fetchone()
+        draft_reference = connection.execute(
+            """SELECT 1 FROM flows f, json_each(f.draft_config, '$.nodes') n
+               WHERE json_extract(n.value, '$.referenceAsset.assetId') = ?
+                  OR json_extract(n.value, '$.templateAsset.assetId') = ? LIMIT 1""", (asset_id, asset_id),
+        ).fetchone()
+        if referenced is not None or reference is not None or draft_reference is not None:
             return None
         row = connection.execute(
             "SELECT id, storage_key FROM flow_template_assets WHERE id = ?", (asset_id,)
@@ -185,33 +199,39 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
 def validate_version_templates(connection: Any, flow_id: str, config: dict[str, Any]) -> dict[str, str]:
     result: dict[str, str] = {}
     for node in config["nodes"]:
-        template = node.get("templateAsset")
-        if not template:
-            continue
-        row = connection.execute(
-            """
-            SELECT id, flow_id, node_key, original_name, content_type, size_bytes, sha256
-            FROM flow_template_assets WHERE id = ?
-            """,
-            (template.get("assetId"),),
-        ).fetchone()
-        if row is None or row["flow_id"] != flow_id or row["node_key"] != node["id"]:
-            raise TemplateMutationError("模板资产不存在或不属于当前节点")
-        expected = {
-            "assetId": row["id"], "contentType": row["content_type"],
-            "originalName": row["original_name"], "sha256": row["sha256"],
-            "sizeBytes": row["size_bytes"],
-        }
-        if template != expected:
-            raise TemplateMutationError("模板资产元数据已变更，请重新加载")
-        if node.get("kind") == "confirmation":
-            _validate_template_name(node, row["original_name"])
-        else:
-            try:
-                validate_file_metadata(node, row["original_name"], row["size_bytes"])
-            except ValueError as exc:
-                raise TemplateMutationError(str(exc)) from exc
-        result[node["id"]] = row["id"]
+        for field in ("templateAsset", "referenceAsset"):
+            template = node.get(field)
+            if not template:
+                continue
+            row = connection.execute(
+                """
+                SELECT id, flow_id, node_key, original_name, content_type, size_bytes, sha256
+                FROM flow_template_assets WHERE id = ?
+                """,
+                (template.get("assetId"),),
+            ).fetchone()
+            if row is None or row["flow_id"] != flow_id or row["node_key"] != node["id"]:
+                raise TemplateMutationError("模板资产不存在或不属于当前节点")
+            expected = {
+                "assetId": row["id"], "contentType": row["content_type"],
+                "originalName": row["original_name"], "sha256": row["sha256"],
+                "sizeBytes": row["size_bytes"],
+            }
+            if template != expected:
+                raise TemplateMutationError("模板资产元数据已变更，请重新加载")
+            if field == "referenceAsset":
+                if node.get("kind") != "file":
+                    raise TemplateMutationError("只有文件节点可以配置填写参考")
+                validate_reference_metadata(row["original_name"], row["size_bytes"])
+            elif node.get("kind") == "confirmation":
+                _validate_template_name(node, row["original_name"])
+            else:
+                try:
+                    validate_file_metadata(node, row["original_name"], row["size_bytes"])
+                except ValueError as exc:
+                    raise TemplateMutationError(str(exc)) from exc
+            if field == "templateAsset":
+                result[node["id"]] = row["id"]
     return result
 
 
@@ -297,3 +317,35 @@ def template_downloaded(
         """,
         (node_instance_id, template_asset_id, student_id),
     ).fetchone() is not None
+
+
+REFERENCE_EXTENSIONS = {'.docx', '.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tif', '.tiff'}
+
+
+def validate_reference_metadata(filename: str, size_bytes: int) -> None:
+    from pathlib import PurePosixPath
+    if PurePosixPath(filename).suffix.lower() not in REFERENCE_EXTENSIONS:
+        raise TemplateMutationError('填写参考仅支持 DOCX、PDF 和图片（PNG/JPEG/WEBP/GIF/BMP/TIFF）')
+    if size_bytes <= 0 or size_bytes > 50 * 1024 * 1024:
+        raise TemplateMutationError('填写参考须为非空文件，且不超过 50 MB')
+
+
+def get_student_reference(node_instance_id: str, student_id: int) -> dict[str, object]:
+    with get_connection() as connection:
+        row = connection.execute("""SELECT n.node_key, v.flow_id, v.config_snapshot
+            FROM node_instances n JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN flow_versions v ON v.id = i.flow_version_id
+            WHERE n.id = ? AND i.student_account_id = ? AND v.status IN ('published', 'preview')""",
+            (node_instance_id, student_id)).fetchone()
+        if row is None:
+            raise KeyError(node_instance_id)
+        assert_student_roster_access(connection, row['flow_id'], student_id)
+        node = node_by_key(json.loads(row['config_snapshot']), row['node_key'])
+        asset = node.get('referenceAsset')
+        if node.get('kind') != 'file' or not asset:
+            raise KeyError(node_instance_id)
+        record = connection.execute('SELECT * FROM flow_template_assets WHERE id = ? AND flow_id = ? AND node_key = ?',
+            (asset['assetId'], row['flow_id'], row['node_key'])).fetchone()
+        if record is None:
+            raise KeyError(node_instance_id)
+        return dict(record)

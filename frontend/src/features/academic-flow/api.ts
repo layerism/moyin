@@ -400,6 +400,17 @@ export const workflowApi = {
       url: string;
     }>(`/api/student/files/${encodeURIComponent(fileId)}/download`);
   },
+  uploadNodeReference(flowId: string, nodeKey: string, file: File) {
+    const body = new FormData(); body.append("file", file);
+    return request<{ referenceAsset: NonNullable<AcademicProcess["nodes"][number]["referenceAsset"]> }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/reference`, { method: "POST", body });
+  },
+  deleteNodeReference(flowId: string, nodeKey: string) {
+    return request<{ referenceAsset: null }>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/reference`, { method: "DELETE" });
+  },
+  downloadNodeReference(nodeInstanceId: string) {
+    return request<{ url: string; originalName: string }>(`/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/reference/download`);
+  },
   uploadNodeTemplate(flowId: string, nodeKey: string, file: File) {
     const body = new FormData();
     body.append("file", file);

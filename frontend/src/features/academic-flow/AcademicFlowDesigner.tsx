@@ -570,7 +570,11 @@ export function AcademicFlowDesigner({
     commitDesignChange({ ...workingProcess, edges: nextEdges });
   };
 
-  const uploadNodeTemplate = async (nodeId: string, file: File) => {
+  const uploadNodeTemplate = async (nodeId: string, file: File, reference = false) => {
+    if (reference && (!/\.(docx|pdf|png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.name) || file.size === 0 || file.size > 50 * 1024 * 1024)) {
+      setActionNotice("填写参考仅支持 DOCX、PDF 或图片，文件须非空且不超过 50 MB");
+      return;
+    }
     let candidate = workingProcess;
     if (revisionDirty) {
       const saved = await saveWorkingDraft(workingProcess, "");
@@ -580,16 +584,18 @@ export function AcademicFlowDesigner({
     setSaving(true);
     setActionNotice("");
     try {
-      const result = await workflowApi.uploadNodeTemplate(serverFlowId, nodeId, file);
+      const asset = reference
+        ? (await workflowApi.uploadNodeReference(serverFlowId, nodeId, file)).referenceAsset
+        : (await workflowApi.uploadNodeTemplate(serverFlowId, nodeId, file)).templateAsset;
       const nextProcess = {
         ...candidate,
         nodes: candidate.nodes.map((node) =>
-          node.id === nodeId ? { ...node, templateAsset: result.templateAsset } : node
+          node.id === nodeId ? { ...node, [reference ? "referenceAsset" : "templateAsset"]: asset } : node
         ),
       };
       setWorkingProcess(nextProcess);
       setRevisionDirty(true);
-      await saveWorkingDraft(nextProcess, "模板已上传，重新发布后供学生下载");
+      await saveWorkingDraft(nextProcess, reference ? "填写参考已上传，发布后供学生下载" : "模板已上传，重新发布后供学生下载");
     } catch (reason) {
       setActionNotice(reason instanceof Error ? reason.message : "模板上传失败");
     } finally {
@@ -597,20 +603,21 @@ export function AcademicFlowDesigner({
     }
   };
 
-  const deleteNodeTemplate = async (nodeId: string) => {
+  const deleteNodeTemplate = async (nodeId: string, reference = false) => {
     setSaving(true);
     setActionNotice("");
     try {
-      await workflowApi.deleteNodeTemplate(serverFlowId, nodeId);
+      if (reference) await workflowApi.deleteNodeReference(serverFlowId, nodeId);
+      else await workflowApi.deleteNodeTemplate(serverFlowId, nodeId);
       const nextProcess = {
         ...workingProcess,
         nodes: workingProcess.nodes.map((node) =>
-          node.id === nodeId ? { ...node, templateAsset: null } : node
+          node.id === nodeId ? { ...node, [reference ? "referenceAsset" : "templateAsset"]: null } : node
         ),
       };
       setWorkingProcess(nextProcess);
       setRevisionDirty(true);
-      await saveWorkingDraft(nextProcess, "模板已删除");
+      await saveWorkingDraft(nextProcess, reference ? "填写参考已删除" : "模板已删除");
     } catch (reason) {
       setActionNotice(reason instanceof Error ? reason.message : "模板删除失败");
     } finally {
@@ -748,6 +755,8 @@ export function AcademicFlowDesigner({
             onClose={() => setInspectorNodeId(null)}
             onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
             onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, file)}
+            onUploadReference={(file) => void uploadNodeTemplate(inspectorNode.id, file, true)}
+            onDeleteReference={() => void deleteNodeTemplate(inspectorNode.id, true)}
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(params) => applyPublishedAuditPolicy(inspectorNode.id, params)}
@@ -2101,6 +2110,8 @@ function NodeInspector({
   onClose,
   onDeleteTemplate,
   onUploadTemplate,
+  onUploadReference,
+  onDeleteReference,
   onUpdateNode,
   onUpdateAnswerSheet,
   onAuditPolicySaved,
@@ -2116,6 +2127,8 @@ function NodeInspector({
   onClose: () => void;
   onDeleteTemplate: () => void;
   onUploadTemplate: (file: File) => void;
+  onUploadReference: (file: File) => void;
+  onDeleteReference: () => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   onUpdateAnswerSheet: (
     nodeId: string,
@@ -2528,6 +2541,23 @@ function NodeInspector({
                     <small>可选；须符合上传限制</small>
                   </label>
                 )}
+              </div>
+
+              <div className="node-file-template-row">
+                <strong className="node-file-material-label">填写参考</strong>
+                <div className="node-reference-settings">
+                  {node.referenceAsset ? <div className="node-template-file node-file-template-file">
+                    <div className="node-template-file-copy"><strong title={node.referenceAsset.originalName}>{node.referenceAsset.originalName}</strong><small>{formatTemplateSize(node.referenceAsset.sizeBytes)}</small></div>
+                    {!coreSettingsDisabled ? <button type="button" onClick={onDeleteReference}>删除参考</button> : <small>发布版固化</small>}
+                  </div> : <small>可选，供学生参考填写，不影响提交。</small>}
+                  {!coreSettingsDisabled ? <label className="node-file-template-upload">
+                    <input type="file" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
+                      const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
+                      if (file) onUploadReference(file);
+                    }} />
+                    <strong>{node.referenceAsset ? "替换参考文件" : "上传参考文件"}</strong><small>DOCX、PDF 或图片 · 最大 50 MB</small>
+                  </label> : null}
+                </div>
               </div>
 
               <AuditScriptSelector

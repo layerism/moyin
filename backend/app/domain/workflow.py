@@ -37,6 +37,11 @@ def validate_flow_config(
         _validate_node_time_window(node)
         _validate_confirmation_scan(node, require_publishable=require_publishable)
         _validate_node_template(node)
+        reference = node.get("referenceAsset")
+        if reference is not None:
+            if node.get("kind") != "file":
+                raise FlowValidationError("只有文件节点可以配置填写参考")
+            _validate_node_template({**node, "templateAsset": reference})
         try:
             validate_form_config(node)
         except FormFieldConfigError as exc:

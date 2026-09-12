@@ -40,9 +40,11 @@ from app.repositories.flow_content_assets import get_student_content_asset
 from app.repositories.flow_templates import (
     TemplateDownloadError,
     get_student_template,
+    get_student_reference,
     record_template_download,
 )
 from app.services.object_storage import (
+    ObjectStorageError,
     ObjectStorageNotConfigured,
     get_object_storage,
     object_key,
@@ -91,6 +93,20 @@ def runtime_error(exc: Exception) -> HTTPException:
     if isinstance(exc, RuntimeDeadlineError):
         return HTTPException(status_code=422, detail=str(exc))
     return HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get("/node-instances/{node_instance_id}/reference/download")
+def download_node_reference(node_instance_id: str, student=Depends(get_current_runtime_student)):
+    try:
+        record = get_student_reference(node_instance_id, int(student['id']))
+        url = get_object_storage().signed_download_url(str(record['storage_key']), str(record['original_name']))
+        return {'url': url, 'originalName': record['original_name']}
+    except KeyError as exc:
+        raise HTTPException(404, '当前节点未配置填写参考') from exc
+    except RosterAccessError as exc:
+        raise runtime_error(exc) from exc
+    except (ObjectStorageError, ObjectStorageNotConfigured) as exc:
+        raise HTTPException(503, '参考文件下载暂时不可用') from exc
 
 
 @router.post("/node-instances/{node_instance_id}/template/download")

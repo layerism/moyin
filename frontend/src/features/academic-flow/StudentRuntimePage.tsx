@@ -698,6 +698,7 @@ function RuntimeNodeDialog({
             开放时间：{new Date(runtime.effectiveStartAt).toLocaleString("zh-CN")} · {formatCountdown(runtime.effectiveStartAt, clock)}
           </p>
         ) : null}
+        {node.kind === "file" && node.referenceAsset ? <NodeReferenceCard node={node} nodeInstanceId={runtime.id} /> : null}
         {runtime.manualRejection ? <section className="runtime-manual-rejection" aria-label="教师审核意见">
           <header><strong>教师审核未通过</strong><small>{formatDateTime(runtime.manualRejection.reviewedAt)}</small></header>
           <p>{runtime.manualRejection.remark}</p>
@@ -1206,4 +1207,25 @@ function getDraftFileName(file: unknown): string {
   if (typeof value.originalName === "string" && value.originalName) return value.originalName;
   if (typeof value.name === "string" && value.name) return value.name;
   return "尚未选择";
+}
+
+
+function NodeReferenceCard({ node, nodeInstanceId }: { node: AcademicFlowNode; nodeInstanceId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const download = async () => {
+    setBusy(true); setError("");
+    try {
+      const file = await workflowApi.downloadNodeReference(nodeInstanceId);
+      const anchor = document.createElement("a");
+      anchor.href = file.url; anchor.download = file.originalName; anchor.rel = "noreferrer";
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "参考文件下载失败"); }
+    finally { setBusy(false); }
+  };
+  return <section className="runtime-node-reference" aria-label="填写参考">
+    <div><strong>填写参考</strong><p>{node.referenceAsset?.originalName}</p><small>可选参考资料，不影响材料提交。</small></div>
+    <button type="button" disabled={busy} onClick={() => void download()}>{busy ? "正在下载…" : "下载参考"}</button>
+    {error ? <p role="alert" className="dialog-error">{error}</p> : null}
+  </section>;
 }

@@ -518,28 +518,28 @@ def copy_flow_definition(
             for node in config.get("nodes", []):
                 node.pop("startAt", None)
                 node.pop("deadlineAt", None)
-        source_assets: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        source_assets: list[tuple[dict[str, Any], dict[str, Any], str]] = []
         for node in config.get("nodes", []):
-            template = node.get("templateAsset")
-            if not template:
-                continue
-            asset = connection.execute(
-                "SELECT * FROM flow_template_assets WHERE id = ?",
-                (template.get("assetId"),),
-            ).fetchone()
-            if asset is None or asset["flow_id"] != flow_id or asset["node_key"] != node["id"]:
-                raise FlowValidationError("流程模板资产无效，无法复制")
-            expected = {
-                "assetId": asset["id"],
-                "contentType": asset["content_type"],
-                "originalName": asset["original_name"],
-                "sha256": asset["sha256"],
-                "sizeBytes": asset["size_bytes"],
-            }
-            if template != expected:
-                raise FlowValidationError("流程模板资产无效，无法复制")
-            source_assets.append((node, dict(asset)))
-
+            for asset_field in ("templateAsset", "referenceAsset"):
+                template = node.get(asset_field)
+                if not template:
+                    continue
+                asset = connection.execute(
+                    "SELECT * FROM flow_template_assets WHERE id = ?",
+                    (template.get("assetId"),),
+                ).fetchone()
+                if asset is None or asset["flow_id"] != flow_id or asset["node_key"] != node["id"]:
+                    raise FlowValidationError("流程模板资产无效，无法复制")
+                expected = {
+                    "assetId": asset["id"],
+                    "contentType": asset["content_type"],
+                    "originalName": asset["original_name"],
+                    "sha256": asset["sha256"],
+                    "sizeBytes": asset["size_bytes"],
+                }
+                if template != expected:
+                    raise FlowValidationError("流程模板资产无效，无法复制")
+                source_assets.append((node, dict(asset), asset_field))
         source_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
         content_references = validate_content_assets(connection, flow_id, config)
         source_content_assets: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -572,7 +572,7 @@ def copy_flow_definition(
                 logger.exception("清理流程副本模板失败: %s", copied_key)
 
     try:
-        for node, asset in source_assets:
+        for node, asset, asset_field in source_assets:
             new_asset_id = str(uuid.uuid4())
             target_key = object_key(
                 settings.oss_prefix,
@@ -582,7 +582,7 @@ def copy_flow_definition(
             )
             uploaded = storage.copy_object(asset["storage_key"], target_key)  # type: ignore[union-attr]
             copied_keys.append(target_key)
-            node["templateAsset"] = {
+            node[asset_field] = {
                 "assetId": new_asset_id,
                 "contentType": asset["content_type"],
                 "originalName": asset["original_name"],

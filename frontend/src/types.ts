@@ -204,6 +204,7 @@ export type AcademicFlowNode = {
   startAt?: string | null;
   status: AcademicFlowNodeStatus;
   templateAsset?: NodeTemplateAsset | null;
+  referenceAsset?: NodeTemplateAsset | null;
   title: string;
   x: number;
   y: number;
