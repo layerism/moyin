@@ -12822,3 +12822,13 @@ td {
   .node-reference-file-row { flex-wrap: wrap; }
   .node-reference-actions { margin-left: 44px; }
 }
+
+.designer-error-dialog { width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; color: #253044; background: #fff; box-shadow: 0 20px 60px #17203333; }
+.designer-error-dialog::backdrop { background: #17203366; }
+.designer-error-dialog header { display: flex; align-items: center; gap: 10px; }
+.designer-error-dialog header > span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #b91c1c; background: #fef2f2; font-weight: 700; }
+.designer-error-dialog h2 { margin: 0; font-size: 18px; }
+.designer-error-dialog > p { margin: 18px 0 24px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.designer-error-dialog footer { display: flex; justify-content: flex-end; }
+.designer-error-dialog button { padding: 8px 16px; border: 1px solid #2563eb; border-radius: 6px; color: white; background: #2563eb; cursor: pointer; }
+.designer-error-dialog button:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }

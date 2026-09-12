@@ -174,6 +174,8 @@ export function AcademicFlowDesigner({
   const [showStudentLinks, setShowStudentLinks] = useState(false);
   const [rosterActiveCount, setRosterActiveCount] = useState<number | null>(null);
   const [actionNotice, setActionNotice] = useState("");
+  const [actionError, setActionError] = useState("");
+  const showActionError = (message: string) => { setActionNotice(""); setActionError(message); };
   const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [publishIssue, setPublishIssue] = useState<AnswerSheetPublishIssue | null>(null);
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
@@ -301,7 +303,7 @@ export function AcademicFlowDesigner({
       return nextWorking;
     } catch (reason) {
       setRevisionDirty(true);
-      setActionNotice(reason instanceof Error ? reason.message : "暂存失败");
+      showActionError(reason instanceof Error ? reason.message : "暂存失败");
       return null;
     } finally {
       setDraftSaving(false);
@@ -339,10 +341,10 @@ export function AcademicFlowDesigner({
       setRevisionImpact(null);
       setPendingPublishProcess(null);
       if (shouldReloadRevision) {
-        setActionNotice("发布基准已变化，请重新预览影响");
+        showActionError("发布基准已变化，请重新预览影响");
         return;
       }
-      setActionNotice(reason instanceof Error ? reason.message : "发布失败");
+      showActionError(reason instanceof Error ? reason.message : "发布失败");
     } finally {
       setSaving(false);
     }
@@ -354,7 +356,7 @@ export function AcademicFlowDesigner({
     const missingReviewSource = candidate.nodes.find((node) => node.kind === "manual_review" && !candidate.edges.some((edge) => edge.target === node.id));
     if (missingReviewSource) {
       setInspectorNodeId(missingReviewSource.id);
-      setActionNotice("人工审核节点必须连接至少一个前置节点");
+      showActionError("人工审核节点必须连接至少一个前置节点");
       return;
     }
     const invalidFormNode = candidate.nodes.find(
@@ -364,7 +366,7 @@ export function AcademicFlowDesigner({
     if (invalidFormNode) {
       setActiveNodeId(invalidFormNode.id);
       setInspectorNodeId(invalidFormNode.id);
-      setActionNotice("请先修正表单字段配置");
+      showActionError("请先修正表单字段配置");
       return;
     }
     const answerSheetIssue = getAnswerSheetPublishIssue(
@@ -373,7 +375,7 @@ export function AcademicFlowDesigner({
     );
     if (answerSheetIssue) {
       setPublishIssue(answerSheetIssue);
-      setActionNotice(answerSheetIssue.message);
+      showActionError(answerSheetIssue.message);
       return;
     }
     if (!workingProcess.published) {
@@ -390,7 +392,7 @@ export function AcademicFlowDesigner({
       setRevisionImpact(impact);
     } catch (reason) {
       setPendingPublishProcess(null);
-      setActionNotice(reason instanceof Error ? reason.message : "修订影响读取失败");
+      showActionError(reason instanceof Error ? reason.message : "修订影响读取失败");
     } finally {
       setSaving(false);
     }
@@ -421,12 +423,12 @@ export function AcademicFlowDesigner({
     if (auditIssue) {
       setActiveNodeId(auditIssue.node.id);
       setInspectorNodeId(auditIssue.node.id);
-      setActionNotice(auditIssue.message ?? "请先修正扫描审核配置");
+      showActionError(auditIssue.message ?? "请先修正扫描审核配置");
       return;
     }
     const previewWindow = window.open("", "_blank");
     if (!previewWindow) {
-      setActionNotice("请允许本站打开新标签页");
+      showActionError("请允许本站打开新标签页");
       return;
     }
     setPreviewCreating(true);
@@ -443,7 +445,7 @@ export function AcademicFlowDesigner({
       previewWindow.location.href = preview.previewUrl;
     } catch (reason) {
       previewWindow.close();
-      setActionNotice(reason instanceof Error ? reason.message : "预览创建失败");
+      showActionError(reason instanceof Error ? reason.message : "预览创建失败");
     } finally {
       setPreviewCreating(false);
     }
@@ -549,7 +551,7 @@ export function AcademicFlowDesigner({
   ) => {
     if (editorLocked) return;
     if (workingProcess.published && !canAddRevisionEdge(source, target, protectedNodeIds)) {
-      setActionNotice("新增连线必须至少连接一个本次新增节点");
+      showActionError("新增连线必须至少连接一个本次新增节点");
       return;
     }
     const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
@@ -572,7 +574,7 @@ export function AcademicFlowDesigner({
 
   const uploadNodeTemplate = async (nodeId: string, file: File, reference = false) => {
     if (reference && (!/\.(docx|pdf|png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.name) || file.size === 0 || file.size > 50 * 1024 * 1024)) {
-      setActionNotice("填写参考仅支持 DOCX、PDF 或图片，文件须非空且不超过 50 MB");
+      showActionError("填写参考仅支持 DOCX、PDF 或图片，文件须非空且不超过 50 MB");
       return;
     }
     let candidate = workingProcess;
@@ -597,7 +599,7 @@ export function AcademicFlowDesigner({
       setRevisionDirty(true);
       await saveWorkingDraft(nextProcess, reference ? "填写参考已上传，发布后供学生下载" : "模板已上传，重新发布后供学生下载");
     } catch (reason) {
-      setActionNotice(reason instanceof Error ? reason.message : "模板上传失败");
+      showActionError(reason instanceof Error ? reason.message : "模板上传失败");
     } finally {
       setSaving(false);
     }
@@ -619,7 +621,7 @@ export function AcademicFlowDesigner({
       setRevisionDirty(true);
       await saveWorkingDraft(nextProcess, reference ? "填写参考已删除" : "模板已删除");
     } catch (reason) {
-      setActionNotice(reason instanceof Error ? reason.message : "模板删除失败");
+      showActionError(reason instanceof Error ? reason.message : "模板删除失败");
     } finally {
       setSaving(false);
     }
@@ -790,6 +792,7 @@ export function AcademicFlowDesigner({
             shareUrl={workingProcess.shareUrl}
           />
         ) : null}
+        {actionError ? <DesignerErrorDialog message={actionError} onClose={() => setActionError("")} /> : null}
         {manualReviewNodeId && workingProcess.publishedVersionId ? <ManualReviewDialog nodeKey={manualReviewNodeId} versionId={workingProcess.publishedVersionId} onClose={() => setManualReviewNodeId(null)} /> : null}
         {nodePackageDialogNode && workingProcess.publishedVersionId ? (
           <NodePackageDownloadDialog
@@ -3091,4 +3094,21 @@ function hasCycle(nodeIds: string[], edges: AcademicFlowEdge[]) {
   };
 
   return nodeIds.some((nodeId) => visit(nodeId));
+}
+
+
+function DesignerErrorDialog({ message, onClose }: { message: string; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    ref.current?.showModal();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, []);
+  return <dialog ref={ref} className="designer-error-dialog" role="alertdialog" aria-labelledby="designer-error-title" aria-describedby="designer-error-message"
+    onCancel={(event) => { event.preventDefault(); onClose(); }} onKeyDown={(event) => event.stopPropagation()}>
+    <header><span aria-hidden="true">!</span><h2 id="designer-error-title">操作未完成</h2></header>
+    <p id="designer-error-message">{message}</p>
+    <footer><button type="button" autoFocus onClick={onClose}>返回修改</button></footer>
+  </dialog>;
 }
