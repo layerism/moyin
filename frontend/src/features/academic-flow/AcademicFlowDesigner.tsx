@@ -1038,6 +1038,7 @@ function FlowNodeCanvas({
   );
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
+  const [controlPressed, setControlPressed] = useState(false);
   const marqueeStartRef = useRef<(CanvasPoint & { pointerId: number }) | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const cancelMarquee = useCallback(() => {
@@ -1049,14 +1050,18 @@ function FlowNodeCanvas({
     }
   }, []);
   useEffect(() => {
-    const escape = (event: KeyboardEvent) => {
+    const updateModifier = (event: KeyboardEvent) => {
+      setControlPressed(isCanvasControlModifierActive(event));
       if (event.key === "Escape") cancelMarquee();
     };
-    window.addEventListener("keydown", escape);
-    window.addEventListener("blur", cancelMarquee);
+    const blur = () => { setControlPressed(false); cancelMarquee(); };
+    window.addEventListener("keydown", updateModifier);
+    window.addEventListener("keyup", updateModifier);
+    window.addEventListener("blur", blur);
     return () => {
-      window.removeEventListener("keydown", escape);
-      window.removeEventListener("blur", cancelMarquee);
+      window.removeEventListener("keydown", updateModifier);
+      window.removeEventListener("keyup", updateModifier);
+      window.removeEventListener("blur", blur);
     };
   }, [cancelMarquee]);
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
@@ -1765,7 +1770,7 @@ function FlowNodeCanvas({
         </div>
       </div>
       <div
-        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""} ${selectionBox ? "is-selecting" : ""}`}
+        className={`flow-canvas dag-canvas ${panStart ? "is-panning" : ""} ${selectionBox ? "is-selecting" : ""} ${controlPressed ? "is-control-pressed" : ""}`}
         onContextMenu={(event) => {
           event.preventDefault();
           if (
@@ -1790,6 +1795,7 @@ function FlowNodeCanvas({
           updateConnectionPreview(event.clientX, event.clientY);
         }}
         onDrop={dropNode}
+        onPointerEnter={(event) => setControlPressed(isCanvasControlModifierActive(event))}
         onPointerCancel={cancelCanvasPointer}
         onPointerDown={startCanvasPointer}
         onPointerMove={moveCanvasPointer}

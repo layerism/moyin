@@ -12789,3 +12789,6 @@ td {
 .runtime-manual-rejection small { color: #64748b; font-size: 12px; }
 .runtime-manual-rejection p { margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .runtime-manual-rejection button { padding: 7px 10px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; color: #1d4ed8; cursor: pointer; }
+
+.dag-canvas.is-control-pressed:not(.is-selecting),
+.dag-canvas.is-control-pressed:not(.is-selecting) .flow-node { cursor: default; }
