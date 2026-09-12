@@ -11,7 +11,7 @@ export const nodeTemplates: Array<{
   kind: AcademicFlowNodeKind;
   title: string;
 }> = [
-  { kind: "form", title: "表单填写", description: "自定义文本与选择题" },
+  { kind: "form", title: "表单填写", description: "自定义文本输入，支持单选与多选题" },
   { kind: "answer_sheet", title: "答题卡", description: "Markdown 题目与自动判分" },
   { kind: "file", title: "文件上传", description: "上传文件，支持类型与大小限制" },
   { kind: "confirmation", title: "视觉审核", description: "上传扫描件并由 AI 进行视觉审核" },
