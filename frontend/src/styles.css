@@ -528,14 +528,26 @@
   border-color: #8fb4e8;
 }
 
+.answer-sheet-question-dialog .answer-sheet-question-markdown {
+  height: 320px;
+  min-height: 120px;
+  overflow: auto;
+  padding-bottom: 12px;
+  resize: vertical;
+}
+
 .answer-sheet-question-dialog .answer-sheet-question-markdown .markdown-blur-source,
 .answer-sheet-question-dialog .answer-sheet-question-markdown .markdown-blur-preview {
-  min-height: 320px;
+  min-height: 100%;
   padding: 10px 12px;
 }
 
 .answer-sheet-question-dialog .answer-sheet-question-markdown .markdown-blur-source {
   field-sizing: fixed;
+  display: block;
+  height: 100%;
+  max-height: none;
+  resize: none;
   font-family: inherit;
   font-size: 13px;
   line-height: 1.55;
