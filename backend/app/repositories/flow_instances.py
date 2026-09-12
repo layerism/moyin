@@ -21,6 +21,7 @@ from app.domain.workflow_runtime import (
     validate_submission,
 )
 from app.repositories.audit_jobs import create_audit_job
+from app.repositories.manual_review_state import sync_manual_reviews, latest_review
 from app.repositories.audit_policies import (
     AuditPolicyConflictError,
     resolve_effective_audit_policy,
@@ -230,6 +231,8 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         if student_id is not None:
             assert_student_roster_access(connection, instance["flow_id"], student_id)
         config = json.loads(instance["config_snapshot"])
+        sync_manual_reviews(connection, instance_id, config)
+        instance_status = connection.execute("SELECT status FROM flow_instances WHERE id = ?", (instance_id,)).fetchone()["status"]
         preview = is_preview_instance(connection, instance_id)
         incoming = incoming_nodes(config)
         node_rows = connection.execute(
@@ -257,7 +260,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             )
             status = row["status"]
             config_node = node_by_key(config, row["node_key"])
-            if status in {"available", "draft", "rejected", "locked", "scheduled", "expired"}:
+            if config_node.get("kind") != "manual_review" and status in {"available", "draft", "rejected", "locked", "scheduled", "expired"}:
                 base_status = pending_node_status(
                     all(raw_statuses.get(source) == "approved" for source in incoming[row["node_key"]]),
                     None if preview else config_node.get("startAt"),
@@ -285,7 +288,8 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 """,
                 (row["id"], instance["student_account_id"], instance["flow_version_id"], row["node_key"]),
             ).fetchone()
-            grade = get_answer_sheet_grade(connection, row["submission_id"])
+            requires_resubmission = int(row["attempt_reset_no"]) > 0 and row["attempt_no"] == row["attempt_reset_no"]
+            grade = None if requires_resubmission else get_answer_sheet_grade(connection, row["submission_id"])
             grading_policy = (
                 config_node.get("answerSheet", {}).get("gradingPolicy", {})
                 if config_node.get("kind") == "answer_sheet"
@@ -295,7 +299,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             attempts_remaining = (
                 None
                 if max_attempts is None
-                else max(0, int(max_attempts) - int(row["attempt_no"]))
+                else max(0, int(max_attempts) - (int(row["attempt_no"]) - int(row["attempt_reset_no"])))
             )
             answer_key = None
             deadline_value = parse_datetime(deadline)
@@ -311,12 +315,14 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 answer_key = get_version_answer_key(
                     connection, str(instance["flow_version_id"]), str(row["node_key"])
                 )["gradingKey"]
+            manual_review = latest_review(connection, row["id"]) if config_node.get("kind") == "manual_review" else None
             nodes.append(
                 {
                     "id": row["id"],
                     "nodeKey": row["node_key"],
                     "status": status,
                     "attemptNo": row["attempt_no"],
+                    "requiresResubmission": requires_resubmission,
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),
@@ -331,6 +337,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "templateDownloaded": bool(template and template["downloaded_at"]),
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
+                    "manualReview": {"remark": manual_review["remark"], "reviewedAt": manual_review["created_at"]} if manual_review and status == "approved" else None,
                     "audit": _audit_summary(row, status, config_node),
                     "grade": (
                         student_grade_view(
@@ -378,7 +385,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         "flowVersionId": instance["flow_version_id"],
         "name": instance["flow_name"],
         "description": instance["description"],
-        "status": instance["status"],
+        "status": instance_status,
         "student": {"studentNo": instance["student_no"], "name": instance["name"]},
         "config": safe_config,
         "nodeInstances": nodes,
@@ -464,7 +471,7 @@ def save_node_draft(
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
             """
-            SELECT n.id, n.status, n.flow_instance_id, n.node_key,
+            SELECT n.id, n.status, n.flow_instance_id, n.node_key, n.attempt_no, n.attempt_reset_no,
                    i.flow_version_id, v.flow_id, v.config_snapshot
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
@@ -477,6 +484,12 @@ def save_node_draft(
         if row is None:
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
+        current_config = version_config(connection, row["flow_version_id"])
+        sync_manual_reviews(connection, row["flow_instance_id"], current_config)
+        row = {**dict(row), **dict(connection.execute("SELECT status, attempt_reset_no FROM node_instances WHERE id = ?", (node_instance_id,)).fetchone())}
+        if node_by_key(current_config, row["node_key"]).get("kind") == "manual_review":
+            raise RuntimeConflictError("人工审核节点仅允许教师审核")
+
         config = json.loads(row["config_snapshot"])
         preview = is_preview_instance(connection, row["flow_instance_id"])
         node = node_by_key(config, row["node_key"])
@@ -504,7 +517,7 @@ def save_node_draft(
             raise RuntimeConflictError("当前节点不可暂存")
         if node.get("kind") == "answer_sheet":
             max_attempts = node.get("answerSheet", {}).get("gradingPolicy", {}).get("maxAttempts")
-            if max_attempts is not None and int(row["attempt_no"]) >= int(max_attempts):
+            if max_attempts is not None and (int(row["attempt_no"]) - int(row["attempt_reset_no"])) >= int(max_attempts):
                 raise RuntimeConflictError("已达到最大作答次数")
             draft_payload = normalize_answer_sheet_submission(node, payload, strict=False)
         elif node.get("kind") == "form":
@@ -551,6 +564,12 @@ def submit_node(
         if row is None:
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
+        current_config = version_config(connection, row["flow_version_id"])
+        sync_manual_reviews(connection, row["flow_instance_id"], current_config)
+        row = {**dict(row), **dict(connection.execute("SELECT status, attempt_reset_no FROM node_instances WHERE id = ?", (node_instance_id,)).fetchone())}
+        if node_by_key(current_config, row["node_key"]).get("kind") == "manual_review":
+            raise RuntimeConflictError("人工审核节点仅允许教师审核")
+
         duplicate = connection.execute(
             "SELECT id FROM submissions WHERE node_instance_id = ? AND idempotency_key = ?",
             (node_instance_id, idempotency_key),
@@ -570,7 +589,7 @@ def submit_node(
                 if node.get("kind") == "answer_sheet"
                 else None
             )
-            if max_attempts is not None and int(row["attempt_no"]) >= int(max_attempts):
+            if max_attempts is not None and (int(row["attempt_no"]) - int(row["attempt_reset_no"])) >= int(max_attempts):
                 raise RuntimeConflictError("已达到最大作答次数")
             approved_form_amendment = _is_approved_form_amendment(row["status"], node)
             statuses = {

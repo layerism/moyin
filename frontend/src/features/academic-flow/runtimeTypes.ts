@@ -76,9 +76,11 @@ export type RuntimeNodeAudit = {
 
 export type RuntimeNodeInstance = {
   approvedAt: string | null;
+  manualReview?: { remark: string; reviewedAt: string } | null;
   audit: RuntimeNodeAudit | null;
   attemptNo: number;
   attemptsRemaining: number | null;
+  requiresResubmission?: boolean;
   draft: Record<string, unknown>;
   effectiveDeadline: string | null;
   effectiveStartAt: string | null;
@@ -150,4 +152,43 @@ export type WorkflowProgress = {
   flowVersionId: string;
   name: string;
   students: WorkflowProgressStudent[];
+};
+
+export type ManualReviewStudent = {
+  id: number;
+  name: string;
+  studentNo: string;
+  nodeInstanceId: string | null;
+  status: RuntimeNodeStatus;
+};
+export type ManualReviewQueue = {
+  title: string;
+  requirement: string;
+  students: ManualReviewStudent[];
+};
+export type ManualReviewDetail = {
+  nodeInstanceId: string;
+  title: string;
+  requirement: string;
+  student: { name: string; studentNo: string };
+  status: RuntimeNodeStatus;
+  evidenceHash: string;
+  sources: Array<{
+    nodeKey: string;
+    title: string;
+    kind: AcademicFlowNode["kind"];
+    requirement: string;
+    infoFields: AcademicFlowNode["infoFields"];
+    answerSheet: AcademicFlowNode["answerSheet"] | null;
+    status: RuntimeNodeStatus;
+    submissionId: string | null;
+    submittedAt: string | null;
+    submission: Record<string, unknown>;
+    audit: { passed?: boolean; reason?: string; details?: Record<string, unknown> } | null;
+    auditParams: Record<string, unknown>;
+    grade: AnswerSheetGrade | null;
+    manualReview: { remark: string; reviewedAt: string } | null;
+    files: Array<{ id: string; original_name: string; size_bytes: number; url: string }>;
+  }>;
+  history: Array<{ id: string; remark: string; reviewedAt: string; teacherName: string }>;
 };

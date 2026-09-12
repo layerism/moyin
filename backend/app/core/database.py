@@ -260,8 +260,22 @@ CREATE TABLE IF NOT EXISTS node_instances (
     submitted_at TEXT,
     approved_at TEXT,
     attempt_no INTEGER NOT NULL DEFAULT 0,
+    attempt_reset_no INTEGER NOT NULL DEFAULT 0,
     UNIQUE(flow_instance_id, node_key)
 );
+
+CREATE TABLE IF NOT EXISTS manual_reviews (
+    id TEXT PRIMARY KEY,
+    flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
+    node_instance_id TEXT NOT NULL,
+    node_key TEXT NOT NULL,
+    evidence_hash TEXT NOT NULL,
+    evidence_snapshot TEXT NOT NULL,
+    teacher_id INTEGER NOT NULL,
+    remark TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_manual_reviews_node ON manual_reviews(node_instance_id, created_at);
 
 CREATE TABLE IF NOT EXISTS node_drafts (
     node_instance_id TEXT PRIMARY KEY REFERENCES node_instances(id) ON DELETE CASCADE,
@@ -437,6 +451,9 @@ def initialize_database() -> None:
         _apply_scan_file_metadata_migration(connection)
         _apply_flow_preview_migration(connection)
         _apply_audit_hot_reload_migration(connection)
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(node_instances)")}
+        if "attempt_reset_no" not in columns:
+            connection.execute("ALTER TABLE node_instances ADD COLUMN attempt_reset_no INTEGER NOT NULL DEFAULT 0")
     _initialize_super_admin()
     from app.services.audit_model_connections import initialize_model_connections, initialize_model_thinking, initialize_model_billing
     initialize_model_connections()

@@ -7,6 +7,8 @@ import type {
   AuditScriptManagementSummary,
 } from "./auditScriptConfig";
 import type {
+  ManualReviewQueue,
+  ManualReviewDetail,
   PublishedFlow,
   RevisionImpact,
   RuntimeFlowInstance,
@@ -463,6 +465,17 @@ export const workflowApi = {
     return request<{ fileId: string; originalName: string; url: string }>(
       `/api/workflow-admin/material-library/files/${encodeURIComponent(fileId)}/download`,
     );
+  },
+  getManualReviewQueue(versionId: string, nodeKey: string) {
+    return request<ManualReviewQueue>(`/api/workflow-admin/versions/${encodeURIComponent(versionId)}/nodes/${encodeURIComponent(nodeKey)}/manual-reviews`);
+  },
+  getManualReview(nodeInstanceId: string) {
+    return request<ManualReviewDetail>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review`);
+  },
+  approveManualReview(nodeInstanceId: string, evidenceHash: string, remark: string) {
+    return request<{ approved: boolean }>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review/approve`, {
+      method: "POST", body: JSON.stringify({ evidenceHash, remark }),
+    });
   },
   getSubmissionDetail(nodeInstanceId: string) {
     return request<TeacherSubmissionDetail>(

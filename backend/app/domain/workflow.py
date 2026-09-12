@@ -60,6 +60,15 @@ def validate_flow_config(
         adjacency[source].append(target)
         indegree[target] += 1
 
+    for node in nodes:
+        if node.get("kind") == "manual_review":
+            if require_publishable and indegree[node["id"]] == 0:
+                raise FlowValidationError("人工审核节点必须连接至少一个前置节点")
+            if node.get("deadlineAt"):
+                raise FlowValidationError("人工审核节点不设置学生提交截止时间")
+            if node.get("auditScriptId") or node.get("scanAuditEnabled"):
+                raise FlowValidationError("人工审核节点不能绑定自动审核脚本")
+
     queue = deque(node_id for node_id, degree in indegree.items() if degree == 0)
     visited = 0
     while queue:

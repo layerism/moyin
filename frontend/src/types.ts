@@ -49,7 +49,7 @@ export type StudentAccount = {
 
 export type AuditScriptType = "js" | "mjs" | "none" | "py";
 export type AcademicFlowNodeStatus = "approved" | "disabled" | "pending" | "ready";
-export type AcademicFlowNodeKind = "announcement" | "answer_sheet" | "confirmation" | "file" | "form";
+export type AcademicFlowNodeKind = "announcement" | "answer_sheet" | "confirmation" | "file" | "form" | "manual_review";
 export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
 export type FormFieldType = "text" | "textarea" | "radio" | "checkbox";
 

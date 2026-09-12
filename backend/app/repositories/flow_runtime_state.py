@@ -3,6 +3,7 @@ from typing import Any
 
 from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_node_status
 from app.services.security import utc_now_iso
+from app.repositories.manual_review_state import sync_manual_reviews
 
 
 def is_preview_instance(connection, instance_id: str) -> bool:
@@ -40,6 +41,7 @@ def effective_deadline(
 def advance_downstream(
     connection, instance_id: str, version_id: str, config: dict[str, Any]
 ) -> None:
+    sync_manual_reviews(connection, instance_id, config)
     statuses = {
         row["node_key"]: row["status"]
         for row in connection.execute(
@@ -50,6 +52,8 @@ def advance_downstream(
     now = utc_now_iso()
     preview = is_preview_instance(connection, instance_id)
     for node_key, predecessors in incoming_nodes(config).items():
+        if node_by_key(config, node_key).get("kind") == "manual_review":
+            continue
         if statuses.get(node_key) not in {"locked", "scheduled", "expired"} or not predecessors:
             continue
         predecessors_approved = all(statuses.get(source) == "approved" for source in predecessors)

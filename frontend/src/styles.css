@@ -12675,3 +12675,40 @@ td {
 /* Blank canvas pans; node and edge controls keep their own cursors. */
 .dag-canvas { cursor: grab; touch-action: none; }
 .dag-canvas.is-panning { cursor: grabbing; }
+
+.node-function-colors[data-node-kind="manual_review"] { --node-accent: #2563eb; --node-tint: #eff6ff; --node-border: #b9d3fc; --node-icon-bg: #dbeafe; }
+.manual-review-dialog { width: min(1080px, calc(100vw - 40px)); max-width: none; height: min(820px, calc(100dvh - 40px)); max-height: none; padding: 0; border: 1px solid #dce3ed; border-radius: 14px; color: #253044; background: white; box-shadow: 0 24px 70px #17203333; }
+.manual-review-dialog[open] { display: flex; flex-direction: column; }
+.manual-review-dialog::backdrop { background: #17203366; }
+.manual-review-dialog > header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e2e8f0; }
+.manual-review-dialog h2 { margin: 4px 0 0; font-size: 20px; }
+.manual-review-dialog button { border: 1px solid #d6dfec; border-radius: 6px; padding: 8px 12px; background: white; color: #34435c; cursor: pointer; }
+.manual-review-dialog button:disabled { opacity: .55; cursor: default; }
+.manual-review-dialog button:focus-visible, .manual-review-dialog a:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.manual-review-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 16px 24px; border-bottom: 1px solid #e2e8f0; }
+.manual-review-filters button[aria-pressed="true"] { color: #1d4ed8; border-color: #93b8ff; background: #eff6ff; }
+.manual-review-filters input { flex: 1; min-width: 160px; padding: 8px 12px; border: 1px solid #d6dfec; border-radius: 6px; }
+.manual-review-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr); }
+.manual-review-layout > nav { overflow: auto; padding: 12px; border-right: 1px solid #e2e8f0; }
+.manual-review-layout > nav button { display: grid; grid-template-columns: 1fr auto; gap: 5px; width: 100%; margin-bottom: 8px; text-align: left; }
+.manual-review-layout > nav small { grid-column: 1; color: #64748b; }
+.manual-review-layout > nav span { grid-column: 2; grid-row: 1 / 3; align-self: center; font-size: 12px; }
+.manual-review-layout > nav button[aria-current="true"] { border-color: #93b8ff; background: #eff6ff; }
+.manual-review-detail { padding: 20px 24px; overflow: auto; min-width: 0; }
+.manual-review-detail h3 { margin-top: 0; }
+.manual-review-source { padding: 16px; margin: 16px 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow-wrap: anywhere; }
+.manual-review-source h4 { margin: 0 0 8px; }
+.manual-review-source > small { color: #64748b; }
+.manual-review-file { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px; margin: 8px 0; border: 1px solid #dce3ed; border-radius: 6px; color: #2563eb; }
+.manual-review-action { margin-top: 20px; display: grid; gap: 12px; }
+.manual-review-action label { display: grid; gap: 8px; }
+.manual-review-action textarea { min-height: 80px; width: 100%; padding: 10px; border: 1px solid #d6dfec; border-radius: 6px; resize: vertical; }
+.manual-review-dialog .primary-action { color: white; background: #2563eb; border-color: #2563eb; justify-self: end; }
+.manual-review-dialog > .dialog-error { margin: 8px 24px; color: #b91c1c; }
+.manual-review-student-state { margin: 20px 24px; padding: 20px; border: 1px solid #dce3ed; border-radius: 10px; background: #f8fafc; }
+@media (max-width: 700px) {
+  .manual-review-dialog { width: calc(100vw - 16px); height: calc(100dvh - 16px); }
+  .manual-review-layout { grid-template-columns: 1fr; grid-template-rows: 150px minmax(0, 1fr); }
+  .manual-review-layout > nav { border-right: 0; border-bottom: 1px solid #e2e8f0; }
+  .manual-review-detail { padding: 16px; }
+}

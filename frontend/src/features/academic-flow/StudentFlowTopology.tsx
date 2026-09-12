@@ -23,7 +23,7 @@ const statusLabels: Record<RuntimeNodeStatus, string> = {
   expired: "已截止",
   locked: "待开放",
   rejected: "已退回",
-  reviewing: "自动审核中",
+  reviewing: "审核中",
   scheduled: "定时开放",
   submitted: "已提交",
 };
@@ -121,7 +121,7 @@ export function StudentFlowTopology({
       </div>
       <div className="student-topology-legend" aria-label="节点状态图例">
         <span className="available">可填写</span>
-        <span className="reviewing">自动审核中</span>
+        <span className="reviewing">审核中</span>
         <span className="audit_error">审核异常</span>
         <span className="approved">已通过</span>
         <span className="locked">待开放</span>
@@ -213,6 +213,7 @@ export function StudentFlowTopology({
 }
 
 function getKindLabel(node: AcademicFlowNode) {
+  if (node.kind === "manual_review") return "人工审核";
   if (node.kind === "answer_sheet") return "答题卡";
   if (node.kind === "file") return "文件上传";
   if (node.kind === "confirmation") return "视觉审核";
@@ -229,7 +230,7 @@ function getTopologyStatusLabel(
   }
   if (status === "available" || status === "draft") return "→ 可填写";
   if (status === "rejected" || status === "audit_error") return "! 需处理";
-  if (status === "reviewing" || status === "submitted") return "◌ 审核中";
+  if (status === "reviewing" || status === "submitted") return kind === "manual_review" ? "等待教师审核" : "◌ 审核中";
   if (status === "expired") return "× 已截止";
   if (status === "scheduled") return "◷ 定时开放";
   return "• 待开放";
