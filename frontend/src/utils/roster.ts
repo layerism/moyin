@@ -1,4 +1,5 @@
 import { readSheet } from "read-excel-file/browser";
+import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 
 export type RosterField = "班级" | "学号" | "姓名";
 export type RosterColumns = Record<RosterField, string>;
@@ -76,7 +77,20 @@ async function readRosterRows(file: File): Promise<unknown[][]> {
       .filter((line) => line.trim())
       .map((line) => line.split(",").map((value) => value.trim()));
   }
-  return readSheet(file);
+  const archive = unzipSync(new Uint8Array(await file.arrayBuffer()));
+  for (const [path, content] of Object.entries(archive)) {
+    if (!/^xl\/worksheets\/[^/]+\.xml$/.test(path)) continue;
+    const document = new DOMParser().parseFromString(strFromU8(content), "application/xml");
+    // Some exports declare A1 as the entire sheet despite containing more cells.
+    // Without this optional hint, the reader derives the bounds from actual cells.
+    const dimensions = Array.from(document.getElementsByTagNameNS(
+      "http://schemas.openxmlformats.org/spreadsheetml/2006/main", "dimension",
+    ));
+    if (dimensions.length === 0) continue;
+    dimensions.forEach((dimension) => dimension.remove());
+    archive[path] = strToU8(new XMLSerializer().serializeToString(document));
+  }
+  return readSheet(zipSync(archive).buffer as ArrayBuffer);
 }
 
 export async function parseFlowRoster(file: File): Promise<FlowRosterParseResult> {
