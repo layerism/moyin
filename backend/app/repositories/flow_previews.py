@@ -60,9 +60,10 @@ def mark_preview_for_cleanup(teacher_id: int) -> list[str]:
             FROM uploaded_files u
             JOIN node_instances n ON n.id = u.node_instance_id
             WHERE n.flow_instance_id = ?
-            ORDER BY u.created_at, u.id
+            UNION ALL
+            SELECT storage_key FROM manual_feedback_files WHERE flow_instance_id = ?
             """,
-            (session["flow_instance_id"],),
+            (session["flow_instance_id"], session["flow_instance_id"]),
         ).fetchall()
     return [str(row["storage_key"]) for row in rows]
 

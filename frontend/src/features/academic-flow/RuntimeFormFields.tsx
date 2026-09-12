@@ -133,7 +133,7 @@ export function ReadonlyFormFields({
   return (
     <section className="runtime-readonly-submission">
       {normalizeFormFields(fields).map((field) => (
-        <div className="runtime-readonly-field" key={field.id}>
+        <div className={`runtime-readonly-field${field.type === "textarea" || formatFormAnswer(field, payload[field.answerKey]).length > 60 ? " is-long" : ""}`} key={field.id}>
           <small>{field.label}</small>
           <strong>{formatFormAnswer(field, payload[field.answerKey])}</strong>
         </div>

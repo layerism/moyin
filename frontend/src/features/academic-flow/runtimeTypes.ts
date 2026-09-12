@@ -76,6 +76,7 @@ export type RuntimeNodeAudit = {
 
 export type RuntimeNodeInstance = {
   approvedAt: string | null;
+  feedback?: ManualFeedback[];
   manualReview?: { remark: string; reviewedAt: string } | null;
   audit: RuntimeNodeAudit | null;
   attemptNo: number;
@@ -166,7 +167,12 @@ export type ManualReviewQueue = {
   requirement: string;
   students: ManualReviewStudent[];
 };
+export type ManualFeedbackFile = { id: string; sourceFileId: string; sourceName: string; name: string; sizeBytes: number };
+export type ManualFeedback = { id: string; remark: string; publishedAt: string; historical: boolean; files: ManualFeedbackFile[] };
+export type ManualFeedbackDraft = { revision: number; remark: string; files: ManualFeedbackFile[] };
 export type ManualReviewDetail = {
+  feedbackDraft: ManualFeedbackDraft;
+  feedback: ManualFeedback[];
   nodeInstanceId: string;
   title: string;
   requirement: string;

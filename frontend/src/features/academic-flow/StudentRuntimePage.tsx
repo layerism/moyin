@@ -1,3 +1,4 @@
+import { ManualFeedbackList } from "./ManualFeedbackList";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import Markdown from "react-markdown";
@@ -697,7 +698,8 @@ function RuntimeNodeDialog({
         {node.kind === "manual_review" ? <section className="manual-review-student-state">
           <h3>{runtime.status === "approved" ? "教师已审核通过" : runtime.status === "reviewing" ? "等待教师审核" : runtime.status === "scheduled" ? "尚未到审核开始时间" : "请先完成前置节点"}</h3>
           <p>{runtime.status === "reviewing" ? "前置材料已就绪，无需再次提交。教师审核通过后将解锁后续节点。" : runtime.status === "approved" ? "本节点已完成。" : "完成前置节点后，材料将自动进入教师审核列表。"}</p>
-          {runtime.manualReview ? <><p>审核时间：{formatDateTime(runtime.manualReview.reviewedAt)}</p>{runtime.manualReview.remark ? <p>教师备注：{runtime.manualReview.remark}</p> : null}</> : null}
+          {runtime.manualReview ? <><p>审核时间：{formatDateTime(runtime.manualReview.reviewedAt)}</p>{runtime.manualReview.remark && !runtime.feedback?.length ? <p>教师备注：{runtime.manualReview.remark}</p> : null}</> : null}
+          <ManualFeedbackList feedback={runtime.feedback ?? []} student />
           {onPreviewReview ? <button onClick={onPreviewReview} type="button">教师预览：模拟审核</button> : null}
         </section> : readonly ? (
           <>

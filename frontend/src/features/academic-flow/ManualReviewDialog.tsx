@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, workflowApi } from "./api";
-import type { ManualReviewDetail, ManualReviewQueue, RuntimeNodeStatus } from "./runtimeTypes";
+import type { ManualReviewDetail, ManualReviewQueue, ManualFeedbackFile, RuntimeNodeStatus } from "./runtimeTypes";
 import { AnswerSheetMarkdown } from "./AnswerSheetMarkdown";
 import { ReadonlyFormFields } from "./RuntimeFormFields";
 import { AnswerSheetGradeResult, RuntimeAnswerSheet } from "./RuntimeAnswerSheet";
@@ -24,6 +25,7 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const loadQueue = useCallback(async () => {
     const next = await workflowApi.getManualReviewQueue(versionId, nodeKey);
@@ -59,18 +61,27 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
     if (!activeId) { setLoading(false); return; }
     setLoading(true);
     workflowApi.getManualReview(activeId).then((next) => {
-      if (!cancelled) setDetail(next);
+      if (!cancelled) { setDetail(next); setRemark(next.feedbackDraft.remark); }
     }).catch((reason: Error) => { if (!cancelled) setError(reason.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [activeId, refresh]);
 
-  const approve = async () => {
+  useEffect(() => { setSaved(false); }, [activeId]);
+
+  const saveFeedback = async (pass: boolean) => {
     if (!detail || detail.nodeInstanceId !== activeId || saving) return;
     setSaving(true);
     setError("");
     try {
-      await workflowApi.approveManualReview(detail.nodeInstanceId, detail.evidenceHash, remark);
+      if (pass) {
+        await workflowApi.approveManualReview(detail.nodeInstanceId, detail.evidenceHash, remark, detail.feedbackDraft.revision);
+      } else {
+        await workflowApi.saveManualFeedback(detail.nodeInstanceId, detail.evidenceHash, remark, detail.feedbackDraft.revision);
+        setSaved(true);
+        setRefresh((value) => value + 1);
+        return;
+      }
       setDetail(null);
       setRemark("");
       const next = await loadQueue();
@@ -83,10 +94,25 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
     } finally { setSaving(false); }
   };
 
+  const changeFile = async (sourceId: string, file?: File, removeId?: string) => {
+    if (!detail || saving) return;
+    if (file && (file.size === 0 || file.size > 50 * 1024 * 1024)) { setError("批改文件须非空且不超过 50 MB"); return; }
+    setSaved(false); setSaving(true); setError("");
+    try {
+      const next = file
+        ? await workflowApi.uploadManualFeedback(detail.nodeInstanceId, detail.evidenceHash, detail.feedbackDraft.revision, sourceId, file)
+        : await workflowApi.removeManualFeedback(detail.nodeInstanceId, detail.evidenceHash, detail.feedbackDraft.revision, removeId!);
+      setDetail((current) => current ? { ...current, feedbackDraft: next } : current);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批改文件操作失败");
+      if (reason instanceof ApiError && reason.status === 409) setDetail(null);
+    } finally { setSaving(false); }
+  };
+
   return <dialog className="manual-review-dialog" ref={dialog} aria-labelledby="manual-review-title"
     onKeyDown={(event) => event.stopPropagation()}
     onCancel={(event) => { event.preventDefault(); if (!saving) onClose(); }}>
-    <header><div><small>人工审核</small><h2 id="manual-review-title">{queue?.title ?? "正在读取审核列表"}</h2></div>
+    <header><div><h2 id="manual-review-title">{queue?.title ?? "正在读取审核列表"}</h2></div>
       <button aria-label="关闭审核" disabled={saving} onClick={onClose} type="button">×</button></header>
     <div className="manual-review-filters">
       {(Object.keys(labels) as Array<keyof typeof labels>).map((key) => <button key={key} disabled={saving} aria-pressed={filter === key}
@@ -104,40 +130,61 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
       </button>)}{queue && students.length === 0 ? <p>暂无符合条件的学生</p> : null}</nav>
       <section className="manual-review-detail" aria-busy={loading}>
         {loading ? <p>正在读取材料……</p> : detail && detail.nodeInstanceId === activeId ? <>
-          <h3>{detail.student.name} · {detail.student.studentNo}</h3>
-          <p>{labels[category(detail.status)]}</p>
-          <AnswerSheetMarkdown>{detail.requirement}</AnswerSheetMarkdown>
-          {detail.sources.map((source) => <SourceMaterial key={`${detail.nodeInstanceId}-${source.nodeKey}`} source={source} />)}
-          {detail.history.length ? <details><summary>历史审核记录（{detail.history.length}）</summary>
-            {detail.history.map((record) => <p key={record.id}>{date(record.reviewedAt)} · {record.teacherName} · {record.remark || "审核通过"}</p>)}
-          </details> : null}
-          {detail.status === "reviewing" ? <div className="manual-review-action">
-            <label>审核备注（学生可见，可选）<textarea maxLength={1000} disabled={saving} value={remark} onChange={(event) => setRemark(event.target.value)} /></label>
-            <button className="primary-action" disabled={saving} onClick={() => void approve()} type="button">{saving ? "正在保存…" : "审核通过"}</button>
-          </div> : <p>{detail.status === "approved" ? "本轮审核已通过。" : "前置节点全部通过且到达审核开始时间后，才可审核通过。"}</p>}
+          <div className="manual-review-student-heading"><h3>{detail.student.name}<small>{detail.student.studentNo}</small></h3><span>{labels[category(detail.status)]}</span></div>
+          <div className="manual-review-content">
+            <details className="manual-review-instructions"><summary>审核说明</summary><AnswerSheetMarkdown>{detail.requirement}</AnswerSheetMarkdown></details>
+            {detail.sources.map((source) => <SourceMaterial key={`${detail.nodeInstanceId}-${source.nodeKey}`} source={source}
+              feedbackFiles={detail.feedbackDraft.files} busy={saving} editable={detail.status === "reviewing" || detail.status === "approved"}
+              onUpload={(sourceId, file) => void changeFile(sourceId, file)} onRemove={(id) => void changeFile("", undefined, id)} />)}
+            <ManualFeedbackList feedback={detail.feedback} />
+            {detail.history.length ? <details><summary>历史审核记录（{detail.history.length}）</summary>
+              {detail.history.map((record) => <p key={record.id}>{date(record.reviewedAt)} · {record.teacherName} · {record.remark || "审核通过"}</p>)}
+            </details> : null}
+          </div>
+          {detail.status === "reviewing" || detail.status === "approved" ? <div className="manual-review-action">
+            <label>反馈备注<textarea rows={2} placeholder="填写批改意见，保存后学生可见" maxLength={1000} disabled={saving} value={remark} onChange={(event) => { setSaved(false); setRemark(event.target.value); }} /></label>
+            <div className="manual-review-action-buttons"><small role="status">{saved ? "反馈已保存，学生可查看并下载。" : "批改件每份不超过 50 MB；保存后学生可下载。"}</small>
+              <button disabled={saving} onClick={() => void saveFeedback(false)} type="button">保存反馈</button>
+              {detail.status === "reviewing" ? <button className="primary-action" disabled={saving} onClick={() => void saveFeedback(true)} type="button">{saving ? "正在处理…" : "审核通过"}</button> : <span>已通过</span>}
+            </div>
+          </div> : <p>前置材料就绪且到达开始时间后可审核。</p>}
         </> : active && !activeId ? <p>该学生尚未进入流程，暂无提交材料。</p> : !error && !loading ? <p>请选择待审核学生。</p> : null}
       </section>
     </div>
   </dialog>;
 }
 
-function SourceMaterial({ source }: { source: ManualReviewDetail["sources"][number] }) {
+function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRemove }: {
+  source: ManualReviewDetail["sources"][number]; feedbackFiles: ManualFeedbackFile[]; busy: boolean; editable: boolean;
+  onUpload: (sourceId: string, file: File) => void; onRemove: (id: string) => void;
+}) {
   const node: AcademicFlowNode = {
     id: source.nodeKey, title: source.title, kind: source.kind, requirement: source.requirement,
     infoFields: source.infoFields, answerSheet: source.answerSheet ?? undefined,
     auditScriptName: "", auditScriptType: "none", fileExtensions: "", fileLimitMb: "", status: "disabled", x: 0, y: 0,
   };
   return <section className="manual-review-source">
-    <h4>{source.title}</h4><small>{source.status === "approved" ? "已通过" : "前置节点尚未通过"} · {date(source.submittedAt)}</small>
-    <AnswerSheetMarkdown>{source.requirement}</AnswerSheetMarkdown>
+    <header><h4>{source.title}</h4><small>{source.status === "approved" ? "已通过" : "尚未通过"} · {date(source.submittedAt)}</small></header>
+    <details className="manual-review-instructions"><summary>节点要求</summary><AnswerSheetMarkdown>{source.requirement}</AnswerSheetMarkdown></details>
     {source.submissionId && source.kind === "form" ? <ReadonlyFormFields fields={source.infoFields} payload={source.submission} /> : null}
     {source.submissionId && source.kind === "answer_sheet" ? <>
       <RuntimeAnswerSheet errors={{}} instanceId="" node={node} payload={source.submission} readonly />
       {source.grade ? <AnswerSheetGradeResult grade={source.grade} node={node} /> : null}
     </> : null}
-    {source.files.map((file) => <a className="manual-review-file" href={file.url} key={file.id} target="_blank" rel="noreferrer">
-      <span>{file.original_name}</span><small>{Math.ceil(file.size_bytes / 1024)} KB · 下载</small>
-    </a>)}
+    {source.files.map((file) => {
+      const corrected = feedbackFiles.find((item) => item.sourceFileId === file.id);
+      return <div className="manual-review-file-pair" key={file.id}>
+        <div className="manual-review-file-row"><small>学生原件</small><a href={file.url} target="_blank" rel="noreferrer" title={file.original_name}>{file.original_name}</a><small>{Math.ceil(file.size_bytes / 1024)} KB</small></div>
+        <div className="manual-review-file-row"><small>教师批改</small><span title={corrected?.name}>{corrected?.name ?? "未上传"}</span>
+          <div className="manual-review-file-controls">{corrected ? <FeedbackDownload fileId={corrected.id}>下载</FeedbackDownload> : null}
+            {editable ? <><label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>{corrected ? "替换" : "上传批改件"}<input type="file" disabled={busy} onChange={(event) => { const picked = event.target.files?.[0]; event.target.value = ""; if (picked) onUpload(file.id, picked); }} /></label>
+              {corrected ? <button disabled={busy} onClick={() => onRemove(corrected.id)} type="button">移除</button> : null}</> : null}
+          </div>
+        </div>
+      </div>;
+    })}
+    {source.audit ? <p className="manual-review-audit-summary">自动审核：{source.audit.passed ? "通过" : "未通过"}{typeof source.audit.details?.score === "number" ? ` · ${source.audit.details.score} 分` : ""}</p> : null}
+    {source.audit || Object.keys(source.auditParams).length ? <details className="manual-review-instructions"><summary>审核标准与反馈</summary>
     {Object.entries(source.auditParams).filter(([key]) => ["documentReviewPrompt", "scanAuditPrompt", "scanAuditMode", "scanAuditThreshold"].includes(key)).map(([key, value]) => <div key={key}>
       <strong>{parameterLabels[key]}</strong>
       <AnswerSheetMarkdown>{key === "scanAuditMode" ? value === "score" ? "评分" : "通过/不通过" : String(value)}</AnswerSheetMarkdown>
@@ -145,6 +192,7 @@ function SourceMaterial({ source }: { source: ManualReviewDetail["sources"][numb
     {source.audit ? <div><strong>自动审核：{source.audit.passed ? "通过" : "未通过"}</strong>
       {typeof source.audit.details?.score === "number" ? <p>评分：{source.audit.details.score}</p> : null}
       <AnswerSheetMarkdown>{source.audit.reason ?? ""}</AnswerSheetMarkdown></div> : null}
+    </details> : null}
     {source.manualReview ? <p>人工审核：{source.manualReview.remark || "审核通过"} · {date(source.manualReview.reviewedAt)}</p> : null}
     {!source.submissionId && !source.manualReview ? <p>暂无正式提交内容</p> : null}
     {source.kind === "announcement" && source.submissionId ? <p>{source.submission.confirmed ? "已阅读确认" : "尚未确认"}</p> : null}

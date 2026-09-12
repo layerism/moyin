@@ -21,7 +21,7 @@ from app.domain.workflow_runtime import (
     validate_submission,
 )
 from app.repositories.audit_jobs import create_audit_job
-from app.repositories.manual_review_state import sync_manual_reviews, latest_review
+from app.repositories.manual_review_state import sync_manual_reviews, latest_review, review_evidence
 from app.repositories.audit_policies import (
     AuditPolicyConflictError,
     resolve_effective_audit_policy,
@@ -316,6 +316,11 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     connection, str(instance["flow_version_id"]), str(row["node_key"])
                 )["gradingKey"]
             manual_review = latest_review(connection, row["id"]) if config_node.get("kind") == "manual_review" else None
+            feedback = []
+            if config_node.get("kind") == "manual_review":
+                from app.repositories.manual_feedback import published_feedback
+                _, evidence_hash = review_evidence(connection, instance_id, config, row["node_key"])
+                feedback = published_feedback(connection, instance_id, row["node_key"], evidence_hash)
             nodes.append(
                 {
                     "id": row["id"],
@@ -323,6 +328,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "status": status,
                     "attemptNo": row["attempt_no"],
                     "requiresResubmission": requires_resubmission,
+                    "feedback": feedback,
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),

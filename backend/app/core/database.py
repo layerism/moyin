@@ -277,6 +277,38 @@ CREATE TABLE IF NOT EXISTS manual_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_manual_reviews_node ON manual_reviews(node_instance_id, created_at);
 
+CREATE TABLE IF NOT EXISTS manual_feedback_files (
+    id TEXT PRIMARY KEY,
+    flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
+    node_instance_id TEXT NOT NULL,
+    evidence_hash TEXT NOT NULL,
+    source_file_id TEXT NOT NULL,
+    source_name TEXT NOT NULL,
+    original_name TEXT NOT NULL,
+    storage_key TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS manual_feedback_drafts (
+    node_instance_id TEXT PRIMARY KEY REFERENCES node_instances(id) ON DELETE CASCADE,
+    evidence_hash TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    files_json TEXT NOT NULL DEFAULT '[]'
+);
+CREATE TABLE IF NOT EXISTS manual_feedback (
+    id TEXT PRIMARY KEY,
+    flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
+    node_instance_id TEXT NOT NULL,
+    node_key TEXT NOT NULL,
+    evidence_hash TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    files_json TEXT NOT NULL,
+    remark TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(node_instance_id, revision)
+);
+CREATE INDEX IF NOT EXISTS idx_manual_feedback_node ON manual_feedback(flow_instance_id, node_key);
+
 CREATE TABLE IF NOT EXISTS node_drafts (
     node_instance_id TEXT PRIMARY KEY REFERENCES node_instances(id) ON DELETE CASCADE,
     payload TEXT NOT NULL,

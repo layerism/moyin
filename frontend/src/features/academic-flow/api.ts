@@ -7,6 +7,7 @@ import type {
   AuditScriptManagementSummary,
 } from "./auditScriptConfig";
 import type {
+  ManualFeedbackDraft,
   ManualReviewQueue,
   ManualReviewDetail,
   PublishedFlow,
@@ -472,10 +473,28 @@ export const workflowApi = {
   getManualReview(nodeInstanceId: string) {
     return request<ManualReviewDetail>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review`);
   },
-  approveManualReview(nodeInstanceId: string, evidenceHash: string, remark: string) {
+  approveManualReview(nodeInstanceId: string, evidenceHash: string, remark: string, feedbackRevision: number) {
     return request<{ approved: boolean }>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review/approve`, {
-      method: "POST", body: JSON.stringify({ evidenceHash, remark }),
+      method: "POST", body: JSON.stringify({ evidenceHash, remark, feedbackRevision }),
     });
+  },
+  saveManualFeedback(nodeInstanceId: string, evidenceHash: string, remark: string, feedbackRevision: number) {
+    return request<{ saved: boolean }>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review/feedback`, {
+      method: "POST", body: JSON.stringify({ evidenceHash, remark, feedbackRevision }),
+    });
+  },
+  uploadManualFeedback(nodeInstanceId: string, evidenceHash: string, revision: number, sourceFileId: string, file: File) {
+    const body = new FormData();
+    body.set("evidenceHash", evidenceHash); body.set("revision", String(revision)); body.set("sourceFileId", sourceFileId); body.set("file", file);
+    return request<ManualFeedbackDraft>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review/files`, { method: "POST", body });
+  },
+  removeManualFeedback(nodeInstanceId: string, evidenceHash: string, revision: number, fileId: string) {
+    return request<ManualFeedbackDraft>(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/manual-review/files/${encodeURIComponent(fileId)}`, {
+      method: "DELETE", body: JSON.stringify({ evidenceHash, revision }),
+    });
+  },
+  downloadManualFeedback(fileId: string, student: boolean) {
+    return request<{ url: string }>(`/api/workflow-admin/manual-feedback/files/${encodeURIComponent(fileId)}/${student ? "student-download" : "download"}`);
   },
   getSubmissionDetail(nodeInstanceId: string) {
     return request<TeacherSubmissionDetail>(

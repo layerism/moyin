@@ -94,7 +94,10 @@ def get_manual_review(node_instance_id, teacher_id):
                WHERE m.flow_instance_id = ? AND m.node_key = ? ORDER BY m.created_at DESC, m.id DESC""",
             (row['flow_instance_id'], row['node_key']),
         ).fetchall()
+        from app.repositories.manual_feedback import draft_feedback, published_feedback
         return {
+            'feedbackDraft': draft_feedback(connection, node_instance_id, fingerprint),
+            'feedback': published_feedback(connection, row['flow_instance_id'], row['node_key'], fingerprint),
             'nodeInstanceId': node_instance_id, 'title': node['title'], 'requirement': node.get('requirement', ''),
             'student': {'name': row['name'], 'studentNo': row['student_no']},
             'status': status, 'evidenceHash': fingerprint, 'sources': evidence['sources'],
@@ -103,13 +106,15 @@ def get_manual_review(node_instance_id, teacher_id):
         }
 
 
-def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark):
+def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark, feedback_revision):
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
         row, config, node, status = _context(connection, node_instance_id, teacher_id)
         evidence, fingerprint = review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
         if fingerprint != evidence_hash:
             raise ManualReviewConflict('材料已更新，请重新查看后审核')
+        from app.repositories.manual_feedback import publish_feedback
+        publish_feedback(connection, node_instance_id, teacher_id, evidence_hash, feedback_revision, remark)
         if status == 'approved':
             previous = latest_review(connection, node_instance_id)
             if previous and previous['evidence_hash'] == fingerprint:
