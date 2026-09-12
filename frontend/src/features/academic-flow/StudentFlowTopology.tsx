@@ -86,7 +86,9 @@ export function StudentFlowTopology({
   }, [viewportOffset, zoom]);
 
   const startCanvasPan = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!shouldStartCanvasPan({ button: event.button })) return;
+    const onNode = event.target instanceof Element
+      && event.target.closest(".student-topology-node") !== null;
+    if (onNode || (event.button !== 0 && !shouldStartCanvasPan({ button: event.button }))) return;
     event.preventDefault();
     setPanStart({
       clientX: event.clientX,
@@ -131,6 +133,7 @@ export function StudentFlowTopology({
         className={`student-topology-viewport ${panStart ? "is-panning" : ""}`}
         onContextMenu={(event) => event.preventDefault()}
         onPointerCancel={endCanvasPan}
+        onLostPointerCapture={() => setPanStart(null)}
         onPointerDown={startCanvasPan}
         onPointerMove={moveCanvas}
         onPointerUp={endCanvasPan}
