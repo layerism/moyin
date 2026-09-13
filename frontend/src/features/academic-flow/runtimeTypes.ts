@@ -39,6 +39,7 @@ export type SharedFlow = {
 };
 
 export type RuntimeNodeStatus =
+  | "skipped"
   | "approved"
   | "audit_error"
   | "available"

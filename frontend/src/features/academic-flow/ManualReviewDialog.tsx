@@ -209,6 +209,7 @@ function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRem
     </details> : null}
     {source.manualReview ? <p>人工审核：{source.manualReview.remark || "审核通过"} · {date(source.manualReview.reviewedAt)}</p> : null}
     {!source.submissionId && !source.manualReview ? <p>暂无正式提交内容</p> : null}
+    {source.kind === "branch" && source.submissionId ? <p>已选择：{String(source.submission.branchLabel ?? "未选择")}</p> : null}
     {source.kind === "announcement" && source.submissionId ? <p>{source.submission.confirmed ? "已阅读确认" : "尚未确认"}</p> : null}
     <div className="manual-source-decision">
       {review?.rejected ? <p className="manual-source-rejected">未通过 · {review.remark}</p> : review?.approved ? <p className="manual-source-approved">✓ 已确认通过{review.remark ? ` · ${review.remark}` : ""}</p> : <>

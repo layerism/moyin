@@ -49,8 +49,8 @@ export type StudentAccount = {
 
 export type AuditScriptType = "js" | "mjs" | "none" | "py";
 export type AcademicFlowNodeStatus = "approved" | "disabled" | "pending" | "ready";
-export type AcademicFlowNodeKind = "announcement" | "answer_sheet" | "confirmation" | "file" | "form" | "manual_review";
-export type AcademicFlowPort = "bottom" | "left" | "right" | "top";
+export type AcademicFlowNodeKind = "branch" | "announcement" | "answer_sheet" | "confirmation" | "file" | "form" | "manual_review";
+export type AcademicFlowPort = `branch:${string}` | "bottom" | "left" | "right" | "top";
 export type FormFieldType = "text" | "textarea" | "radio" | "checkbox";
 
 export type AnswerSheetQuestionType = "fill_blank" | "multiple_choice" | "single_choice";
@@ -185,6 +185,7 @@ export type NodeTemplateAsset = {
 };
 
 export type AcademicFlowNode = {
+  branches?: Array<{ id: string; label: string }>;
   answerSheet?: AnswerSheetConfig;
   auditScriptAcceptedExtensions?: string[];
   auditScriptId?: string;

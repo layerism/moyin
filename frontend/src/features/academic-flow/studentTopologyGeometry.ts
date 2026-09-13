@@ -7,6 +7,7 @@ import {
 export const studentNodeSize = { height: 126, width: 280 };
 
 export type TopologyNode = {
+  branches?: Array<{ id: string; label: string }>;
   id: string;
   x: number;
   y: number;

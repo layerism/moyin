@@ -1,8 +1,11 @@
 import type { AcademicFlowPort } from "../../types";
 
+import { branchPortFraction } from "./branch";
+
 export type CurvePoint = { x: number; y: number };
 
 export type CurveNode = CurvePoint & {
+  branches?: Array<{ id: string; label: string }>;
   height: number;
   id: string;
   width: number;
@@ -113,6 +116,7 @@ export function createCurvedEdgeGeometries(
 }
 
 export function getOppositePort(port: AcademicFlowPort): AcademicFlowPort {
+  if (port.startsWith("branch:")) return "top";
   if (port === "top") return "bottom";
   if (port === "bottom") return "top";
   if (port === "left") return "right";
@@ -183,6 +187,7 @@ function getPortPoint(
   port: AcademicFlowPort,
   laneOffset: number,
 ): CurvePoint {
+  if (port.startsWith("branch:")) return { x: node.x + node.width * branchPortFraction(node.branches, port), y: node.y + node.height };
   if (port === "top") return { x: node.x + node.width / 2 + laneOffset, y: node.y };
   if (port === "bottom") {
     return { x: node.x + node.width / 2 + laneOffset, y: node.y + node.height };
@@ -193,7 +198,7 @@ function getPortPoint(
 
 function getPortNormal(port: AcademicFlowPort): CurvePoint {
   if (port === "top") return { x: 0, y: -1 };
-  if (port === "bottom") return { x: 0, y: 1 };
+  if (port === "bottom" || port.startsWith("branch:")) return { x: 0, y: 1 };
   if (port === "left") return { x: -1, y: 0 };
   return { x: 1, y: 0 };
 }

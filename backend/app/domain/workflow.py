@@ -53,6 +53,24 @@ def validate_flow_config(
         except AnswerSheetConfigError as exc:
             raise FlowValidationError(str(exc)) from exc
 
+    branch_options = {}
+    for node in nodes:
+        if node.get("kind") != "branch":
+            continue
+        options = node.get("branches")
+        if not isinstance(options, list) or len(options) < 2:
+            raise FlowValidationError("条件分支至少需要两个选项")
+        if any(not isinstance(option, dict) or not isinstance(option.get("id"), str)
+               or not option["id"] or not isinstance(option.get("label"), str)
+               or (require_publishable and not option["label"].strip()) for option in options):
+            raise FlowValidationError("请填写有效的分支选项")
+        ids = {option["id"] for option in options}
+        if len(ids) != len(options):
+            raise FlowValidationError("分支选项标识不能重复")
+        if node.get("auditScriptId") or node.get("scanAuditEnabled") or node.get("autoApprove") is False:
+            raise FlowValidationError("条件分支提交后自动生效，不支持审核配置")
+        branch_options[node["id"]] = {f"branch:{key}" for key in ids}
+
     indegree = {node_id: 0 for node_id in node_ids}
     adjacency: dict[str, list[str]] = defaultdict(list)
     for edge in edges:
@@ -62,6 +80,14 @@ def validate_flow_config(
         target = edge.get("target")
         if source not in indegree or target not in indegree or source == target:
             raise FlowValidationError("连线必须连接两个不同的有效节点")
+        if source in branch_options and edge.get("sourcePort") not in branch_options[source]:
+            raise FlowValidationError("请从条件分支的选项连接点连出")
+        if source not in branch_options and str(edge.get("sourcePort", "")).startswith("branch:"):
+            raise FlowValidationError("分支连接点只能用于条件分支")
+        if target in branch_options and edge.get("targetPort") != "top":
+            raise FlowValidationError("条件分支必须连接顶部输入点")
+        if str(edge.get("targetPort", "")).startswith("branch:"):
+            raise FlowValidationError("分支输出点不能作为输入点")
         adjacency[source].append(target)
         indegree[target] += 1
 
@@ -73,6 +99,12 @@ def validate_flow_config(
                 raise FlowValidationError("人工审核节点不设置学生提交截止时间")
             if node.get("auditScriptId") or node.get("scanAuditEnabled"):
                 raise FlowValidationError("人工审核节点不能绑定自动审核脚本")
+
+    if require_publishable:
+        for key, ports in branch_options.items():
+            connected = {edge.get("sourcePort") for edge in edges if edge["source"] == key}
+            if ports - connected:
+                raise FlowValidationError("每个分支选项都需要连接下游节点")
 
     queue = deque(node_id for node_id, degree in indegree.items() if degree == 0)
     visited = 0

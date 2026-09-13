@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from app.repositories.branch_state import node_is_ready, resolve_routes
 from app.core.database import get_connection
 from app.domain.answer_sheet import (
     grade_answer_sheet,
@@ -234,7 +235,6 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         sync_manual_reviews(connection, instance_id, config)
         instance_status = connection.execute("SELECT status FROM flow_instances WHERE id = ?", (instance_id,)).fetchone()["status"]
         preview = is_preview_instance(connection, instance_id)
-        incoming = incoming_nodes(config)
         node_rows = connection.execute(
             """
             SELECT n.*, d.payload AS draft_payload, s.payload_snapshot AS submission_payload,
@@ -253,7 +253,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         ).fetchall()
         node_order = {node["id"]: index for index, node in enumerate(config["nodes"])}
         nodes = []
-        raw_statuses = {row["node_key"]: row["status"] for row in node_rows}
+        _, _, ready_nodes = resolve_routes(connection, instance_id, config)
         for row in node_rows:
             deadline = effective_deadline(
                 connection, instance_id, instance["flow_version_id"], row["node_key"]
@@ -262,7 +262,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             config_node = node_by_key(config, row["node_key"])
             if config_node.get("kind") != "manual_review" and status in {"available", "draft", "rejected", "locked", "scheduled", "expired"}:
                 base_status = pending_node_status(
-                    all(raw_statuses.get(source) == "approved" for source in incoming[row["node_key"]]),
+                    row["node_key"] in ready_nodes,
                     None if preview else config_node.get("startAt"),
                     deadline,
                 )
@@ -511,15 +511,8 @@ def save_node_draft(
         preview = is_preview_instance(connection, row["flow_instance_id"])
         node = node_by_key(config, row["node_key"])
         approved_form_amendment = _is_approved_form_amendment(row["status"], node)
-        statuses = {
-            item["node_key"]: item["status"]
-            for item in connection.execute(
-                "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
-                (row["flow_instance_id"],),
-            ).fetchall()
-        }
         base_status = pending_node_status(
-            all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
+            node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),
             None if preview else node.get("startAt"),
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )
@@ -609,15 +602,8 @@ def submit_node(
             if max_attempts is not None and (int(row["attempt_no"]) - int(row["attempt_reset_no"])) >= int(max_attempts):
                 raise RuntimeConflictError("已达到最大作答次数")
             approved_form_amendment = _is_approved_form_amendment(row["status"], node)
-            statuses = {
-                item["node_key"]: item["status"]
-                for item in connection.execute(
-                    "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
-                    (row["flow_instance_id"],),
-                ).fetchall()
-            }
             base_status = pending_node_status(
-                all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
+                node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),
                 None if preview else node.get("startAt"),
                 deadline,
             )
@@ -753,6 +739,18 @@ def submit_node(
                     validate_submission(node, submission_payload)
                 except ValueError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
+            if node.get("kind") == "branch":
+                branch_id = submission_payload["branchId"]
+                previous = connection.execute(
+                    "SELECT payload_snapshot FROM submissions WHERE node_instance_id = ? ORDER BY attempt_no DESC LIMIT 1",
+                    (node_instance_id,),
+                ).fetchone()
+                if previous and json.loads(previous["payload_snapshot"]).get("branchId") != branch_id:
+                    raise RuntimeConflictError("分支提交后不可更改选择")
+                submission_payload = {
+                    "branchId": branch_id,
+                    "branchLabel": next(option["label"] for option in node["branches"] if option["id"] == branch_id),
+                }
             attempt_no = int(row["attempt_no"]) + 1
             if grade_result is not None:
                 submission_status = "approved" if grade_result["passed"] else "rejected"
@@ -966,15 +964,8 @@ def set_student_deadline(
             "SELECT id, status FROM node_instances WHERE flow_instance_id = ? AND node_key = ?",
             (instance_id, node_key),
         ).fetchone()
-        statuses = {
-            row["node_key"]: row["status"]
-            for row in connection.execute(
-                "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
-                (instance_id,),
-            ).fetchall()
-        }
         next_status = pending_node_status(
-            all(statuses.get(source) == "approved" for source in incoming_nodes(config)[node_key]),
+            node_is_ready(connection, instance_id, config, node_key),
             node.get("startAt"),
             normalized_deadline,
         )
@@ -1021,7 +1012,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             """
             SELECT i.id, i.status, i.last_active_at, a.student_no, a.name,
                    SUM(CASE WHEN n.status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
-                   COUNT(n.id) AS total_count,
+                   SUM(CASE WHEN n.status != 'skipped' THEN 1 ELSE 0 END) AS total_count,
                    SUM(CASE WHEN n.status = 'expired' THEN 1 ELSE 0 END) AS expired_count
             FROM flow_instances i
             JOIN student_accounts a ON a.id = i.student_account_id

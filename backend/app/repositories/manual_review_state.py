@@ -1,15 +1,17 @@
 """Manual review evidence and state transitions within the caller's transaction."""
+
 import hashlib
 import json
 
+from app.repositories.branch_state import resolve_routes, sync_branch_states
 from app.domain.workflow_revision import reachable_successors
-from app.domain.workflow_runtime import incoming_nodes, pending_node_status
+from app.domain.workflow_runtime import pending_node_status
 from app.services.security import utc_now_iso
 
 
 def review_evidence(connection, instance_id, config, node_key):
     sources = []
-    predecessors = incoming_nodes(config)[node_key]
+    predecessors = resolve_routes(connection, instance_id, config)[0][node_key]
     target = next(node for node in config['nodes'] if node['id'] == node_key)
     for node in config['nodes']:
         if node['id'] not in predecessors:
@@ -124,6 +126,7 @@ def invalidate_nodes(connection, instance_id, config, node_keys, now):
 
 
 def sync_manual_reviews(connection, instance_id, config):
+    sync_branch_states(connection, instance_id, config)
     manual_nodes = [node for node in config['nodes'] if node.get('kind') == 'manual_review']
     if not manual_nodes:
         return
@@ -143,18 +146,19 @@ def sync_manual_reviews(connection, instance_id, config):
     if invalidated:
         invalidated |= reachable_successors(config, invalidated)
         invalidate_nodes(connection, instance_id, config, invalidated, now)
+        sync_branch_states(connection, instance_id, config)
     statuses = {row['node_key']: row['status'] for row in connection.execute(
         'SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?', (instance_id,),
     ).fetchall()}
     preview = connection.execute('SELECT 1 FROM flow_preview_sessions WHERE flow_instance_id = ?', (instance_id,)).fetchone()
-    incoming = incoming_nodes(config)
+    incoming, skipped, ready = resolve_routes(connection, instance_id, config)
     for node in manual_nodes:
         row = rows.get(node['id'])
-        if row is None or statuses[node['id']] == 'approved':
+        if row is None or statuses[node['id']] == 'approved' or node['id'] in skipped:
             continue
         predecessors = incoming[node['id']]
         status = pending_node_status(
-            bool(predecessors) and all(statuses.get(key) == 'approved' for key in predecessors),
+            bool(predecessors) and node['id'] in ready,
             None if preview else node.get('startAt'), None,
         )
         if status == 'available':

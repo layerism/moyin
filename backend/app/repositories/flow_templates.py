@@ -3,9 +3,9 @@ import json
 import uuid
 from typing import Any
 
+from app.repositories.branch_state import node_is_ready
 from app.core.database import get_connection
 from app.domain.workflow_runtime import (
-    incoming_nodes,
     node_by_key,
     pending_node_status,
     validate_file_metadata,
@@ -273,16 +273,9 @@ def get_student_template(node_instance_id: str, student_id: int) -> dict[str, ob
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
         config = json.loads(row["config_snapshot"])
-        statuses = {
-            item["node_key"]: item["status"]
-            for item in connection.execute(
-                "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
-                (row["flow_instance_id"],),
-            ).fetchall()
-        }
         node = node_by_key(config, row["node_key"])
         state = pending_node_status(
-            all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
+            node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),
             None if is_preview_instance(connection, row["flow_instance_id"]) else node.get("startAt"),
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )

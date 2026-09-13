@@ -15,7 +15,11 @@ import {
   type CanvasPanStart,
 } from "./canvasPan";
 
+import { branchPortFraction, branchPort } from "./branch";
+import { FlowNodeIcon } from "./FlowNodeIcon";
+
 const statusLabels: Record<RuntimeNodeStatus, string> = {
+  skipped: "未选择",
   approved: "已通过",
   audit_error: "审核异常",
   available: "可填写",
@@ -119,7 +123,7 @@ export function StudentFlowTopology({
           <p>我的流程</p>
           <h2>办理拓扑</h2>
         </div>
-        <strong>{approvedCount}/{runtimeNodes.length} 个节点已通过</strong>
+        <strong>{approvedCount}/{runtimeNodes.filter((runtime) => runtime.status !== "skipped").length} 个节点已通过</strong>
       </div>
       <div className="student-topology-legend" aria-label="节点状态图例">
         <span className="available">可填写</span>
@@ -165,7 +169,12 @@ export function StudentFlowTopology({
               const geometry = edgeGeometries.get(edge.id);
               if (!geometry) return null;
               const targetRuntime = runtimeByKey.get(edge.target);
-              const edgeState = targetRuntime?.status === "approved" ? "approved" : "default";
+              const sourceRuntime = runtimeByKey.get(edge.source);
+              const sourceNode = nodes.find((node) => node.id === edge.source);
+              const chosen = sourceNode?.kind === "branch" && sourceRuntime?.status === "approved" ? sourceRuntime.submission.branchId : null;
+              const excluded = sourceRuntime?.status === "skipped" || targetRuntime?.status === "skipped"
+                || (chosen != null && edge.sourcePort !== `branch:${chosen}`);
+              const edgeState = excluded ? "skipped" : chosen != null || sourceRuntime?.status === "approved" ? "active" : "default";
               return (
                 <g className={edgeState} key={edge.id}>
                   <path d={geometry.path} />
@@ -188,6 +197,7 @@ export function StudentFlowTopology({
               <button
                 aria-label={`${node.title}，${statusLabels[runtime.status]}`}
                 className={`student-topology-node ${runtime.status}`}
+                data-node-kind={node.kind}
                 disabled={!openable}
                 key={node.id}
                 onClick={() => onOpenNode(node.id)}
@@ -199,7 +209,14 @@ export function StudentFlowTopology({
                 }}
                 type="button"
               >
-                <strong>{node.title}</strong>
+                <strong>{node.kind === "branch" ? <FlowNodeIcon kind={node.kind} /> : null}{node.title}</strong>
+                {node.kind === "branch" ? <>
+                  <span className="branch-node-caption">单选 · {node.branches?.length ?? 0} 个分支</span>
+                  <span className="branch-node-options">{node.branches?.map((option) => <span key={option.id} title={option.label} style={{ left: `${branchPortFraction(node.branches, branchPort(option.id)) * 100}%`, width: `${90 / ((node.branches?.length ?? 0) + 1)}%` }}>{option.label}</span>)}</span>
+                  <span className="branch-static-port top" />
+                  {node.branches?.map((option) => <span className="branch-static-port bottom" key={option.id}
+                    style={{ left: `${branchPortFraction(node.branches, branchPort(option.id)) * 100}%` }} />)}
+                </> : null}
                 <span className="student-topology-node-meta">
                   <em>{getKindLabel(node)}</em>
                   <i>{getTopologyStatusLabel(runtime.status, node.kind)}</i>
@@ -216,6 +233,7 @@ export function StudentFlowTopology({
 }
 
 function getKindLabel(node: AcademicFlowNode) {
+  if (node.kind === "branch") return "条件分支";
   if (node.kind === "manual_review") return "人工审核";
   if (node.kind === "answer_sheet") return "答题卡";
   if (node.kind === "file") return "文件上传";
@@ -228,6 +246,7 @@ function getTopologyStatusLabel(
   status: RuntimeNodeStatus,
   kind: AcademicFlowNode["kind"],
 ): string {
+  if (status === "skipped") return "未选择";
   if (status === "approved") {
     return kind === "form" ? "✓ 已完成 · 可修改" : "✓ 已完成 · 可查看";
   }

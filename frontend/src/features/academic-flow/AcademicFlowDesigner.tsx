@@ -78,6 +78,9 @@ import { StudentLinkDialog } from "./StudentLinkDialog";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 
+import { branchPort, branchPortFraction, nodePorts } from "./branch";
+import { BranchOptionsEditor } from "./BranchOptionsEditor";
+
 const statusLabels: Record<AcademicFlowNodeStatus, string> = {
   approved: "已通过",
   disabled: "待开放",
@@ -86,6 +89,7 @@ const statusLabels: Record<AcademicFlowNodeStatus, string> = {
 };
 
 const kindLabels: Record<AcademicFlowNodeKind, string> = {
+  branch: "条件分支",
   manual_review: "人工审核",
   announcement: "通知公告",
   answer_sheet: "答题卡",
@@ -100,7 +104,6 @@ const canvasMinimumSize = { height: 1000, width: 1200 };
 const canvasConnectionPadding = 240;
 const connectionEdgePanSize = 48;
 const connectionEdgePanMaxStep = 14;
-const connectionPorts: AcademicFlowPort[] = ["top", "bottom"];
 
 function snapToGrid(value: number) {
   return Math.round(value / canvasGridSize) * canvasGridSize;
@@ -353,6 +356,16 @@ export function AcademicFlowDesigner({
   const preparePublish = async () => {
     const candidate = structuredClone(workingProcess);
     setPublishIssue(null);
+    const invalidBranch = candidate.nodes.find((node) => node.kind === "branch" && (
+      (node.branches?.length ?? 0) < 2 || node.branches?.some((option) => !option.label.trim()
+        || !candidate.edges.some((edge) => edge.source === node.id && edge.sourcePort === branchPort(option.id)))
+    ));
+    if (invalidBranch) {
+      setActiveNodeId(invalidBranch.id);
+      setInspectorNodeId(invalidBranch.id);
+      showActionError("条件分支至少需要两个选项，请填写名称并为每个选项连接下游节点");
+      return;
+    }
     const missingReviewSource = candidate.nodes.find((node) => node.kind === "manual_review" && !candidate.edges.some((edge) => edge.target === node.id));
     if (missingReviewSource) {
       setInspectorNodeId(missingReviewSource.id);
@@ -491,6 +504,8 @@ export function AcademicFlowDesigner({
     }
     commitDesignChange({
       ...workingProcess,
+      edges: nextValue.branches ? workingProcess.edges.filter((edge) => edge.source !== nodeId
+        || nextValue.branches!.some((option) => edge.sourcePort === `branch:${option.id}`)) : workingProcess.edges,
       nodes: workingProcess.nodes.map((node) =>
         node.id === nodeId ? { ...node, ...nextValue } : node,
       ),
@@ -554,7 +569,14 @@ export function AcademicFlowDesigner({
       showActionError("新增连线必须至少连接一个本次新增节点");
       return;
     }
-    const exists = processEdges.some((edge) => edge.source === source && edge.target === target);
+    const sourceNode = workingProcess.nodes.find((node) => node.id === source);
+    const targetNode = workingProcess.nodes.find((node) => node.id === target);
+    if ((sourceNode?.kind === "branch" && !sourcePort.startsWith("branch:"))
+      || (targetNode?.kind === "branch" && targetPort !== "top") || targetPort.startsWith("branch:")) {
+      showActionError("请从分支选项的输出点连接到下游输入点");
+      return;
+    }
+    const exists = processEdges.some((edge) => edge.source === source && edge.target === target && edge.sourcePort === sourcePort);
     if (source === target || exists) {
       return;
     }
@@ -960,10 +982,16 @@ function ComponentPalette({
       </div>
       <h3>流程控制</h3>
       <div className="node-template-list compact">
-        <button className="node-function-colors" data-node-kind="branch" disabled={locked} type="button">
+        <button className="node-function-colors" data-node-kind="branch" disabled={locked} type="button"
+          draggable={!locked} onClick={() => onAddNode("branch", "条件分支")}
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "copy";
+            event.dataTransfer.setData("application/x-academic-node-kind", "branch");
+            event.dataTransfer.setData("application/x-academic-node-title", "条件分支");
+          }}>
           <span aria-hidden="true">↳</span>
           <strong>条件分支</strong>
-          <small>根据条件走不同分支</small>
+          <small>学生选择后进入对应流程</small>
         </button>
         <button className="node-function-colors" data-node-kind="parallel" disabled={locked} type="button">
           <span aria-hidden="true">⇄</span>
@@ -1223,6 +1251,7 @@ function FlowNodeCanvas({
   };
   const curveNodes = useMemo(
     () => layoutNodes.map((node) => ({
+      branches: node.branches,
       height: node.renderedHeight,
       id: node.id,
       width: nodeSize.width,
@@ -1350,7 +1379,7 @@ function FlowNodeCanvas({
         if (!inside) {
           return null;
         }
-        const ports = connectionPorts.map((port) => {
+        const ports = nodePorts(node).filter((port) => !port.startsWith("branch:")).map((port) => {
           const portPoint = getPortPoint(node, port);
           return {
             node,
@@ -1944,11 +1973,12 @@ function FlowNodeCanvas({
               ref={(element) => registerNodeElement(node.id, element)}
               style={{ width: nodeSize.width }}
             >
-              {!locked && connectionPorts.map((port) => (
+              {!locked && nodePorts(node).map((port) => (
                 <span
-                  className={`connection-port ${port} ${
+                  className={`connection-port ${port.startsWith("branch:") ? "bottom branch-port" : port} ${
                     connectingFrom && connectingFrom.nodeId !== node.id ? "connectable" : ""
                   } ${connectingFrom?.nodeId === node.id && connectingFrom.port === port ? "connecting" : ""}`}
+                  style={port.startsWith("branch:") ? { left: `${branchPortFraction(node.branches, port) * 100}%` } : undefined}
                   data-node-id={node.id}
                   data-port-position={port}
                   key={port}
@@ -2016,7 +2046,16 @@ function FlowNodeCanvas({
                   title={`${getPortLabel(port)}连接点`}
                 />
               ))}
+              {locked && node.kind === "branch" ? <>
+                <span className="branch-static-port top" />
+                {node.branches?.map((option) => <span className="branch-static-port bottom" key={option.id}
+                  style={{ left: `${branchPortFraction(node.branches, branchPort(option.id)) * 100}%` }} />)}
+              </> : null}
               <span className="flow-node-heading"><span className="flow-node-kind-icon" aria-hidden="true"><FlowNodeIcon kind={node.kind} /></span><strong>{node.title}</strong></span>
+              {node.kind === "branch" ? <>
+                <span className="branch-node-caption">单选 · {node.branches?.length ?? 0} 个分支</span>
+                <span className="branch-node-options">{node.branches?.map((option) => <span key={option.id} title={option.label} style={{ left: `${branchPortFraction(node.branches, branchPort(option.id)) * 100}%`, width: `${90 / ((node.branches?.length ?? 0) + 1)}%` }}>{option.label}</span>)}</span>
+              </> : null}
               <span className="node-meta">
                 <em>{kindLabels[node.kind]}</em>
                 <i>{statusLabels[node.status]}</i>
@@ -2345,8 +2384,10 @@ function NodeInspector({
             </span>
           </div>
         ) : null}
+        {node.kind === "branch" ? <BranchOptionsEditor branches={node.branches ?? []} disabled={coreSettingsDisabled}
+          onChange={(branches) => onUpdateNode(node.id, { branches })} /> : null}
         {node.kind === "manual_review" ? <section className="inspector-section">
-          <h3>材料来源</h3><p>读取直接连入节点的正式提交，所有前置节点通过后等待教师审核。</p>
+          <h3>材料来源</h3><p>读取有效前置节点的正式提交，未选分支不参与审核；有效前置节点通过后等待教师审核。</p>
           {sourceNodes.length ? <ul>{sourceNodes.map((source) => <li key={source.id}>{source.title}</li>)}</ul> : <p>请在画布连接至少一个前置节点。</p>}
         </section> : null}
         {settingCapabilities.collectsInformation ? (
@@ -3015,6 +3056,7 @@ function formatTemplateType(filename: string) {
 }
 
 function getPortLabel(port: AcademicFlowPort) {
+  if (port.startsWith("branch:")) return "分支输出";
   if (port === "top") {
     return "上";
   }
@@ -3028,6 +3070,7 @@ function getPortLabel(port: AcademicFlowPort) {
 }
 
 function getPortPoint(node: FlowNodeLayout, port: AcademicFlowPort) {
+  if (port.startsWith("branch:")) return { x: node.x + nodeSize.width * branchPortFraction(node.branches, port), y: node.y + node.renderedHeight };
   if (port === "top") {
     return { x: node.x + nodeSize.width / 2, y: node.y };
   }

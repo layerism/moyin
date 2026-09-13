@@ -1,7 +1,8 @@
 import json
 from typing import Any
 
-from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_node_status
+from app.repositories.branch_state import resolve_routes
+from app.domain.workflow_runtime import node_by_key, pending_node_status
 from app.services.security import utc_now_iso
 from app.repositories.manual_review_state import sync_manual_reviews
 
@@ -51,12 +52,13 @@ def advance_downstream(
     }
     now = utc_now_iso()
     preview = is_preview_instance(connection, instance_id)
-    for node_key, predecessors in incoming_nodes(config).items():
+    incoming, _, ready = resolve_routes(connection, instance_id, config)
+    for node_key, predecessors in incoming.items():
         if node_by_key(config, node_key).get("kind") == "manual_review":
             continue
         if statuses.get(node_key) not in {"locked", "scheduled", "expired"} or not predecessors:
             continue
-        predecessors_approved = all(statuses.get(source) == "approved" for source in predecessors)
+        predecessors_approved = node_key in ready
         deadline = effective_deadline(connection, instance_id, version_id, node_key)
         next_status = pending_node_status(
             predecessors_approved,
@@ -78,7 +80,7 @@ def complete_flow_if_ready(connection, instance_id: str, now: str) -> None:
     remaining = connection.execute(
         """
         SELECT COUNT(*) AS count FROM node_instances
-        WHERE flow_instance_id = ? AND status != 'approved'
+        WHERE flow_instance_id = ? AND status NOT IN ('approved', 'skipped')
         """,
         (instance_id,),
     ).fetchone()["count"]

@@ -3,9 +3,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from app.repositories.branch_state import node_is_ready
 from app.core.database import get_connection
 from app.domain.workflow import confirmation_requires_scans
-from app.domain.workflow_runtime import incoming_nodes, pending_node_status
+from app.domain.workflow_runtime import pending_node_status
 from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.flow_runtime_state import effective_deadline, is_preview_instance
 from app.repositories.flow_templates import template_downloaded
@@ -64,15 +65,8 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         is_scan = confirmation_requires_scans(config_node)
         if not (is_file or is_scan):
             raise FileContextError("当前节点不支持文件上传")
-        statuses = {
-            item["node_key"]: item["status"]
-            for item in connection.execute(
-                "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
-                (row["flow_instance_id"],),
-            ).fetchall()
-        }
         state = pending_node_status(
-            all(statuses.get(source) == "approved" for source in incoming_nodes(config)[row["node_key"]]),
+            node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),
             None if is_preview_instance(connection, row["flow_instance_id"]) else config_node.get("startAt"),
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )

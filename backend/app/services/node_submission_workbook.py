@@ -126,6 +126,8 @@ def _headers(selection: TeacherNodeExportSelection) -> list[str]:
             str(field["label"])
             for field in normalize_form_fields(node.get("infoFields", []))
         )
+    elif kind == "branch":
+        headers.append("选择分支")
     elif kind == "file":
         headers.extend(["文件名", "文件大小（MB）", "文件类型"])
     elif kind in {"announcement", "confirmation"}:
@@ -167,6 +169,8 @@ def _row_values(
             )
             for field in normalize_form_fields(node.get("infoFields", []))
         )
+    elif kind == "branch":
+        values.append(student.payload.get("branchLabel") if submitted else None)
     elif kind == "file":
         file = student.files[0] if submitted and student.files else None
         values.extend(

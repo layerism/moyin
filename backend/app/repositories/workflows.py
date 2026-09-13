@@ -16,7 +16,8 @@ from app.domain.workflow_revision import (
     assert_valid_revision,
     assert_node_ids_present,
 )
-from app.domain.workflow_runtime import incoming_nodes, node_by_key, pending_node_status
+from app.domain.workflow_runtime import node_by_key, pending_node_status
+from app.repositories.branch_state import node_is_ready, sync_branch_states
 from app.repositories.flow_templates import TemplateMutationError, validate_version_templates
 from app.repositories.answer_sheet_keys import (
     assert_published_answer_keys_unchanged,
@@ -1142,18 +1143,10 @@ def _migrate_instance(
         )
         recomputed.add(node_key)
 
-    statuses = {
-        row["node_key"]: row["status"]
-        for row in connection.execute(
-            "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?",
-            (instance["id"],),
-        ).fetchall()
-    }
-    incoming = incoming_nodes(config)
     for node_key in _topological_node_keys(config):
         if node_key not in recomputed:
             continue
-        unlocked = all(statuses[source] == "approved" for source in incoming[node_key])
+        unlocked = node_is_ready(connection, instance["id"], config, node_key)
         next_status = pending_node_status(
             unlocked,
             node_by_key(config, node_key).get("startAt"),
@@ -1171,13 +1164,16 @@ def _migrate_instance(
                 node_key,
             ),
         )
-        statuses[node_key] = next_status
 
     connection.execute(
         "UPDATE flow_instances SET flow_version_id = ? WHERE id = ?",
         (new_version_id, instance["id"]),
     )
-    if all(status == "approved" for status in statuses.values()):
+    sync_branch_states(connection, instance["id"], config)
+    statuses = {row["node_key"]: row["status"] for row in connection.execute(
+        "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?", (instance["id"],),
+    ).fetchall()}
+    if all(status in {"approved", "skipped"} for status in statuses.values()):
         connection.execute(
             """
             UPDATE flow_instances

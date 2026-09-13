@@ -12850,3 +12850,52 @@ td {
 .designer-error-dialog footer { display: flex; justify-content: flex-end; }
 .designer-error-dialog button { padding: 8px 16px; border: 1px solid #2563eb; border-radius: 6px; color: white; background: #2563eb; cursor: pointer; }
 .designer-error-dialog button:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+
+/* Each branch output stays aligned with its option and curve endpoint. */
+.flow-node[data-node-kind="branch"],
+.student-topology-node[data-node-kind="branch"] {
+  background: #fffbeb;
+  border: 1px solid #e8b34e;
+  grid-template-rows: auto auto 1fr;
+  padding: 18px 18px 36px;
+  overflow: visible;
+}
+.flow-node[data-node-kind="branch"] .node-meta,
+.student-topology-node[data-node-kind="branch"] .student-topology-node-meta em { display: none; }
+.branch-node-caption { color: #8a744e; font-size: 12px; }
+.branch-node-options { position: absolute; bottom: 16px; left: 0; right: 0; height: 18px; }
+.branch-node-options > span {
+  position: absolute; transform: translateX(-50%); font-size: 12px; line-height: 18px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; color: #70531c;
+}
+.flow-node[data-node-kind="branch"] .connection-port {
+  opacity: 1; pointer-events: auto; background: white; border-color: #d99a21; box-shadow: none;
+}
+.connection-port.branch-port { margin-left: -7px; }
+.branch-static-port { position: absolute; width: 12px; height: 12px; border: 2px solid #d99a21; border-radius: 50%; background: white; margin-left: -6px; }
+.branch-static-port.top { top: -6px; left: 50%; }
+.branch-static-port.bottom { bottom: -6px; }
+.branch-option-row { display: flex; gap: 5px; align-items: center; padding: 7px; margin: 8px 0; border: 1px solid #dbe2ec; border-radius: 6px; }
+.branch-option-index { flex: 0 0 25px; border-radius: 4px; background: #eff6ff; text-align: center; color: #2563eb; padding: 4px 0; font-size: 12px; }
+.branch-option-row input { min-width: 0; flex: 1; width: 0; border: 0; padding: 6px 2px; }
+.branch-option-row button { padding: 3px; border: 0; background: transparent; color: #64748b; cursor: pointer; }
+.branch-option-row button:disabled { opacity: .35; cursor: default; }
+.branch-add-option { width: 100%; padding: 9px; border: 1px dashed #93b4f5; border-radius: 6px; background: white; color: #2563eb; margin: 4px 0 12px; cursor: pointer; }
+.branch-options-editor > small { display: block; color: #7b6a49; line-height: 1.6; }
+.runtime-branch-options { display: grid; gap: 12px; border: 0; padding: 0; margin: 0; }
+.runtime-branch-options legend { font-weight: 600; margin-bottom: 14px; }
+.runtime-branch-options label { display: flex; align-items: center; gap: 12px; border: 1px solid #dbe2ec; border-radius: 8px; padding: 16px; cursor: pointer; }
+.runtime-branch-options label.selected { border-color: #2563eb; background: #eff6ff; }
+.runtime-branch-options input { width: 16px; height: 16px; accent-color: #2563eb; }
+.runtime-branch-options small { color: #64748b; }
+.runtime-branch-summary { padding: 18px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; }
+.student-topology-node[data-node-kind="branch"] > strong { display: flex; align-items: center; gap: 8px; }
+.student-topology-node[data-node-kind="branch"] > strong svg { flex-shrink: 0; }
+.student-topology-node.skipped { background: #f8fafc; border-color: #dce2eb; color: #94a3b8; box-shadow: none; }
+.student-topology-node.skipped .branch-node-caption,
+.student-topology-node.skipped .branch-node-options > span { color: #94a3b8; }
+.student-topology-node.skipped .student-topology-node-meta :is(em, i) { color: #94a3b8; background: #f1f5f9; }
+.student-topology-edges g.active path { stroke: #2563eb; stroke-width: 2.5; }
+.student-topology-edges g.active polygon { fill: #2563eb; }
+.student-topology-edges g.skipped path { stroke: #cbd5e1; stroke-dasharray: 6 6; }
+.student-topology-edges g.skipped polygon { fill: #cbd5e1; }

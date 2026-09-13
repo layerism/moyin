@@ -27,6 +27,7 @@ REVISION_EDITABLE_NODE_FIELDS = {
 
 
 BUSINESS_NODE_FIELDS = (
+    "branches",
     "answerSheet",
     "kind",
     "title",

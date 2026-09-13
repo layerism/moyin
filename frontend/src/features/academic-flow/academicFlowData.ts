@@ -64,6 +64,7 @@ export function createNode(
   const answerSheet = kind === "answer_sheet" ? createDefaultAnswerSheet().config : undefined;
   return {
     answerSheet,
+    branches: kind === "branch" ? [{ id: crypto.randomUUID(), label: "分支 1" }, { id: crypto.randomUUID(), label: "分支 2" }] : undefined,
     auditScriptName: "",
     auditScriptType: "none",
     deadlineAt: null,
@@ -132,6 +133,7 @@ function createEncryptedSlug() {
 }
 
 function getDefaultRequirement(kind: AcademicFlowNodeKind, title: string) {
+  if (kind === "branch") return "请选择一个分支，提交后将开放对应任务，选择不可更改。";
   if (kind === "manual_review") return "请核对前置节点的材料与信息。教师审核通过后才能进入下一阶段。";
   if (kind === "answer_sheet") {
     return `请完成“${title}”中的题目，提交后系统将自动判分。`;

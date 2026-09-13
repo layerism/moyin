@@ -23,6 +23,7 @@ import type {
 import { StudentFlowTopology } from "./StudentFlowTopology";
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
+  skipped: "未选择",
   approved: "已通过",
   audit_error: "审核异常",
   available: "可填写",
@@ -88,7 +89,7 @@ export function StudentRuntimePage({
       for (const node of instance.nodeInstances) {
         if (!(node.id in next) || newlyRejected.has(node.id)) {
           const configNode = instance.config.nodes.find((item) => item.id === node.nodeKey);
-          next[node.id] = (
+          next[node.id] = configNode?.kind === "branch" && node.submission.branchId ? node.submission : (
             configNode?.kind === "answer_sheet"
             && node.status === "rejected"
             && Object.keys(node.draft).length === 0
@@ -543,6 +544,7 @@ function RuntimeNodeDialog({
     ? answerSheetQuestionCount - countUnansweredQuestions(node.answerSheet?.questions ?? [], displayedPayload)
     : 0;
   const submitDisabled = busy
+    || (node.kind === "branch" && !node.branches?.some((option) => option.id === draft.branchId))
     || (node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile))
     || Boolean(scanBlocker && !confirmationMissing);
   const clientFieldErrors = node.kind === "form"
@@ -747,6 +749,16 @@ function RuntimeNodeDialog({
           <ReviewingSubmission instanceId={instanceId} node={node} onDownloadFile={onDownloadFile} runtime={runtime} />
         ) : effectivelyWritable ? (
           <div className="runtime-node-form">
+          {node.kind === "branch" ? <fieldset className="runtime-branch-options" disabled={!effectivelyWritable || busy}>
+            <legend>请选择一个分支</legend>
+            {node.branches?.map((option) => <label key={option.id} className={draft.branchId === option.id ? "selected" : ""}>
+              <input type="radio" name={`branch-${node.id}`} checked={draft.branchId === option.id}
+                disabled={Boolean(runtime.submission.branchId) && runtime.submission.branchId !== option.id}
+                onChange={() => onUpdate("branchId", option.id)} />
+              <span>{option.label}</span>
+            </label>)}
+            <small>提交后不可更改选择。</small>
+          </fieldset> : null}
           {node.kind === "form" ? (
             <RuntimeFormFields
               errors={visibleFieldErrors}
@@ -1072,6 +1084,7 @@ function ReadonlySubmission({
       />
     );
   }
+  if (node.kind === "branch") return <div className="runtime-branch-summary"><strong>已选择：{node.branches?.find((option) => option.id === payload.branchId)?.label ?? "未选择"}</strong></div>;
   if (node.kind === "form") {
     return <ReadonlyFormFields fields={node.infoFields} payload={payload} />;
   }
