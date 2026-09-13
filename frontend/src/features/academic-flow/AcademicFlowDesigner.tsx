@@ -2354,7 +2354,7 @@ function NodeInspector({
             onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
           />
         </label>
-        <div className="node-basic-actions">
+        {node.kind !== "branch" ? <div className="node-basic-actions">
           <button
             aria-haspopup="dialog"
             className="node-time-settings-toggle"
@@ -2370,14 +2370,14 @@ function NodeInspector({
           {node.startAt || node.deadlineAt ? (
             <small>{getTimeWindowStatus(node)}</small>
           ) : null}
-        </div>
+        </div> : <p className="branch-activation-hint">有效上游全部通过后立即开放，无需设置时间。</p>}
         {publishedRevision ? (
           <div className="node-inspector-revision-strip" role="note">
             <strong className="revision-strip-title">
               <span aria-hidden="true">↻</span>
               发布后修订
             </strong>
-            <span className="revision-strip-detail">基本信息/时间 · 重新发布生效</span>
+            <span className="revision-strip-detail">{node.kind === "branch" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
               审核规则 · 完成立即生效
@@ -2658,7 +2658,7 @@ function NodeInspector({
           </button>
         </footer>
       </aside>
-      {timeSettingsOpen ? (
+      {timeSettingsOpen && node.kind !== "branch" ? (
         <NodeTimeSettingsDialog
           node={node}
           onCancel={() => setTimeSettingsOpen(false)}

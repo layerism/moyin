@@ -132,7 +132,7 @@ def _get_or_create_version_instance(
     for node in config["nodes"]:
         node_key = node["id"]
         deadline = effective_deadline(connection, instance_id, version_id, node_key)
-        status = pending_node_status(not incoming[node_key], node.get("startAt"), deadline)
+        status = pending_node_status(not incoming[node_key], node.get("startAt"), deadline, kind=node.get("kind"))
         connection.execute(
             """
             INSERT INTO node_instances
@@ -260,11 +260,14 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             )
             status = row["status"]
             config_node = node_by_key(config, row["node_key"])
+            if config_node.get("kind") == "branch":
+                deadline = None
             if config_node.get("kind") != "manual_review" and status in {"available", "draft", "rejected", "locked", "scheduled", "expired"}:
                 base_status = pending_node_status(
                     row["node_key"] in ready_nodes,
                     None if preview else config_node.get("startAt"),
                     deadline,
+                    kind=config_node.get("kind"),
                 )
                 status = (
                     status if base_status == "available" and status in {"draft", "rejected"}
@@ -344,7 +347,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),
                     "effectiveDeadline": deadline,
-                    "effectiveStartAt": None if preview else config_node.get("startAt"),
+                    "effectiveStartAt": None if preview or config_node.get("kind") == "branch" else config_node.get("startAt"),
                     "template": {
                         "assetId": template["id"],
                         "contentType": template["content_type"],
@@ -515,6 +518,7 @@ def save_node_draft(
             node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),
             None if preview else node.get("startAt"),
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
+            kind=node.get("kind"),
         )
         if base_status != "available":
             raise RuntimeConflictError("当前节点尚未开放或已截止")
@@ -606,6 +610,7 @@ def submit_node(
                 node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),
                 None if preview else node.get("startAt"),
                 deadline,
+                kind=node.get("kind"),
             )
             if base_status == "expired":
                 raise RuntimeDeadlineError("节点已超过截止时间")
@@ -915,6 +920,8 @@ def set_student_deadline(
             raise StudentDeadlineValidationError("请填写延期原因")
         config = json.loads(exists["config_snapshot"])
         node = node_by_key(config, node_key)
+        if node.get("kind") == "branch":
+            raise StudentDeadlineValidationError("条件分支不设置时间，上游通过后立即开放")
         if exists["node_status"] == "approved" and node.get("kind") != "form":
             raise StudentDeadlineValidationError("已通过的非表单节点不能延期")
 
@@ -1048,6 +1055,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             (version_id,),
         ).fetchall()
     nodes_by_instance: dict[str, list[dict[str, object]]] = {}
+    branch_keys = {node["id"] for node in json.loads(version["config_snapshot"])["nodes"] if node.get("kind") == "branch"}
     for row in node_rows:
         nodes_by_instance.setdefault(str(row["flow_instance_id"]), []).append(
             {
@@ -1055,9 +1063,9 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
                 "nodeKey": row["node_key"],
                 "title": node_titles.get(row["node_key"], row["node_key"]),
                 "status": row["status"],
-                "globalDeadline": row["global_deadline"],
-                "overrideDeadline": row["override_deadline"],
-                "effectiveDeadline": row["override_deadline"] or row["global_deadline"],
+                "globalDeadline": None if row["node_key"] in branch_keys else row["global_deadline"],
+                "overrideDeadline": None if row["node_key"] in branch_keys else row["override_deadline"],
+                "effectiveDeadline": None if row["node_key"] in branch_keys else row["override_deadline"] or row["global_deadline"],
             }
         )
     return {

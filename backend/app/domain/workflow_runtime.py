@@ -31,9 +31,13 @@ def pending_node_status(
     start_at: str | None,
     deadline_at: str | None,
     now: datetime | None = None,
+    *,
+    kind: str | None = None,
 ) -> str:
     if not predecessors_approved:
         return "locked"
+    if kind == "branch":
+        return "available"
     if deadline_has_passed(deadline_at, now):
         return "expired"
     if start_is_in_future(start_at, now):

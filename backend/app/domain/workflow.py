@@ -134,6 +134,8 @@ def _parse_node_time(value: object, label: str) -> datetime | None:
 
 
 def _validate_node_time_window(node: dict[str, Any]) -> None:
+    if node.get("kind") == "branch":
+        return
     start = _parse_node_time(node.get("startAt"), "起始时间")
     deadline = _parse_node_time(node.get("deadlineAt"), "截止时间")
     if start is not None and deadline is not None and start >= deadline:

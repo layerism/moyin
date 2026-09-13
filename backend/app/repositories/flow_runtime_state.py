@@ -64,6 +64,7 @@ def advance_downstream(
             predecessors_approved,
             None if preview else node_by_key(config, node_key).get("startAt"),
             deadline,
+            kind=node_by_key(config, node_key).get("kind"),
         )
         if next_status != statuses.get(node_key):
             connection.execute(

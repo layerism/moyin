@@ -1151,6 +1151,7 @@ def _migrate_instance(
             unlocked,
             node_by_key(config, node_key).get("startAt"),
             _new_version_deadline(connection, new_version_id, node_key),
+            kind=node_by_key(config, node_key).get("kind"),
         )
         connection.execute(
             """
