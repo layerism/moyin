@@ -93,6 +93,7 @@ def initialize_model_connections() -> None:
 
 
 def list_model_connections() -> dict[str, object]:
+    from app.services.model_thinking import thinking_profile
     with get_connection() as connection:
         connection.execute("BEGIN")
         cards = connection.execute("SELECT * FROM audit_model_cards ORDER BY name, id").fetchall()
@@ -102,6 +103,7 @@ def list_model_connections() -> dict[str, object]:
                    "apiUrl": row["api_url"], "hasApiKey": bool(row["encrypted_api_key"]),
                    "model": row["model"], "revision": row["revision"],
                    "thinking": json.loads(row["thinking_json"]),
+                   "thinkingProfile": thinking_profile(row["vendor"], row["model"]),
                    "hasBillingCredentials": bool(row["encrypted_billing_credentials"]),
                    "balanceCapability": balance_capability(row["vendor"], row["api_url"], bool(row["encrypted_billing_credentials"]))} for row in cards],
         "bindings": [{"scriptId": row["script_id"], "name": SCRIPT_NAMES[row["script_id"]],

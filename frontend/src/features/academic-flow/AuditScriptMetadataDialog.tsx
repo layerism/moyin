@@ -207,10 +207,10 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
                 <details ref={modelPickerRef} className="script-model-picker" onKeyDown={(event) => {
                   if (event.key === "Escape" && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); }
                 }}>
-                  <summary aria-label="选择审核模型">{selectedModel ? <><VendorLogo vendor={selectedModel.vendor} /><span><strong>{selectedModel.name}</strong><small>{selectedModel.model} · {thinkingLabel(selectedModel.thinking)}</small></span></> : <span>请选择已配置的模型</span>}<span className="script-picker-arrow" aria-hidden="true">⌄</span></summary>
+                  <summary aria-label="选择审核模型">{selectedModel ? <><VendorLogo vendor={selectedModel.vendor} /><span><strong>{selectedModel.name}</strong><small>{selectedModel.model} · {thinkingLabel(selectedModel.thinking, selectedModel.thinkingProfile)}</small></span></> : <span>请选择已配置的模型</span>}<span className="script-picker-arrow" aria-hidden="true">⌄</span></summary>
                   <fieldset disabled={saving}><legend>选择模型卡</legend>{detail.modelSelection.cards.map((card) => <label className="script-model-option" key={card.id}>
                     <input type="radio" name="script-model" value={card.id} checked={modelCardId === card.id} disabled={!card.hasApiKey || !card.apiUrl || !card.model} onChange={() => { setModelCardId(card.id); clearSaveMessages(); const picker = modelPickerRef.current; if (picker) { picker.querySelector("summary")?.focus(); picker.open = false; } }} />
-                    <VendorLogo vendor={card.vendor} /><span><strong>{card.name}</strong><small>{card.model || "尚未填写模型"} · {card.hasApiKey && card.apiUrl && card.model ? thinkingLabel(card.thinking) : "配置未完成"}</small></span>
+                    <VendorLogo vendor={card.vendor} /><span><strong>{card.name}</strong><small>{card.model || "尚未填写模型"} · {card.hasApiKey && card.apiUrl && card.model ? thinkingLabel(card.thinking, card.thinkingProfile) : "配置未完成"}</small></span>
                   </label>)}</fieldset>
                 </details>
                 {!validModel ? <p className="dialog-error" role="alert">请先由管理员完善模型配置，再选择模型。</p> : null}

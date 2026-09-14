@@ -9,7 +9,7 @@ export const MODEL_VENDORS = [
 ] as const;
 export type ModelVendor = typeof MODEL_VENDORS[number]["id"];
 export interface ModelThinking { mode: "default" | "off" | "on"; effort: string; budget: number | null }
-export interface ThinkingProfile { id: string; modes: ModelThinking["mode"][]; efforts: string[]; budgetSupported: boolean; note: string }
+export interface ThinkingProfile { id: string; modes: ModelThinking["mode"][]; efforts: string[]; budgetSupported: boolean; note: string; modeLabels: Record<ModelThinking["mode"], string>; effortLabels: Record<string, string>; defaultEffortLabel: string }
 export interface ModelCard {
   id: string;
   vendor: ModelVendor;
@@ -20,6 +20,7 @@ export interface ModelCard {
   model: string;
   revision: number;
   thinking: ModelThinking;
+  thinkingProfile: ThinkingProfile;
   balanceCapability: { supported: boolean; reason: string };
 }
 export interface ModelBalance { available: boolean; checkedAt: string; balances: { currency: string; available: string; credit?: string; cash?: string; details?: { label: string; value: string }[] }[] }
@@ -34,7 +35,7 @@ export interface ModelCardsState {
   cards: ModelCard[];
   bindings: ModelBinding[];
 }
-export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey" | "hasBillingCredentials" | "balanceCapability"> & { apiKey: string; billingAccessKey: string; billingSecretKey: string; billingConsoleToken: string; clearBilling: boolean };
+export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey" | "hasBillingCredentials" | "balanceCapability" | "thinkingProfile"> & { apiKey: string; billingAccessKey: string; billingSecretKey: string; billingConsoleToken: string; clearBilling: boolean };
 const BASE = "/api/workflow-admin/model-connections";
 async function request<T = ModelCardsState>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(BASE + path, {
