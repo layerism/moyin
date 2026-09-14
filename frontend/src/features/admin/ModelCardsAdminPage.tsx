@@ -85,7 +85,6 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
           return <article className="model-card" key={card.id}>
             <header><VendorLogo vendor={card.vendor} /><div>{consoleUrl ? <a className="model-console-link" href={consoleUrl} target="_blank" rel="noopener noreferrer" title="打开厂商控制台"><h2>{card.name} <span aria-hidden="true">↗</span></h2><span>{vendorName(card.vendor)}</span></a> : <><h2>{card.name}</h2><span>{vendorName(card.vendor)}</span></>}</div><div className="model-card-header-actions"><span className={`model-card-status${ready ? " is-ready" : ""}`}>{ready ? "已配置" : "待完善"}</span><ModelCardTest key={`${card.id}:${card.revision}`} card={card} disabled={busy || loading || !ready} /></div></header>
             <dl><div><dt>模型</dt><dd title={card.model}>{card.model || "未填写"}</dd></div><div><dt>思考</dt><dd>{thinkingLabel(card.thinking, card.thinkingProfile)}</dd></div></dl>
-            <div className="model-card-usage">{uses.length ? uses.map((binding) => <span key={`${binding.flowId}:${binding.nodeKey}`}>{binding.name}</span>) : <small>暂未用于流程节点</small>}</div>
             <ModelCardBalance key={`${card.id}:${card.revision}`} card={card} />
             <footer><button type="button" disabled={busy || loading} onClick={() => openEditor(card)}>编辑配置</button><button className="model-delete" type="button" disabled={busy || loading || uses.length > 0} title={uses.length ? "请先更换流程节点使用的模型" : "删除模型卡"} onClick={() => { setEditorError(""); setDeleting(card); }}>删除</button></footer>
           </article>;
