@@ -30,7 +30,7 @@ export function NodeModelSelector({ value, disabled, onChange }: {
   }, [request]);
   useEffect(() => {
     if (!open) return;
-    dialog.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    dialog.current?.querySelector<HTMLButtonElement>('button[aria-label="关闭模型配置"]')?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -57,9 +57,8 @@ export function NodeModelSelector({ value, disabled, onChange }: {
     }}><span className="node-model-status" aria-hidden="true">{value ? "" : "＋"}</span>模型配置{value ? <span className="node-model-sr-only">（已选择）</span> : null}</button>
     {open ? createPortal(<div className="node-time-dialog-backdrop node-model-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section ref={dialog} className="node-time-dialog node-model-dialog" role="dialog" aria-modal="true" aria-labelledby="node-model-dialog-title">
-        <header><div><h2 id="node-model-dialog-title">审核模型</h2><p>为当前节点选择你的模型卡</p></div><button aria-label="关闭模型配置" type="button" onClick={() => setOpen(false)}>×</button></header>
+        <header><div><h2 id="node-model-dialog-title"><a className="node-model-title-link" href="/admin/models" target="_blank" rel="noopener noreferrer" title="打开模型卡管理">审核模型<span aria-hidden="true">↗</span></a></h2><p>为当前节点选择你的模型卡</p></div><div className="node-model-header-actions"><button className="node-model-refresh" type="button" aria-label={loading ? "正在刷新模型卡" : "刷新模型卡"} title="刷新模型卡" disabled={loading} onClick={() => setRequest((current) => current + 1)}><svg className={loading ? "is-loading" : undefined} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14A8 8 0 0 0 17.9 17.9" /></svg></button><button aria-label="关闭模型配置" type="button" onClick={() => setOpen(false)}>×</button></div></header>
         <div className="node-model-dialog-body">
-          <div className="node-model-actions"><a href="/admin/models" target="_blank" rel="noopener noreferrer">管理模型卡 ↗</a><button type="button" disabled={loading} onClick={() => setRequest((current) => current + 1)}>{loading ? "读取中…" : "刷新"}</button></div>
           {error ? <p className="dialog-error" role="alert">{error}</p> : null}
           {!cards && loading ? <p role="status">正在读取模型卡…</p> : null}
           {cards?.length === 0 ? <p className="node-model-empty">还没有模型卡，请先添加模型连接。</p> : null}
