@@ -38,10 +38,10 @@ def _canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def _historical_node_ids(connection: Any, flow_id: str) -> set[str]:
+def _published_node_ids(connection: Any, flow_id: str) -> set[str]:
     result: set[str] = set()
     rows = connection.execute(
-        "SELECT config_snapshot FROM flow_versions WHERE flow_id = ?", (flow_id,)
+        "SELECT config_snapshot FROM flow_versions WHERE flow_id = ? AND status = 'published'", (flow_id,)
     ).fetchall()
     for row in rows:
         result.update(node["id"] for node in json.loads(row["config_snapshot"])["nodes"])
@@ -60,7 +60,7 @@ def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int, ref
         node = node_by_key(config, node_key)
         if not supports_template(node, reference):
             raise TemplateMutationError("当前节点不支持模板")
-        if node_key in _historical_node_ids(connection, flow_id):
+        if node_key in _published_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
         return dict(node)
 
@@ -90,7 +90,7 @@ def save_template_asset(
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if not supports_template(node, reference) or node_key in _historical_node_ids(connection, flow_id):
+        if not supports_template(node, reference) or node_key in _published_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
         if reference:
             validate_reference_metadata(original_name, size_bytes)
@@ -145,7 +145,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if not supports_template(node, reference) or node_key in _historical_node_ids(connection, flow_id):
+        if not supports_template(node, reference) or node_key in _published_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
         asset_id = (node.get("referenceAsset" if reference else "templateAsset") or {}).get("assetId")
         if not asset_id:
