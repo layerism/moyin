@@ -285,3 +285,24 @@ def test_model_connection(card_id: str, revision: int) -> dict:
     except (InvalidToken, UnicodeError):
         raise RuntimeError("模型密钥无法解密，请重新保存 API Key") from None
     return probe_model(row["vendor"], row["api_url"], row["model"], key, json.loads(row["thinking_json"]))
+
+
+def discover_models(card_id: str | None, revision: int, vendor: str, api_url: str, api_key: str) -> list[str]:
+    from cryptography.fernet import InvalidToken
+    from app.services.model_discovery import fetch_models
+    key = api_key.strip()
+    if card_id:
+        with get_connection() as connection:
+            row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+        if row is None or row["revision"] != revision:
+            raise ModelConfigConflict("模型卡已被修改或删除，请刷新后重试")
+        if not key:
+            if row["vendor"] != vendor or row["api_url"].rstrip("/") != api_url:
+                raise ValueError("厂商或地址已变化，请填写用于此连接的 API Key。")
+            try:
+                key = _cipher().decrypt(row["encrypted_api_key"].encode()).decode() if row["encrypted_api_key"] else ""
+            except (InvalidToken, UnicodeError):
+                raise RuntimeError("模型密钥无法解密，请重新填写 API Key。") from None
+    if not key:
+        raise ValueError("请先填写 API Key，再获取模型列表。")
+    return fetch_models(api_url, key)

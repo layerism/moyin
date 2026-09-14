@@ -77,6 +77,35 @@ class CardUpdate(BaseModel):
         return value
 
 
+class ModelDiscovery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cardId: str | None = Field(default=None, max_length=64)
+    revision: int = Field(default=0, ge=0)
+    vendor: Literal["openai", "deepseek", "qwen", "doubao", "zhipu", "moonshot", "custom"]
+    apiUrl: str = Field(min_length=1, max_length=2048)
+    apiKey: str = Field(default="", max_length=4096)
+
+    @field_validator("apiUrl")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        return CardUpdate.validate_url(value)
+
+
+@router.post("/models")
+def get_available_models(payload: ModelDiscovery):
+    from fastapi.responses import JSONResponse
+    from app.services.audit_model_connections import discover_models
+    try:
+        models = discover_models(payload.cardId, payload.revision, payload.vendor, payload.apiUrl, payload.apiKey)
+    except ModelConfigConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return JSONResponse({"models": models}, headers={"Cache-Control": "no-store"})
+
+
 def _save(card_id: str | None, payload: CardUpdate) -> dict[str, object]:
     try:
         save_model_card(card_id, vendor=payload.vendor, name=payload.name,

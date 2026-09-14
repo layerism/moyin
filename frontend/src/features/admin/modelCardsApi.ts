@@ -55,6 +55,9 @@ export const modelCardsApi = {
     method: id ? "PUT" : "POST", body: JSON.stringify(draft),
   }),
   delete: (card: ModelCard) => request(`/cards/${encodeURIComponent(card.id)}?revision=${card.revision}`, { method: "DELETE" }),
+  models: (cardId: string | null, draft: ModelCardDraft) => request<{ models: string[] }>("/models", {
+    method: "POST", body: JSON.stringify({ cardId, revision: draft.revision, vendor: draft.vendor, apiUrl: draft.apiUrl, apiKey: draft.apiKey }),
+  }),
   thinkingProfile: (vendor: ModelVendor, model: string) => request<ThinkingProfile>(`/thinking-profile?vendor=${encodeURIComponent(vendor)}&model=${encodeURIComponent(model)}`),
 };
 

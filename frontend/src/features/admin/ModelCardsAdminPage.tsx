@@ -1,3 +1,4 @@
+import { ModelNamePicker } from "./ModelNamePicker";
 import { ModelCardTest } from "./ModelCardTest";
 import { ModelCardBalance } from "./ModelCardBalance";
 import { VendorLogo } from "./VendorLogo";
@@ -97,7 +98,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
           <h3 id="model-connection-title">连接配置</h3>
           <div className="model-editor-name-row">
         <label className="audit-script-config-field">配置名称<input autoComplete="off" required maxLength={100} placeholder="例如：材料视觉审核" disabled={busy} value={editor.draft.name} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, name: event.target.value } })} /></label>
-        <label className="audit-script-config-field">模型名称<input required maxLength={200} autoComplete="off" placeholder="填写接口接受的模型 ID" disabled={busy} value={editor.draft.model} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, model: event.target.value, thinking: { ...emptyDraft.thinking } } })} /></label>
+        <ModelNamePicker key={JSON.stringify([editor.card?.id, editor.draft.vendor, editor.draft.apiUrl, editor.draft.apiKey])} cardId={editor.card?.id ?? null} draft={editor.draft} disabled={busy} onChange={(model) => setEditor({ ...editor, draft: { ...editor.draft, model, thinking: { ...emptyDraft.thinking } } })} />
           </div>
         <label className="audit-script-config-field">Base URL<input type="url" required maxLength={2048} placeholder="填写兼容接口的基础地址" disabled={busy} value={editor.draft.apiUrl} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiUrl: event.target.value } })} /><small>保留版本路径，系统自动添加 /chat/completions。</small></label>
         <label className="audit-script-config-field">API Key<input type="password" autoComplete="new-password" required={!editor.card?.hasApiKey} maxLength={4096} placeholder={editor.card?.hasApiKey ? "留空保留原密钥，输入新密钥替换" : "填写 API Key"} disabled={busy} value={editor.draft.apiKey} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, apiKey: event.target.value } })} /></label>
