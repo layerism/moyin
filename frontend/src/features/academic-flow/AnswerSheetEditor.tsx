@@ -231,23 +231,6 @@ export function AnswerSheetEditor({
 
       <div className="answer-sheet-policy">
         <label>
-          <span>及格分</span>
-          <input
-            disabled={disabled}
-            max={maximum}
-            min="0"
-            type="number"
-            value={activeConfig.gradingPolicy.passingScore}
-            onChange={(event) => onChange({
-              ...activeConfig,
-              gradingPolicy: {
-                ...activeConfig.gradingPolicy,
-                passingScore: Number(event.target.value),
-              },
-            }, activeKey)}
-          />
-        </label>
-        <label>
           <span>作答次数</span>
           <select
             disabled={disabled}

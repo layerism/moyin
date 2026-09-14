@@ -162,7 +162,7 @@ export function AnswerSheetGradeResult({
 }) {
   const results = new Map(grade.questionResults?.map((result) => [result.questionId, result]) ?? []);
   return (
-    <section className={`answer-sheet-grade ${grade.passed ? "is-passed" : "is-failed"}`}>
+    <section className="answer-sheet-grade is-passed">
       <header>
         <div className="answer-sheet-grade-score">
           <span>得分</span>
@@ -170,8 +170,7 @@ export function AnswerSheetGradeResult({
           <small>/ {grade.maxScore} 分</small>
         </div>
         <div className="answer-sheet-grade-status">
-          <em>{grade.passed ? "已达标" : "未达标"}</em>
-          <span>及格分数 {grade.passingScore} 分</span>
+          <em>已评分</em>
         </div>
       </header>
       {grade.questionResults?.length ? (

@@ -102,7 +102,8 @@ export type AnswerSheetConfig = {
     scoringMode?: "equal_100";
     feedback: "full_after_deadline" | "question_result" | "score_only";
     maxAttempts: number | null;
-    passingScore: number;
+    /** Ignored legacy field retained in published configurations. */
+    passingScore?: number;
   };
   questions: AnswerSheetQuestion[];
   schemaVersion: "1.0" | "2.0" | "3.0";
@@ -149,7 +150,6 @@ export type AnswerSheetGrade = {
   graderVersion: "answer-sheet-v1" | "answer-sheet-v2" | "answer-sheet-v3";
   maxScore: number;
   passed: boolean;
-  passingScore: number;
   questionResults?: AnswerSheetQuestionResult[];
   schemaVersion: "1.0" | "2.0" | "3.0";
   score: number;

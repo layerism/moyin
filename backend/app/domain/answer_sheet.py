@@ -13,7 +13,8 @@ ANSWER_SHEET_GRADERS = {
 QUESTION_TYPES = {"single_choice", "multiple_choice", "fill_blank"}
 FEEDBACK_POLICIES = {"score_only", "question_result", "full_after_deadline"}
 _ANSWER_SHEET_KEYS = {"schemaVersion", "questions", "gradingPolicy"}
-_GRADING_POLICY_KEYS = {"passingScore", "maxAttempts", "feedback"}
+_GRADING_POLICY_KEYS = {"maxAttempts", "feedback"}
+_OPTIONAL_GRADING_POLICY_KEYS = {"passingScore", "scoringMode"}
 _COMMON_QUESTION_KEYS = {"id", "type", "content", "required"}
 _OPTION_KEYS = {"id", "content"}
 _BLANK_KEYS = {"id", "points"}
@@ -65,13 +66,14 @@ def validate_public_answer_sheet(
         )
 
     policy = config.get("gradingPolicy")
-    if not isinstance(policy, dict) or set(policy) not in (_GRADING_POLICY_KEYS, _GRADING_POLICY_KEYS | {"scoringMode"}):
+    if (
+        not isinstance(policy, dict)
+        or not _GRADING_POLICY_KEYS <= set(policy)
+        or set(policy) - (_GRADING_POLICY_KEYS | _OPTIONAL_GRADING_POLICY_KEYS)
+    ):
         raise AnswerSheetConfigError(f"答题卡“{title}”评分策略格式无效")
     if "scoringMode" in policy and policy["scoringMode"] != "equal_100":
         raise AnswerSheetConfigError("评分模式无效")
-    passing_score = policy.get("passingScore")
-    if type(passing_score) is not int or passing_score < 0:
-        raise AnswerSheetConfigError(f"答题卡“{title}”及格分必须是非负整数")
     max_attempts = policy.get("maxAttempts")
     if max_attempts is not None and (
         type(max_attempts) is not int or not 1 <= max_attempts <= 99
@@ -79,9 +81,6 @@ def validate_public_answer_sheet(
         raise AnswerSheetConfigError(f"答题卡“{title}”作答次数必须为 1 到 99")
     if policy.get("feedback") not in FEEDBACK_POLICIES:
         raise AnswerSheetConfigError(f"答题卡“{title}”反馈策略无效")
-    maximum = answer_sheet_max_score(node)
-    if passing_score > maximum:
-        raise AnswerSheetConfigError(f"答题卡“{title}”及格分不能超过总分")
     if policy.get("feedback") == "full_after_deadline" and require_publishable:
         if not node.get("deadlineAt"):
             raise AnswerSheetConfigError(
@@ -476,15 +475,13 @@ def grade_answer_sheet(
     else:
         score = sum(result["awardedPoints"] for result in results)
     maximum = answer_sheet_max_score(node)
-    passing_score = node["answerSheet"]["gradingPolicy"]["passingScore"]
     schema_version = node["answerSheet"]["schemaVersion"]
     return {
         "schemaVersion": schema_version,
         "graderVersion": ANSWER_SHEET_GRADERS[schema_version],
         "score": score,
         "maxScore": maximum,
-        "passingScore": passing_score,
-        "passed": score >= passing_score,
+        "passed": True,
         "questionResults": results,
     }
 

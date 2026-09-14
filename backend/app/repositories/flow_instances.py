@@ -758,7 +758,7 @@ def submit_node(
                 }
             attempt_no = int(row["attempt_no"]) + 1
             if grade_result is not None:
-                submission_status = "approved" if grade_result["passed"] else "rejected"
+                submission_status = "approved"
             elif approved_form_amendment:
                 submission_status = "approved"
             elif has_audit_script:

@@ -24,7 +24,7 @@ def insert_answer_sheet_grade(
             submission_id,
             grade["score"],
             int(grade["maxScore"]),
-            int(grade["passingScore"]),
+            0,  # Compatibility with the legacy NOT NULL database column.
             int(bool(grade["passed"])),
             str(grade["graderVersion"]),
             grading_hash,
@@ -65,7 +65,6 @@ def student_grade_view(
         "graderVersion": grade.get("graderVersion"),
         "score": grade.get("score"),
         "maxScore": grade.get("maxScore"),
-        "passingScore": grade.get("passingScore"),
         "passed": grade.get("passed"),
     }
     if feedback != "score_only":

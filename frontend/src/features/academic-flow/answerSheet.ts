@@ -27,7 +27,6 @@ export function createDefaultAnswerSheet(): AnswerSheetAuthoring {
       gradingPolicy: {
         feedback: "question_result",
         maxAttempts: 2,
-        passingScore: 60,
         scoringMode: "equal_100",
       },
       questions: [question],
@@ -152,9 +151,6 @@ export function upgradeAnswerSheetAuthoring(
   return {
     config: { ...config, questions, schemaVersion: "3.0", gradingPolicy: {
       ...config.gradingPolicy, scoringMode: "equal_100",
-      passingScore: config.gradingPolicy.scoringMode === "equal_100"
-        ? config.gradingPolicy.passingScore
-        : Math.round(config.gradingPolicy.passingScore / (answerSheetMaxScore(config) || 1) * 100),
     } },
     key: {
       ...key,
@@ -213,14 +209,6 @@ export function validateAnswerSheetAuthoring(
   }
   for (const questionId of Object.keys(key.answers)) {
     if (!ids.has(questionId)) add(questionId, "标准答案对应的题目不存在");
-  }
-  const maximum = answerSheetMaxScore(config);
-  if (
-    !Number.isInteger(config.gradingPolicy.passingScore)
-    || config.gradingPolicy.passingScore < 0
-    || config.gradingPolicy.passingScore > maximum
-  ) {
-    add("_policy", "及格分必须是 0 到总分之间的整数");
   }
   const attempts = config.gradingPolicy.maxAttempts;
   if (attempts !== null && (!Number.isInteger(attempts) || attempts < 1 || attempts > 99)) {
