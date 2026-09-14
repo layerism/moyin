@@ -16,7 +16,7 @@ export function ModelNamePicker({ cardId, draft, disabled, onChange }: {
     if (!draft.apiUrl.trim()) { setError("请先填写 Base URL。"); return; }
     pending.current = true;
     setLoading(true); setError("");
-    modelCardsApi.models(cardId, draft).then(({ models: next }) => setModels(next))
+    modelCardsApi.models(cardId, draft).then(({ models: next }) => setModels(draft.vendor === "doubao" ? next.filter((model) => model.startsWith("doubao-seed")) : next))
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "获取模型列表失败。"))
       .finally(() => { pending.current = false; setLoading(false); });
   };
