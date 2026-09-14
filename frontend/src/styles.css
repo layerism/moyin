@@ -12820,12 +12820,7 @@ td {
 .runtime-node-reference button:disabled { opacity: .55; cursor: default; }
 .runtime-node-reference > .dialog-error { flex-basis: 100%; color: #b91c1c; }
 
-.node-reference-card { display: grid; gap: 12px; padding: 12px; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; min-width: 0; }
-.node-reference-card > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.node-reference-card > header strong { font-size: 13px; color: #34435c; }
-.node-reference-card > header span { padding: 2px 7px; border-radius: 10px; background: #f1f5f9; color: #64748b; font-size: 11px; }
-.node-reference-file-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.node-reference-icon { display: grid; place-items: center; flex: none; width: 34px; height: 38px; border-radius: 6px; background: #eff6ff; color: #2563eb; font-size: 20px; }
+.node-reference-card { display: flex; align-items: center; gap: 12px; min-height: 50px; padding: 8px 10px; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; min-width: 0; }
 .node-reference-copy { flex: 1; min-width: 0; display: grid; gap: 4px; }
 .node-reference-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; }
 .node-reference-copy small, .node-reference-locked { color: #64748b; font-size: 11px; }
@@ -12834,11 +12829,8 @@ td {
 .node-reference-upload { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
 .node-reference-upload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .node-reference-upload:focus-within, .node-reference-actions button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-.node-reference-card > footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding-top: 9px; border-top: 1px solid #eef2f7; color: #64748b; }
-.node-reference-card > footer small { font-size: 11px; }
 @media (max-width: 700px) {
-  .node-reference-file-row { flex-wrap: wrap; }
-  .node-reference-actions { margin-left: 44px; }
+  .node-reference-card { flex-wrap: wrap; }
 }
 
 .designer-error-dialog { width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; color: #253044; background: #fff; box-shadow: 0 20px 60px #17203333; }
@@ -12946,3 +12938,6 @@ td {
 
 .node-time-settings-toggle.node-model-toggle.is-invalid { color: #b42318; background: #fff1f0; box-shadow: inset 0 0 0 1.5px #f04438; }
 .node-basic-actions > .node-model-required-message { flex-basis: 100%; color: #b42318; font-size: 12px; line-height: 1.6; }
+
+.node-reference-heading { flex: none; font-size: 12px; color: #34435c; }
+.node-reference-card > .node-file-template-upload { flex: 1; min-width: 0; }

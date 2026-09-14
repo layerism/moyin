@@ -2625,26 +2625,26 @@ function NodeInspector({
                 )}
               </div>
 
-              <section className="node-reference-card" aria-label="填写参考">
-                <header><strong>填写参考</strong><span>可选</span></header>
-                <div className="node-reference-file-row">
-                  <span className="node-reference-icon" aria-hidden="true">▤</span>
-                  <div className="node-reference-copy">
-                    <strong title={node.referenceAsset?.originalName}>{node.referenceAsset?.originalName ?? "未上传参考文件"}</strong>
-                    {node.referenceAsset ? <small>{formatTemplateSize(node.referenceAsset.sizeBytes)}</small> : null}
-                  </div>
+              <section className="node-reference-card" aria-label="填写参考" title="可选；DOCX、PDF 或图片，最大 50 MB。发布后学生可查看、下载。">
+                <strong className="node-reference-heading">填写参考</strong>
+                {node.referenceAsset ? <>
+                  <div className="node-reference-copy"><strong title={`${node.referenceAsset.originalName} · ${formatTemplateSize(node.referenceAsset.sizeBytes)}`}>{node.referenceAsset.originalName}</strong></div>
                   {coreSettingsDisabled ? <small className="node-reference-locked">发布版固化</small> : <div className="node-reference-actions">
-                    <label className="node-reference-upload">
-                      <input type="file" aria-label={node.referenceAsset ? "替换参考文件" : "上传参考文件"} accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
-                        const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
-                        if (file) onUploadReference(file);
-                      }} />
-                      {node.referenceAsset ? "替换" : "上传参考"}
-                    </label>
-                    {node.referenceAsset ? <button type="button" onClick={onDeleteReference}>删除</button> : null}
+                    <label className="node-reference-upload">替换<input type="file" aria-label="替换参考文件" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
+                      const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
+                      if (file) onUploadReference(file);
+                    }} /></label>
+                    <button type="button" onClick={onDeleteReference}>删除</button>
                   </div>}
-                </div>
-                <footer><small>DOCX、PDF 或图片 · ≤50 MB</small><small>发布后学生可查看、下载</small></footer>
+                </> : coreSettingsDisabled ? <div className="node-file-template-empty"><span>未配置参考</span><small>🔒 发布版固化</small></div> : (
+                  <label className="node-file-template-upload">
+                    <input type="file" aria-label="选择参考文件" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
+                      const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
+                      if (file) onUploadReference(file);
+                    }} />
+                    <span aria-hidden="true">＋</span><strong>选择参考文件</strong><small>可选；DOCX、PDF 或图片</small>
+                  </label>
+                )}
               </section>
 
               <AuditScriptSelector
