@@ -33,23 +33,6 @@ def current_owner(teacher: dict = Depends(get_current_teacher)) -> int:
     return int(teacher["id"])
 
 
-class BindingUpdate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    cardId: str = Field(min_length=1, max_length=64)
-    revision: int = Field(ge=0)
-
-
-@router.put("/bindings/{script_id}")
-def put_binding(script_id: str, payload: BindingUpdate, owner_id: int = Depends(current_owner)):
-    from app.services.audit_model_connections import bind_publisher_model
-    try:
-        return bind_publisher_model(owner_id, script_id, payload.cardId, payload.revision)
-    except ModelConfigConflict as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
 class ThinkingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     mode: Literal["default", "off", "on"] = "default"

@@ -25,16 +25,16 @@ export interface ModelCard {
 }
 export interface ModelBalance { available: boolean; checkedAt: string; balances: { currency: string; available: string; credit?: string; cash?: string; details?: { label: string; value: string }[] }[] }
 export interface ModelTestResult { success: boolean; detail: string; elapsedMs: number | null }
-export interface ModelBinding {
-  scriptId: string;
+export interface ModelNodeUsage {
+  flowId: string;
+  nodeKey: string;
   name: string;
   cardId: string;
-  revision: number;
 }
 export interface ModelCardsState {
   scripts: { id: string; name: string }[];
   cards: ModelCard[];
-  bindings: ModelBinding[];
+  usages: ModelNodeUsage[];
 }
 export type ModelCardDraft = Omit<ModelCard, "id" | "hasApiKey" | "hasBillingCredentials" | "balanceCapability" | "thinkingProfile"> & { apiKey: string; billingAccessKey: string; billingSecretKey: string; billingConsoleToken: string; clearBilling: boolean };
 const BASE = "/api/workflow-admin/model-connections";
@@ -53,9 +53,6 @@ export const modelCardsApi = {
   test: (card: ModelCard) => request<ModelTestResult>(`/cards/${encodeURIComponent(card.id)}/test?revision=${card.revision}`, { method: "POST" }),
   balance: (card: ModelCard) => request<ModelBalance>(`/cards/${encodeURIComponent(card.id)}/balance?revision=${card.revision}`, { cache: "no-store" }),
   list: () => request(""),
-  bind: (scriptId: string, cardId: string, revision: number) => request(`/bindings/${encodeURIComponent(scriptId)}`, {
-    method: "PUT", body: JSON.stringify({ cardId, revision }),
-  }),
   save: (id: string | null, draft: ModelCardDraft) => request(id ? `/cards/${encodeURIComponent(id)}` : "/cards", {
     method: id ? "PUT" : "POST", body: JSON.stringify(draft),
   }),

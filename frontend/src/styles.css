@@ -12906,6 +12906,7 @@ td {
 .model-name-options > button:hover, .model-name-options > button:focus-visible, .model-name-options > button[aria-pressed="true"] { background: #eff6ff; color: #175cd3; }
 .model-name-options > p { margin: 8px; font-size: 12px; color: #667085; }
 
-.model-publisher-bindings { margin-bottom: 18px; padding: 18px; border: 1px solid #dce3ee; border-radius: 12px; background: #fff; }
-.model-publisher-bindings h2 { margin: 0 0 8px; font-size: 18px; }
-.model-publisher-bindings > p { margin: 0 0 14px; color: #667085; font-size: 13px; }
+
+.node-model-settings { margin-top: 16px; padding: 14px; border: 1px solid #dce3ee; border-radius: 12px; background: #fff; }
+.node-model-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: 13px; }
+.node-model-actions a { color: #2563eb; }

@@ -23,6 +23,7 @@ REVISION_EDITABLE_NODE_FIELDS = {
     "requirement",
     "startAt",
     "deadlineAt",
+    "auditModelCardId",  # Updated independently by the versioned node audit policy.
 }
 
 

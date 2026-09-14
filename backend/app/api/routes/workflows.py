@@ -99,6 +99,7 @@ class PublishFlowRequest(BaseModel):
 
 
 class AuditPolicyRequest(BaseModel):
+    modelCardId: str | None = Field(max_length=64)
     expectedGeneration: int = Field(ge=1)
     params: dict[str, str | int | float | bool]
 
@@ -133,6 +134,7 @@ def put_audit_policy_route(
             int(teacher["id"]),
             payload.expectedGeneration,
             dict(payload.params),
+            payload.modelCardId,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="节点审核规则不存在") from exc

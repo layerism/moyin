@@ -1,3 +1,4 @@
+import { NodeModelSelector } from "./NodeModelSelector";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { FlowNodeIcon } from "./FlowNodeIcon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -528,13 +529,15 @@ export function AcademicFlowDesigner({
 
   const applyPublishedAuditPolicy = (
     nodeId: string,
-    params: Record<string, string | number | boolean>,
+    policy: NodeAuditPolicy,
   ) => {
+    const params = policy.params;
     setWorkingProcess((current) => ({
       ...current,
       nodes: current.nodes.map((node) => node.id === nodeId ? {
         ...node,
         auditScriptParams: params,
+        auditModelCardId: policy.modelCardId ?? undefined,
         scanAuditMode: params.scanAuditMode as "pass_fail" | "score" | undefined,
         scanAuditPrompt: typeof params.scanAuditPrompt === "string" ? params.scanAuditPrompt : node.scanAuditPrompt,
         scanAuditThreshold: typeof params.scanAuditThreshold === "number"
@@ -783,7 +786,7 @@ export function AcademicFlowDesigner({
             onDeleteReference={() => void deleteNodeTemplate(inspectorNode.id, true)}
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
-            onAuditPolicySaved={(params) => applyPublishedAuditPolicy(inspectorNode.id, params)}
+            onAuditPolicySaved={(policy) => applyPublishedAuditPolicy(inspectorNode.id, policy)}
             publishedAuditPolicy={workingProcess.published && protectedNodeIds.includes(inspectorNode.id)}
             publishedRevision={workingProcess.published && revisionEditing}
           />
@@ -2177,13 +2180,14 @@ function NodeInspector({
     config: NonNullable<AcademicFlowNode["answerSheet"]>,
     gradingKey: AcademicProcess["answerSheetKeys"][string],
   ) => void;
-  onAuditPolicySaved: (params: Record<string, string | number | boolean>) => void;
+  onAuditPolicySaved: (policy: NodeAuditPolicy) => void;
   publishedAuditPolicy: boolean;
   publishedRevision: boolean;
 }) {
   const [timeSettingsOpen, setTimeSettingsOpen] = useState(false);
   const [auditPolicy, setAuditPolicy] = useState<NodeAuditPolicy | null>(null);
   const [auditPolicyParams, setAuditPolicyParams] = useState<Record<string, string | number | boolean>>({});
+  const [auditModelCardId, setAuditModelCardId] = useState<string | null>(null);
   const [auditPolicyError, setAuditPolicyError] = useState("");
   const [auditPolicySaving, setAuditPolicySaving] = useState(false);
   const nodeKey = node?.id ?? "";
@@ -2194,6 +2198,7 @@ function NodeInspector({
   useEffect(() => {
     setAuditPolicy(null);
     setAuditPolicyParams({});
+    setAuditModelCardId(null);
     setAuditPolicyError("");
     setAuditPolicySaving(false);
     if (!hasPublishedAuditPolicy) return;
@@ -2202,6 +2207,7 @@ function NodeInspector({
       if (cancelled) return;
       setAuditPolicy(value);
       setAuditPolicyParams(value.params);
+      setAuditModelCardId(value.modelCardId);
     }).catch((reason) => {
       if (!cancelled) {
         setAuditPolicyError(reason instanceof Error ? reason.message : "读取审核规则失败");
@@ -2220,8 +2226,10 @@ function NodeInspector({
       getAuditScriptParameterError(parameter, auditPolicyParams[parameter.key]),
     ]).filter(([, value]) => value),
   ) as Record<string, string> : {};
-  const auditPolicyChanged = Boolean(auditPolicy?.parameters.some(
-    (parameter) => auditPolicyParams[parameter.key] !== auditPolicy.params[parameter.key],
+  const auditPolicyChanged = Boolean(auditPolicy && (
+    auditModelCardId !== auditPolicy.modelCardId || auditPolicy.parameters.some(
+      (parameter) => auditPolicyParams[parameter.key] !== auditPolicy.params[parameter.key],
+    )
   ));
 
   const closeInspector = useCallback(async () => {
@@ -2239,10 +2247,11 @@ function NodeInspector({
     setAuditPolicyError("");
     try {
       const updated = await workflowApi.updateNodeAuditPolicy(flowId, nodeKey, {
+        modelCardId: auditModelCardId,
         expectedGeneration: auditPolicy.generation,
         params: auditPolicyParams,
       });
-      onAuditPolicySaved(updated.params);
+      onAuditPolicySaved(updated);
       onClose();
     } catch (reason) {
       setAuditPolicyError(reason instanceof Error ? reason.message : "保存审核规则失败");
@@ -2254,6 +2263,7 @@ function NodeInspector({
     auditPolicyChanged,
     auditPolicyFieldErrors,
     auditPolicyParams,
+    auditModelCardId,
     auditPolicySaving,
     flowId,
     hasPublishedAuditPolicy,
@@ -2628,6 +2638,20 @@ function NodeInspector({
             </section>
           </>
         ) : null}
+        {(node.kind === "confirmation" ? node.scanAuditEnabled : node.auditScriptId === "docx-markdown-completion-audit") ? (
+          <NodeModelSelector
+            value={hasPublishedAuditPolicy ? auditModelCardId : node.auditModelCardId ?? null}
+            disabled={hasPublishedAuditPolicy ? !auditPolicy || auditPolicySaving : coreSettingsDisabled}
+            onChange={(cardId) => {
+              if (hasPublishedAuditPolicy) {
+                setAuditPolicyError("");
+                setAuditModelCardId(cardId);
+              } else {
+                onUpdateNode(node.id, { auditModelCardId: cardId ?? undefined });
+              }
+            }}
+          />
+        ) : null}
         </div>
         <footer className="node-inspector-footer">
           <span
@@ -2844,6 +2868,7 @@ function ConfirmationScanSettings({
               name={`scan-mode-${node.id}`}
               onChange={() => onUpdate({
                 scanAuditEnabled: false,
+                auditModelCardId: undefined,
                 scanAuditMode: undefined,
                 scanAuditPrompt: "",
                 scanAuditThreshold: undefined,

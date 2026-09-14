@@ -44,6 +44,7 @@ from app.services.audit_script_parameters import (
     AuditScriptParameterError,
     validate_script_params,
 )
+from app.services.node_models import apply_published_node_models, validate_flow_models
 from app.services.security import utc_now_iso
 from app.services.object_storage import get_object_storage, object_key, timestamped_object_name
 
@@ -70,7 +71,7 @@ def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
         _strip_legacy_audit_script_snapshot(node)
         if node.get("scanAuditEnabled") is not True:
             for key in (
-                "auditScriptId", "auditScriptAcceptedExtensions", "auditScriptParams",
+                "auditScriptId", "auditScriptAcceptedExtensions", "auditScriptParams", "auditModelCardId",
             ):
                 node.pop(key, None)
             continue
@@ -181,6 +182,7 @@ def prepare_runtime_config(
     _bind_confirmation_visual_audits(config)
     validate_flow_config(config, require_publishable=True)
     _validate_audit_script_nodes(config)
+    validate_flow_models(connection, flow_id, config, require_configured=True)
     return validate_version_templates(connection, flow_id, config)
 
 
@@ -515,6 +517,10 @@ def copy_flow_definition(
             raise DuplicateFlowNameError("已存在同名流程")
 
         config = json.loads(source["draft_config"])
+        apply_published_node_models(connection, flow_id, config)
+        if source_owner != target_owner:
+            for node in config.get("nodes", []):
+                node.pop("auditModelCardId", None)
         if clear_dates:
             for node in config.get("nodes", []):
                 node.pop("startAt", None)
@@ -758,6 +764,7 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             else None
         )
         draft_config = json.loads(row["draft_config"])
+        apply_published_node_models(connection, flow_id, draft_config)
         draft_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
         published_config = (
             _version_config_with_runtime_deadlines(connection, published) if published else None
@@ -773,6 +780,8 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             if published and published_config
             else {}
         )
+        if published_config is not None:
+            apply_published_node_models(connection, flow_id, published_config)
         visible_config = published_config if published_config is not None else draft_config
         has_unpublished_changes = (
             published_config is not None
@@ -857,6 +866,7 @@ def save_draft(
         _bind_confirmation_visual_audits(config)
         _refresh_file_audit_script_configs(config)
         _validate_audit_script_nodes(config)
+        validate_flow_models(connection, flow_id, config)
         validate_version_templates(connection, flow_id, config)
         cursor = connection.execute(
             """
@@ -1520,6 +1530,7 @@ def get_revision_impact(
         except AnswerSheetConfigError as exc:
             raise PublishedNodeMutationError(str(exc)) from exc
         _validate_audit_script_nodes(config)
+        validate_flow_models(connection, flow_id, config, require_configured=True)
         validate_version_templates(connection, flow_id, config)
         published = _latest_published_version(connection, flow_id, teacher_id)
         source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)

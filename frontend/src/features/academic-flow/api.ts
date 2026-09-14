@@ -442,7 +442,7 @@ export const workflowApi = {
   updateNodeAuditPolicy(
     flowId: string,
     nodeKey: string,
-    payload: { expectedGeneration: number; params: Record<string, string | number | boolean> },
+    payload: { modelCardId: string | null; expectedGeneration: number; params: Record<string, string | number | boolean> },
   ) {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,

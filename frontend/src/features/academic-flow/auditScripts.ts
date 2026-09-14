@@ -46,6 +46,7 @@ export type AuditScriptOption = {
 };
 
 export type NodeAuditPolicy = {
+  modelCardId: string | null;
   flowId: string;
   generation: number;
   mode?: "pass_fail" | "score" | null;
@@ -105,6 +106,7 @@ export function toNodeAuditScriptSelection(
       auditScriptAcceptedExtensions: undefined,
       auditScriptParams: undefined,
       auditScriptId: undefined,
+      auditModelCardId: undefined,
       auditScriptName: "",
       auditScriptType: "none",
     };
@@ -112,6 +114,7 @@ export function toNodeAuditScriptSelection(
   return {
     auditScriptAcceptedExtensions: script.acceptedExtensions,
     auditScriptId: script.id,
+    auditModelCardId: undefined,
     auditScriptName: script.name,
     auditScriptType: script.language,
     auditScriptParams: Object.fromEntries(

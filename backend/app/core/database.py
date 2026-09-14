@@ -516,6 +516,8 @@ def initialize_database() -> None:
     initialize_model_billing()
     from app.services.model_ownership import initialize_model_ownership
     initialize_model_ownership()
+    from app.services.node_models import initialize_node_models
+    initialize_node_models()
 
 
 def _initialize_super_admin() -> None:

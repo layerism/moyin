@@ -16,9 +16,9 @@ def canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def policy_hash(script_id: str, params: dict[str, object]) -> str:
+def policy_hash(script_id: str, params: dict[str, object], model_card_id: str | None = None) -> str:
     return hashlib.sha256(
-        canonical_json({"scriptId": script_id, "params": params}).encode("utf-8")
+        canonical_json({"scriptId": script_id, "params": params, "modelCardId": model_card_id}).encode("utf-8")
     ).hexdigest()
 
 
@@ -55,9 +55,9 @@ def sync_published_audit_policies(
         script_id, params = values
         statement = """
             INSERT INTO node_audit_policies
-                (flow_id, node_key, script_id, mode, prompt, params_json,
+                (flow_id, node_key, script_id, mode, prompt, params_json, model_card_id,
                  generation, policy_hash, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
         """
         if existing_node_keys is None or str(node["id"]) in existing_node_keys:
             statement += " ON CONFLICT(flow_id, node_key) DO NOTHING"
@@ -68,6 +68,7 @@ def sync_published_audit_policies(
                     mode = excluded.mode,
                     prompt = excluded.prompt,
                     params_json = excluded.params_json,
+                    model_card_id = excluded.model_card_id,
                     generation = CASE
                         WHEN node_audit_policies.policy_hash = excluded.policy_hash
                         THEN node_audit_policies.generation
@@ -86,7 +87,8 @@ def sync_published_audit_policies(
                 params.get("scanAuditMode"),
                 params.get("scanAuditPrompt", ""),
                 canonical_json(params),
-                policy_hash(script_id, params),
+                node.get("auditModelCardId") or None,
+                policy_hash(script_id, params, node.get("auditModelCardId") or None),
                 actor_id,
                 now,
             ),
@@ -122,11 +124,11 @@ def sync_preview_audit_policies(
         if values is None:
             continue
         script_id, params = values
-        next_hash = policy_hash(script_id, params)
+        next_hash = policy_hash(script_id, params, node.get("auditModelCardId") or None)
         connection.execute(
             """
             UPDATE node_audit_policies
-            SET script_id = ?, mode = ?, prompt = ?, params_json = ?,
+            SET script_id = ?, mode = ?, prompt = ?, params_json = ?, model_card_id = ?,
                 generation = CASE WHEN policy_hash = ? THEN generation ELSE generation + 1 END,
                 policy_hash = ?, updated_by = ?, updated_at = ?
             WHERE flow_id = ? AND node_key = ?
@@ -136,6 +138,7 @@ def sync_preview_audit_policies(
                 params.get("scanAuditMode"),
                 params.get("scanAuditPrompt", ""),
                 canonical_json(params),
+                node.get("auditModelCardId") or None,
                 next_hash,
                 next_hash,
                 actor_id,
@@ -182,6 +185,7 @@ def resolve_effective_audit_policy(connection, flow_id: str, node_key: str) -> d
         "flowId": row["flow_id"],
         "nodeKey": row["node_key"],
         "scriptId": row["script_id"],
+        "modelCardId": row["model_card_id"],
         "mode": row["mode"],
         "prompt": row["prompt"],
         "params": json.loads(row["params_json"]),
@@ -210,6 +214,7 @@ def update_node_audit_policy(
     teacher_id: int,
     expected_generation: int,
     params: dict[str, object],
+    model_card_id: str | None,
 ) -> dict[str, object]:
     now = utc_now_iso()
     with get_connection() as connection:
@@ -238,13 +243,15 @@ def update_node_audit_policy(
                 raise ValueError("评分通过阈值必须是 0–100 的整数")
         else:
             validated.pop("scanAuditThreshold", None)
-        next_hash = policy_hash(record.id, validated)
+        from app.services.node_models import validate_node_model
+        validate_node_model(connection, str(teacher_id), record.id, model_card_id)
+        next_hash = policy_hash(record.id, validated, model_card_id)
         changed = next_hash != row["policy_hash"]
         if changed:
             connection.execute(
                 """
                 UPDATE node_audit_policies
-                SET mode = ?, prompt = ?, params_json = ?, generation = generation + 1,
+                SET mode = ?, prompt = ?, params_json = ?, model_card_id = ?, generation = generation + 1,
                     policy_hash = ?, updated_by = ?, updated_at = ?
                 WHERE flow_id = ? AND node_key = ?
                 """,
@@ -252,6 +259,7 @@ def update_node_audit_policy(
                     validated.get("scanAuditMode"),
                     validated.get("scanAuditPrompt", ""),
                     canonical_json(validated),
+                    model_card_id,
                     next_hash,
                     teacher_id,
                     now,
@@ -259,6 +267,13 @@ def update_node_audit_policy(
                     node_key,
                 ),
             )
+            draft = json.loads(connection.execute("SELECT draft_config FROM flows WHERE id = ?", (flow_id,)).fetchone()["draft_config"])
+            for node in draft.get("nodes", []):
+                if node["id"] == node_key:
+                    node.pop("auditModelCardId", None)
+                    if model_card_id:
+                        node["auditModelCardId"] = model_card_id
+            connection.execute("UPDATE flows SET draft_config = ? WHERE id = ?", (canonical_json(draft), flow_id))
     if not changed:
         return get_node_audit_policy(flow_id, node_key, teacher_id)
     from app.repositories.audit_jobs import cancel_audit_jobs_for_policy

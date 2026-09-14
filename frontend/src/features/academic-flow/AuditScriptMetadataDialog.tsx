@@ -1,6 +1,4 @@
-import { VendorLogo } from "../admin/VendorLogo";
-import { thinkingLabel } from "../admin/ModelThinkingFields";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ApiError, workflowApi } from "./api";
 import { AuditScriptConfigForm } from "./AuditScriptConfigForm";
@@ -62,15 +60,6 @@ function ScriptCapabilityIcons({ script }: { script: AuditScriptManagementSummar
 }
 
 export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) {
-  const modelPickerRef = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const dismiss = (event: PointerEvent) => {
-      const picker = modelPickerRef.current;
-      if (picker?.open && event.target instanceof Node && !picker.contains(event.target)) picker.open = false;
-    };
-    document.addEventListener("pointerdown", dismiss);
-    return () => document.removeEventListener("pointerdown", dismiss);
-  }, []);
   const [scripts, setScripts] = useState<AuditScriptManagementSummary[] | null>(null);
   const [search, setSearch] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -79,7 +68,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   const [parameterDefaults, setParameterDefaults] = useState<Record<string, AuditScriptValue>>({});
   const [runtimeSettings, setRuntimeSettings] = useState<Record<string, AuditScriptValue>>({});
   const [maxConcurrency, setMaxConcurrency] = useState(4);
-  const [modelCardId, setModelCardId] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -110,7 +98,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
       setParameterDefaults(createParameterDefaultDraft(nextDetail));
       setRuntimeSettings(createRuntimeSettingDraft(nextDetail));
       setMaxConcurrency(nextDetail.maxConcurrency);
-      setModelCardId(nextDetail.modelSelection?.cardId ?? "");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "读取脚本配置失败");
     } finally {
@@ -132,11 +119,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   const concurrencyError = !Number.isInteger(maxConcurrency)
     || maxConcurrency < 1
     || maxConcurrency > 32;
-  const modelChanged = Boolean(detail?.modelSelection && modelCardId !== detail.modelSelection.cardId);
-  const selectedModel = detail?.modelSelection?.cards.find((card) => card.id === modelCardId);
-  const validModel = !detail?.modelSelection || Boolean(selectedModel?.hasApiKey && selectedModel.apiUrl && selectedModel.model);
-  const canSave = (configChanged || modelChanged)
-    && validModel
+  const canSave = configChanged
     && !concurrencyError
     && Object.keys(configErrors).length === 0
     && !saving;
@@ -147,8 +130,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
     clearSaveMessages();
     try {
       await workflowApi.updateAuditScriptConfig(detail.id, {
-        modelCardId: detail.modelSelection ? modelCardId : null,
-        expectedModelRevision: detail.modelSelection?.revision ?? null,
         expectedEditorHash: detail.editorHash,
         maxConcurrency,
         parameterDefaults,
@@ -202,19 +183,6 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
             void saveChanges();
           }}>
             <div className="script-editor-scroll">
-              {detail.modelSelection ? <section className="script-model-section">
-                <div className="script-section-heading"><h3>使用模型</h3><span>思考设置由模型卡管理</span></div>
-                <details ref={modelPickerRef} className="script-model-picker" onKeyDown={(event) => {
-                  if (event.key === "Escape" && event.currentTarget.open) { event.preventDefault(); event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector("summary")?.focus(); }
-                }}>
-                  <summary aria-label="选择审核模型">{selectedModel ? <><VendorLogo vendor={selectedModel.vendor} /><span><strong>{selectedModel.name}</strong><small>{selectedModel.model} · {thinkingLabel(selectedModel.thinking, selectedModel.thinkingProfile)}</small></span></> : <span>请选择已配置的模型</span>}<span className="script-picker-arrow" aria-hidden="true">⌄</span></summary>
-                  <fieldset disabled={saving}><legend>选择模型卡</legend>{detail.modelSelection.cards.map((card) => <label className="script-model-option" key={card.id}>
-                    <input type="radio" name="script-model" value={card.id} checked={modelCardId === card.id} disabled={!card.hasApiKey || !card.apiUrl || !card.model} onChange={() => { setModelCardId(card.id); clearSaveMessages(); const picker = modelPickerRef.current; if (picker) { picker.querySelector("summary")?.focus(); picker.open = false; } }} />
-                    <VendorLogo vendor={card.vendor} /><span><strong>{card.name}</strong><small>{card.model || "尚未填写模型"} · {card.hasApiKey && card.apiUrl && card.model ? thinkingLabel(card.thinking, card.thinkingProfile) : "配置未完成"}</small></span>
-                  </label>)}</fieldset>
-                </details>
-                {!validModel ? <p className="dialog-error" role="alert">请先由管理员完善模型配置，再选择模型。</p> : null}
-              </section> : null}
               <AuditScriptConfigForm
                 disabled={saving} errors={configErrors}
                 onSettingChange={updateSetting}

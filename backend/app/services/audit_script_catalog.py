@@ -12,10 +12,7 @@ from pathlib import Path
 from typing import Literal, cast
 
 from app.core.config import settings
-from app.services.audit_model_connections import (
-    SCRIPT_PROVIDERS, ModelConfigConflict, script_model_selection,
-    validate_script_model, save_script_model,
-)
+from app.services.audit_model_connections import SCRIPT_PROVIDERS
 from app.core.database import get_connection
 from app.services.audit_script_parameters import (
     AuditScriptConfig,
@@ -106,7 +103,6 @@ def get_audit_script_config(script_id: str, owner_id: int) -> dict[str, object]:
         **_designer_response(record),
         "runtimeSettings": [item for item in record.runtime_settings
                             if not (script_id in SCRIPT_PROVIDERS and item["key"] in {"modelName", "thinkingEnabled"})],
-        "modelSelection": script_model_selection(script_id, owner_id),
         "editorHash": record.editor_hash,
         "generation": int(state["generation"]),
         "status": state["status"],
@@ -123,15 +119,11 @@ def update_audit_script_config(
     runtime_settings: dict[str, object],
     max_concurrency: int,
     actor_id: int,
-    model_card_id: str | None = None,
-    expected_model_revision: int | None = None,
 ) -> dict[str, object]:
     with _SCRIPT_WRITE_LOCK:
         record = find_audit_script(script_id)
         if record.editor_hash != expected_editor_hash:
             raise AuditScriptConfigConflictError("审核脚本已被其他管理员修改，请重新加载")
-        with get_connection() as connection:
-            validate_script_model(connection, script_id, model_card_id, expected_model_revision, actor_id)
         parameter_keys = {str(item["key"]) for item in record.parameters}
         runtime_settings = dict(runtime_settings)
         if script_id in SCRIPT_PROVIDERS:
@@ -165,9 +157,6 @@ def update_audit_script_config(
         next_config["execution"] = {"maxConcurrency": max_concurrency}
         normalize_script_config(next_config)
         if _canonical_json(next_config) == _canonical_json(config_payload):
-            with get_connection() as connection:
-                connection.execute("BEGIN IMMEDIATE")
-                save_script_model(connection, script_id, model_card_id, expected_model_revision, actor_id)
             return get_audit_script_config(script_id, actor_id)
 
         now = utc_now_iso()
@@ -197,7 +186,6 @@ def update_audit_script_config(
             activated = find_audit_script(script_id)
             with get_connection() as connection:
                 connection.execute("BEGIN IMMEDIATE")
-                save_script_model(connection, script_id, model_card_id, expected_model_revision, actor_id)
                 connection.execute(
                     """
                     UPDATE audit_script_runtime_states
@@ -210,7 +198,7 @@ def update_audit_script_config(
                      actor_id, utc_now_iso(), script_id),
                 )
         except Exception as exc:
-            # Restore the file if activation/binding could not commit together.
+            # Restore the file if runtime activation could not commit.
             restored = False
             try:
                 _atomic_write_json(config_path, config_payload)
@@ -221,7 +209,7 @@ def update_audit_script_config(
                         "UPDATE audit_script_runtime_states SET status = ?, error_message = ?, updated_by = ?, updated_at = ? WHERE script_id = ?",
                         ("ready" if restored else "error", None if restored else "审核脚本配置恢复失败", actor_id, utc_now_iso(), script_id),
                     )
-            if isinstance(exc, (AuditScriptCatalogError, AuditScriptParameterError, ModelConfigConflict)):
+            if isinstance(exc, (AuditScriptCatalogError, AuditScriptParameterError)):
                 raise
             raise AuditScriptWriteError("审核脚本配置激活失败") from exc
         return get_audit_script_config(script_id, actor_id)

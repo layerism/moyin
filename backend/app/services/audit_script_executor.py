@@ -141,7 +141,7 @@ def _run_process(
 ) -> bytes:
     _raise_if_cancelled(cancelled)
     command = _command_for(descriptor)
-    environment = _script_environment(descriptor, str(payload["context"].get("flowId", "")))
+    environment = _script_environment(descriptor, str(payload["context"].get("flowId", "")), str(payload["context"].get("nodeKey", "")))
     if "VISION_MODEL" in environment:
         context = dict(payload["context"])
         context["scriptSettings"] = {**context["scriptSettings"], "modelName": environment["VISION_MODEL"]}
@@ -225,7 +225,7 @@ def _raise_if_cancelled(cancelled: Callable[[], bool] | None) -> None:
         raise AuditScriptExecutionCancelled("审核任务已取消")
 
 
-def _script_environment(descriptor: AuditScriptRuntimeDescriptor, flow_id: str) -> dict[str, str]:
+def _script_environment(descriptor: AuditScriptRuntimeDescriptor, flow_id: str, node_key: str) -> dict[str, str]:
     environment = {
         "PATH": os.environ.get("PATH", os.defpath),
         "LANG": os.environ.get("LANG", "C.UTF-8"),
@@ -248,7 +248,7 @@ def _script_environment(descriptor: AuditScriptRuntimeDescriptor, flow_id: str) 
             value = dotenv_value if isinstance(dotenv_value, str) else None
         if value is not None:
             environment[name] = value
-    environment.update(model_environment(descriptor.script_id, flow_id))
+    environment.update(model_environment(descriptor.script_id, flow_id, node_key))
     return environment
 
 

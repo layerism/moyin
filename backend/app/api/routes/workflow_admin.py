@@ -1,4 +1,3 @@
-from app.services.audit_model_connections import ModelConfigConflict
 from typing import Literal
 from urllib.parse import quote
 
@@ -74,8 +73,6 @@ class ManualApprovalRequest(BaseModel):
 class AuditScriptConfigRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    modelCardId: str | None = Field(default=None, max_length=64)
-    expectedModelRevision: int | None = Field(default=None, ge=0)
     expectedEditorHash: str = Field(min_length=64, max_length=64)
     parameterDefaults: dict[str, str | int | float | bool]
     runtimeSettings: dict[str, str | int | float | bool]
@@ -128,10 +125,8 @@ def put_managed_audit_script_config(
             runtime_settings=dict(payload.runtimeSettings),
             max_concurrency=payload.maxConcurrency,
             actor_id=int(teacher["id"]),
-            model_card_id=payload.modelCardId,
-            expected_model_revision=payload.expectedModelRevision,
         )
-    except (AuditScriptConfigConflictError, ModelConfigConflict) as exc:
+    except AuditScriptConfigConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (AuditScriptParameterError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

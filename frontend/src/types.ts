@@ -189,6 +189,7 @@ export type AcademicFlowNode = {
   answerSheet?: AnswerSheetConfig;
   auditScriptAcceptedExtensions?: string[];
   auditScriptId?: string;
+  auditModelCardId?: string;
   auditScriptName: string;
   auditScriptType: AuditScriptType;
   auditScriptParams?: Record<string, string | number | boolean>;
