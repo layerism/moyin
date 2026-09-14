@@ -2188,6 +2188,7 @@ function NodeInspector({
   const [auditPolicy, setAuditPolicy] = useState<NodeAuditPolicy | null>(null);
   const [auditPolicyParams, setAuditPolicyParams] = useState<Record<string, string | number | boolean>>({});
   const [auditModelCardId, setAuditModelCardId] = useState<string | null>(null);
+  const [modelValidationAttempt, setModelValidationAttempt] = useState(0);
   const [auditPolicyError, setAuditPolicyError] = useState("");
   const [auditPolicySaving, setAuditPolicySaving] = useState(false);
   const nodeKey = node?.id ?? "";
@@ -2197,6 +2198,7 @@ function NodeInspector({
 
   useEffect(() => {
     setAuditPolicy(null);
+    setModelValidationAttempt(0);
     setAuditPolicyParams({});
     setAuditModelCardId(null);
     setAuditPolicyError("");
@@ -2232,8 +2234,18 @@ function NodeInspector({
     )
   ));
 
-  const closeInspector = useCallback(async () => {
+  const requiresAuditModel = Boolean(node && (node.kind === "confirmation"
+    ? node.scanAuditEnabled
+    : node.auditScriptId === "docx-markdown-completion-audit"));
+  const missingAuditModel = requiresAuditModel && !(hasPublishedAuditPolicy ? auditModelCardId : node?.auditModelCardId);
+
+  const closeInspector = useCallback(async (requireModel = false) => {
     if (auditPolicySaving) return;
+    if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
+    if (requireModel && missingAuditModel) {
+      setModelValidationAttempt((current) => current + 1);
+      return;
+    }
     if (!hasPublishedAuditPolicy || !auditPolicy || !auditPolicyChanged) {
       onClose();
       return;
@@ -2261,6 +2273,7 @@ function NodeInspector({
   }, [
     auditPolicy,
     auditPolicyChanged,
+    missingAuditModel,
     auditPolicyFieldErrors,
     auditPolicyParams,
     auditModelCardId,
@@ -2337,8 +2350,8 @@ function NodeInspector({
         <header className="node-inspector-toolbar">
           <button
             aria-label="关闭节点设置"
-            disabled={auditPolicySaving}
-            onClick={() => void closeInspector()}
+            disabled={auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
+            onClick={() => void closeInspector(true)}
             type="button"
           >
             ×
@@ -2379,6 +2392,7 @@ function NodeInspector({
           </button>
         {(node.kind === "confirmation" ? node.scanAuditEnabled : node.auditScriptId === "docx-markdown-completion-audit") ? (
           <NodeModelSelector
+            validationAttempt={missingAuditModel ? modelValidationAttempt : 0}
             value={hasPublishedAuditPolicy ? auditModelCardId : node.auditModelCardId ?? null}
             disabled={hasPublishedAuditPolicy ? !auditPolicy || auditPolicySaving : coreSettingsDisabled}
             onChange={(cardId) => {
@@ -2674,8 +2688,8 @@ function NodeInspector({
           </span>
           <button
             className="primary-action"
-            disabled={auditPolicySaving}
-            onClick={() => void closeInspector()}
+            disabled={auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
+            onClick={() => void closeInspector(true)}
             type="button"
           >
             {auditPolicySaving ? "保存中…" : "完成"}

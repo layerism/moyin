@@ -12943,3 +12943,6 @@ td {
 .node-model-refresh .is-loading { animation: node-model-refresh-spin 1s linear infinite; }
 @keyframes node-model-refresh-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .node-model-refresh .is-loading { animation: none; } }
+
+.node-time-settings-toggle.node-model-toggle.is-invalid { color: #b42318; background: #fff1f0; box-shadow: inset 0 0 0 1.5px #f04438; }
+.node-basic-actions > .node-model-required-message { flex-basis: 100%; color: #b42318; font-size: 12px; line-height: 1.6; }

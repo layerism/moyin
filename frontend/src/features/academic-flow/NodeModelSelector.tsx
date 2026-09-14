@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { modelCardsApi, type ModelCard } from "../admin/modelCardsApi";
 import { VendorLogo } from "../admin/VendorLogo";
 
-export function NodeModelSelector({ value, disabled, onChange }: {
+export function NodeModelSelector({ value, disabled, onChange, validationAttempt = 0 }: {
+  validationAttempt?: number;
   value: string | null;
   disabled: boolean;
   onChange: (cardId: string | null) => void;
@@ -46,15 +47,30 @@ export function NodeModelSelector({ value, disabled, onChange }: {
     window.addEventListener("keydown", onKey, true);
     return () => { window.removeEventListener("keydown", onKey, true); trigger.current?.focus(); };
   }, [open]);
+  useEffect(() => {
+    if (!validationAttempt) return;
+    const button = trigger.current;
+    button?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    button?.focus({ preventScroll: true });
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      button?.getAnimations().forEach((animation) => animation.cancel());
+      button?.animate([
+        { transform: "translateX(0)" }, { transform: "translateX(-6px)" },
+        { transform: "translateX(6px)" }, { transform: "translateX(-4px)" },
+        { transform: "translateX(4px)" }, { transform: "translateX(0)" },
+      ], { duration: 360, easing: "ease-in-out" });
+    }
+  }, [validationAttempt]);
   const selected = cards?.find((card) => card.id === draft);
   const valid = draft === null || Boolean(selected?.hasApiKey && selected.apiUrl && selected.model);
 
   return <>
-    <button ref={trigger} className={`node-time-settings-toggle node-model-toggle${value ? " is-configured" : ""}`} type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => {
+    <button ref={trigger} className={`node-time-settings-toggle node-model-toggle${value ? " is-configured" : ""}${validationAttempt ? " is-invalid" : ""}`} type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} aria-invalid={validationAttempt > 0} aria-describedby={validationAttempt ? "node-model-required-message" : undefined} onClick={() => {
       setDraft(value);
       setOpen(true);
       if (!request) setRequest(1);
     }}><span className="node-model-status" aria-hidden="true">{value ? "" : "＋"}</span>模型配置{value ? <span className="node-model-sr-only">（已选择）</span> : null}</button>
+    {validationAttempt > 0 ? <small id="node-model-required-message" className="node-model-required-message" role="alert">请先选择审核模型；没有模型卡时，可点击弹窗标题前往配置。</small> : null}
     {open ? createPortal(<div className="node-time-dialog-backdrop node-model-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
       <section ref={dialog} className="node-time-dialog node-model-dialog" role="dialog" aria-modal="true" aria-labelledby="node-model-dialog-title">
         <header><div><h2 id="node-model-dialog-title"><a className="node-model-title-link" href="/admin/models" target="_blank" rel="noopener noreferrer" title="打开模型卡管理">审核模型<span aria-hidden="true">↗</span></a></h2><p>为当前节点选择你的模型卡</p></div><div className="node-model-header-actions"><button className="node-model-refresh" type="button" aria-label={loading ? "正在刷新模型卡" : "刷新模型卡"} title="刷新模型卡" disabled={loading} onClick={() => setRequest((current) => current + 1)}><svg className={loading ? "is-loading" : undefined} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5" /><path d="M6.1 6.1A8 8 0 0 1 19.5 10M4.5 14A8 8 0 0 0 17.9 17.9" /></svg></button><button aria-label="关闭模型配置" type="button" onClick={() => setOpen(false)}>×</button></div></header>
