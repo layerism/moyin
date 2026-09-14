@@ -53,13 +53,13 @@ export function TeacherAccountMenu({
             <div><dt>工号</dt><dd>{identity.employeeNo ?? "-"}</dd></div>
             <div><dt>身份</dt><dd>{identity.role === "super_admin" ? "超级管理员" : "教师"}</dd></div>
           </dl>
+          <div className="teacher-account-admin-actions">
+            <button className="teacher-account-admin" onClick={onModelAdmin} type="button">我的模型配置</button>
+          </div>
           {identity.role === "super_admin" ? (
             <div className="teacher-account-admin-actions">
               <button className="teacher-account-admin" onClick={onTeacherInvitations} type="button">
                 教师邀请
-              </button>
-              <button className="teacher-account-admin" onClick={onModelAdmin} type="button">
-                大模型配置
               </button>
               <button className="teacher-account-admin" onClick={onDatabaseAdmin} type="button">
                 数据库管理

@@ -743,7 +743,7 @@ export function App() {
   }
 
   if (screen === "adminModels") {
-    return <ModelCardsAdminPage identity={teacherIdentity!} onBack={openAcademicFlow} />;
+    return <ModelCardsAdminPage key={teacherIdentity!.id} identity={teacherIdentity!} onBack={openAcademicFlow} />;
   }
 
   if (screen === "adminDatabase") {

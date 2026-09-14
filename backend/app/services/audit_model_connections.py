@@ -29,6 +29,10 @@ class ModelConfigConflict(ValueError):
     pass
 
 
+class PublisherModelNotConfigured(RuntimeError):
+    pass
+
+
 def _cipher() -> Fernet:
     if not settings.audit_config_encryption_key:
         raise RuntimeError("请在服务器配置 AUDIT_CONFIG_ENCRYPTION_KEY")
@@ -92,12 +96,12 @@ def initialize_model_connections() -> None:
                            (migration_id, datetime.now(UTC).isoformat()))
 
 
-def list_model_connections() -> dict[str, object]:
+def list_model_connections(owner_id: int) -> dict[str, object]:
     from app.services.model_thinking import thinking_profile
     with get_connection() as connection:
         connection.execute("BEGIN")
-        cards = connection.execute("SELECT * FROM audit_model_cards ORDER BY name, id").fetchall()
-        bindings = connection.execute("SELECT * FROM audit_model_bindings ORDER BY script_id").fetchall()
+        cards = connection.execute("SELECT * FROM audit_model_cards WHERE owner_teacher_id = ? ORDER BY name, id", (owner_id,)).fetchall()
+        bindings = connection.execute("SELECT * FROM audit_model_bindings WHERE owner_teacher_id = ? ORDER BY script_id", (owner_id,)).fetchall()
     return {
         "cards": [{"id": row["id"], "vendor": row["vendor"], "name": row["name"],
                    "apiUrl": row["api_url"], "hasApiKey": bool(row["encrypted_api_key"]),
@@ -106,12 +110,13 @@ def list_model_connections() -> dict[str, object]:
                    "thinkingProfile": thinking_profile(row["vendor"], row["model"]),
                    "hasBillingCredentials": bool(row["encrypted_billing_credentials"]),
                    "balanceCapability": balance_capability(row["vendor"], row["api_url"], bool(row["encrypted_billing_credentials"]))} for row in cards],
+        "scripts": [{"id": key, "name": name} for key, name in SCRIPT_NAMES.items()],
         "bindings": [{"scriptId": row["script_id"], "name": SCRIPT_NAMES[row["script_id"]],
                       "cardId": row["card_id"], "revision": row["revision"]} for row in bindings],
     }
 
 
-def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str,
+def save_model_card(card_id: str | None, *, owner_id: int, vendor: str, name: str, api_url: str,
                     api_key: str | None, model: str, revision: int, thinking: dict[str, object],
                     billing_access_key: str = "", billing_secret_key: str = "", billing_console_token: str = "", clear_billing: bool = False) -> None:
     from app.services.model_thinking import validate_thinking
@@ -121,7 +126,7 @@ def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str
         encrypted = ""
         billing = ""
         if card_id is not None:
-            row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+            row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ? AND owner_teacher_id = ?", (card_id, owner_id)).fetchone()
             if row is None or row["revision"] != revision:
                 raise ModelConfigConflict("模型卡已被修改或删除，请重新读取")
             encrypted = row["encrypted_api_key"]
@@ -145,8 +150,8 @@ def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str
         now = datetime.now(UTC).isoformat()
         if card_id is None:
             connection.execute(
-                "INSERT INTO audit_model_cards (id, vendor, name, api_url, encrypted_api_key, model, updated_at, thinking_json, encrypted_billing_credentials) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (uuid.uuid4().hex, vendor, name, api_url, encrypted, model, now, thinking_json, billing),
+                "INSERT INTO audit_model_cards (id, vendor, name, api_url, encrypted_api_key, model, updated_at, thinking_json, encrypted_billing_credentials, owner_teacher_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (uuid.uuid4().hex, vendor, name, api_url, encrypted, model, now, thinking_json, billing, owner_id),
             )
         else:
             connection.execute(
@@ -155,10 +160,10 @@ def save_model_card(card_id: str | None, *, vendor: str, name: str, api_url: str
             )
 
 
-def delete_model_card(card_id: str, revision: int) -> None:
+def delete_model_card(card_id: str, revision: int, owner_id: int) -> None:
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
-        row = connection.execute("SELECT revision FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+        row = connection.execute("SELECT revision FROM audit_model_cards WHERE id = ? AND owner_teacher_id = ?", (card_id, owner_id)).fetchone()
         if row is None or row["revision"] != revision:
             raise ModelConfigConflict("模型卡已被修改或删除，请重新读取")
         if connection.execute("SELECT 1 FROM audit_model_bindings WHERE card_id = ?", (card_id,)).fetchone():
@@ -166,17 +171,20 @@ def delete_model_card(card_id: str, revision: int) -> None:
         connection.execute("DELETE FROM audit_model_cards WHERE id = ?", (card_id,))
 
 
-def model_environment(script_id: str) -> dict[str, str]:
+def model_environment(script_id: str, flow_id: str) -> dict[str, str]:
     kind = SCRIPT_PROVIDERS.get(script_id)
     if kind is None:
         return {}
     with get_connection() as connection:
         row = connection.execute(
-            "SELECT c.* FROM audit_model_cards c JOIN audit_model_bindings b ON b.card_id = c.id WHERE b.script_id = ?",
-            (script_id,),
+            """SELECT c.* FROM flows f
+               JOIN audit_model_bindings b ON CAST(b.owner_teacher_id AS TEXT) = f.owner_id
+               JOIN audit_model_cards c ON c.id = b.card_id AND c.owner_teacher_id = b.owner_teacher_id
+               WHERE f.id = ? AND b.script_id = ?""",
+            (flow_id, script_id),
         ).fetchone()
     if row is None:
-        raise RuntimeError("审核模型未配置")
+        raise PublisherModelNotConfigured("流程发布者尚未配置审核模型，请联系发布者配置后重试")
     url_name, key_name, model_name = ENV_NAMES[kind]
     key = _cipher().decrypt(row["encrypted_api_key"].encode()).decode() if row["encrypted_api_key"] else ""
     from app.services.model_thinking import request_thinking_options
@@ -208,39 +216,51 @@ def initialize_model_thinking() -> None:
             ))
 
 
-def script_model_selection(script_id: str) -> dict[str, object] | None:
+def script_model_selection(script_id: str, owner_id: int) -> dict[str, object] | None:
     if script_id not in SCRIPT_PROVIDERS:
         return None
-    state = list_model_connections()
-    binding = next(item for item in state["bindings"] if item["scriptId"] == script_id)
-    return {"cardId": binding["cardId"], "revision": binding["revision"], "cards": state["cards"]}
+    state = list_model_connections(owner_id)
+    binding = next((item for item in state["bindings"] if item["scriptId"] == script_id), None)
+    return {"cardId": binding["cardId"] if binding else "", "revision": binding["revision"] if binding else 0, "cards": state["cards"]}
 
 
-def validate_script_model(connection, script_id: str, card_id: str | None, revision: int | None) -> None:
+def validate_script_model(connection, script_id: str, card_id: str | None, revision: int | None, owner_id: int) -> None:
     if script_id not in SCRIPT_PROVIDERS:
         if card_id is not None or revision is not None:
             raise ValueError("该脚本不使用大模型")
         return
-    row = connection.execute("SELECT * FROM audit_model_bindings WHERE script_id = ?", (script_id,)).fetchone()
-    if row is None or row["revision"] != revision:
+    row = connection.execute("SELECT * FROM audit_model_bindings WHERE script_id = ? AND owner_teacher_id = ?", (script_id, owner_id)).fetchone()
+    if (row["revision"] if row else 0) != revision:
         raise ModelConfigConflict("脚本模型已被修改，请重新读取配置")
-    card = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+    card = connection.execute("SELECT * FROM audit_model_cards WHERE id = ? AND owner_teacher_id = ?", (card_id, owner_id)).fetchone()
     if card is None or not card["api_url"] or not card["encrypted_api_key"] or not card["model"]:
-        raise ValueError("请选择已完整配置的模型卡")
+        raise ValueError("请选择本人已完整配置的模型卡")
 
 
-def save_script_model(connection, script_id: str, card_id: str | None, revision: int | None) -> None:
-    validate_script_model(connection, script_id, card_id, revision)
+def save_script_model(connection, script_id: str, card_id: str | None, revision: int | None, owner_id: int) -> None:
+    validate_script_model(connection, script_id, card_id, revision, owner_id)
     if script_id in SCRIPT_PROVIDERS:
-        connection.execute("UPDATE audit_model_bindings SET card_id = ?, revision = revision + 1 WHERE script_id = ? AND card_id != ?",
-                           (card_id, script_id, card_id))
+        connection.execute("""INSERT INTO audit_model_bindings (owner_teacher_id, script_id, card_id, revision)
+                              VALUES (?, ?, ?, 1)
+                              ON CONFLICT(owner_teacher_id, script_id) DO UPDATE
+                              SET card_id = excluded.card_id, revision = audit_model_bindings.revision + 1
+                              WHERE audit_model_bindings.card_id != excluded.card_id""", (owner_id, script_id, card_id))
 
 
-def query_model_balance(card_id: str, revision: int) -> dict:
+def bind_publisher_model(owner_id: int, script_id: str, card_id: str, revision: int) -> dict[str, object]:
+    if script_id not in SCRIPT_PROVIDERS:
+        raise ValueError("未知审核用途")
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        save_script_model(connection, script_id, card_id, revision, owner_id)
+    return list_model_connections(owner_id)
+
+
+def query_model_balance(card_id: str, revision: int, owner_id: int) -> dict:
     from cryptography.fernet import InvalidToken
     from app.services.model_balance import fetch_balance
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+        row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ? AND owner_teacher_id = ?", (card_id, owner_id)).fetchone()
     if row is None or row["revision"] != revision:
         raise ModelConfigConflict("模型卡已被修改或删除，请刷新后重试")
     capability = balance_capability(row["vendor"], row["api_url"], bool(row["encrypted_billing_credentials"]))
@@ -273,11 +293,11 @@ def initialize_model_billing() -> None:
             connection.execute("ALTER TABLE audit_model_cards ADD COLUMN encrypted_billing_credentials TEXT NOT NULL DEFAULT ''")
 
 
-def test_model_connection(card_id: str, revision: int) -> dict:
+def test_model_connection(card_id: str, revision: int, owner_id: int) -> dict:
     from cryptography.fernet import InvalidToken
     from app.services.model_diagnostics import probe_model
     with get_connection() as connection:
-        row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+        row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ? AND owner_teacher_id = ?", (card_id, owner_id)).fetchone()
     if row is None or row["revision"] != revision:
         raise ModelConfigConflict("模型卡已被修改或删除，请刷新后重试")
     if not row["encrypted_api_key"] or not row["model"]:
@@ -289,13 +309,13 @@ def test_model_connection(card_id: str, revision: int) -> dict:
     return probe_model(row["vendor"], row["api_url"], row["model"], key, json.loads(row["thinking_json"]))
 
 
-def discover_models(card_id: str | None, revision: int, vendor: str, api_url: str, api_key: str) -> list[str]:
+def discover_models(card_id: str | None, revision: int, vendor: str, api_url: str, api_key: str, owner_id: int) -> list[str]:
     from cryptography.fernet import InvalidToken
     from app.services.model_discovery import fetch_models
     key = api_key.strip()
     if card_id:
         with get_connection() as connection:
-            row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ?", (card_id,)).fetchone()
+            row = connection.execute("SELECT * FROM audit_model_cards WHERE id = ? AND owner_teacher_id = ?", (card_id, owner_id)).fetchone()
         if row is None or row["revision"] != revision:
             raise ModelConfigConflict("模型卡已被修改或删除，请刷新后重试")
         if not key:

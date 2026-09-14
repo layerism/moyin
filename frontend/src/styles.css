@@ -12905,3 +12905,7 @@ td {
 .model-name-options > button { display: block; width: 100%; padding: 8px; border: 0; text-align: left; overflow-wrap: anywhere; background: transparent; }
 .model-name-options > button:hover, .model-name-options > button:focus-visible, .model-name-options > button[aria-pressed="true"] { background: #eff6ff; color: #175cd3; }
 .model-name-options > p { margin: 8px; font-size: 12px; color: #667085; }
+
+.model-publisher-bindings { margin-bottom: 18px; padding: 18px; border: 1px solid #dce3ee; border-radius: 12px; background: #fff; }
+.model-publisher-bindings h2 { margin: 0 0 8px; font-size: 18px; }
+.model-publisher-bindings > p { margin: 0 0 14px; color: #667085; font-size: 13px; }

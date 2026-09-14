@@ -32,6 +32,7 @@ export interface ModelBinding {
   revision: number;
 }
 export interface ModelCardsState {
+  scripts: { id: string; name: string }[];
   cards: ModelCard[];
   bindings: ModelBinding[];
 }
@@ -52,6 +53,9 @@ export const modelCardsApi = {
   test: (card: ModelCard) => request<ModelTestResult>(`/cards/${encodeURIComponent(card.id)}/test?revision=${card.revision}`, { method: "POST" }),
   balance: (card: ModelCard) => request<ModelBalance>(`/cards/${encodeURIComponent(card.id)}/balance?revision=${card.revision}`, { cache: "no-store" }),
   list: () => request(""),
+  bind: (scriptId: string, cardId: string, revision: number) => request(`/bindings/${encodeURIComponent(scriptId)}`, {
+    method: "PUT", body: JSON.stringify({ cardId, revision }),
+  }),
   save: (id: string | null, draft: ModelCardDraft) => request(id ? `/cards/${encodeURIComponent(id)}` : "/cards", {
     method: id ? "PUT" : "POST", body: JSON.stringify(draft),
   }),

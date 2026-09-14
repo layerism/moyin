@@ -99,14 +99,14 @@ def list_manageable_audit_scripts() -> list[dict[str, object]]:
     return [_management_summary(record) for record in records]
 
 
-def get_audit_script_config(script_id: str) -> dict[str, object]:
+def get_audit_script_config(script_id: str, owner_id: int) -> dict[str, object]:
     record = find_audit_script(script_id)
     state = _ensure_runtime_state(record)
     return {
         **_designer_response(record),
         "runtimeSettings": [item for item in record.runtime_settings
                             if not (script_id in SCRIPT_PROVIDERS and item["key"] in {"modelName", "thinkingEnabled"})],
-        "modelSelection": script_model_selection(script_id),
+        "modelSelection": script_model_selection(script_id, owner_id),
         "editorHash": record.editor_hash,
         "generation": int(state["generation"]),
         "status": state["status"],
@@ -131,7 +131,7 @@ def update_audit_script_config(
         if record.editor_hash != expected_editor_hash:
             raise AuditScriptConfigConflictError("审核脚本已被其他管理员修改，请重新加载")
         with get_connection() as connection:
-            validate_script_model(connection, script_id, model_card_id, expected_model_revision)
+            validate_script_model(connection, script_id, model_card_id, expected_model_revision, actor_id)
         parameter_keys = {str(item["key"]) for item in record.parameters}
         runtime_settings = dict(runtime_settings)
         if script_id in SCRIPT_PROVIDERS:
@@ -167,8 +167,8 @@ def update_audit_script_config(
         if _canonical_json(next_config) == _canonical_json(config_payload):
             with get_connection() as connection:
                 connection.execute("BEGIN IMMEDIATE")
-                save_script_model(connection, script_id, model_card_id, expected_model_revision)
-            return get_audit_script_config(script_id)
+                save_script_model(connection, script_id, model_card_id, expected_model_revision, actor_id)
+            return get_audit_script_config(script_id, actor_id)
 
         now = utc_now_iso()
         with get_connection() as connection:
@@ -197,7 +197,7 @@ def update_audit_script_config(
             activated = find_audit_script(script_id)
             with get_connection() as connection:
                 connection.execute("BEGIN IMMEDIATE")
-                save_script_model(connection, script_id, model_card_id, expected_model_revision)
+                save_script_model(connection, script_id, model_card_id, expected_model_revision, actor_id)
                 connection.execute(
                     """
                     UPDATE audit_script_runtime_states
@@ -224,7 +224,7 @@ def update_audit_script_config(
             if isinstance(exc, (AuditScriptCatalogError, AuditScriptParameterError, ModelConfigConflict)):
                 raise
             raise AuditScriptWriteError("审核脚本配置激活失败") from exc
-        return get_audit_script_config(script_id)
+        return get_audit_script_config(script_id, actor_id)
 
 
 def synchronize_audit_script_states() -> None:

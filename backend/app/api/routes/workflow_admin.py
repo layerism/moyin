@@ -109,7 +109,7 @@ def get_managed_audit_script_config(
     _teacher: dict[str, object] = Depends(get_current_super_admin),
 ) -> dict[str, object]:
     try:
-        return get_audit_script_config(script_id)
+        return get_audit_script_config(script_id, int(_teacher["id"]))
     except AuditScriptCatalogError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

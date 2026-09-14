@@ -307,7 +307,7 @@ def manual_approve_audit_job(
         return running_job_ids
 
 
-def fail_audit_job(job_id: str, message: str) -> None:
+def fail_audit_job(job_id: str, message: str, *, retry: bool = True) -> None:
     now = datetime.now(UTC)
     now_iso = now.isoformat()
     with get_connection() as connection:
@@ -318,7 +318,7 @@ def fail_audit_job(job_id: str, message: str) -> None:
         if not _audit_write_allowed(connection, job) or not _generation_matches(connection, job):
             return
         attempt_count = int(job["attempt_count"])
-        if attempt_count <= len(RETRY_DELAYS_SECONDS):
+        if retry and attempt_count <= len(RETRY_DELAYS_SECONDS):
             next_attempt = now + timedelta(seconds=RETRY_DELAYS_SECONDS[attempt_count - 1])
             connection.execute(
                 """UPDATE audit_jobs SET status = 'pending', next_attempt_at = ?,

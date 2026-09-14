@@ -31,7 +31,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
     setError("");
     modelCardsApi.list().then(accept).catch((err: unknown) => setError(err instanceof Error ? err.message : "读取失败")).finally(() => setLoading(false));
   };
-  useEffect(() => { if (identity.role === "super_admin") load(); }, [identity.role]);
+  useEffect(() => { if (identity.role === "super_admin" || identity.role === "teacher") load(); }, [identity.id, identity.role]);
   useEffect(() => {
     if (!modalOpen) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -57,8 +57,18 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
     setBusy(true); setEditorError("");
     try {
       accept(await modelCardsApi.save(editor.card?.id ?? null, editor.draft));
-      setEditor(null); setError(""); setNotice("模型卡已保存，对新启动的审核生效。");
+      setEditor(null); setError(""); setNotice("模型卡已保存，请在“我的审核用途”中选择需要使用的模型。");
     } catch (err) { setEditorError(err instanceof Error ? err.message : "保存失败"); }
+    finally { setBusy(false); }
+  };
+  const bindModel = async (scriptId: string, cardId: string) => {
+    if (busy || !data) return;
+    const revision = data.bindings.find((binding) => binding.scriptId === scriptId)?.revision ?? 0;
+    setBusy(true); setError("");
+    try {
+      accept(await modelCardsApi.bind(scriptId, cardId, revision));
+      setNotice("审核用途已更新，你发布的流程将在新启动的审核中使用所选模型。");
+    } catch (err) { setError(err instanceof Error ? err.message : "更新审核用途失败"); }
     finally { setBusy(false); }
   };
   const remove = async () => {
@@ -68,15 +78,26 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
     catch (err) { setEditorError(err instanceof Error ? err.message : "删除失败"); }
     finally { setBusy(false); }
   };
-  if (identity.role !== "super_admin") return <main className="database-admin-denied"><h1>仅超级管理员可访问</h1><button onClick={onBack} type="button">返回</button></main>;
+  if (identity.role !== "super_admin" && identity.role !== "teacher") return <main className="database-admin-denied"><h1>仅发布者可访问</h1><button onClick={onBack} type="button">返回</button></main>;
   return <main className="model-admin-page">
-    <header className="database-admin-header"><div><strong>大模型配置</strong><small>管理模型连接、思考模式与档位</small></div><button disabled={busy} onClick={onBack} type="button">返回教务流程</button></header>
+    <header className="database-admin-header"><div><strong>大模型配置</strong><small>管理自己的模型连接与审核用途</small></div><button disabled={busy} onClick={onBack} type="button">返回教务流程</button></header>
     <div className="model-admin-content">
-      <section className="model-admin-toolbar"><div><h1>模型卡</h1><p>仅支持 OpenAI Chat Completions 格式</p></div><div className="model-admin-actions"><button disabled={busy || loading} onClick={load} type="button">刷新</button><button className="primary-action" disabled={busy || loading} onClick={() => openEditor(null)} type="button"><span aria-hidden="true">＋</span> 新增模型</button></div></section>
+      <section className="model-admin-toolbar"><div><h1>模型卡</h1><p>使用你提供的 API Key，审核费用由对应厂商账户承担。仅支持 OpenAI Chat Completions 格式。</p></div><div className="model-admin-actions"><button disabled={busy || loading} onClick={load} type="button">刷新</button><button className="primary-action" disabled={busy || loading} onClick={() => openEditor(null)} type="button"><span aria-hidden="true">＋</span> 新增模型</button></div></section>
       {error ? <p className="dialog-error" role="alert">{error}</p> : null}
       {notice ? <p className="model-admin-notice" role="status">{notice}</p> : null}
       {loading ? <p role="status">正在读取模型配置…</p> : null}
       {!loading && data?.cards.length === 0 ? <div className="model-admin-empty"><h2>还没有模型卡</h2><p>添加模型连接后，即可供审核脚本选择。</p></div> : null}
+      {data ? <section className="model-publisher-bindings" aria-label="我的审核用途">
+        <h2>我的审核用途</h2>
+        <p>为你发布的流程选择模型。未配置的用途不会调用 AI；补齐配置后可重试审核。</p>
+        <div className="model-editor-name-row">{data.scripts.map((script) => <label className="audit-script-config-field" key={script.id}>{script.name}
+          <select disabled={busy || loading} value={data.bindings.find((binding) => binding.scriptId === script.id)?.cardId ?? ""}
+            onChange={(event) => void bindModel(script.id, event.target.value)}>
+            <option value="" disabled>请选择自己的模型卡</option>
+            {data.cards.map((card) => <option key={card.id} value={card.id} disabled={!card.hasApiKey || !card.apiUrl || !card.model}>{card.name} · {card.model || "未填写型号"}</option>)}
+          </select>
+        </label>)}</div>
+      </section> : null}
       <div className="model-card-grid">
         {data?.cards.map((card) => {
           const consoleUrl = modelConsoleUrl(card);

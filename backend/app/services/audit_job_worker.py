@@ -23,6 +23,7 @@ from app.services.audit_script_parameters import (
     validate_script_params,
     validate_script_settings,
 )
+from app.services.audit_model_connections import PublisherModelNotConfigured
 from app.services.audit_script_runtime import AuditScriptResolutionError, resolve_audit_script
 
 
@@ -99,6 +100,8 @@ async def _worker_loop(stop_event: asyncio.Event) -> None:
                 cancelled=cancellation.is_set,
             )
             await asyncio.to_thread(complete_audit_job, job.id, result)
+        except PublisherModelNotConfigured as exc:
+            await asyncio.to_thread(fail_audit_job, job.id, str(exc), retry=False)
         except AuditScriptExecutionCancelled:
             logger.info("Audit job cancelled: %s", job.id)
         except (AuditScriptResolutionError, AuditScriptParameterError):
