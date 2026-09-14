@@ -2,7 +2,7 @@ import { ModelNamePicker } from "./ModelNamePicker";
 import { ModelCardTest } from "./ModelCardTest";
 import { ModelCardBalance } from "./ModelCardBalance";
 import { VendorLogo } from "./VendorLogo";
-import { ModelThinkingFields, thinkingLabel } from "./ModelThinkingFields";
+import { ModelThinkingFields, thinkingLabel, thinkingProfileKey, type ThinkingProfileCache } from "./ModelThinkingFields";
 import { useEffect, useRef, useState } from "react";
 import type { AuthIdentity } from "../auth/authApi";
 import { MODEL_VENDORS, modelCardsApi, modelConsoleUrl, type ModelCard, type ModelCardDraft, type ModelCardsState, type ModelVendor } from "./modelCardsApi";
@@ -21,7 +21,9 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
   const [deleting, setDeleting] = useState<ModelCard | null>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const modalOpen = editor !== null || deleting !== null;
+  const thinkingCache = useRef<ThinkingProfileCache>(new Map());
   const accept = (state: ModelCardsState) => {
+    for (const card of state.cards) thinkingCache.current.set(thinkingProfileKey(card.vendor, card.model), card.thinkingProfile);
     setData(state);
   };
   const load = () => {
@@ -117,7 +119,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
           </>}
           {editor.card?.vendor === editor.draft.vendor && editor.card.hasBillingCredentials ? <label className="model-billing-clear"><input type="checkbox" disabled={busy} checked={editor.draft.clearBilling} onChange={(event) => setEditor({ ...editor, draft: { ...editor.draft, clearBilling: event.target.checked, billingAccessKey: "", billingSecretKey: "", billingConsoleToken: "" } })} />保存时清除财务凭据</label> : null}
         </section> : null}
-        <ModelThinkingFields vendor={editor.draft.vendor} model={editor.draft.model} value={editor.draft.thinking} disabled={busy} onChange={(thinking) => setEditor({ ...editor, draft: { ...editor.draft, thinking } })} />
+        <ModelThinkingFields cache={thinkingCache.current} vendor={editor.draft.vendor} model={editor.draft.model} value={editor.draft.thinking} disabled={busy} onChange={(thinking) => setEditor({ ...editor, draft: { ...editor.draft, thinking } })} />
         {editorError ? <p className="dialog-error" role="alert">{editorError}</p> : null}
         </div>
         <footer><button type="button" disabled={busy} onClick={() => setEditor(null)}>取消</button><button className="primary-action" type="submit" disabled={busy}>{busy ? "保存中…" : "保存模型卡"}</button></footer>

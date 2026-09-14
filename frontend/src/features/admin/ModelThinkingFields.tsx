@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { modelCardsApi, type ModelThinking, type ModelVendor, type ThinkingProfile } from "./modelCardsApi";
 
+export type ThinkingProfileCache = Map<string, ThinkingProfile | Promise<ThinkingProfile>>;
+export const thinkingProfileKey = (vendor: ModelVendor, model: string) => JSON.stringify([vendor, model.trim().toLowerCase()]);
+
 export function thinkingLabel(value: ModelThinking, profile: ThinkingProfile): string {
   const mode = profile.modeLabels[value.mode];
   if (value.mode !== "on") return mode;
@@ -8,20 +11,43 @@ export function thinkingLabel(value: ModelThinking, profile: ThinkingProfile): s
   if (!profile.efforts.length) return mode;
   return `${mode} · ${value.effort === "default" ? profile.defaultEffortLabel : profile.effortLabels[value.effort] ?? value.effort}`;
 }
-export function ModelThinkingFields({ vendor, model, value, disabled, onChange }: {
-  vendor: ModelVendor; model: string; value: ModelThinking; disabled: boolean; onChange: (value: ModelThinking) => void;
+export function ModelThinkingFields({ vendor, model, value, disabled, onChange, cache }: {
+  cache: ThinkingProfileCache; vendor: ModelVendor; model: string; value: ModelThinking; disabled: boolean; onChange: (value: ModelThinking) => void;
 }) {
-  const [profile, setProfile] = useState<ThinkingProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const key = thinkingProfileKey(vendor, model);
+  const cached = cache.get(key);
+  const [profile, setProfile] = useState<ThinkingProfile | null>(() => cached && !(cached instanceof Promise) ? cached : null);
+  const [loading, setLoading] = useState(() => !cached || cached instanceof Promise);
   const [error, setError] = useState("");
   useEffect(() => {
     let active = true;
-    setLoading(true); setError("");
+    setError("");
+    const existing = cache.get(key);
+    if (existing && !(existing instanceof Promise)) {
+      setProfile(existing); setLoading(false);
+      return;
+    }
+    setLoading(true);
     const timer = window.setTimeout(() => {
-      modelCardsApi.thinkingProfile(vendor, model).then((next) => { if (active) { setProfile(next); setLoading(false); } }).catch(() => { if (active) { setError("读取模型能力失败，请重新输入型号后重试。"); setLoading(false); } });
+      let entry = cache.get(key);
+      if (!entry) {
+        const request = modelCardsApi.thinkingProfile(vendor, model);
+        cache.set(key, request);
+        entry = request;
+        void request.then((next) => {
+          if (cache.get(key) === request) cache.set(key, next);
+        }, () => {
+          if (cache.get(key) === request) cache.delete(key);
+        });
+      }
+      Promise.resolve(entry).then((next) => {
+        if (active) { setProfile(next); setLoading(false); }
+      }).catch(() => {
+        if (active) { setError("读取模型能力失败，请重新输入型号后重试。"); setLoading(false); }
+      });
     }, 200);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [vendor, model]);
+  }, [cache, key, vendor, model]);
   return <section className="model-thinking-settings">
     <h3>思考设置</h3>
     {!profile && !error ? <p>正在匹配模型能力…</p> : null}
