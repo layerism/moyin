@@ -20,13 +20,13 @@ export const nodeTemplates: Array<{
 ];
 
 export const fileTypeRestrictionPresets = [
-  { extensions: "pdf, doc, docx", label: "文字文档（.pdf、.doc、.docx）", value: "document" },
+  { extensions: "pdf, docx", label: "文字文档（.pdf、.docx）", value: "document" },
   {
-    extensions: "pdf, doc, docx, zip",
-    label: "常用材料（.pdf、.doc、.docx、.zip）",
+    extensions: "pdf, docx, zip",
+    label: "常用材料（.pdf、.docx、.zip）",
     value: "common-document",
   },
-  { extensions: "xls, xlsx", label: "表格文档（.xls、.xlsx）", value: "spreadsheet" },
+  { extensions: "xlsx", label: "表格文档（.xlsx）", value: "spreadsheet" },
   { extensions: "ppt, pptx", label: "演示文稿（.ppt、.pptx）", value: "presentation" },
   { extensions: "jpg, jpeg, png", label: "图片文件（.jpg、.jpeg、.png）", value: "image" },
   { extensions: "zip", label: "压缩文件（.zip）", value: "archive" },
@@ -68,7 +68,7 @@ export function createNode(
     auditScriptName: "",
     auditScriptType: "none",
     deadlineAt: null,
-    fileExtensions: kind === "file" ? "pdf, doc, docx, zip" : "",
+    fileExtensions: kind === "file" ? "pdf, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",
     id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     infoFields: [],
