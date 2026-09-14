@@ -2377,6 +2377,20 @@ function NodeInspector({
             </span>
             {timeSettingsLabel}
           </button>
+        {(node.kind === "confirmation" ? node.scanAuditEnabled : node.auditScriptId === "docx-markdown-completion-audit") ? (
+          <NodeModelSelector
+            value={hasPublishedAuditPolicy ? auditModelCardId : node.auditModelCardId ?? null}
+            disabled={hasPublishedAuditPolicy ? !auditPolicy || auditPolicySaving : coreSettingsDisabled}
+            onChange={(cardId) => {
+              if (hasPublishedAuditPolicy) {
+                setAuditPolicyError("");
+                setAuditModelCardId(cardId);
+              } else {
+                onUpdateNode(node.id, { auditModelCardId: cardId ?? undefined });
+              }
+            }}
+          />
+        ) : null}
           {node.startAt || node.deadlineAt ? (
             <small>{getTimeWindowStatus(node)}</small>
           ) : null}
@@ -2637,20 +2651,6 @@ function NodeInspector({
               />
             </section>
           </>
-        ) : null}
-        {(node.kind === "confirmation" ? node.scanAuditEnabled : node.auditScriptId === "docx-markdown-completion-audit") ? (
-          <NodeModelSelector
-            value={hasPublishedAuditPolicy ? auditModelCardId : node.auditModelCardId ?? null}
-            disabled={hasPublishedAuditPolicy ? !auditPolicy || auditPolicySaving : coreSettingsDisabled}
-            onChange={(cardId) => {
-              if (hasPublishedAuditPolicy) {
-                setAuditPolicyError("");
-                setAuditModelCardId(cardId);
-              } else {
-                onUpdateNode(node.id, { auditModelCardId: cardId ?? undefined });
-              }
-            }}
-          />
         ) : null}
         </div>
         <footer className="node-inspector-footer">

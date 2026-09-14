@@ -12907,6 +12907,28 @@ td {
 .model-name-options > p { margin: 8px; font-size: 12px; color: #667085; }
 
 
-.node-model-settings { margin-top: 16px; padding: 14px; border: 1px solid #dce3ee; border-radius: 12px; background: #fff; }
-.node-model-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; font-size: 13px; }
-.node-model-actions a { color: #2563eb; }
+
+.node-model-toggle.is-configured { color: #175cd3; background: #eaf2ff; }
+.node-model-toggle.is-configured .node-model-status { width: 7px; height: 7px; border-radius: 50%; background: #2970ff; }
+.node-model-backdrop { z-index: 80; }
+.node-model-dialog { width: min(520px, calc(100vw - 32px)); }
+.node-model-dialog > header h2 { margin: 0; font-size: 19px; }
+.node-model-dialog > header p { margin: 5px 0 0; color: #667085; font-size: 13px; }
+.node-model-dialog-body { padding: 0 20px 18px; overflow-y: auto; }
+.node-model-actions { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 13px; }
+.node-model-options { margin: 0; padding: 0; border: 0; display: grid; gap: 10px; min-width: 0; }
+.node-model-option { position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid #dce3ee; border-radius: 10px; background: #fff; cursor: pointer; }
+.node-model-option:hover:not(.is-unavailable), .node-model-option.is-selected { border-color: #2970ff; background: #f3f7ff; }
+.node-model-option:focus-within { outline: 2px solid #2970ff; outline-offset: 2px; }
+.node-model-option > input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.node-model-option-copy { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.node-model-option-copy strong { font-size: 14px; }
+.node-model-option-copy small { color: #667085; font-size: 12px; overflow-wrap: anywhere; }
+.node-model-option-check { width: 20px; height: 20px; border: 1px solid #dce3ee; border-radius: 50%; text-align: center; line-height: 18px; font-size: 12px; }
+.node-model-option.is-selected .node-model-option-check { color: white; background: #2970ff; border-color: #2970ff; }
+.node-model-option.is-unavailable { opacity: .55; cursor: default; }
+.node-model-none { display: flex; align-items: center; gap: 8px; padding: 8px 2px; font-size: 13px; color: #667085; }
+.node-model-note, .node-model-empty { color: #667085; font-size: 12px; line-height: 1.7; margin: 12px 0 0; }
+.node-model-dialog > footer { justify-content: flex-end; }
+
+.node-model-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
