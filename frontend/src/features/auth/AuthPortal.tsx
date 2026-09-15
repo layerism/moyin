@@ -36,7 +36,6 @@ export function AuthPortal({
     mode === "login" ? getRememberedAccounts(window.localStorage, role) : [],
   );
   const [historyAnchor, setHistoryAnchor] = useState<"identifier" | "name" | null>(null);
-  const [rememberAccount, setRememberAccount] = useState(mode === "login");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const fieldPrefix = `${role}-${mode}`;
@@ -75,12 +74,10 @@ export function AuthPortal({
           ? await authApi.registerStudent(credentials)
           : await authApi.login(role, credentials);
       if (mode === "login") {
-        if (rememberAccount) {
-          rememberLoginAccount(window.localStorage, role, {
-            identifier: credentials.identifier,
-            name: credentials.name,
-          });
-        }
+        rememberLoginAccount(window.localStorage, role, {
+          identifier: credentials.identifier,
+          name: credentials.name,
+        });
       }
       onAuthenticated(role, identity);
     } catch (reason) {
@@ -205,18 +202,6 @@ export function AuthPortal({
                   value={form.confirm}
                   onChange={(event) => setForm({ ...form, confirm: event.target.value })}
                 />
-              </label>
-            ) : null}
-            {mode === "login" ? (
-              <label className="remember-account-row" htmlFor={`${fieldPrefix}-remember-account`}>
-                <input
-                  checked={rememberAccount}
-                  id={`${fieldPrefix}-remember-account`}
-                  name="remember-account"
-                  onChange={(event) => setRememberAccount(event.target.checked)}
-                  type="checkbox"
-                />
-                <span>记住账号</span>
               </label>
             ) : null}
             {notice ? <p className="role-auth-notice">{notice}</p> : null}
