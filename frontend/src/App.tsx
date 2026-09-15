@@ -1,3 +1,4 @@
+import { ProfilePage } from "./features/auth/ProfilePage";
 import { ModelCardsAdminPage } from "./features/admin/ModelCardsAdminPage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -108,6 +109,9 @@ function getRouteFromPathname(): AppRoute {
   if (pathname === "/academic-flow") {
     return { ...base, authRole: "teacher", screen: "academicFlow" };
   }
+  if (pathname === "/profile") {
+    return { ...base, authRole: "teacher", screen: "profile" };
+  }
   if (pathname === "/admin/models") {
     return { ...base, authRole: "teacher", screen: "adminModels" };
   }
@@ -177,6 +181,7 @@ const STUDENT_AUTHENTICATED_SCREENS: Screen[] = [
 ];
 
 const TEACHER_AUTHENTICATED_SCREENS: Screen[] = [
+  "profile",
   "workflowTemplates",
   "academicFlow",
   "academicFlowDetail",
@@ -423,19 +428,9 @@ export function App() {
     setScreen("academicFlow");
   };
 
-  const openModelAdmin = () => {
-    pushAppPath("/admin/models");
-    setScreen("adminModels");
-  };
-
-  const openDatabaseAdmin = () => {
-    pushAppPath("/admin/database");
-    setScreen("adminDatabase");
-  };
-
-  const openTeacherInvitationsAdmin = () => {
-    pushAppPath("/admin/teacher-invitations");
-    setScreen("teacherInvitationsAdmin");
+  const openProfile = () => {
+    pushAppPath("/profile");
+    setScreen("profile");
   };
 
   const openAcademicProcess = (processId: string) => {
@@ -743,6 +738,10 @@ export function App() {
     return <main className="auth-loading-page"><strong>正在进入学生中心</strong></main>;
   }
 
+  if (screen === "profile") {
+    return <ProfilePage key={teacherIdentity!.id} identity={teacherIdentity!} onBack={openAcademicFlow} onLogout={() => logoutRole("teacher")} />;
+  }
+
   if (screen === "adminModels") {
     return <ModelCardsAdminPage key={teacherIdentity!.id} identity={teacherIdentity!} onBack={openAcademicFlow} />;
   }
@@ -786,9 +785,7 @@ export function App() {
       <OssMaterialLibraryView
         onAcademicFlow={openAcademicFlow}
         onWorkflowTemplates={() => openWorkflowTemplates()}
-        onDatabaseAdmin={openDatabaseAdmin} onModelAdmin={openModelAdmin}
-        onTeacherLogout={() => void logoutRole("teacher")}
-        onTeacherInvitations={openTeacherInvitationsAdmin}
+        onProfile={openProfile}
         teacherIdentity={teacherIdentity!}
       />
     );
@@ -802,9 +799,7 @@ export function App() {
       teacherIdentity={teacherIdentity!}
       onAcademicFlow={openAcademicFlow}
       onOssCloud={openHome}
-      onDatabaseAdmin={openDatabaseAdmin} onModelAdmin={openModelAdmin}
-      onTeacherInvitations={openTeacherInvitationsAdmin}
-      onTeacherLogout={() => void logoutRole("teacher")}
+      onProfile={openProfile}
       onCreated={(flow) => {
         const process = mapServerFlow(flow);
         setAcademicProcesses((current) => [process, ...current]);
@@ -846,12 +841,10 @@ export function App() {
           );
           return renamed;
         }}
-        onDatabaseAdmin={openDatabaseAdmin} onModelAdmin={openModelAdmin}
+        onProfile={openProfile}
         onOssCloud={openHome}
         onWorkflowTemplates={openWorkflowTemplates}
         onOpenProcess={openAcademicProcess}
-        onTeacherLogout={() => void logoutRole("teacher")}
-        onTeacherInvitations={openTeacherInvitationsAdmin}
         teacherIdentity={teacherIdentity!}
       />
     );

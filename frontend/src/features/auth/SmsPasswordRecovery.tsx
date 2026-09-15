@@ -183,3 +183,23 @@ export function PhoneBindingButton({ role }: { role: AuthRole }) {
     }
   }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card" role="dialog" aria-modal="true" aria-label="安全手机号"><div className="sms-dialog-heading"><h2>安全手机号</h2><button type="button" aria-label="关闭" onClick={() => setOpen(false)}>×</button></div>{loading ? <p>正在读取…</p> : error ? <p role="alert">{error}</p> : phone ? <p>已绑定 {phone}，可用于找回密码。更换号码请联系管理员。</p> : <SmsForm role={role} onDone={() => setOpen(false)} />}</section></div>, document.body)}</>;
 }
+
+export function PhoneSecurityPanel({ role }: { role: AuthRole }) {
+  const [phone, setPhone] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true); setError("");
+    call<{ phone: string | null }>(role, "phone").then(data => {
+      if (!cancelled) setPhone(data.phone);
+    }).catch(reason => {
+      if (!cancelled) setError(reason instanceof Error ? reason.message : "读取失败");
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [role, attempt]);
+  if (loading) return <p role="status">正在读取安全设置…</p>;
+  if (error) return <div role="alert"><p>{error}</p><button type="button" onClick={() => setAttempt(value => value + 1)}>重试</button></div>;
+  return phone ? <div className="profile-phone-bound"><strong>已绑定 {phone}</strong><p>可用于找回密码。更换号码请联系管理员核实身份。</p></div> : <><p className="sms-auth-note">绑定手机号后，可通过短信验证找回密码。</p><SmsForm role={role} onDone={() => setAttempt(value => value + 1)} /></>;
+}

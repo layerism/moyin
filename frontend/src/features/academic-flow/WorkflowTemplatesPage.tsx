@@ -9,19 +9,16 @@ import { workflowApi, type ServerFlow, type WorkflowTemplate } from "./api";
 type TemplateDraft = { id?: string; sourceFlowId: string; name: string; description: string };
 
 export function WorkflowTemplatesPage({
-  processes, sourceFlowId, teacherIdentity, onAcademicFlow, onOssCloud,
-  onCreated, onDatabaseAdmin, onModelAdmin, onTeacherInvitations, onTeacherLogout,
+  onProfile, processes, sourceFlowId, teacherIdentity, onAcademicFlow, onOssCloud,
+  onCreated,
 }: {
   processes: AcademicProcess[];
   sourceFlowId: string | null;
+  onProfile: () => void;
   teacherIdentity: AuthIdentity;
   onAcademicFlow: () => void;
   onOssCloud: () => void;
   onCreated: (flow: ServerFlow) => void;
-  onDatabaseAdmin: () => void;
-  onModelAdmin: () => void;
-  onTeacherInvitations: () => void;
-  onTeacherLogout: () => void;
 }) {
   const admin = teacherIdentity.role === "super_admin";
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
@@ -91,7 +88,7 @@ export function WorkflowTemplatesPage({
     <section className="drive-main">
       <header className="drive-topbar">
         <label className="drive-search"><span>⌕</span><input aria-label="搜索流程模板" placeholder="搜索流程模板" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-        <TeacherAccountMenu identity={teacherIdentity} onDatabaseAdmin={onDatabaseAdmin} onModelAdmin={onModelAdmin} onTeacherInvitations={onTeacherInvitations} onLogout={onTeacherLogout} />
+        <TeacherAccountMenu identity={teacherIdentity} onProfile={onProfile} />
       </header>
       <section className="drive-panel workflow-template-panel" aria-label="流程模板">
         <header className="workflow-template-heading">

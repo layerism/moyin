@@ -55,17 +55,12 @@ function pathExists(library: MaterialLibrary, path: MaterialLibraryPath) {
 export function OssMaterialLibraryView({
   onAcademicFlow,
   onWorkflowTemplates,
-  onDatabaseAdmin, onModelAdmin,
-  onTeacherLogout,
-  onTeacherInvitations,
+  onProfile,
   teacherIdentity,
 }: {
   onAcademicFlow: () => void;
   onWorkflowTemplates: () => void;
-  onDatabaseAdmin: () => void;
-  onModelAdmin: () => void;
-  onTeacherLogout: () => void;
-  onTeacherInvitations: () => void;
+  onProfile: () => void;
   teacherIdentity: AuthIdentity;
 }) {
   const [library, setLibrary] = useState<MaterialLibrary | null>(null);
@@ -189,12 +184,7 @@ export function OssMaterialLibraryView({
               value={query}
             />
           </label>
-          <TeacherAccountMenu
-            identity={teacherIdentity}
-            onDatabaseAdmin={onDatabaseAdmin} onModelAdmin={onModelAdmin}
-            onLogout={onTeacherLogout}
-            onTeacherInvitations={onTeacherInvitations}
-          />
+          <TeacherAccountMenu identity={teacherIdentity} onProfile={onProfile} />
         </header>
 
         <section className="drive-panel" aria-label="OSS 学生材料库">

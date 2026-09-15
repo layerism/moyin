@@ -14,28 +14,23 @@ export function AcademicFlowView({
   processes,
   onCreateProcess,
   onCloneProcess,
-  onDatabaseAdmin, onModelAdmin,
   onDeleteProcess,
   onOssCloud,
   onWorkflowTemplates,
   onOpenProcess,
   onRenameProcess,
-  onTeacherLogout,
-  onTeacherInvitations,
+  onProfile,
   teacherIdentity,
 }: {
   processes: AcademicProcess[];
   onCreateProcess: (name: string) => Promise<void> | void;
   onCloneProcess: (source: AcademicProcess, name: string) => Promise<AcademicProcess>;
-  onDatabaseAdmin: () => void;
-  onModelAdmin: () => void;
   onDeleteProcess: (process: AcademicProcess) => Promise<void>;
   onOssCloud: () => void;
   onWorkflowTemplates: (sourceId?: string) => void;
   onOpenProcess: (processId: string) => void;
   onRenameProcess: (process: AcademicProcess, name: string) => Promise<AcademicProcess>;
-  onTeacherLogout: () => void;
-  onTeacherInvitations: () => void;
+  onProfile: () => void;
   teacherIdentity: AuthIdentity;
 }) {
   const [processDialogOpen, setProcessDialogOpen] = useState(false);
@@ -196,12 +191,7 @@ export function AcademicFlowView({
             <span>⌕</span>
             <input placeholder="搜索教务流程" />
           </label>
-          <TeacherAccountMenu
-            identity={teacherIdentity}
-            onDatabaseAdmin={onDatabaseAdmin} onModelAdmin={onModelAdmin}
-            onLogout={onTeacherLogout}
-            onTeacherInvitations={onTeacherInvitations}
-          />
+          <TeacherAccountMenu identity={teacherIdentity} onProfile={onProfile} />
         </header>
 
         <section className="drive-panel academic-flow-panel" aria-label="教务流程">
