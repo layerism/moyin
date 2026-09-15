@@ -11,8 +11,13 @@ router = APIRouter()
 Role = Literal["student", "teacher"]
 
 
-class SendReset(BaseModel):
+class Identify(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
     identifier: str = Field(min_length=1, max_length=32)
+
+
+class SendReset(BaseModel):
+    recoveryToken: str = Field(min_length=32, max_length=64)
     phone: str = Field(pattern=r"^1[3-9][0-9]{9}$")
 
 
@@ -26,7 +31,8 @@ class Verify(BaseModel):
     code: str = Field(pattern=r"^[0-9]{6}$")
 
 
-class Reset(Verify):
+class Reset(BaseModel):
+    resetToken: str = Field(min_length=32, max_length=64)
     newPassword: str = Field(min_length=8, max_length=128)
 
 
@@ -56,13 +62,24 @@ def bind_phone(role: Role, payload: Verify, user: dict = Depends(identity)) -> d
     return {"message": "手机号已绑定，可用于找回密码"}
 
 
+@router.post("/{role}/password-reset/identify")
+def identify_account(role: Role, payload: Identify, request: Request) -> dict:
+    return sms_recovery.identify_account(role, payload.name, payload.identifier,
+        request.client.host if request.client else "unknown")
+
+
+@router.post("/{role}/password-reset/verify")
+def verify_reset_code(role: Role, payload: Verify) -> dict:
+    return sms_recovery.complete(role, "reset", payload.challengeId, payload.code)
+
+
 @router.post("/{role}/password-reset/code")
 def reset_code(role: Role, payload: SendReset, request: Request) -> dict:
     return sms_recovery.send_code(role, "reset", payload.phone,
-        request.client.host if request.client else "unknown", identifier=payload.identifier)
+        request.client.host if request.client else "unknown", recovery_token=payload.recoveryToken)
 
 
 @router.post("/{role}/password-reset/confirm")
 def reset_password(role: Role, payload: Reset) -> dict:
-    sms_recovery.complete(role, "reset", payload.challengeId, payload.code, new_password=payload.newPassword)
+    sms_recovery.reset_password(role, payload.resetToken, payload.newPassword)
     return {"message": "密码已重置，请使用新密码登录"}

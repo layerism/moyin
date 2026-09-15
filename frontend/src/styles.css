@@ -13084,3 +13084,28 @@ td {
 .sms-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .sms-dialog-heading h2 { margin: 0; font-size: 20px; }
 .teacher-account-popover .sms-binding-button { margin: 8px 0; width: 100%; }
+
+.sms-recovery-wizard { padding: 0; overflow: hidden; border-color: #d3def5; }
+.sms-recovery-heading { display: flex; align-items: center; gap: 14px; padding: 24px 28px; background: linear-gradient(115deg, #f0f5ff, #eaf1ff); border-bottom: 1px solid #e5ecfa; }
+.sms-recovery-heading h1 { margin: 0 0 5px; font-size: 23px; }
+.sms-recovery-heading p { margin: 0; font-size: 13px; color: #64748b; }
+.sms-recovery-steps { display: flex; justify-content: space-between; gap: 8px; margin: 0; padding: 22px 28px 0; list-style: none; }
+.sms-recovery-steps li { display: flex; align-items: center; gap: 6px; color: #64748b; font-size: 12px; }
+.sms-recovery-steps li > span { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #edf1f7; flex-shrink: 0; }
+.sms-recovery-steps li[aria-current="step"] { color: #245cbb; font-weight: 700; }
+.sms-recovery-steps li[aria-current="step"] > span { background: #2773f6; color: white; }
+.sms-recovery-steps li.is-complete > span { background: #e9f2ff; color: #245cbb; }
+.sms-recovery-stage { padding: 24px 28px 28px; }
+.sms-recovery-stage h2 { margin: 0 0 8px; font-size: 19px; }
+.sms-recovery-stage h2:focus { outline: none; }
+.sms-recovery-stage .primary-action { width: 100%; min-height: 42px; border: 0; border-radius: 8px; color: white; background: #2773f6; cursor: pointer; }
+.sms-recovery-stage > .primary-action { margin-top: 24px; }
+.sms-recovery-navigation { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; }
+.sms-recovery-navigation button { border: 0; padding: 0; background: none; color: #53647e; font-size: 13px; cursor: pointer; }
+.sms-recovery-navigation button:only-child { margin-left: auto; }
+.sms-recovery-navigation button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 420px) {
+  .sms-recovery-heading, .sms-recovery-stage { padding: 20px; }
+  .sms-recovery-steps { padding: 20px 20px 0; gap: 4px; }
+  .sms-recovery-steps li { gap: 4px; font-size: 11px; }
+}
