@@ -10011,6 +10011,56 @@ button {
   box-shadow: 0 0 0 3px rgb(39 115 246 / 12%);
 }
 
+/* Compact login rows; registration retains its existing layout. */
+.role-auth-form[id$="-login-auth-form"] .role-auth-form-header {
+  margin-bottom: 22px;
+}
+
+.role-auth-form[id$="-login-auth-form"] label:not(.remember-account-row) {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.role-auth-form[id$="-login-auth-form"] label:not(.remember-account-row) > span {
+  margin-bottom: 0;
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.role-auth-form[id$="-login-auth-form"] label:not(.remember-account-row) > span::after {
+  content: "：";
+}
+
+.role-auth-form[id$="-login-auth-form"] input:not([type="checkbox"]) {
+  min-width: 0;
+  min-height: 40px;
+  height: 40px;
+  padding: 8px 12px;
+}
+
+.role-auth-form[id$="-login-auth-form"] .remember-account-row {
+  margin: 0 0 16px 66px;
+}
+
+.role-auth-form[id$="-login-auth-form"] .role-auth-error:empty {
+  display: none;
+}
+
+.role-auth-form[id$="-login-auth-form"] .account-history-picker {
+  left: 66px;
+  top: calc(100% + 4px);
+}
+
+.role-auth-form[id$="-login-auth-form"] .auth-role-footer {
+  margin-top: 20px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
 .account-history-control {
   position: relative;
 }
