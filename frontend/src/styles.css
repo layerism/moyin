@@ -10129,6 +10129,47 @@ button {
   margin-top: 20px;
 }
 
+/* Publisher identity uses a violet accent within the shared login layout. */
+#teacher-login-auth-form {
+  border-color: #ded5f0;
+  box-shadow: 0 18px 46px rgb(76 45 117 / 9%);
+}
+
+#teacher-login-auth-form .role-auth-form-header {
+  border-bottom-color: #e9e0f6;
+  background:
+    radial-gradient(circle at 108% 105%, #e4d6f7 0 72px, transparent 73px),
+    radial-gradient(circle at 96% 122%, #ebe1fa 0 66px, transparent 67px),
+    linear-gradient(115deg, #f7f2fc, #f0e8fa);
+}
+
+#teacher-login-auth-form .role-auth-form-header::before {
+  background: linear-gradient(145deg, #9561d4, #7646b4);
+}
+
+#teacher-login-auth-form input:not([type="checkbox"]) {
+  background: #faf8fc;
+  border-color: #ddd5e9;
+}
+
+#teacher-login-auth-form input:not([type="checkbox"]):focus {
+  background: #fff;
+  border-color: #8754c2;
+  box-shadow: 0 0 0 3px rgb(135 84 194 / 12%);
+}
+
+#teacher-login-auth-form .role-auth-submit:not(:disabled) {
+  background: linear-gradient(105deg, #8c55c7, #7541b3);
+}
+
+#teacher-login-auth-form .role-auth-submit:not(:disabled):hover {
+  box-shadow: 0 8px 18px rgb(117 65 179 / 20%);
+}
+
+#teacher-login-auth-form .role-auth-links button {
+  color: #7541b3;
+}
+
 .account-history-control {
   position: relative;
 }
