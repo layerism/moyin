@@ -314,6 +314,11 @@ export const workflowApi = {
       { method: "POST", body: JSON.stringify(payload) },
     );
   },
+  revokeRosterEntries(serverId: string, entryIds: number[]) {
+    return request<FlowRoster>(`/api/workflows/${encodeURIComponent(serverId)}/roster/revoke`, {
+      method: "POST", body: JSON.stringify({ entryIds }),
+    });
+  },
   revokeRosterEntry(serverId: string, entryId: number) {
     return request<FlowRoster>(
       `/api/workflows/${encodeURIComponent(serverId)}/roster/${entryId}`,

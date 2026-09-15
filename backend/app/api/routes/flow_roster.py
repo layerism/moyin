@@ -8,6 +8,7 @@ from app.repositories.flow_roster import (
     import_roster,
     list_roster,
     revoke_roster_entry,
+    revoke_roster_entries,
 )
 from app.services.security import get_current_teacher
 
@@ -70,3 +71,18 @@ def delete_flow_roster_entry(
         return revoke_roster_entry(flow_id, entry_id, int(teacher["id"]))
     except KeyError as exc:
         raise _not_found() from exc
+
+
+class RevokeRosterRequest(BaseModel):
+    entryIds: list[int] = Field(min_length=1, max_length=5000)
+
+
+@router.post("/{flow_id}/roster/revoke")
+def revoke_flow_roster_entries(flow_id: str, payload: RevokeRosterRequest,
+                              teacher: dict[str, object] = Depends(get_current_teacher)) -> dict[str, object]:
+    try:
+        return revoke_roster_entries(flow_id, payload.entryIds, int(teacher["id"]))
+    except KeyError as exc:
+        raise _not_found() from exc
+    except RosterValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

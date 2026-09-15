@@ -19,6 +19,8 @@ export function FlowRosterDialog({
   const [roster, setRoster] = useState<FlowRoster | null>(null);
   const [parsed, setParsed] = useState<FlowRosterParseResult | null>(null);
   const [fileName, setFileName] = useState("");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [confirmingBatch, setConfirmingBatch] = useState(false);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -47,13 +49,32 @@ export function FlowRosterDialog({
 
   const visibleEntries = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return roster?.entries ?? [];
-    return (roster?.entries ?? []).filter(
+    const active = (roster?.entries ?? []).filter((entry) => entry.status === "active");
+    if (!normalizedQuery) return active;
+    return active.filter(
       (entry) =>
         entry.name.toLowerCase().includes(normalizedQuery) ||
         entry.studentNo.toLowerCase().includes(normalizedQuery),
     );
   }, [query, roster]);
+
+  const selectedEntries = visibleEntries.filter((entry) => selectedIds.includes(entry.id));
+  const allSelected = visibleEntries.length > 0 && selectedEntries.length === visibleEntries.length;
+  const toggleEntry = (id: number) => {
+    setConfirmingBatch(false);
+    setSelectedIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  };
+  const revokeSelected = async () => {
+    if (busy || !selectedEntries.length) return;
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const next = await workflowApi.revokeRosterEntries(flowId, selectedEntries.map((entry) => entry.id));
+      setRoster(next); onRosterChange(next); setHasRosterChanges(true);
+      setNotice(`已移除 ${selectedEntries.length} 名学生的流程访问权限`);
+      setSelectedIds([]); setConfirmingBatch(false); setConfirmingEntryId(null);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "批量移除失败"); }
+    finally { setBusy(false); }
+  };
 
   const requestClose = () => {
     if (busy) return;
@@ -90,6 +111,8 @@ export function FlowRosterDialog({
         sourceFileName: fileName,
       });
       setRoster(next);
+      setSelectedIds([]);
+      setConfirmingBatch(false);
       onRosterChange(next);
       setHasRosterChanges(true);
       setParsed(null);
@@ -117,6 +140,8 @@ export function FlowRosterDialog({
         sourceFileName: "手动录入",
       });
       setRoster(next);
+      setSelectedIds([]);
+      setConfirmingBatch(false);
       onRosterChange(next);
       setHasRosterChanges(true);
       setManualStudentNo("");
@@ -143,6 +168,8 @@ export function FlowRosterDialog({
     try {
       const next = await workflowApi.revokeRosterEntry(flowId, entry.id);
       setRoster(next);
+      setSelectedIds([]);
+      setConfirmingBatch(false);
       onRosterChange(next);
       setHasRosterChanges(true);
       setConfirmingEntryId(null);
@@ -276,12 +303,13 @@ export function FlowRosterDialog({
         <div className="flow-roster-toolbar">
           <div>
             <strong>{roster?.activeCount ?? 0}</strong><span>有效</span>
-            <strong>{roster?.revokedCount ?? 0}</strong><span>已移除</span>
+            <span>已选 {selectedEntries.length} 人</span>
+            {confirmingBatch ? <span className="flow-roster-confirm"><button disabled={busy || confirmingClose} onClick={() => setConfirmingBatch(false)}>取消</button><button disabled={busy || confirmingClose || !selectedEntries.length} onClick={() => void revokeSelected()}>确认移除 {selectedEntries.length} 人</button></span> : <button className="flow-roster-bulk-remove" disabled={busy || confirmingClose || !selectedEntries.length} onClick={() => { setConfirmingEntryId(null); setConfirmingBatch(true); }}>批量移除</button>}
           </div>
           <input
             aria-label="搜索学生名单"
-            disabled={confirmingClose}
-            onChange={(event) => setQuery(event.target.value)}
+            disabled={busy || confirmingClose}
+            onChange={(event) => { setQuery(event.target.value); setSelectedIds([]); setConfirmingBatch(false); }}
             placeholder="搜索姓名或学号"
             value={query}
           />
@@ -289,10 +317,11 @@ export function FlowRosterDialog({
 
         <div className="flow-roster-table-wrap">
           <table className="flow-roster-table">
-            <thead><tr><th>学号</th><th>姓名</th><th>状态</th><th>操作</th></tr></thead>
+            <thead><tr><th className="flow-roster-selection"><input type="checkbox" aria-label="全选当前筛选结果" disabled={busy || confirmingClose || !visibleEntries.length} checked={allSelected} ref={(input) => { if (input) input.indeterminate = selectedEntries.length > 0 && !allSelected; }} onChange={() => { setConfirmingBatch(false); setSelectedIds(allSelected ? [] : visibleEntries.map((entry) => entry.id)); }} /></th><th>学号</th><th>姓名</th><th>状态</th><th>操作</th></tr></thead>
             <tbody>
               {visibleEntries.map((entry) => (
                 <tr key={entry.id}>
+                  <td className="flow-roster-selection"><input type="checkbox" aria-label={`选择 ${entry.name}（${entry.studentNo}）`} checked={selectedIds.includes(entry.id)} disabled={busy || confirmingClose} onChange={() => toggleEntry(entry.id)} /></td>
                   <td>{entry.studentNo}</td>
                   <td>{entry.name}</td>
                   <td><span className={`roster-status ${entry.status}`}>{entry.status === "active" ? "有效" : "已移除"}</span></td>
@@ -316,7 +345,7 @@ export function FlowRosterDialog({
                       ) : (
                         <button
                           disabled={busy || confirmingClose}
-                          onClick={() => setConfirmingEntryId(entry.id)}
+                          onClick={() => { setConfirmingBatch(false); setConfirmingEntryId(entry.id); }}
                         >
                           移除
                         </button>

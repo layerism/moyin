@@ -181,51 +181,56 @@ def import_roster(
     return {**result, "summary": summary}
 
 
-def revoke_roster_entry(
-    flow_id: str, entry_id: int, teacher_id: int
-) -> dict[str, object]:
+def revoke_roster_entry(flow_id: str, entry_id: int, teacher_id: int) -> dict[str, object]:
+    return revoke_roster_entries(flow_id, [entry_id], teacher_id)
+
+
+def revoke_roster_entries(flow_id: str, entry_ids: list[int], teacher_id: int) -> dict[str, object]:
+    if not entry_ids or len(entry_ids) > 5000:
+        raise RosterValidationError("每次请选择 1–5000 名学生")
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         _ensure_owned_flow(connection, flow_id, teacher_id)
-        existing = connection.execute(
-            """
-            SELECT student_no, name, status FROM flow_roster_entries
-            WHERE id = ? AND flow_id = ?
-            """,
-            (entry_id, flow_id),
-        ).fetchone()
-        if existing is None:
-            raise KeyError(entry_id)
-        if existing["status"] != "revoked":
-            connection.execute(
+        for entry_id in dict.fromkeys(entry_ids):
+            existing = connection.execute(
                 """
-                UPDATE flow_roster_entries
-                SET status = 'revoked', updated_at = ?, updated_by = ?
-                WHERE id = ?
+                SELECT student_no, name, status FROM flow_roster_entries
+                WHERE id = ? AND flow_id = ?
                 """,
-                (now, str(teacher_id), entry_id),
-            )
-            connection.execute(
-                """
-                INSERT INTO audit_logs
-                    (actor_id, action, entity_type, entity_id, before_data, after_data, created_at)
-                VALUES (?, 'roster_revoke', 'flow_roster', ?, ?, ?, ?)
-                """,
-                (
-                    str(teacher_id),
-                    f"{flow_id}:{entry_id}",
-                    json.dumps(dict(existing), ensure_ascii=False, sort_keys=True),
-                    json.dumps(
-                        {
-                            "name": existing["name"],
-                            "status": "revoked",
-                            "student_no": existing["student_no"],
-                        },
-                        ensure_ascii=False,
-                        sort_keys=True,
+                (entry_id, flow_id),
+            ).fetchone()
+            if existing is None:
+                raise KeyError(entry_id)
+            if existing["status"] != "revoked":
+                connection.execute(
+                    """
+                    UPDATE flow_roster_entries
+                    SET status = 'revoked', updated_at = ?, updated_by = ?
+                    WHERE id = ?
+                    """,
+                    (now, str(teacher_id), entry_id),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO audit_logs
+                        (actor_id, action, entity_type, entity_id, before_data, after_data, created_at)
+                    VALUES (?, 'roster_revoke', 'flow_roster', ?, ?, ?, ?)
+                    """,
+                    (
+                        str(teacher_id),
+                        f"{flow_id}:{entry_id}",
+                        json.dumps(dict(existing), ensure_ascii=False, sort_keys=True),
+                        json.dumps(
+                            {
+                                "name": existing["name"],
+                                "status": "revoked",
+                                "student_no": existing["student_no"],
+                            },
+                            ensure_ascii=False,
+                            sort_keys=True,
+                        ),
+                        now,
                     ),
-                    now,
-                ),
-            )
+                )
         return _roster_payload(connection, flow_id)

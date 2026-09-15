@@ -12941,3 +12941,8 @@ td {
 
 .node-reference-heading { flex: none; font-size: 12px; color: #34435c; }
 .node-reference-card > .node-file-template-upload { flex: 1; min-width: 0; }
+
+.flow-roster-selection { width: 36px; text-align: center; }
+.flow-roster-selection input { width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer; }
+.flow-roster-toolbar .flow-roster-bulk-remove { padding: 6px 10px; border: 1px solid #fda29b; border-radius: 6px; color: #b42318; background: #fff; }
+.flow-roster-toolbar .flow-roster-bulk-remove:disabled { opacity: .45; cursor: default; }
