@@ -498,6 +498,8 @@ def get_connection() -> sqlite3.Connection:
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA)
+        from app.services.sms_recovery import initialize_sms_schema
+        initialize_sms_schema(connection)
         _apply_super_admin_role_migration(connection)
         _apply_teacher_invitation_migration(connection)
         _apply_student_password_change_migration(connection)

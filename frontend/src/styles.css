@@ -12946,3 +12946,23 @@ td {
 .flow-roster-selection input { width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer; }
 .flow-roster-toolbar .flow-roster-bulk-remove { padding: 6px 10px; border: 1px solid #fda29b; border-radius: 6px; color: #b42318; background: #fff; }
 .flow-roster-toolbar .flow-roster-bulk-remove:disabled { opacity: .45; cursor: default; }
+
+/* Shared phone binding and password recovery. */
+.sms-recovery-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f5f7fb; }
+.sms-recovery-card { width: min(100%, 440px); padding: 28px; border: 1px solid #dce3ef; border-radius: 16px; background: white; color: #172033; box-shadow: 0 16px 50px #17203312; }
+.sms-recovery-card h1 { margin: 12px 0; font-size: 26px; }
+.sms-auth-form { display: grid; gap: 16px; margin-top: 24px; }
+.sms-auth-form label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.sms-auth-form input { width: 100%; min-width: 0; border: 1px solid #ccd6e5; border-radius: 7px; padding: 10px 12px; background: white; }
+.sms-auth-form input:focus { outline: 2px solid #2970ff; outline-offset: 1px; }
+.sms-code-row { display: flex; gap: 10px; }
+.sms-code-row input { flex: 1; }
+.sms-code-row button, .sms-binding-button, .sms-dialog-heading button { border: 1px solid #d5deec; border-radius: 7px; background: #f8faff; padding: 8px 12px; white-space: nowrap; color: #245cbb; cursor: pointer; }
+.sms-auth-form button:disabled { opacity: .5; cursor: not-allowed; }
+.sms-auth-note { color: #64748b; font-size: 13px; line-height: 1.6; margin: 0; }
+.sms-back { display: block; margin: 20px auto 0; border: 0; background: none; color: #53647e; cursor: pointer; }
+.sms-binding-backdrop { position: fixed; inset: 0; z-index: 3000; display: grid; place-items: center; padding: 20px; background: #17203366; }
+.sms-binding-backdrop .sms-recovery-card { max-height: 90vh; overflow-y: auto; }
+.sms-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.sms-dialog-heading h2 { margin: 0; font-size: 20px; }
+.teacher-account-popover .sms-binding-button { margin: 8px 0; width: 100%; }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { AuthIdentity } from "./authApi";
+import { PhoneBindingButton } from "./SmsPasswordRecovery";
 
 export function TeacherAccountMenu({
   identity,
@@ -66,6 +67,7 @@ export function TeacherAccountMenu({
               </button>
             </div>
           ) : null}
+          <PhoneBindingButton role="teacher" />
           <button className="teacher-account-logout" onClick={onLogout} type="button">
             退出登录
           </button>

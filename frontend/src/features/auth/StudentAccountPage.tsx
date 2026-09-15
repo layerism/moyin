@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { AuthIdentity, StudentFlowSummary } from "./authApi";
 import { authApi } from "./authApi";
+import { PhoneBindingButton } from "./SmsPasswordRecovery";
 
 export function StudentAccountPage({
   identity,
@@ -36,7 +37,7 @@ export function StudentAccountPage({
     <main className="student-account-page">
       <header>
         <div><span className="oa-brand-mark">OA</span><strong>学生流程中心</strong></div>
-        <div><span>{identity.name}</span><small>{identity.studentNo}</small><button onClick={onLogout}>退出登录</button></div>
+        <div><span>{identity.name}</span><small>{identity.studentNo}</small><PhoneBindingButton role="student" /><button onClick={onLogout}>退出登录</button></div>
       </header>
       <section className="student-account-main">
         <div className="student-account-heading">

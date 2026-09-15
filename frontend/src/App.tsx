@@ -15,8 +15,9 @@ import { AcademicFlowView } from "./features/home/HomeView";
 import { OssMaterialLibraryView } from "./features/home/OssMaterialLibraryView";
 import { TopBar } from "./features/workspace/TopBar";
 import { LoginView, PasswordChangeView, PasswordResetView } from "./features/auth/AuthViews";
-import { AuthPortal, ForgotPasswordPlaceholder } from "./features/auth/AuthPortal";
+import { AuthPortal } from "./features/auth/AuthPortal";
 import { FreshLoginPortal } from "./features/auth/FreshLoginPortal";
+import { SmsPasswordRecovery } from "./features/auth/SmsPasswordRecovery";
 import { StudentAccountPage } from "./features/auth/StudentAccountPage";
 import { StudentAccessGate } from "./features/auth/StudentAccessGate";
 import { StudentPasswordChangeForm } from "./features/auth/StudentPasswordChangeForm";
@@ -670,7 +671,7 @@ export function App() {
 
   if (screen === "authForgot") {
     return (
-      <ForgotPasswordPlaceholder
+      <SmsPasswordRecovery
         role={authRole}
         onBack={() => navigateAuth("login", authRole)}
       />
