@@ -2581,7 +2581,7 @@ function NodeInspector({
                 <small>文件节点</small>
               </header>
               <div className="node-file-template-row">
-                <strong className="node-file-material-label">模板</strong>
+                <strong className="node-file-material-label">文件模板</strong>
                 {node.templateAsset ? (
                   <div className="node-template-file node-file-template-file">
                     <span aria-hidden="true" className="node-template-file-icon">
