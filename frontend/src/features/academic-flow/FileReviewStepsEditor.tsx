@@ -73,7 +73,7 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
             fileReviewSteps: steps.filter((item) => item !== step),
           })}>×</button>
         </div></header>
-        {step === "ai" ? <AuditScriptSelector {...props} selectionRequired onChange={(patch) => onChange({ ...patch, ...(!disabled ? { fileReviewSteps: steps } : {}) })} /> : <div className="file-review-assignee"><span>审核人</span><div><strong>流程发布者本人</strong><small>评语必填 · 支持上传审核材料</small></div></div>}
+        {step === "ai" ? <AuditScriptSelector {...props} selectionRequired onChange={(patch) => onChange({ ...patch, ...(!disabled ? { fileReviewSteps: steps } : {}) })} /> : null}
       </div>
     </li>)}</ol>
     <p className={`file-review-status${steps.length ? " has-steps" : ""}`}><span aria-hidden="true">ⓘ</span>{!steps.length ? "未添加审核，提交后自动通过。" : "任一步退回后暂停后续审核；重新提交从第一步开始。"}</p>

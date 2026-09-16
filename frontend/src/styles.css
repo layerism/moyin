@@ -13305,7 +13305,7 @@ td {
 .file-review-add-options button { display: flex; align-items: center; gap: 10px; padding: 10px; border: 0; border-radius: 6px; background: #fff; text-align: left; cursor: pointer; color: #253044; }
 .file-review-add-options button:hover { background: #f2f6ff; }
 .file-review-add-options strong { font-size: 13px; }
-.file-review-add-options small, .file-review-step-title small, .file-review-assignee small { display: block; margin-top: 4px; }
+.file-review-add-options small, .file-review-step-title small { display: block; margin-top: 4px; }
 .file-review-type-icon { width: 32px; height: 32px; font-size: 21px; }
 .file-review-steps ol { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .file-review-steps ol:empty { display: none; }
@@ -13318,7 +13318,6 @@ td {
 .file-review-step-actions { display: flex; gap: 4px; }
 .file-review-step-actions button { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 5px; background: #f4f6fa; color: #64748b; cursor: pointer; }
 .file-review-step-actions button:hover:not(:disabled) { background: #e9effa; }
-.file-review-assignee { display: flex; align-items: baseline; gap: 16px; padding: 9px 10px; border: 1px solid #e1e7ef; border-radius: 6px; font-size: 12px; color: #34435c; }
 .file-review-step-body .audit-script-selector-row { grid-template-columns: minmax(0, 1fr) auto; padding: 0; border: 0; }
 .file-review-step-body .audit-script-selector-row > .node-file-material-label { display: none; }
 .file-review-step-body .audit-script-lock { grid-column: 1 / -1; }
