@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { AcademicFlowNode } from "../../types";
-import { AuditScriptConfigForm } from "./AuditScriptConfigForm";
 import { workflowApi } from "./api";
 import {
   getAuditScriptOptions,
@@ -152,7 +151,6 @@ export function AuditScriptSelector({
             );
           })}
         </div> : <p>此脚本没有可配置的节点参数。</p>}
-        {selectedScript ? <section className="node-script-runtime-summary"><p>以下为脚本全局运行参数，仅供查看；修改请前往审核脚本管理。</p><AuditScriptConfigForm concurrency={<label className="audit-script-config-field"><span>最大并发数</span><input disabled type="number" value={selectedScript.maxConcurrency} /></label>} expanded disabled errors={{}} onSettingChange={() => {}} runtimeSettings={selectedScript.runtimeSettings} settingValues={Object.fromEntries(selectedScript.runtimeSettings.map((item) => [item.key, item.value]))} /></section> : null}
         </div>
         <footer><small>确认后应用到当前节点，点击节点“完成”后按现有规则保存。</small><div><button type="button" onClick={() => dialogRef.current?.close()}>取消</button><button className="primary-action" type="button" disabled={parameterDisabled || invalid} onClick={() => { onChange({ auditScriptParams: draft }); dialogRef.current?.close(); }}>确认配置</button></div></footer>
       </dialog>

@@ -13211,7 +13211,7 @@ td {
 
 .profile-embedded .database-admin-page { height: max(520px, calc(100dvh - 230px)); border-radius: 12px; }
 
-/* Node-specific script editor; global runtime settings remain read-only. */
+/* Node-specific script editor. */
 .node-script-config-toggle { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #bad0ff; border-radius: 8px; background: #edf4ff; color: #2468e8; cursor: pointer; }
 .node-script-config-toggle:hover { background: #dfeaff; }
 .node-script-config-toggle:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
@@ -13227,8 +13227,6 @@ td {
 .node-script-config-body .audit-script-parameters { border: 0; padding: 0; gap: 20px; }
 .node-script-config-body .audit-script-parameter > span:first-child { font-size: 15px; font-weight: 600; }
 .node-script-config-body .audit-script-long-text-input > textarea { box-sizing: border-box; width: 100%; min-height: 400px; padding: 16px 16px 32px; font-size: 14px; line-height: 1.8; }
-.node-script-runtime-summary { margin-top: 24px; border-top: 1px solid #e5ebf3; padding-top: 16px; }
-.node-script-runtime-summary > p { color: #667085; font-size: 12px; }
 .node-script-config-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 26px; border-top: 1px solid #e5ebf3; background: #fafbfe; flex-shrink: 0; }
 .node-script-config-dialog footer small { color: #667085; font-size: 12px; max-width: 60%; }
 .node-script-config-dialog footer > div { display: flex; gap: 10px; }
