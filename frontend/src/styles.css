@@ -13347,3 +13347,13 @@ td {
 
 .file-review-add-options small { color: #667085; font-size: 11px; }
 .file-review-add-options button:focus-visible { outline: 2px solid #2670ef; outline-offset: -2px; }
+
+/* Keep template upload and selected-file content on the same columns. */
+.node-file-template-row { grid-template-columns: 48px minmax(0, 1fr); gap: 12px; padding: 8px 10px; }
+.node-file-template-file { grid-template-columns: 24px minmax(0, 1fr) auto; gap: 7px; }
+.node-file-template-file > .node-template-file-icon { width: 24px; height: 24px; font-size: 7px; }
+.node-file-template-file .node-template-file-copy { overflow: hidden; }
+.node-file-template-file .node-template-file-copy > strong { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 760px) {
+  .node-file-template-file { grid-template-columns: 24px minmax(0, 1fr); }
+}
