@@ -13039,7 +13039,32 @@ td {
 .runtime-branch-options label.selected { border-color: #2563eb; background: #eff6ff; }
 .runtime-branch-options input { width: 16px; height: 16px; accent-color: #2563eb; }
 .runtime-branch-options small { color: #64748b; }
-.runtime-branch-summary { padding: 18px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; }
+.runtime-branch-completed-dialog { border-radius: 16px; }
+.runtime-branch-completed-dialog > header { padding: 26px 28px 22px; }
+.runtime-branch-completed-dialog > header h2 { margin: 0 0 8px; font-size: 22px; }
+.runtime-branch-completed-dialog > header button { border: 0; }
+.runtime-branch-completed-dialog > header .runtime-branch-requirement { margin-top: 8px; }
+.runtime-branch-result { padding: 24px 28px 26px; }
+.runtime-branch-approved { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 18px; padding: 3px 9px; border-radius: 6px; background: #edf8f1; color: #21804b; font-size: 12px; }
+.runtime-branch-summary { display: flex; align-items: center; gap: 16px; padding: 20px; background: #f5f8ff; border: 1px solid #d9e5ff; border-radius: 10px; }
+.runtime-branch-summary svg, .runtime-branch-locked svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.runtime-branch-icon { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid #e0e9fb; border-radius: 10px; background: #fff; color: #2563eb; }
+.runtime-branch-selection { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.runtime-branch-selection > span { color: #68768c; font-size: 12px; }
+.runtime-branch-selection > strong { color: #203b70; font-size: 20px; font-weight: 600; }
+.runtime-branch-check { margin-left: auto; color: #2563eb; }
+.runtime-branch-submitted { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; margin-top: 18px; color: #697386; font-size: 12px; font-variant-numeric: tabular-nums; }
+.runtime-branch-locked { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; color: #697386; font-size: 12px; }
+.runtime-branch-locked svg { width: 13px; height: 13px; }
+.runtime-branch-footer { display: flex; justify-content: flex-end; padding: 16px 28px; border-top: 1px solid #edf0f4; }
+.runtime-branch-footer .primary-action { padding: 8px 22px; border: 1px solid #2563eb; border-radius: 7px; background: #2563eb; color: #fff; font: inherit; cursor: pointer; }
+.runtime-branch-footer .primary-action:hover { background: #1d4ed8; }
+@media (max-width: 440px) {
+  .runtime-branch-completed-dialog > header, .runtime-branch-result { padding: 20px; }
+  .runtime-branch-footer { padding: 14px 20px; }
+  .runtime-branch-summary { padding: 16px; gap: 12px; }
+  .runtime-branch-selection > strong { font-size: 18px; }
+}
 .student-topology-node[data-node-kind="branch"] > strong { display: flex; align-items: center; gap: 8px; }
 .student-topology-node[data-node-kind="branch"] > strong svg { flex-shrink: 0; }
 .student-topology-node.skipped { background: #f8fafc; border-color: #dce2eb; color: #94a3b8; box-shadow: none; }

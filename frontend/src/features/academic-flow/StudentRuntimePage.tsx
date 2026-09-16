@@ -487,6 +487,7 @@ function RuntimeNodeDialog({
     && runtime.status === "expired"
     && Object.keys(runtime.submission).length > 0;
   const readonly = (runtime.status === "approved" || expiredAnswerSheetSubmission) && !writable;
+  const completedBranch = readonly && node.kind === "branch";
   const completionLabel = expiredAnswerSheetSubmission
     ? "已截止 · 最后一次提交"
     : approvedForm ? "已完成 · 当前通过内容" : "已完成 · 提交内容已锁定";
@@ -662,15 +663,16 @@ function RuntimeNodeDialog({
     <div className="runtime-node-dialog-backdrop" onMouseDown={onClose}>
       <section
         aria-modal="true"
-        className={`runtime-node-dialog ${runtime.status}`}
+        className={`runtime-node-dialog ${runtime.status}${completedBranch ? " runtime-branch-completed-dialog" : ""}`}
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
         <header>
           <div>
-            <span>{statusLabels[runtime.status]}</span>
+            {completedBranch ? null : <span>{statusLabels[runtime.status]}</span>}
             <h2>{node.title}</h2>
-            <p>{node.requirement}</p>
+            <p>{completedBranch ? "分支选择已完成，可返回流程查看对应任务。" : node.requirement}</p>
+            {completedBranch && node.requirement && node.requirement !== "请选择一个分支，提交后将开放对应任务，选择不可更改。" ? <p className="runtime-branch-requirement">{node.requirement}</p> : null}
             {node.kind === "answer_sheet" ? (
               <div className="runtime-answer-sheet-header-meta">
                 <span>
@@ -722,7 +724,20 @@ function RuntimeNodeDialog({
           {runtime.manualReview && !runtime.sourceReviews?.length ? <small>审核时间：{formatDateTime(runtime.manualReview.reviewedAt)}</small> : null}
           <ManualFeedbackList feedback={runtime.feedback ?? []} sources={runtime.sourceReviews ?? []} student />
           {onPreviewReview ? <button onClick={onPreviewReview} type="button">教师预览：模拟审核</button> : null}
-        </section> : readonly ? (
+        </section> : completedBranch ? (
+          <>
+            <div className="runtime-branch-result">
+              <span className="runtime-branch-approved"><span aria-hidden="true">✓</span> 已通过</span>
+              <ReadonlySubmission instanceId={instanceId} node={node} payload={displayedPayload} submittedAt={runtime.submittedAt} />
+              <div className="runtime-branch-submitted"><span>提交时间</span><span>{formatDateTime(runtime.submittedAt)}</span></div>
+              <p className="runtime-branch-locked">
+                <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+                提交内容已锁定，分支不可更改
+              </p>
+            </div>
+            <footer className="runtime-branch-footer"><button className="primary-action" onClick={onClose} type="button">返回流程</button></footer>
+          </>
+        ) : readonly ? (
           <>
             {answerSheetGradeCompletion ? null : (
               <section className="runtime-completion-banner">
@@ -1084,7 +1099,15 @@ function ReadonlySubmission({
       />
     );
   }
-  if (node.kind === "branch") return <div className="runtime-branch-summary"><strong>已选择：{node.branches?.find((option) => option.id === payload.branchId)?.label ?? "未选择"}</strong></div>;
+  if (node.kind === "branch") return (
+    <div className="runtime-branch-summary">
+      <span className="runtime-branch-icon" aria-hidden="true">
+        <svg fill="none" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="5" r="2" /><path d="M6 7v10M18 7a9 9 0 0 1-9 9H6" /></svg>
+      </span>
+      <div className="runtime-branch-selection"><span>已选择的分支</span><strong>{node.branches?.find((option) => option.id === payload.branchId)?.label ?? "未选择"}</strong></div>
+      <svg className="runtime-branch-check" aria-hidden="true" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></svg>
+    </div>
+  );
   if (node.kind === "form") {
     return <ReadonlyFormFields fields={node.infoFields} payload={payload} />;
   }
