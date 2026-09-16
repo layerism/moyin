@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AcademicFlowNode } from "../../types";
+import { AuditScriptConfigForm } from "./AuditScriptConfigForm";
 import { workflowApi } from "./api";
 import {
   getAuditScriptOptions,
@@ -26,6 +27,10 @@ export function AuditScriptSelector({
 }) {
   const [scripts, setScripts] = useState<AuditScriptSummary[]>([]);
   const [error, setError] = useState("");
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const [draft, setDraft] = useState<Record<string, string | number | boolean>>({});
+
+  useEffect(() => { dialogRef.current?.close(); }, [node.id, node.auditScriptId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,10 +54,13 @@ export function AuditScriptSelector({
   );
   const parameterDefinitions = parameters ?? selectedScript?.parameters ?? [];
   const updateParameter = (key: string, value: string | number | boolean) => {
-    onChange({
-      auditScriptParams: { ...(node.auditScriptParams ?? {}), [key]: value },
-    });
+    setDraft((current) => ({ ...current, [key]: value }));
   };
+  const openConfig = () => {
+    setDraft({ ...Object.fromEntries(parameterDefinitions.map((item) => [item.key, item.default])), ...node.auditScriptParams });
+    dialogRef.current?.showModal();
+  };
+  const invalid = parameterDefinitions.some((item) => getAuditScriptParameterError(item, draft[item.key] ?? item.default));
 
   return (
     <div className="audit-script-section">
@@ -70,14 +78,19 @@ export function AuditScriptSelector({
             </option>
           ))}
         </select>
+        {selectedValue ? <button className="node-script-config-toggle" type="button" aria-label="审核脚本配置" title="审核脚本配置" aria-haspopup="dialog" onClick={openConfig}>
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m9 3-.6 2.3-2 .9-2.2-.6-2 3.4 1.6 1.7v2.6L2.2 15l2 3.4 2.2-.6 2 .9L9 21h4l.6-2.3 2-.9 2.2.6 2-3.4-1.6-1.7v-2.6L19.8 9l-2-3.4-2.2.6-2-.9L13 3Z"/><circle cx="11" cy="12" r="3"/></svg>
+        </button> : null}
         {disabled && selectedValue ? (
           <small className="audit-script-lock">🔒 脚本固化</small>
         ) : null}
       </div>
-      {parameterDefinitions.length ? (
-        <div className="audit-script-parameters">
+      <dialog ref={dialogRef} className="node-script-config-dialog" aria-labelledby="node-script-config-title" onKeyDown={(event) => event.stopPropagation()} onCancel={(event) => { event.preventDefault(); dialogRef.current?.close(); }}>
+        <header><div><h2 id="node-script-config-title">审核脚本配置</h2><p>{selectedScript?.name ?? node.auditScriptName}</p></div><button type="button" aria-label="关闭脚本配置" onClick={() => dialogRef.current?.close()}>×</button></header>
+        <div className="node-script-config-body">
+        {parameterDefinitions.length ? <div className="audit-script-parameters">
           {parameterDefinitions.map((parameter) => {
-            const value = node.auditScriptParams?.[parameter.key] ?? parameter.default;
+            const value = draft[parameter.key] ?? parameter.default;
             const parameterError = getAuditScriptParameterError(parameter, value);
             const isLongText = parameter.type === "string" && parameter.maximumLength > 500;
             return (
@@ -138,8 +151,11 @@ export function AuditScriptSelector({
               </label>
             );
           })}
+        </div> : <p>此脚本没有可配置的节点参数。</p>}
+        {selectedScript ? <section className="node-script-runtime-summary"><p>以下为脚本全局运行参数，仅供查看；修改请前往审核脚本管理。</p><AuditScriptConfigForm concurrency={<label className="audit-script-config-field"><span>最大并发数</span><input disabled type="number" value={selectedScript.maxConcurrency} /></label>} expanded disabled errors={{}} onSettingChange={() => {}} runtimeSettings={selectedScript.runtimeSettings} settingValues={Object.fromEntries(selectedScript.runtimeSettings.map((item) => [item.key, item.value]))} /></section> : null}
         </div>
-      ) : null}
+        <footer><small>确认后应用到当前节点，点击节点“完成”后按现有规则保存。</small><div><button type="button" onClick={() => dialogRef.current?.close()}>取消</button><button className="primary-action" type="button" disabled={parameterDisabled || invalid} onClick={() => { onChange({ auditScriptParams: draft }); dialogRef.current?.close(); }}>确认配置</button></div></footer>
+      </dialog>
       {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
     </div>
   );

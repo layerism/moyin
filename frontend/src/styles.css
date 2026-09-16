@@ -13210,3 +13210,35 @@ td {
 }
 
 .profile-embedded .database-admin-page { height: max(520px, calc(100dvh - 230px)); border-radius: 12px; }
+
+/* Node-specific script editor; global runtime settings remain read-only. */
+.node-script-config-toggle { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #bad0ff; border-radius: 8px; background: #edf4ff; color: #2468e8; cursor: pointer; }
+.node-script-config-toggle:hover { background: #dfeaff; }
+.node-script-config-toggle:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.audit-script-selector-row > .audit-script-lock { grid-column: 2 / -1; }
+.node-script-config-dialog { width: min(880px, calc(100vw - 32px)); height: min(860px, 88dvh); max-height: 88dvh; padding: 0; border: 1px solid #dce4ef; border-radius: 16px; color: #192438; background: white; box-shadow: 0 24px 80px #162b4b33; }
+.node-script-config-dialog[open] { display: flex; flex-direction: column; }
+.node-script-config-dialog::backdrop { background: #15243d66; }
+.node-script-config-dialog > header { display: flex; align-items: center; justify-content: space-between; padding: 22px 26px; border-bottom: 1px solid #e5ebf3; flex-shrink: 0; }
+.node-script-config-dialog h2 { margin: 0; font-size: 21px; }
+.node-script-config-dialog header p { margin: 6px 0 0; color: #667085; font-size: 13px; }
+.node-script-config-dialog header button { border: 0; border-radius: 8px; width: 34px; height: 34px; background: #f4f6fa; font-size: 23px; cursor: pointer; }
+.node-script-config-body { padding: 24px 26px; overflow-y: auto; flex: 1; min-height: 0; }
+.node-script-config-body .audit-script-parameters { border: 0; padding: 0; gap: 20px; }
+.node-script-config-body .audit-script-parameter > span:first-child { font-size: 15px; font-weight: 600; }
+.node-script-config-body .audit-script-long-text-input > textarea { box-sizing: border-box; width: 100%; min-height: 400px; padding: 16px 16px 32px; font-size: 14px; line-height: 1.8; }
+.node-script-runtime-summary { margin-top: 24px; border-top: 1px solid #e5ebf3; padding-top: 16px; }
+.node-script-runtime-summary > p { color: #667085; font-size: 12px; }
+.node-script-config-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 26px; border-top: 1px solid #e5ebf3; background: #fafbfe; flex-shrink: 0; }
+.node-script-config-dialog footer small { color: #667085; font-size: 12px; max-width: 60%; }
+.node-script-config-dialog footer > div { display: flex; gap: 10px; }
+.node-script-config-dialog footer button { padding: 9px 18px; border: 1px solid #ccd7e6; border-radius: 8px; background: white; white-space: nowrap; cursor: pointer; }
+.node-script-config-dialog footer .primary-action { background: #2670ef; border-color: #2670ef; color: white; }
+.node-script-config-dialog footer button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 600px) {
+  .node-script-config-dialog > header, .node-script-config-body, .node-script-config-dialog > footer { padding: 16px; }
+  .node-script-config-body .audit-script-parameters { grid-template-columns: 1fr; }
+  .node-script-config-dialog > footer { flex-wrap: wrap; }
+  .node-script-config-dialog footer small { max-width: 100%; }
+  .node-script-config-dialog footer > div { margin-left: auto; }
+}
