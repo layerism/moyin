@@ -43,6 +43,9 @@ def detail(node_instance_id: str, teacher=Depends(get_current_teacher)):
             for file in source['files']:
                 storage_key = file.pop('storage_key')
                 file['url'] = get_object_storage().signed_download_url(storage_key, file['original_name'])
+        for file in result.get('referenceFiles', []):
+            storage_key = file.pop('storage_key')
+            file['url'] = get_object_storage().signed_download_url(storage_key, file['original_name'])
         return result
     except KeyError as exc:
         raise HTTPException(404, '审核节点不存在或预览已失效') from exc

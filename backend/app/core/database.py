@@ -395,6 +395,13 @@ CREATE INDEX IF NOT EXISTS idx_uploaded_files_node
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_submission
     ON uploaded_files(submission_id);
 
+CREATE TABLE IF NOT EXISTS file_review_runs (
+    submission_id TEXT PRIMARY KEY REFERENCES submissions(id) ON DELETE CASCADE,
+    steps_json TEXT NOT NULL,
+    step_index INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'rejected', 'cancelled'))
+);
+
 CREATE TABLE IF NOT EXISTS audit_jobs (
     id TEXT PRIMARY KEY,
     submission_id TEXT NOT NULL UNIQUE REFERENCES submissions(id) ON DELETE CASCADE,

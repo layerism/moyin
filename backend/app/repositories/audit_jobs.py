@@ -80,6 +80,10 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             SELECT j.id FROM audit_jobs j
             JOIN audit_script_runtime_states r ON r.script_id = j.script_id
             WHERE j.status = 'pending' AND j.next_attempt_at <= ?
+              AND NOT EXISTS (
+                SELECT 1 FROM file_review_runs r WHERE r.submission_id = j.submission_id
+                AND (r.status != 'active' OR json_extract(r.steps_json, '$[' || r.step_index || ']') != 'ai')
+              )
               AND r.status = 'ready'
               AND r.generation = j.script_generation
               AND r.content_hash = j.script_content_hash
@@ -187,6 +191,9 @@ def complete_audit_job(job_id: str, result: dict[str, object]) -> None:
         if not _is_current_attempt(job) or job["node_status"] not in {"reviewing", "audit_error"}:
             return
         passed = result.get("passed") is True
+        from app.repositories.file_reviews import finish_step
+        if finish_step(connection, job["submission_id"], "ai", passed, now):
+            return
         next_status = "approved" if passed else "rejected"
         connection.execute("UPDATE submissions SET status = ? WHERE id = ?", (next_status, job["submission_id"]))
         updated = connection.execute(
@@ -233,6 +240,8 @@ def manual_approve_audit_job(
         ).fetchone()
         if row is None:
             raise KeyError(node_instance_id)
+        if connection.execute("SELECT 1 FROM file_review_runs WHERE submission_id = ?", (submission_id,)).fetchone():
+            raise AuditJobConflictError("该文件使用顺序审核，请在文件节点的人工审核入口处理")
         if row["submission_id"] != submission_id:
             raise AuditJobConflictError("学生提交已变化，请刷新后重新审核")
         if row["job_id"] is None:
@@ -372,6 +381,7 @@ def _cancel_jobs(condition: str, values: tuple[object, ...], reason: str) -> lis
                    finished_at = ?, updated_at = ? WHERE id = ?""",
                 (reason, now, now, row["id"]),
             )
+            connection.execute("UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id = ?", (row["submission_id"],))
             connection.execute("UPDATE submissions SET status = 'cancelled' WHERE id = ?", (row["submission_id"],))
             if int(row["submission_attempt"]) == int(row["node_attempt"]):
                 connection.execute(
@@ -440,9 +450,11 @@ def recover_audit_jobs() -> None:
             JOIN submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             WHERE n.status = 'reviewing'
               AND NOT EXISTS (SELECT 1 FROM audit_jobs j WHERE j.submission_id = s.id)
+              AND NOT EXISTS (SELECT 1 FROM file_review_runs r WHERE r.submission_id = s.id AND r.status = 'active')
             """
         ).fetchall()
         for row in missing:
+            connection.execute("UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id = ?", (row["submission_id"],))
             connection.execute("UPDATE submissions SET status = 'cancelled' WHERE id = ?", (row["submission_id"],))
             connection.execute("UPDATE node_instances SET status = 'available' WHERE id = ?", (row["node_instance_id"],))
 

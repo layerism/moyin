@@ -40,6 +40,12 @@ def published_feedback(connection, instance_id, node_key, evidence_hash):
 def checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision):
     row, config, node, status = _context(connection, node_instance_id, teacher_id)
     evidence, current_hash = review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
+    if node.get('kind') == 'file':
+        from app.repositories.file_reviews import review_stage
+        submission_id = evidence['sources'][0]['submissionId']
+        if status != 'reviewing' or review_stage(connection, submission_id) != 'manual':
+            raise ManualReviewConflict('当前材料未轮到人工审核或本轮已结束，请刷新')
+
     if current_hash != evidence_hash:
         raise ManualReviewConflict('学生材料已更新，请刷新后重新处理批改文件')
     draft = draft_feedback(connection, node_instance_id, current_hash)
@@ -70,7 +76,9 @@ def add_feedback_file(node_instance_id, teacher_id, evidence_hash, revision, sou
             (id, flow_instance_id, node_instance_id, evidence_hash, source_file_id, source_name, original_name, storage_key, size_bytes, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
             (file_id, row['flow_instance_id'], node_instance_id, evidence_hash, source_file_id, source_file['original_name'], name, storage_key, size_bytes, utc_now_iso()))
-        ids = [file['id'] for file in draft['files'] if file['sourceFileId'] != source_file_id] + [file_id]
+        embedded = connection.execute('SELECT 1 FROM file_review_runs r JOIN submissions s ON s.id = r.submission_id WHERE s.node_instance_id = ? AND s.attempt_no = ?',
+                                      (row['id'], row['attempt_no'])).fetchone()
+        ids = [file['id'] for file in draft['files'] if embedded or file['sourceFileId'] != source_file_id] + [file_id]
         connection.execute('UPDATE manual_feedback_drafts SET files_json = ?, revision = revision + 1 WHERE node_instance_id = ?', (json.dumps(ids), node_instance_id))
         return draft_feedback(connection, node_instance_id, evidence_hash)
 

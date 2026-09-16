@@ -38,6 +38,7 @@ BUSINESS_NODE_FIELDS = (
     "infoFields",
     "fileExtensions",
     "fileLimitMb",
+    "fileReviewSteps",
     "auditScriptId",
     "auditScriptAcceptedExtensions",
     "auditScriptType",

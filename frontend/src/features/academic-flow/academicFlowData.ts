@@ -67,6 +67,7 @@ export function createNode(
     branches: kind === "branch" ? [{ id: crypto.randomUUID(), label: "分支 1" }, { id: crypto.randomUUID(), label: "分支 2" }] : undefined,
     auditScriptName: "",
     auditScriptType: "none",
+    fileReviewSteps: kind === "file" ? ["ai", "manual"] : undefined,
     deadlineAt: null,
     fileExtensions: kind === "file" ? "pdf, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",

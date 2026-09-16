@@ -186,6 +186,7 @@ export type NodeTemplateAsset = {
 };
 
 export type AcademicFlowNode = {
+  fileReviewSteps?: Array<"ai" | "manual">;
   branches?: Array<{ id: string; label: string }>;
   answerSheet?: AnswerSheetConfig;
   auditScriptAcceptedExtensions?: string[];

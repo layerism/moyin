@@ -34,6 +34,16 @@ def validate_flow_config(
         raise FlowValidationError("节点标识不能重复")
 
     for node in nodes:
+        steps = node.get("fileReviewSteps")
+        if "fileReviewSteps" in node:
+            if (node.get("kind") != "file" or not isinstance(steps, list)
+                    or any(step not in ("ai", "manual") for step in steps)
+                    or len(steps) != len(set(steps))):
+                raise FlowValidationError("文件审核步骤仅支持 AI 预审核、人工审核，各配置一次")
+            if require_publishable and "ai" in steps and not node.get("auditScriptId"):
+                raise FlowValidationError("请为 AI 预审核选择审核脚本")
+            if "ai" not in steps and node.get("auditScriptId"):
+                raise FlowValidationError("未添加 AI 预审核时不能保留审核脚本")
         _validate_node_time_window(node)
         _validate_confirmation_scan(node, require_publishable=require_publishable)
         _validate_node_template(node)

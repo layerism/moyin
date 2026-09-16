@@ -13288,3 +13288,41 @@ td {
   .node-script-config-dialog footer small { max-width: 100%; }
   .node-script-config-dialog footer > div { margin-left: auto; }
 }
+
+/* File-node review steps use the existing inspector surfaces and controls. */
+.file-review-steps { display: grid; gap: 8px; }
+.file-review-steps > header, .file-review-step-body > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.file-review-steps small { color: #667085; font-size: 11px; }
+.file-review-steps ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.file-review-steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 8px; }
+.file-review-step-number { display: grid; place-items: center; width: 24px; height: 24px; margin-top: 10px; border-radius: 6px; background: #eaf2ff; color: #175cd3; font-size: 12px; }
+.file-review-step-body { min-width: 0; display: grid; gap: 6px; padding: 10px; border: 1px solid #e1e7ef; border-radius: 7px; background: #fff; }
+.file-review-step-body > header strong { color: #34435c; font-size: 13px; }
+.file-review-step-body > header > div { display: flex; gap: 4px; }
+.file-review-step-body > header button { width: 26px; height: 26px; padding: 0; border: 1px solid #d6dfec; border-radius: 5px; background: #fff; color: #64748b; cursor: pointer; }
+.file-review-step-body p { margin: 0; color: #475467; font-size: 12px; line-height: 1.7; }
+.file-review-step-body .audit-script-selector-row { grid-template-columns: minmax(0, 1fr) auto; padding: 0; border: 0; }
+.file-review-step-body .audit-script-selector-row > .node-file-material-label { display: none; }
+.file-review-step-body .audit-script-lock { grid-column: 1 / -1; }
+.file-review-add { min-height: 34px; margin-left: 32px; border: 1px solid #d7e1ee; border-radius: 7px; background: #fff; color: #175cd3; cursor: pointer; font-size: 12px; }
+.file-review-add-options { display: flex; gap: 8px; margin-left: 32px; }
+.file-review-add-options button { padding: 7px 10px; border: 1px solid #d7e1ee; border-radius: 6px; background: #fff; color: #175cd3; cursor: pointer; }
+.file-review-steps button:disabled { opacity: .5; cursor: default; }
+.file-review-muted { color: #64748b; font-size: 12px; }
+.file-manual-review-dialog > header p { margin: 6px 0 0; }
+.file-review-original { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 12px; }
+.file-review-original > span { min-width: 0; overflow-wrap: anywhere; }
+.file-review-original small { display: block; color: #64748b; font-size: 12px; }
+.file-review-original a { flex-shrink: 0; color: #2563eb; font-size: 13px; }
+.file-review-remark { display: grid; gap: 8px; margin-top: 14px; font-size: 13px; }
+.file-review-remark textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1px solid #d6dfec; border-radius: 6px; background: #fff; color: #253044; font: inherit; resize: vertical; }
+.file-review-upload { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; padding: 12px; border: 1px dashed #cbd7e8; border-radius: 7px; background: #f8fafc; }
+.file-review-upload strong { font-size: 13px; }
+.file-review-upload small { display: block; margin-top: 4px; color: #64748b; font-size: 12px; }
+.file-manual-review-dialog .file-review-reject { border-color: #fecaca; color: #b42318; }
+.file-manual-review-dialog .file-review-approve { border-color: #2563eb; background: #2563eb; color: #fff; }
+.file-review-empty { padding: 18px; color: #64748b; }
+.file-review-history { margin: 14px 0; }
+.file-review-history article { padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+.file-review-history small { display: block; color: #64748b; }
+.file-review-history p { white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -1,3 +1,5 @@
+import { FileReviewDialog } from "./FileReviewDialog";
+import { hasFileManualReview } from "./FileReviewStepsEditor";
 import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
@@ -396,11 +398,14 @@ export function StudentRuntimePage({
             value,
             fieldId,
           )}
-          onPreviewReview={preview && activeNode.kind === "manual_review" ? () => setPreviewReviewNode(activeNode.id) : undefined}
+          onPreviewReview={preview && (activeNode.kind === "manual_review" || hasFileManualReview(activeNode)) ? () => setPreviewReviewNode(activeNode.id) : undefined}
           runtime={activeRuntime}
         />
       ) : null}
-      {previewReviewNode ? <ManualReviewDialog nodeKey={previewReviewNode} versionId={instance.flowVersionId} onClose={() => { setPreviewReviewNode(null); void workflowApi.getInstance(instanceId).then(setInstance).catch((reason: Error) => setNotice(reason.message)); }} /> : null}
+      {previewReviewNode ? (() => {
+        const ReviewDialog = hasFileManualReview(instance.config.nodes.find((node) => node.id === previewReviewNode)) ? FileReviewDialog : ManualReviewDialog;
+        return <ReviewDialog nodeKey={previewReviewNode} versionId={instance.flowVersionId} onClose={() => { setPreviewReviewNode(null); void workflowApi.getInstance(instanceId).then(setInstance).catch((reason: Error) => setNotice(reason.message)); }} />;
+      })() : null}
       {actionWarning ? (
         <RuntimeWarningDialog
           category="操作提示"
@@ -720,6 +725,8 @@ function RuntimeNodeDialog({
         </section> : null}
         {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
         {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
+        {node.kind === "file" ? <ManualFeedbackList feedback={runtime.feedback ?? []} student /> : null}
+        {node.kind === "file" && runtime.reviewStage === "manual" && onPreviewReview ? <div className="runtime-node-actions"><button onClick={onPreviewReview} type="button">教师预览：模拟审核</button></div> : null}
         {node.kind === "manual_review" ? <section className="manual-review-student-state">
           <div className={`manual-review-result${runtime.status === "approved" ? " is-approved" : ""}`}>
             <span className="manual-review-result-icon" aria-hidden="true">{runtime.status === "approved" ? "✓" : "◷"}</span>
@@ -1036,6 +1043,7 @@ function ReviewingSubmission({
   onDownloadFile: (fileId: string) => void;
   runtime: RuntimeNodeInstance;
 }) {
+  const manual = runtime.reviewStage === "manual";
   const attemptCount = Math.max(1, runtime.audit?.attemptCount || 1);
   const submittedAt = formatDateTime(runtime.submittedAt);
   const submittedAtLabel = submittedAt === "未记录"
@@ -1046,9 +1054,9 @@ function ReviewingSubmission({
       <section aria-live="polite" className="runtime-reviewing-card">
         <span aria-hidden="true" className="runtime-reviewing-spinner" />
         <div className="runtime-reviewing-copy">
-          <span>审核处理中</span>
-          <h3>材料已提交，正在自动审核</h3>
-          <p>第 {attemptCount} 次审核 · {submittedAtLabel}</p>
+          <span>{manual ? "等待教师审核" : "审核处理中"}</span>
+          <h3>{manual ? "材料已提交，等待流程发布者审核" : "材料已提交，正在自动审核"}</h3>
+          <p>{manual ? submittedAtLabel : `第 ${attemptCount} 次审核 · ${submittedAtLabel}`}</p>
           <small>审核结果会自动刷新，你可以先关闭此窗口处理其他事项。</small>
         </div>
       </section>

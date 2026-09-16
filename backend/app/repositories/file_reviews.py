@@ -1,0 +1,120 @@
+"""Ordered file review state; all transitions use the caller's transaction."""
+import hashlib
+import json
+import uuid
+
+from app.domain.workflow_runtime import node_by_key
+from app.services.security import utc_now_iso
+
+
+def has_manual_review(node):
+    return node.get('kind') == 'file' and 'manual' in node.get('fileReviewSteps', [])
+
+
+def review_stage(connection, submission_id):
+    run = connection.execute('SELECT * FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+    if run is None or run['status'] != 'active':
+        return None
+    steps = json.loads(run['steps_json'])
+    return steps[run['step_index']] if run['step_index'] < len(steps) else None
+
+
+def finish_step(connection, submission_id, kind, passed, now):
+    """Return False for legacy submissions; never complete a later step early."""
+    run = connection.execute('SELECT * FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+    if run is None:
+        return False
+    if review_stage(connection, submission_id) != kind:
+        return True
+    row = connection.execute('''SELECT n.*, i.flow_version_id FROM submissions s
+        JOIN node_instances n ON n.id = s.node_instance_id
+        JOIN flow_instances i ON i.id = n.flow_instance_id
+        WHERE s.id = ? AND s.attempt_no = n.attempt_no''', (submission_id,)).fetchone()
+    if row is None or row['status'] not in {'reviewing', 'audit_error'}:
+        return True
+    next_index = run['step_index'] + (1 if passed else 0)
+    completed = passed and next_index == len(json.loads(run['steps_json']))
+    status = 'approved' if completed else 'reviewing' if passed else 'rejected'
+    connection.execute('UPDATE file_review_runs SET step_index = ?, status = ? WHERE submission_id = ?',
+                       (next_index, 'completed' if completed else 'active' if passed else 'rejected', submission_id))
+    connection.execute('UPDATE submissions SET status = ? WHERE id = ?', (status, submission_id))
+    connection.execute('UPDATE node_instances SET status = ?, approved_at = ? WHERE id = ?',
+                       (status, now if completed else None, row['id']))
+    if not passed:
+        connection.execute('''UPDATE audit_jobs SET status = 'cancelled', cancellation_reason = 'manual_rejected', finished_at = ?, updated_at = ? WHERE submission_id = ? AND status = 'pending' ''', (now, now, submission_id))
+    if completed:
+        from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready, version_config
+        config = version_config(connection, row['flow_version_id'])
+        advance_downstream(connection, row['flow_instance_id'], row['flow_version_id'], config)
+        complete_flow_if_ready(connection, row['flow_instance_id'], now)
+    return True
+
+
+def file_review_evidence(connection, instance_id, config, node_key):
+    node = node_by_key(config, node_key)
+    row = connection.execute('''SELECT s.* FROM node_instances n LEFT JOIN submissions s
+        ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
+        WHERE n.flow_instance_id = ? AND n.node_key = ?''', (instance_id, node_key)).fetchone()
+    submission_id = row['id'] if row else None
+    files = connection.execute('''SELECT id, original_name, content_type, size_bytes, storage_key
+        FROM uploaded_files WHERE submission_id = ? ORDER BY created_at, id''', (submission_id,)).fetchall()
+    # Neither AI results nor mutable node status belong in the teacher's evidence.
+    source = {'nodeKey': node_key, 'title': node['title'], 'kind': 'file',
+              'requirement': node.get('requirement', ''), 'infoFields': [], 'answerSheet': None,
+              'status': 'submitted' if submission_id else 'locked', 'submissionId': submission_id,
+              'submittedAt': row['submitted_at'] if submission_id else None,
+              'submission': json.loads(row['payload_snapshot']) if submission_id else {},
+              'files': [dict(file) for file in files]}
+    evidence = {'nodeKey': node_key, 'sources': [source]}
+    encoded = json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    return evidence, hashlib.sha256(encoded.encode()).hexdigest()
+
+
+def file_review_detail(connection, row, config, node, status):
+    from app.repositories.manual_feedback import draft_feedback, published_feedback
+    evidence, fingerprint = file_review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
+    submission_id = evidence['sources'][0]['submissionId']
+    history = connection.execute('''SELECT m.*, a.name AS teacher_name FROM manual_reviews m
+        LEFT JOIN teacher_accounts a ON a.id = m.teacher_id WHERE m.flow_instance_id = ? AND m.node_key = ?
+        ORDER BY m.created_at DESC, m.id DESC''', (row['flow_instance_id'], row['node_key'])).fetchall()
+    reference_files = []
+    for key, label in (('templateAsset', '填写模板'), ('referenceAsset', '填写参考')):
+        asset_id = (node.get(key) or {}).get('assetId')
+        if not asset_id:
+            continue
+        asset = connection.execute('''SELECT a.id, a.original_name, a.storage_key FROM flow_template_assets a
+            JOIN flow_versions v ON v.flow_id = a.flow_id
+            WHERE v.id = ? AND a.id = ? AND a.node_key = ?''',
+            (row['flow_version_id'], asset_id, row['node_key'])).fetchone()
+        if asset:
+            reference_files.append({**dict(asset), 'label': label})
+    return {'referenceFiles': reference_files, 'nodeInstanceId': row['id'], 'title': node['title'], 'requirement': node.get('requirement', ''),
+            'student': {'name': row['name'], 'studentNo': row['student_no']}, 'status': status,
+            'canReview': status == 'reviewing' and review_stage(connection, submission_id) == 'manual',
+            'evidenceHash': fingerprint, 'sources': evidence['sources'], 'sourceReviews': [],
+            'feedbackDraft': draft_feedback(connection, row['id'], fingerprint),
+            'feedback': published_feedback(connection, row['flow_instance_id'], row['node_key'], fingerprint),
+            'history': [{'id': item['id'], 'remark': item['remark'], 'reviewedAt': item['created_at'],
+                         'teacherName': item['teacher_name'] or '原审核教师',
+                         'passed': json.loads(item['evidence_snapshot']).get('passed')}
+                        for item in history]}
+
+
+def decide_file_review(connection, row, config, node, status, teacher_id, evidence_hash, remark, revision, passed):
+    from app.repositories.manual_reviews import ManualReviewConflict
+    from app.repositories.manual_feedback import publish_feedback
+    if not remark.strip() or len(remark) > 1000:
+        raise ValueError('请填写 1–1000 字的审核评语')
+    evidence, fingerprint = file_review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
+    submission_id = evidence['sources'][0]['submissionId']
+    if fingerprint != evidence_hash or status != 'reviewing' or review_stage(connection, submission_id) != 'manual':
+        raise ManualReviewConflict('本次材料或审核状态已变化，请刷新后重试')
+    publish_feedback(connection, row['id'], teacher_id, fingerprint, revision, remark)
+    now = utc_now_iso()
+    connection.execute('''INSERT INTO manual_reviews
+        (id, flow_instance_id, node_instance_id, node_key, evidence_hash, evidence_snapshot, teacher_id, remark, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (str(uuid.uuid4()), row['flow_instance_id'], row['id'], row['node_key'], fingerprint,
+         json.dumps({**evidence, 'passed': passed}, ensure_ascii=False), teacher_id, remark.strip(), now))
+    finish_step(connection, submission_id, 'manual', passed, now)
+    return connection.execute('SELECT status FROM node_instances WHERE id = ?', (row['id'],)).fetchone()['status'] == 'approved'

@@ -17,12 +17,14 @@ export function AuditScriptSelector({
   onChange,
   parameterDisabled = disabled,
   parameters,
+  selectionRequired = false,
 }: {
   disabled?: boolean;
   node: AcademicFlowNode;
   onChange: (patch: Partial<AcademicFlowNode>) => void;
   parameterDisabled?: boolean;
   parameters?: AuditScriptParameter[];
+  selectionRequired?: boolean;
 }) {
   const [scripts, setScripts] = useState<AuditScriptSummary[]>([]);
   const [error, setError] = useState("");
@@ -73,7 +75,7 @@ export function AuditScriptSelector({
         >
           {options.map((option) => (
             <option key={option.value || "none"} value={option.value}>
-              {option.label}
+              {selectionRequired && !option.value ? "请选择审核规则" : option.label}
             </option>
           ))}
         </select>

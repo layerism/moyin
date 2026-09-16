@@ -1,3 +1,5 @@
+import { FileReviewDialog } from "./FileReviewDialog";
+import { hasFileManualReview } from "./FileReviewStepsEditor";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import type { AcademicFlowNode } from "../../types";
@@ -39,6 +41,7 @@ export function TeacherProgressPanel({
   const [exportNodeKey, setExportNodeKey] = useState(nodes[0]?.id ?? "");
   const [exportingNodeKey, setExportingNodeKey] = useState<string | null>(null);
   const [downloadingNodeId, setDownloadingNodeId] = useState<string | null>(null);
+  const [fileReview, setFileReview] = useState<{ nodeKey: string; studentNo: string } | null>(null);
   const [manualApprovalOpen, setManualApprovalOpen] = useState(false);
   const [manualReason, setManualReason] = useState("");
   const [manualError, setManualError] = useState("");
@@ -560,12 +563,16 @@ export function TeacherProgressPanel({
                               </button>
                               {availableMaterialNodes.map((node) => {
                                 const loading = loadingDetailId === node.nodeInstanceId;
-                                const label = `查看材料 · ${node.title}`;
+                                const embeddedReview = hasFileManualReview(nodes.find((item) => item.id === node.nodeKey));
+                                const label = `${embeddedReview ? "人工审核" : "查看材料"} · ${node.title}`;
                                 return (
                                   <button
                                     disabled={loading}
                                     key={node.nodeInstanceId}
-                                    onClick={() => void openSubmissionDetail(node.nodeInstanceId)}
+                                    onClick={() => {
+                                      if (embeddedReview) { setFileReview({ nodeKey: node.nodeKey, studentNo: student.studentNo }); setOpenActionMenuId(null); }
+                                      else void openSubmissionDetail(node.nodeInstanceId);
+                                    }}
                                     role="menuitem"
                                     title={label}
                                     type="button"
@@ -590,6 +597,7 @@ export function TeacherProgressPanel({
           </div>
         </aside>
       </div>
+      {fileReview ? <FileReviewDialog nodeKey={fileReview.nodeKey} versionId={versionId} initialStudentNo={fileReview.studentNo} onClose={() => { setFileReview(null); void refresh().catch((reason: Error) => setNotice(reason.message)); }} /> : null}
       {editingStudent ? (
         <div className="student-extension-backdrop" role="presentation">
           <section

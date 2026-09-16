@@ -76,6 +76,7 @@ export type RuntimeNodeAudit = {
 };
 
 export type RuntimeNodeInstance = {
+  reviewStage?: "ai" | "manual" | null;
   approvedAt: string | null;
   feedback?: ManualFeedback[];
   sourceReviews?: ManualSourceReview[];
@@ -159,6 +160,7 @@ export type WorkflowProgress = {
 };
 
 export type ManualReviewStudent = {
+  canReview?: boolean;
   id: number;
   name: string;
   studentNo: string;
@@ -175,6 +177,8 @@ export type ManualFeedbackFile = { id: string; sourceFileId: string; sourceNodeK
 export type ManualFeedback = { id: string; remark: string; publishedAt: string; historical: boolean; files: ManualFeedbackFile[] };
 export type ManualFeedbackDraft = { revision: number; remark: string; files: ManualFeedbackFile[] };
 export type ManualReviewDetail = {
+  referenceFiles?: Array<{ id: string; label: string; original_name: string; url: string }>;
+  canReview?: boolean;
   sourceReviews: ManualSourceReview[];
   feedbackDraft: ManualFeedbackDraft;
   feedback: ManualFeedback[];
@@ -201,5 +205,5 @@ export type ManualReviewDetail = {
     manualReview: { remark: string; reviewedAt: string } | null;
     files: Array<{ id: string; original_name: string; size_bytes: number; url: string }>;
   }>;
-  history: Array<{ id: string; remark: string; reviewedAt: string; teacherName: string }>;
+  history: Array<{ id: string; remark: string; reviewedAt: string; teacherName: string; passed?: boolean }>;
 };

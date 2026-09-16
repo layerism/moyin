@@ -9,6 +9,7 @@ from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready
 from app.repositories.manual_review_state import latest_review, review_evidence, sync_manual_reviews, source_reviews, invalidate_nodes
 from app.services.security import utc_now_iso
+from app.repositories.file_reviews import has_manual_review, review_stage
 
 
 class ManualReviewConflict(ValueError):
@@ -28,8 +29,10 @@ def _version(connection, version_id, node_key, teacher_id):
         raise KeyError(version_id)
     config = json.loads(version['config_snapshot'])
     node = node_by_key(config, node_key)
-    if node.get('kind') != 'manual_review':
+    if node.get('kind') != 'manual_review' and not has_manual_review(node):
         raise ValueError('该节点不是人工审核节点')
+    if node.get('kind') == 'file' and str(version['published_by']) != str(teacher_id):
+        raise KeyError(version_id)
     return version, config, node
 
 
@@ -59,11 +62,13 @@ def list_manual_reviews(version_id, node_key, teacher_id):
             row = None
             if instance_id:
                 sync_manual_reviews(connection, instance_id, config)
-                row = connection.execute('SELECT id, status FROM node_instances WHERE flow_instance_id = ? AND node_key = ?', (instance_id, node_key)).fetchone()
+                row = connection.execute('SELECT n.id, n.status, s.id AS submission_id FROM node_instances n LEFT JOIN submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no WHERE n.flow_instance_id = ? AND n.node_key = ?', (instance_id, node_key)).fetchone()
+            stage = review_stage(connection, row['submission_id']) if row else None
             result.append({
                 'id': student['roster_id'], 'name': student['name'], 'studentNo': student['student_no'],
                 'nodeInstanceId': row['id'] if row else None,
                 'status': row['status'] if row else 'locked',
+                'canReview': bool(row and row['status'] == 'reviewing' and stage == 'manual'),
             })
         return {'title': node['title'], 'requirement': node.get('requirement', ''), 'students': result}
 
@@ -88,6 +93,9 @@ def get_manual_review(node_instance_id, teacher_id):
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
         row, config, node, status = _context(connection, node_instance_id, teacher_id)
+        if node.get('kind') == 'file':
+            from app.repositories.file_reviews import file_review_detail
+            return file_review_detail(connection, row, config, node, status)
         evidence, fingerprint = review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
         history = connection.execute(
             """SELECT m.id, m.remark, m.created_at, a.name AS teacher_name FROM manual_reviews m
@@ -112,6 +120,10 @@ def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark, f
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
         row, config, node, status = _context(connection, node_instance_id, teacher_id)
+        if node.get('kind') == 'file':
+            from app.repositories.file_reviews import decide_file_review
+            return decide_file_review(connection, row, config, node, status, teacher_id,
+                                      evidence_hash, remark, feedback_revision, True)
         evidence, fingerprint = review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
         if fingerprint != evidence_hash:
             raise ManualReviewConflict('材料已更新，请重新查看后审核')
@@ -156,6 +168,11 @@ def reject_manual_source(node_instance_id, teacher_id, evidence_hash, feedback_r
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
         from app.repositories.manual_feedback import checked_draft, publish_feedback
+        row, config, node, status = _context(connection, node_instance_id, teacher_id)
+        if node.get('kind') == 'file':
+            from app.repositories.file_reviews import decide_file_review
+            return decide_file_review(connection, row, config, node, status, teacher_id,
+                                      evidence_hash, source_remark, feedback_revision, False)
         row, evidence, draft = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, feedback_revision)
         if not any(source['nodeKey'] == source_node_key for source in evidence['sources']):
             raise ValueError('只能退回当前审核的前置节点')

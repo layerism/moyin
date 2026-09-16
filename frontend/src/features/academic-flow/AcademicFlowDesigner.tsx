@@ -1,3 +1,5 @@
+import { FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
+import { FileReviewDialog } from "./FileReviewDialog";
 import { NodeModelSelector } from "./NodeModelSelector";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { FlowNodeIcon } from "./FlowNodeIcon";
@@ -21,7 +23,6 @@ import {
   nodeTemplates,
 } from "./academicFlowData";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
-import { AuditScriptSelector } from "./AuditScriptSelector";
 import {
   getAuditScriptParameterError,
   type NodeAuditPolicy,
@@ -365,6 +366,12 @@ export function AcademicFlowDesigner({
       setActiveNodeId(invalidBranch.id);
       setInspectorNodeId(invalidBranch.id);
       showActionError("条件分支至少需要两个选项，请填写名称并为每个选项连接下游节点");
+      return;
+    }
+    const missingFileAudit = candidate.nodes.find((node) => node.fileReviewSteps?.includes("ai") && !node.auditScriptId);
+    if (missingFileAudit) {
+      setInspectorNodeId(missingFileAudit.id);
+      showActionError("请为 AI 预审核选择审核脚本");
       return;
     }
     const missingReviewSource = candidate.nodes.find((node) => node.kind === "manual_review" && !candidate.edges.some((edge) => edge.target === node.id));
@@ -818,7 +825,9 @@ export function AcademicFlowDesigner({
           />
         ) : null}
         {actionError ? <DesignerErrorDialog message={actionError} onClose={() => setActionError("")} /> : null}
-        {manualReviewNodeId && workingProcess.publishedVersionId ? <ManualReviewDialog nodeKey={manualReviewNodeId} versionId={workingProcess.publishedVersionId} onClose={() => setManualReviewNodeId(null)} /> : null}
+        {manualReviewNodeId && workingProcess.publishedVersionId ? (hasFileManualReview(workingProcess.nodes.find((node) => node.id === manualReviewNodeId))
+          ? <FileReviewDialog nodeKey={manualReviewNodeId} versionId={workingProcess.publishedVersionId} onClose={() => setManualReviewNodeId(null)} />
+          : <ManualReviewDialog nodeKey={manualReviewNodeId} versionId={workingProcess.publishedVersionId} onClose={() => setManualReviewNodeId(null)} />) : null}
         {nodePackageDialogNode && workingProcess.publishedVersionId ? (
           <NodePackageDownloadDialog
             nodeKey={nodePackageDialogNode.id}
@@ -2081,7 +2090,7 @@ function FlowNodeCanvas({
             role="menu"
             style={{ left: nodeContextMenu.left, top: nodeContextMenu.top }}
           >
-            {nodeById.get(nodeContextMenu.nodeId)?.kind === "manual_review" ? <button
+            {(nodeById.get(nodeContextMenu.nodeId)?.kind === "manual_review" || hasFileManualReview(nodeById.get(nodeContextMenu.nodeId))) ? <button
               disabled={!publishedNodeIdSet.has(nodeContextMenu.nodeId)} role="menuitem" type="button"
               onClick={() => { onManualReview(nodeContextMenu.nodeId); setNodeContextMenu(null); }}>
               <span aria-hidden="true">✓</span><strong>审核</strong>
@@ -2647,7 +2656,7 @@ function NodeInspector({
                 )}
               </section>
 
-              <AuditScriptSelector
+              <FileReviewStepsEditor
                 disabled={coreSettingsDisabled}
                 node={auditControlsNode}
                 onChange={(patch) => {

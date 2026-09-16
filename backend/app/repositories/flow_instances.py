@@ -328,11 +328,17 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     rejection_files = [file for file in file_items(connection, json.loads(saved_feedback["files_json"])) if file["sourceNodeKey"] == row["node_key"]]
             feedback = []
             reviews = []
-            if config_node.get("kind") == "manual_review":
+            if config_node.get("kind") == "manual_review" or (config_node.get("kind") == "file" and "manual" in config_node.get("fileReviewSteps", [])):
                 from app.repositories.manual_feedback import published_feedback
                 evidence, evidence_hash = review_evidence(connection, instance_id, config, row["node_key"])
-                reviews = source_reviews(connection, row["id"], evidence, evidence_hash)
+                reviews = source_reviews(connection, row["id"], evidence, evidence_hash) if config_node.get("kind") == "manual_review" else []
                 feedback = published_feedback(connection, instance_id, row["node_key"], evidence_hash)
+            from app.repositories.file_reviews import review_stage
+            current_review_stage = review_stage(connection, row["submission_id"]) if status == "reviewing" else None
+            manual_file_rejection = connection.execute("""SELECT 1 FROM file_review_runs
+                WHERE submission_id = ? AND status = 'rejected'
+                AND json_extract(steps_json, '$[' || step_index || ']') = 'manual'""",
+                (row["submission_id"],)).fetchone() if status in {"rejected", "expired"} else None
             nodes.append(
                 {
                     "id": row["id"],
@@ -342,6 +348,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "requiresResubmission": requires_resubmission,
                     "feedback": feedback,
                     "sourceReviews": reviews,
+                    "reviewStage": current_review_stage,
                     "manualRejection": {"id": rejection["id"], "remark": rejection["remark"], "reviewedAt": rejection["created_at"], "files": rejection_files} if rejection else None,
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
@@ -358,7 +365,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
                     "manualReview": {"remark": manual_review["remark"], "reviewedAt": manual_review["created_at"]} if manual_review and status == "approved" else None,
-                    "audit": None if rejection else _audit_summary(row, status, config_node),
+                    "audit": None if rejection or manual_file_rejection or current_review_stage == "manual" else _audit_summary(row, status, config_node),
                     "grade": (
                         student_grade_view(
                             grade,
@@ -761,8 +768,10 @@ def submit_node(
                 submission_status = "approved"
             elif approved_form_amendment:
                 submission_status = "approved"
-            elif has_audit_script:
+            elif has_audit_script or node.get("fileReviewSteps"):
                 submission_status = "reviewing"
+            elif node.get("kind") == "file" and "fileReviewSteps" in node:
+                submission_status = "approved"
             else:
                 submission_status = "approved" if node.get("autoApprove", True) else "reviewing"
             submission_id = str(uuid.uuid4())
@@ -799,6 +808,9 @@ def submit_node(
                     )
                 except FileContextError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
+            if node.get("kind") == "file" and node.get("fileReviewSteps"):
+                connection.execute("INSERT INTO file_review_runs (submission_id, steps_json, status) VALUES (?, ?, 'active')",
+                                   (submission_id, canonical_json(node["fileReviewSteps"])))
             if audit_binding is not None:
                 create_audit_job(
                     connection,
@@ -1175,6 +1187,7 @@ def get_teacher_submission_detail(
         "canManualApprove": bool(
             row["submission_id"]
             and row["audit_job_status"]
+            and "fileReviewSteps" not in node
             and scans
             and row["status"] in {"reviewing", "rejected", "audit_error"}
             and row["submission_status"] in {"reviewing", "rejected", "audit_error"}
