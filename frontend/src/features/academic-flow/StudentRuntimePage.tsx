@@ -461,6 +461,7 @@ function RuntimeNodeDialog({
   const [clock, setClock] = useState(Date.now());
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const gradeDialogRef = useRef<HTMLDialogElement>(null);
+  const branchConfirmationRef = useRef<HTMLDialogElement>(null);
   const [confirmationAttempted, setConfirmationAttempted] = useState(false);
   const [templateDownloadAttention, setTemplateDownloadAttention] = useState(false);
   const confirmationInputRef = useRef<HTMLInputElement>(null);
@@ -638,6 +639,11 @@ function RuntimeNodeDialog({
   };
 
   const handleSubmit = () => {
+    if (node.kind === "branch") {
+      if (submitDisabled || !effectivelyWritable) return;
+      branchConfirmationRef.current?.showModal();
+      return;
+    }
     if ((node.kind === "form" || node.kind === "answer_sheet") && Object.keys(clientFieldErrors).length > 0) {
       setSubmitAttempted(true);
       const firstFieldId = Object.keys(clientFieldErrors)[0];
@@ -958,6 +964,36 @@ function RuntimeNodeDialog({
           </div>
         ) : <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>}
       </section>
+      {node.kind === "branch" ? (
+        <dialog
+          aria-labelledby="runtime-branch-confirm-title"
+          aria-describedby="runtime-branch-confirm-message"
+          className="runtime-branch-confirm-dialog"
+          onKeyDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          ref={branchConfirmationRef}
+        >
+          <h3 id="runtime-branch-confirm-title">确认选择此分支？</h3>
+          <div id="runtime-branch-confirm-message">
+            <p className="runtime-branch-confirm-choice">你选择的是：<strong>{node.branches?.find((option) => option.id === draft.branchId)?.label}</strong></p>
+            <p>提交后不可更改，请确认选择无误。</p>
+          </div>
+          <footer>
+            <button autoFocus onClick={() => branchConfirmationRef.current?.close()} type="button">返回修改</button>
+            <button
+              className="primary-action"
+              disabled={submitDisabled || !effectivelyWritable}
+              onClick={() => {
+                const dialog = branchConfirmationRef.current;
+                if (!dialog?.open || submitDisabled || !effectivelyWritable) return;
+                dialog.close();
+                onSubmit();
+              }}
+              type="button"
+            >确认提交</button>
+          </footer>
+        </dialog>
+      ) : null}
       {node.kind === "answer_sheet" && runtime.grade ? (
         <dialog
           aria-label="节点分数"
