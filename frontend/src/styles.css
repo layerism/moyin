@@ -13290,24 +13290,43 @@ td {
 }
 
 /* File-node review steps use the existing inspector surfaces and controls. */
-.file-review-steps { display: grid; gap: 8px; }
+/* Ordered review controls in the node inspector. */
+.file-review-steps { display: grid; gap: 12px; padding: 12px; border: 1px solid #e1e7ef; border-radius: 8px; background: #fff; }
 .file-review-steps > header, .file-review-step-body > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .file-review-steps small { color: #667085; font-size: 11px; }
-.file-review-steps ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.file-review-steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 8px; }
-.file-review-step-number { display: grid; place-items: center; width: 24px; height: 24px; margin-top: 10px; border-radius: 6px; background: #eaf2ff; color: #175cd3; font-size: 12px; }
-.file-review-step-body { min-width: 0; display: grid; gap: 6px; padding: 10px; border: 1px solid #e1e7ef; border-radius: 7px; background: #fff; }
-.file-review-step-body > header strong { color: #34435c; font-size: 13px; }
-.file-review-step-body > header > div { display: flex; gap: 4px; }
-.file-review-step-body > header button { width: 26px; height: 26px; padding: 0; border: 1px solid #d6dfec; border-radius: 5px; background: #fff; color: #64748b; cursor: pointer; }
-.file-review-step-body p { margin: 0; color: #475467; font-size: 12px; line-height: 1.7; }
+.file-review-heading { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.file-review-heading-icon, .file-review-type-icon { display: grid; place-items: center; flex-shrink: 0; border-radius: 7px; background: #eef4ff; color: #2670ef; }
+.file-review-heading-icon { width: 24px; height: 24px; }
+.file-review-optional { padding: 3px 7px; border-radius: 12px; background: #f1f4f8; }
+.file-review-picker { position: relative; flex-shrink: 0; }
+.file-review-add { min-height: 32px; padding: 5px 10px; border: 1px solid #bad0ff; border-radius: 7px; background: #fff; color: #175cd3; cursor: pointer; font-size: 12px; }
+.file-review-add:hover, .file-review-add[aria-expanded="true"] { background: #eef4ff; }
+.file-review-add-options { position: absolute; z-index: 5; top: calc(100% + 6px); right: 0; width: 210px; padding: 5px; display: grid; gap: 3px; border: 1px solid #d7e1ee; border-radius: 9px; background: #fff; box-shadow: 0 8px 24px #1c355526; }
+.file-review-add-options button { display: flex; align-items: center; gap: 10px; padding: 10px; border: 0; border-radius: 6px; background: #fff; text-align: left; cursor: pointer; color: #253044; }
+.file-review-add-options button:hover { background: #f2f6ff; }
+.file-review-add-options strong { font-size: 13px; }
+.file-review-add-options small, .file-review-step-title small, .file-review-assignee small { display: block; margin-top: 4px; }
+.file-review-type-icon { width: 32px; height: 32px; font-size: 21px; }
+.file-review-steps ol { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.file-review-steps ol:empty { display: none; }
+.file-review-steps li { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 10px; }
+.file-review-steps li:not(:last-child)::before { content: ""; position: absolute; top: 38px; bottom: -26px; left: 11px; width: 1px; background: #cbdcff; }
+.file-review-step-number { z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; margin-top: 14px; border-radius: 50%; background: #2670ef; color: #fff; font-size: 12px; }
+.file-review-step-body { min-width: 0; display: grid; gap: 12px; padding: 12px; border: 1px solid #e1e7ef; border-radius: 8px; background: #fff; }
+.file-review-step-title { display: flex; align-items: center; gap: 9px; }
+.file-review-step-title strong { color: #253044; font-size: 13px; }
+.file-review-step-actions { display: flex; gap: 4px; }
+.file-review-step-actions button { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 5px; background: #f4f6fa; color: #64748b; cursor: pointer; }
+.file-review-step-actions button:hover:not(:disabled) { background: #e9effa; }
+.file-review-assignee { display: flex; align-items: baseline; gap: 16px; padding: 9px 10px; border: 1px solid #e1e7ef; border-radius: 6px; font-size: 12px; color: #34435c; }
 .file-review-step-body .audit-script-selector-row { grid-template-columns: minmax(0, 1fr) auto; padding: 0; border: 0; }
 .file-review-step-body .audit-script-selector-row > .node-file-material-label { display: none; }
 .file-review-step-body .audit-script-lock { grid-column: 1 / -1; }
-.file-review-add { min-height: 34px; margin-left: 32px; border: 1px solid #d7e1ee; border-radius: 7px; background: #fff; color: #175cd3; cursor: pointer; font-size: 12px; }
-.file-review-add-options { display: flex; gap: 8px; margin-left: 32px; }
-.file-review-add-options button { padding: 7px 10px; border: 1px solid #d7e1ee; border-radius: 6px; background: #fff; color: #175cd3; cursor: pointer; }
+.file-review-status { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 9px 10px; border-radius: 6px; background: #f3f6fa; color: #667085; font-size: 12px; line-height: 1.6; }
+.file-review-status.has-steps { border-top: 1px solid #e7ecf3; border-radius: 0; background: none; padding: 10px 0 0; }
 .file-review-steps button:disabled { opacity: .5; cursor: default; }
+.file-review-steps button:focus-visible { outline: 2px solid #2670ef; outline-offset: 2px; }
+@media (max-width: 480px) { .file-review-step-body > header { align-items: flex-start; flex-wrap: wrap; } .file-review-step-actions { margin-left: auto; } .file-review-heading > small { font-size: 10px; } }
 .file-review-muted { color: #64748b; font-size: 12px; }
 .file-manual-review-dialog > header p { margin: 6px 0 0; }
 .file-review-original { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-top: 12px; }
