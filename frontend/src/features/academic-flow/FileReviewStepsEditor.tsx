@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { createPortal } from "react-dom";
 import { AuditScriptSelector } from "./AuditScriptSelector";
 import { toNodeAuditScriptSelection } from "./auditScripts";
 import type { AcademicFlowNode } from "../../types";
@@ -16,15 +17,24 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
   const [adding, setAdding] = useState(false);
   const steps = fileReviewSteps(node);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const toggleRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { setAdding(false); }, [node.id, disabled]);
   useEffect(() => {
     if (!adding) return;
     const outside = (event: PointerEvent) => {
-      if (!pickerRef.current?.contains(event.target as Node)) setAdding(false);
+      if (!pickerRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) setAdding(false);
     };
+    const close = () => setAdding(false);
     document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
+    window.addEventListener("resize", close);
+    document.addEventListener("scroll", close, true);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("scroll", close, true);
+    };
   }, [adding]);
   const move = (index: number, offset: number) => {
     const next = [...steps];
@@ -37,14 +47,19 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
         {steps.length ? <small>{steps.length} 个步骤 · 按顺序执行</small> : <small className="file-review-optional">可选</small>}
       </div>
       {!disabled && steps.length < 2 ? <div className="file-review-picker" ref={pickerRef} onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setAdding(false);
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null) && !menuRef.current?.contains(event.relatedTarget as Node | null)) setAdding(false);
       }} onKeyDown={(event) => {
         if (event.key === "Escape" && adding) { event.stopPropagation(); setAdding(false); toggleRef.current?.focus(); }
       }}>
-        <button ref={toggleRef} className="file-review-add" type="button" aria-expanded={adding} onClick={() => setAdding(!adding)}>＋ 添加审核 <span aria-hidden="true">⌄</span></button>
-        {adding ? <div className="file-review-add-options" role="group" aria-label="选择审核类型">{(["ai", "manual"] as const).filter((type) => !steps.includes(type)).map((type) => <button key={type} type="button" onClick={() => {
+        <button ref={toggleRef} className="file-review-add" type="button" aria-expanded={adding} onClick={() => {
+          const rect = toggleRef.current!.getBoundingClientRect();
+          const height = (2 - steps.length) * 66 + 16;
+          setMenuPosition({ left: Math.max(8, Math.min(rect.right - 222, window.innerWidth - 230)), top: rect.bottom + height + 8 < window.innerHeight ? rect.bottom + 6 : Math.max(8, rect.top - height - 6) });
+          setAdding(!adding);
+        }}>＋ 添加审核 <span aria-hidden="true">⌄</span></button>
+        {adding ? createPortal(<div ref={menuRef} style={menuPosition} className="file-review-add-options" role="group" aria-label="选择审核类型">{(["ai", "manual"] as const).filter((type) => !steps.includes(type)).map((type) => <button key={type} type="button" onClick={() => {
           onChange({ fileReviewSteps: [...steps, type] }); setAdding(false); toggleRef.current?.focus();
-        }}><span className="file-review-type-icon" aria-hidden="true">{type === "ai" ? "✦" : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2Z" /></svg>}</span><span><strong>{type === "ai" ? "AI 预审核" : "人工审核"}</strong><small>{type === "ai" ? "按所选规则自动检查" : "由流程发布者审核"}</small></span></button>)}</div> : null}
+        }}><span className="file-review-type-icon" aria-hidden="true">{type === "ai" ? "✦" : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2Z" /></svg>}</span><span><strong>{type === "ai" ? "AI 预审核" : "人工审核"}</strong><small>{type === "ai" ? "按所选规则自动检查" : "由流程发布者审核"}</small></span></button>)}</div>, document.body) : null}
       </div> : null}
     </header>
     <ol>{steps.map((step, index) => <li key={step}>

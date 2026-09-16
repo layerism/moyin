@@ -13301,7 +13301,7 @@ td {
 .file-review-picker { position: relative; flex-shrink: 0; }
 .file-review-add { min-height: 32px; padding: 5px 10px; border: 1px solid #bad0ff; border-radius: 7px; background: #fff; color: #175cd3; cursor: pointer; font-size: 12px; }
 .file-review-add:hover, .file-review-add[aria-expanded="true"] { background: #eef4ff; }
-.file-review-add-options { position: absolute; z-index: 5; top: calc(100% + 6px); right: 0; width: 210px; padding: 5px; display: grid; gap: 3px; border: 1px solid #d7e1ee; border-radius: 9px; background: #fff; box-shadow: 0 8px 24px #1c355526; }
+.file-review-add-options { position: fixed; z-index: 100; width: 210px; padding: 5px; display: grid; gap: 3px; border: 1px solid #d7e1ee; border-radius: 9px; background: #fff; box-shadow: 0 8px 24px #1c355526; }
 .file-review-add-options button { display: flex; align-items: center; gap: 10px; padding: 10px; border: 0; border-radius: 6px; background: #fff; text-align: left; cursor: pointer; color: #253044; }
 .file-review-add-options button:hover { background: #f2f6ff; }
 .file-review-add-options strong { font-size: 13px; }
@@ -13345,3 +13345,6 @@ td {
 .file-review-history article { padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
 .file-review-history small { display: block; color: #64748b; }
 .file-review-history p { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.file-review-add-options small { color: #667085; font-size: 11px; }
+.file-review-add-options button:focus-visible { outline: 2px solid #2670ef; outline-offset: -2px; }
