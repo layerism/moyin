@@ -4,6 +4,7 @@ import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import Markdown from "react-markdown";
+import { AuditHistory } from "./AuditHistory";
 
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
@@ -724,7 +725,8 @@ function RuntimeNodeDialog({
           </div>)}
         </section> : null}
         {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
-        {runtime.audit && !awaitingReview ? <AuditResult audit={runtime.audit} /> : null}
+        {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.auditHistory?.some((entry) => entry.attemptNo === runtime.attemptNo)) ? <AuditResult audit={runtime.audit} /> : null}
+        {node.kind === "file" && !awaitingReview ? <AuditHistory runtime={runtime} /> : null}
         {node.kind === "file" ? <ManualFeedbackList feedback={runtime.feedback ?? []} student /> : null}
         {node.kind === "file" && runtime.reviewStage === "manual" && onPreviewReview ? <div className="runtime-node-actions"><button onClick={onPreviewReview} type="button">教师预览：模拟审核</button></div> : null}
         {node.kind === "manual_review" ? <section className="manual-review-student-state">
@@ -1060,6 +1062,7 @@ function ReviewingSubmission({
           <small>审核结果会自动刷新，你可以先关闭此窗口处理其他事项。</small>
         </div>
       </section>
+      {node.kind === "file" ? <AuditHistory runtime={runtime} /> : null}
       <h3 className="runtime-reviewing-submission-title">本次提交内容</h3>
       <ReadonlySubmission
         instanceId={instanceId}

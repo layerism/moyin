@@ -13357,3 +13357,31 @@ td {
 @media (max-width: 760px) {
   .node-file-template-file { grid-template-columns: 24px minmax(0, 1fr); }
 }
+
+.runtime-audit-history { margin: 20px 0; color: #24324b; }
+.runtime-audit-history h3 { margin: 0 0 16px; font-size: 17px; }
+.runtime-audit-history h4 { display: flex; gap: 12px; align-items: center; margin: 16px 0 12px; font-size: 14px; }
+.runtime-audit-history h4 small { color: #78849a; font-weight: 400; }
+.runtime-audit-history > section > ol { margin: 0 0 0 8px; padding: 0 0 0 22px; border-left: 2px solid #e4eaf3; list-style: none; }
+.runtime-audit-history > section > ol > li { position: relative; padding: 16px; margin: 0 0 14px; border: 1px solid #dfe6f0; border-radius: 12px; background: #fff; min-width: 0; scroll-margin-top: 16px; }
+.runtime-audit-history > section > ol > li::before { content: ''; position: absolute; left: -29px; top: 22px; width: 10px; height: 10px; border: 2px solid white; border-radius: 50%; background: #20a36b; }
+.runtime-audit-history > section > ol > li.is-rejected::before { background: #d74848; }
+.runtime-audit-history > section > ol > li > header { display: flex; gap: 12px; justify-content: space-between; align-items: start; }
+.runtime-audit-history > section > ol > li > header > span { color: #168052; background: #eaf8f0; padding: 2px 8px; border-radius: 6px; font-size: 12px; white-space: nowrap; }
+.runtime-audit-history > section > ol > li.is-rejected > header > span { color: #be3434; background: #fff0f0; }
+.runtime-audit-history time { display: block; color: #78849a; font-size: 12px; margin-top: 6px; }
+.runtime-audit-preview { max-height: 144px; overflow: hidden; margin-top: 12px; overflow-wrap: anywhere; }
+.runtime-audit-preview.is-expanded { max-height: none; }
+.runtime-audit-history-actions { display: flex; gap: 16px; margin-top: 10px; }
+.runtime-audit-history-actions button { border: 0; background: transparent; color: #2563eb; padding: 4px 0; font-size: 13px; }
+.runtime-audit-report-dialog { width: min(960px, calc(100vw - 32px)); height: min(860px, 88dvh); max-height: 88dvh; box-sizing: border-box; padding: 0; border: 1px solid #dfe6f0; border-radius: 16px; color: #24324b; }
+.runtime-audit-report-dialog[open] { display: flex; flex-direction: column; }
+.runtime-audit-report-dialog::backdrop { background: rgb(20 30 50 / 45%); }
+.runtime-audit-report-dialog > header { display: flex; justify-content: space-between; gap: 16px; padding: 24px; border-bottom: 1px solid #e4eaf3; flex-shrink: 0; }
+.runtime-audit-report-dialog h3 { margin: 0 0 8px; }
+.runtime-audit-report-dialog small { color: #78849a; }
+.runtime-audit-report-body { flex: 1; min-height: 0; overflow: auto; padding: 24px; overflow-wrap: anywhere; }
+.runtime-audit-report-dialog > footer { padding: 16px 24px; border-top: 1px solid #e4eaf3; text-align: right; }
+.runtime-audit-history .runtime-audit-markdown table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.runtime-audit-history .runtime-audit-markdown th, .runtime-audit-history .runtime-audit-markdown td { padding: 8px; border: 1px solid #dfe6f0; overflow-wrap: anywhere; }
+.runtime-audit-history .runtime-audit-markdown pre { white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -75,7 +75,17 @@ export type RuntimeNodeAudit = {
   status: RuntimeNodeStatus;
 };
 
+export type RuntimeAuditHistoryEntry = {
+  id: string;
+  attemptNo: number;
+  scriptName: string;
+  passed: boolean;
+  reason: string;
+  reviewedAt: string | null;
+};
+
 export type RuntimeNodeInstance = {
+  auditHistory?: RuntimeAuditHistoryEntry[];
   reviewStage?: "ai" | "manual" | null;
   approvedAt: string | null;
   feedback?: ManualFeedback[];

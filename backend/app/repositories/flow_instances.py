@@ -349,6 +349,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "feedback": feedback,
                     "sourceReviews": reviews,
                     "reviewStage": current_review_stage,
+                    "auditHistory": _audit_history(connection, row, config_node) if config_node.get("kind") == "file" else [],
                     "manualRejection": {"id": rejection["id"], "remark": rejection["remark"], "reviewedAt": rejection["created_at"], "files": rejection_files} if rejection else None,
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
@@ -854,6 +855,31 @@ def submit_node(
                 )
             complete_flow_if_ready(connection, row["flow_instance_id"], now)
     return get_instance(row["flow_instance_id"], student_id)
+
+
+def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[dict[str, object]]:
+    """Return persisted business conclusions, never worker exception messages."""
+    records = connection.execute(
+        """SELECT j.id, j.script_id, j.result_json, j.finished_at, s.attempt_no
+           FROM audit_jobs j JOIN submissions s ON s.id = j.submission_id
+           WHERE j.node_instance_id = ? AND j.status = 'succeeded'
+           ORDER BY s.attempt_no DESC, j.finished_at DESC""",
+        (node_row["id"],),
+    ).fetchall()
+    history = []
+    for record in records:
+        result = _json_object(record["result_json"])
+        if not isinstance(result.get("passed"), bool):
+            continue
+        history.append({
+            "id": record["id"], "attemptNo": record["attempt_no"],
+            "scriptName": (config_node.get("auditScriptName") or "AI 审核")
+                if record["script_id"] == config_node.get("auditScriptId") else "AI 审核",
+            "passed": result["passed"],
+            "reason": result.get("reason") if isinstance(result.get("reason"), str) else "",
+            "reviewedAt": record["finished_at"],
+        })
+    return history
 
 
 def _audit_summary(
