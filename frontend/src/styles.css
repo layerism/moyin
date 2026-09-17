@@ -13406,3 +13406,6 @@ td {
 .file-review-score-summary { min-width: 0; padding: 9px 12px; color: #475467; background: #f4f6fa; border-radius: 6px; font-size: 12px; }
 .file-review-step-model { display: flex; justify-content: flex-start; }
 .file-review-step-model .node-model-toggle { min-height: 30px; padding: 5px 10px; font-size: 12px; }
+
+.node-template-file-icon.file-format-icon { background: transparent; }
+.file-format-icon > svg { display: block; flex-shrink: 0; }
