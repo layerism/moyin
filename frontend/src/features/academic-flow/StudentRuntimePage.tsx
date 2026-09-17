@@ -726,9 +726,8 @@ function RuntimeNodeDialog({
         </section> : null}
         {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
         {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.reviewTimeline?.length && runtime.audit.status !== "failed" && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
-        {node.kind === "file" && !awaitingReview ? <ReviewProgress runtime={runtime} /> : null}
+        {node.kind === "file" && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={runtime.feedback ?? []} student /> : null}
-        {node.kind === "file" && runtime.reviewStage === "manual" && onPreviewReview ? <div className="runtime-node-actions"><button onClick={onPreviewReview} type="button">教师预览：模拟审核</button></div> : null}
         {node.kind === "manual_review" ? <section className="manual-review-student-state">
           <div className={`manual-review-result${runtime.status === "approved" ? " is-approved" : ""}`}>
             <span className="manual-review-result-icon" aria-hidden="true">{runtime.status === "approved" ? "✓" : "◷"}</span>
@@ -776,7 +775,7 @@ function RuntimeNodeDialog({
             ) : null}
           </>
         ) : awaitingReview ? (
-          <ReviewingSubmission instanceId={instanceId} node={node} onDownloadFile={onDownloadFile} runtime={runtime} />
+          <ReviewingSubmission instanceId={instanceId} node={node} onDownloadFile={onDownloadFile} runtime={runtime} onPreviewReview={onPreviewReview} />
         ) : effectivelyWritable ? (
           <div className="runtime-node-form">
           {node.kind === "branch" ? <fieldset className="runtime-branch-options" disabled={!effectivelyWritable || busy}>
@@ -1044,11 +1043,13 @@ function ReviewingSubmission({
   node,
   onDownloadFile,
   runtime,
+  onPreviewReview,
 }: {
   instanceId: string;
   node: AcademicFlowNode;
   onDownloadFile: (fileId: string) => void;
   runtime: RuntimeNodeInstance;
+  onPreviewReview?: () => void;
 }) {
   const manual = runtime.reviewStage === "manual";
   const attemptCount = Math.max(1, runtime.audit?.attemptCount || 1);
@@ -1067,7 +1068,7 @@ function ReviewingSubmission({
           <small>审核结果会自动刷新，你可以先关闭此窗口处理其他事项。</small>
         </div>
       </section> : null}
-      {node.kind === "file" ? <ReviewProgress runtime={runtime} /> : null}
+      {node.kind === "file" ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
       <h3 className="runtime-reviewing-submission-title">本次提交内容</h3>
       <ReadonlySubmission
         instanceId={instanceId}

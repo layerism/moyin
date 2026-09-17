@@ -13485,3 +13485,13 @@ td {
 .review-attempt-history summary { cursor: pointer; padding: 6px 0; }
 .review-progress-empty { color: #78849a; margin: 0; }
 @media (max-width: 600px) { .review-annotation time { display: block; margin: 4px 0; } .review-step-disclosure > summary { gap: 6px; padding: 10px; } }
+.review-step-disclosure > summary > .review-preview-action {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border: 1px solid #bfd1ff;
+  border-radius: 6px;
+  background: #f0f5ff;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
+}
