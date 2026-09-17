@@ -13,7 +13,7 @@ export function ReviewProgress({ runtime, onPreviewReview }: { runtime: RuntimeN
   if (!attempts.length) return <AuditHistory runtime={{ ...runtime, auditHistory: (runtime.auditHistory ?? []).filter((entry) => entry.attemptNo === runtime.attemptNo) }} />;
   const current = attempts.find((item) => item.attemptNo === runtime.attemptNo);
   return <section className="runtime-review-progress" aria-label="审核进度">
-    <header><h3>审核进度</h3><small>第 {runtime.attemptNo} 次提交</small></header>
+    <header><h3>审核进度</h3><small>本次审核</small></header>
     {runtime.status === "reviewing" ? <p className="review-progress-notice" role="status">{runtime.reviewStage === "manual" ? "等待教师最终审核" : "正在进行 AI 审核"} · 结果自动刷新</p> : null}
     {current ? <Steps attempt={current} onPreviewReview={(runtime.reviewStage === "manual" || runtime.status === "approved" || runtime.status === "rejected") ? onPreviewReview : undefined} /> : null}
   </section>;

@@ -150,3 +150,14 @@ def decide_file_review(connection, row, config, node, status, teacher_id, eviden
         connection.execute("UPDATE node_instances SET status = 'reviewing', approved_at = NULL WHERE id = ?", (row['id'],))
     finish_step(connection, submission_id, 'manual', passed, now)
     return connection.execute('SELECT status FROM node_instances WHERE id = ?', (row['id'],)).fetchone()['status'] == 'approved'
+
+
+def discard_previous_rounds(connection, node_instance_id, submission_id):
+    """Called only inside the successful submission transaction, after validation."""
+    for table in ('manual_reviews', 'manual_feedback', 'manual_feedback_drafts', 'manual_feedback_files'):
+        connection.execute(f'DELETE FROM {table} WHERE node_instance_id = ?', (node_instance_id,))
+    connection.execute('DELETE FROM manual_node_rejections WHERE node_instance_id = ?', (node_instance_id,))
+    # Cascades remove prior AI jobs, per-step tasks, runs, and feedback contexts.
+    # File objects are separate resources and may still be referenced by other nodes.
+    connection.execute('DELETE FROM submissions WHERE node_instance_id = ? AND id != ?',
+                       (node_instance_id, submission_id))
