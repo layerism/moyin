@@ -147,6 +147,11 @@ type ErrorDetail = string | {
   message?: string;
 };
 
+export function applyPreviewHeaders(headers: Headers): void {
+  const previewToken = window.sessionStorage.getItem(FLOW_PREVIEW_TOKEN_KEY);
+  if (previewToken) headers.set("X-Flow-Preview-Token", previewToken);
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const isMultipart =
     typeof FormData !== "undefined" && init?.body instanceof FormData;
@@ -154,10 +159,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!isMultipart && init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const previewToken = window.sessionStorage.getItem(FLOW_PREVIEW_TOKEN_KEY);
-  if (previewToken) {
-    headers.set("X-Flow-Preview-Token", previewToken);
-  }
+  applyPreviewHeaders(headers);
   const response = await fetch(path, {
     ...init,
     credentials: "include",
@@ -187,10 +189,7 @@ async function downloadRequest(
   init: RequestInit = {},
 ): Promise<{ blob: Blob; filename: string }> {
   const headers = new Headers(init.headers);
-  const previewToken = window.sessionStorage.getItem(FLOW_PREVIEW_TOKEN_KEY);
-  if (previewToken) {
-    headers.set("X-Flow-Preview-Token", previewToken);
-  }
+  applyPreviewHeaders(headers);
   const response = await fetch(path, { ...init, credentials: "include", headers });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { detail?: ErrorDetail } | null;

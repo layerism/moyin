@@ -1,3 +1,5 @@
+import { applyPreviewHeaders } from "./api";
+
 type SaveHandle = { createWritable(): Promise<WritableStream<Uint8Array>> };
 type SaveWindow = Window & { showSaveFilePicker?: (options: { suggestedName: string }) => Promise<SaveHandle> };
 
@@ -12,7 +14,9 @@ export async function saveStudentFile(kind: "file" | "template" | "reference" | 
       throw error;
     }
   }
-  const response = await fetch(`/api/student/downloads/${kind}/${encodeURIComponent(id)}`, { credentials: "same-origin" });
+  const headers = new Headers();
+  applyPreviewHeaders(headers);
+  const response = await fetch(`/api/student/downloads/${kind}/${encodeURIComponent(id)}`, { credentials: "include", headers });
   if (!response.ok) {
     const error = await response.json().catch(() => null);
     throw new Error(typeof error?.detail === "string" ? error.detail : "文件下载失败，请重试");
