@@ -665,7 +665,7 @@ function RuntimeNodeDialog({
     <div className="runtime-node-dialog-backdrop" onMouseDown={onClose}>
       <section
         aria-modal="true"
-        className={`runtime-node-dialog ${runtime.status}${completedBranch ? " runtime-branch-completed-dialog" : ""}`}
+        className={`runtime-node-dialog ${runtime.status}${node.kind === "file" ? " runtime-file-dialog" : ""}${completedBranch ? " runtime-branch-completed-dialog" : ""}`}
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >

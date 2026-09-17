@@ -13495,3 +13495,16 @@ td {
   font-size: 12px;
   cursor: pointer;
 }
+
+/* Reserve scrollbar space and keep the file dialog stationary during disclosure. */
+.runtime-node-dialog.runtime-file-dialog {
+  box-sizing: border-box;
+  height: calc(100dvh - 48px);
+  max-height: calc(100dvh - 48px);
+  scrollbar-gutter: stable;
+}
+.runtime-file-dialog .review-reason-scroll,
+.runtime-file-dialog .review-annotation > .runtime-audit-markdown,
+.runtime-audit-report-body {
+  scrollbar-gutter: stable;
+}
