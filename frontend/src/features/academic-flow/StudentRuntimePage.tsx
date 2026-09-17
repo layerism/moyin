@@ -616,7 +616,7 @@ function RuntimeNodeDialog({
     }
   };
 
-  const handleFileDrop = (event: ReactDragEvent<HTMLLabelElement>) => {
+  const handleFileDrop = (event: ReactDragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDraggingFile(false);
     const file = event.dataTransfer.files?.[0];
@@ -823,7 +823,7 @@ function RuntimeNodeDialog({
               </section>
             ) : null}
             {runtime.template ? <strong className="runtime-upload-step-title">2 上传已填写文件</strong> : null}
-            <label
+            <div
               className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${needsFileReplacement ? " is-rejected" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
               onDragEnter={(event) => {
                 event.preventDefault();
@@ -833,7 +833,9 @@ function RuntimeNodeDialog({
               onDragOver={(event) => event.preventDefault()}
               onDrop={handleFileDrop}
             >
+              <label className="runtime-file-workspace-select">
               <input
+                id={`runtime-file-input-${runtime.id}`}
                 disabled={fileBusy}
                 type="file"
                 onChange={(event) => {
@@ -869,12 +871,13 @@ function RuntimeNodeDialog({
                           : "选择后将自动上传"}
                 </small>
               </span>
+              </label>
+              <div className="runtime-file-inline-actions">
               {fileReady || needsFileReplacement ? (
-                <span className="runtime-file-workspace-action">
+                <button type="button" disabled={fileBusy} className="runtime-file-workspace-action" onClick={() => document.getElementById(`runtime-file-input-${runtime.id}`)?.click()}>
                   {needsFileReplacement ? "重新上传" : "更换文件"}
-                </span>
+                </button>
               ) : null}
-            </label>
             {downloadableFileId ? (
               <div className="runtime-uploaded-file-actions">
                 <button
@@ -886,6 +889,8 @@ function RuntimeNodeDialog({
                 </button>
               </div>
             ) : null}
+              </div>
+            </div>
             </div>
           ) : null}
           {node.kind === "confirmation" || node.kind === "announcement" ? (

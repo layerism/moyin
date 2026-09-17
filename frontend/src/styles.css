@@ -13437,3 +13437,10 @@ td {
   .node-file-row-select { flex-wrap: wrap; }
   .node-file-row-select small { flex-basis: 100%; margin-left: 31px; }
 }
+
+.runtime-file-workspace-select { display: contents; cursor: pointer; }
+.runtime-file-inline-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.runtime-file-inline-actions .runtime-file-workspace-action { min-height: 36px; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
+.runtime-file-inline-actions button:disabled { cursor: not-allowed; opacity: .58; }
+.runtime-file-inline-actions .runtime-uploaded-file-actions button { font-size: 12px; white-space: nowrap; }
+@media (max-width: 600px) { .runtime-file-inline-actions { grid-column: 1 / -1; } }
