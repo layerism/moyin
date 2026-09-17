@@ -402,6 +402,20 @@ CREATE TABLE IF NOT EXISTS file_review_runs (
     status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'rejected', 'cancelled'))
 );
 
+CREATE TABLE IF NOT EXISTS file_review_ai_tasks (
+    id TEXT PRIMARY KEY,
+    submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    step_index INTEGER NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending','running','succeeded','failed','cancelled')),
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    result_json TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT,
+    UNIQUE(submission_id, step_index)
+);
+CREATE INDEX IF NOT EXISTS idx_file_review_task_status ON file_review_ai_tasks(status, created_at);
+
 CREATE TABLE IF NOT EXISTS audit_jobs (
     id TEXT PRIMARY KEY,
     submission_id TEXT NOT NULL UNIQUE REFERENCES submissions(id) ON DELETE CASCADE,

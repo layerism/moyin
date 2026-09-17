@@ -22,6 +22,7 @@ from app.domain.workflow_runtime import (
     validate_submission,
 )
 from app.repositories.audit_jobs import create_audit_job
+from app.domain.file_review_steps import structured_steps, step_kind
 from app.repositories.manual_review_state import sync_manual_reviews, latest_review, review_evidence, source_reviews, current_rejection
 from app.repositories.audit_policies import (
     AuditPolicyConflictError,
@@ -328,7 +329,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     rejection_files = [file for file in file_items(connection, json.loads(saved_feedback["files_json"])) if file["sourceNodeKey"] == row["node_key"]]
             feedback = []
             reviews = []
-            if config_node.get("kind") == "manual_review" or (config_node.get("kind") == "file" and "manual" in config_node.get("fileReviewSteps", [])):
+            if config_node.get("kind") == "manual_review" or (config_node.get("kind") == "file" and any(step_kind(step) == "manual" for step in config_node.get("fileReviewSteps", []))):
                 from app.repositories.manual_feedback import published_feedback
                 evidence, evidence_hash = review_evidence(connection, instance_id, config, row["node_key"])
                 reviews = source_reviews(connection, row["id"], evidence, evidence_hash) if config_node.get("kind") == "manual_review" else []
@@ -337,7 +338,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             current_review_stage = review_stage(connection, row["submission_id"]) if status == "reviewing" else None
             manual_file_rejection = connection.execute("""SELECT 1 FROM file_review_runs
                 WHERE submission_id = ? AND status = 'rejected'
-                AND json_extract(steps_json, '$[' || step_index || ']') = 'manual'""",
+                AND COALESCE(json_extract(steps_json, '$[' || step_index || '].kind'), json_extract(steps_json, '$[' || step_index || ']')) = 'manual'""",
                 (row["submission_id"],)).fetchone() if status in {"rejected", "expired"} else None
             nodes.append(
                 {
@@ -366,7 +367,8 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
                     "manualReview": {"remark": manual_review["remark"], "reviewedAt": manual_review["created_at"]} if manual_review and status == "approved" else None,
-                    "audit": None if rejection or manual_file_rejection or current_review_stage == "manual" else _audit_summary(row, status, config_node),
+                    "audit": (_file_step_audit(connection, row, status) if structured_steps(config_node) else
+                        None if rejection or manual_file_rejection or current_review_stage == "manual" else _audit_summary(row, status, config_node)),
                     "grade": (
                         student_grade_view(
                             grade,
@@ -384,7 +386,8 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             **config,
             "nodes": [
                 {
-                    key: value
+                    key: ([{"id": step["id"], "kind": step["kind"]} for step in value]
+                          if key == "fileReviewSteps" and structured_steps(node) else value)
                     for key, value in node.items()
                     if not (
                         key in {
@@ -637,6 +640,7 @@ def submit_node(
                 node.get("kind") != "answer_sheet"
                 and isinstance(script_id, str)
                 and bool(script_id)
+                and not structured_steps(node)
             )
             audit_binding: dict[str, object] | None = None
             if has_audit_script:
@@ -812,6 +816,9 @@ def submit_node(
             if node.get("kind") == "file" and node.get("fileReviewSteps"):
                 connection.execute("INSERT INTO file_review_runs (submission_id, steps_json, status) VALUES (?, ?, 'active')",
                                    (submission_id, canonical_json(node["fileReviewSteps"])))
+                if structured_steps(node):
+                    from app.repositories.file_review_tasks import enqueue_steps
+                    enqueue_steps(connection, submission_id, node, now)
             if audit_binding is not None:
                 create_audit_job(
                     connection,
@@ -857,6 +864,18 @@ def submit_node(
     return get_instance(row["flow_instance_id"], student_id)
 
 
+def _file_step_audit(connection, row, status):
+    task = connection.execute("""SELECT t.* FROM file_review_ai_tasks t JOIN file_review_runs r
+        ON r.submission_id = t.submission_id AND r.step_index = t.step_index
+        WHERE t.submission_id = ?""", (row["submission_id"],)).fetchone()
+    if task is None or task["status"] == "succeeded":
+        return None
+    return {"status": status, "attemptCount": task["attempt_count"], "details": None,
+            "reason": "自动审核暂时失败，请重新审核" if task["status"] == "failed" else
+                "审核程序已更新，请重新提交材料。" if task["status"] == "cancelled" else None,
+            "canRetry": status == "audit_error" and task["status"] == "failed"}
+
+
 def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[dict[str, object]]:
     """Return persisted business conclusions, never worker exception messages."""
     records = connection.execute(
@@ -879,7 +898,18 @@ def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[di
             "reason": result.get("reason") if isinstance(result.get("reason"), str) else "",
             "reviewedAt": record["finished_at"],
         })
-    return history
+    tasks = connection.execute("""SELECT t.*, s.attempt_no FROM file_review_ai_tasks t
+        JOIN submissions s ON s.id = t.submission_id WHERE s.node_instance_id = ? AND t.status = 'succeeded'
+        ORDER BY s.attempt_no DESC, t.step_index""", (node_row["id"],)).fetchall()
+    for task in tasks:
+        result = _json_object(task["result_json"])
+        snapshot = _json_object(task["snapshot_json"])
+        history.append({"id": task["id"], "attemptNo": task["attempt_no"],
+                        "stepIndex": task["step_index"],
+                        "scriptName": f"第 {task['step_index'] + 1} 步 · {snapshot['scriptName']}",
+                        "passed": result["passed"], "reason": result["reason"],
+                        "reviewedAt": task["finished_at"], "score": result.get("details", {}).get("score")})
+    return sorted(history, key=lambda item: (-item["attemptNo"], item.get("stepIndex", 0)))
 
 
 def _audit_summary(

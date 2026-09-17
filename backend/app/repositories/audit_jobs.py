@@ -90,7 +90,8 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
               AND (
                 SELECT COUNT(*) FROM audit_jobs active
                 WHERE active.script_id = j.script_id AND active.status = 'running'
-              ) < r.max_concurrency
+              ) + (SELECT COUNT(*) FROM file_review_ai_tasks active
+                   WHERE active.status = 'running' AND json_extract(active.snapshot_json, '$.auditScriptId') = j.script_id) < r.max_concurrency
               AND (
                 NOT EXISTS (
                   SELECT 1 FROM node_instances n
@@ -463,6 +464,19 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
+        task = connection.execute("""SELECT t.id, n.flow_instance_id, v.flow_id FROM file_review_ai_tasks t
+            JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
+            JOIN submissions s ON s.id = t.submission_id
+            JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
+            JOIN flow_instances i ON i.id = n.flow_instance_id JOIN flow_versions v ON v.id = i.flow_version_id
+            WHERE n.id = ? AND i.student_account_id = ? AND n.status = 'audit_error' AND t.status = 'failed'""",
+            (node_instance_id, student_id)).fetchone()
+        if task:
+            assert_student_roster_access(connection, task["flow_id"], student_id)
+            connection.execute("UPDATE file_review_ai_tasks SET status = 'pending', finished_at = NULL WHERE id = ?", (task["id"],))
+            connection.execute("UPDATE node_instances SET status = 'reviewing' WHERE id = ?", (node_instance_id,))
+            connection.execute("UPDATE submissions SET status = 'reviewing' WHERE id = (SELECT submission_id FROM file_review_ai_tasks WHERE id = ?)", (task["id"],))
+            return task["flow_instance_id"]
         row = connection.execute(
             """
             SELECT n.id, n.status, n.flow_instance_id, i.student_account_id, v.flow_id,

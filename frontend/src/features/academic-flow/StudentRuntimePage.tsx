@@ -725,7 +725,7 @@ function RuntimeNodeDialog({
           </div>)}
         </section> : null}
         {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
-        {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.auditHistory?.some((entry) => entry.attemptNo === runtime.attemptNo)) ? <AuditResult audit={runtime.audit} /> : null}
+        {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.audit.status === "rejected" && runtime.auditHistory?.some((entry) => entry.attemptNo === runtime.attemptNo)) ? <AuditResult audit={runtime.audit} /> : null}
         {node.kind === "file" && !awaitingReview ? <AuditHistory runtime={runtime} /> : null}
         {node.kind === "file" ? <ManualFeedbackList feedback={runtime.feedback ?? []} student /> : null}
         {node.kind === "file" && runtime.reviewStage === "manual" && onPreviewReview ? <div className="runtime-node-actions"><button onClick={onPreviewReview} type="button">教师预览：模拟审核</button></div> : null}

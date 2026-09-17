@@ -1,0 +1,1 @@
+{"id":"document-score-audit","name":"文档 AI 评分","description":"按独立评分标准对 DOCX 或 PDF 评分，达到阈值通过","language":"py","entry":"handler.py","usesAi":true}

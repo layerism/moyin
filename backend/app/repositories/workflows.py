@@ -104,7 +104,27 @@ def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
 
 
 def _refresh_file_audit_script_configs(config: dict[str, Any]) -> None:
+    from app.domain.file_review_steps import structured_steps
     for node in config.get("nodes", []):
+        if structured_steps(node):
+            extensions = None
+            for step in node["fileReviewSteps"]:
+                if step["kind"] == "manual" or not step.get("auditScriptId"):
+                    continue
+                child = {**node, **step, "kind": "file"}
+                child.pop("fileReviewSteps", None)
+                _refresh_file_audit_script_configs({"nodes": [child]})
+                for key in ("auditScriptParams", "auditScriptAcceptedExtensions"):
+                    if key in child:
+                        step[key] = child[key]
+                accepted = child.get("auditScriptAcceptedExtensions")
+                if accepted:
+                    extensions = set(accepted) if extensions is None else extensions.intersection(accepted)
+            if extensions is not None:
+                if not extensions:
+                    raise FlowValidationError("审核步骤支持的文件格式没有交集")
+                node["fileExtensions"] = ", ".join(sorted(ext.removeprefix(".") for ext in extensions))
+            continue
         if node.get("kind") != "file":
             continue
         _strip_legacy_audit_script_snapshot(node)
@@ -145,7 +165,8 @@ def canonical_json(value: object) -> str:
 
 
 def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
-    for node in config["nodes"]:
+    from app.domain.file_review_steps import review_config_nodes
+    for node in review_config_nodes(config):
         script_id = node.get("auditScriptId")
         params = node.get("auditScriptParams")
         accepted = node.get("auditScriptAcceptedExtensions")
@@ -172,7 +193,7 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
                 for value in str(node.get("fileExtensions") or "").split(",")
                 if value.strip()
             ]
-            if node_extensions != list(record.accepted_extensions):
+            if not node_extensions or not set(node_extensions).issubset(record.accepted_extensions):
                 raise FlowValidationError("文件格式必须符合审核脚本要求")
 
 
@@ -180,6 +201,7 @@ def prepare_runtime_config(
     connection: Any, flow_id: str, config: dict[str, Any]
 ) -> dict[str, str]:
     _bind_confirmation_visual_audits(config)
+    _refresh_file_audit_script_configs(config)
     validate_flow_config(config, require_publishable=True)
     _validate_audit_script_nodes(config)
     validate_flow_models(connection, flow_id, config, require_configured=True)
@@ -521,6 +543,9 @@ def copy_flow_definition(
         if source_owner != target_owner:
             for node in config.get("nodes", []):
                 node.pop("auditModelCardId", None)
+                for step in node.get("fileReviewSteps", []):
+                    if isinstance(step, dict):
+                        step.pop("auditModelCardId", None)
         if clear_dates:
             for node in config.get("nodes", []):
                 node.pop("startAt", None)

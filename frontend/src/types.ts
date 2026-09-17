@@ -185,8 +185,19 @@ export type NodeTemplateAsset = {
   sizeBytes: number;
 };
 
+export type FileReviewStep = {
+  id: string;
+  kind: "ai" | "score" | "manual";
+  auditScriptId?: string;
+  auditScriptName?: string;
+  auditScriptType?: AuditScriptType;
+  auditScriptParams?: Record<string, string | number | boolean>;
+  auditScriptAcceptedExtensions?: string[];
+  auditModelCardId?: string;
+};
+
 export type AcademicFlowNode = {
-  fileReviewSteps?: Array<"ai" | "manual">;
+  fileReviewSteps?: Array<"ai" | "manual" | FileReviewStep>;
   branches?: Array<{ id: string; label: string }>;
   answerSheet?: AnswerSheetConfig;
   auditScriptAcceptedExtensions?: string[];

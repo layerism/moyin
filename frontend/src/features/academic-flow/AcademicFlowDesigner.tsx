@@ -1,4 +1,4 @@
-import { FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
+import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
 import { NodeModelSelector } from "./NodeModelSelector";
 import { ManualReviewDialog } from "./ManualReviewDialog";
@@ -368,10 +368,10 @@ export function AcademicFlowDesigner({
       showActionError("条件分支至少需要两个选项，请填写名称并为每个选项连接下游节点");
       return;
     }
-    const missingFileAudit = candidate.nodes.find((node) => node.fileReviewSteps?.includes("ai") && !node.auditScriptId);
+    const missingFileAudit = candidate.nodes.find((node) => node.kind === "file" && fileReviewError(node));
     if (missingFileAudit) {
       setInspectorNodeId(missingFileAudit.id);
-      showActionError("请为 AI 预审核选择审核脚本");
+      showActionError(fileReviewError(missingFileAudit) ?? "请完善审核配置");
       return;
     }
     const missingReviewSource = candidate.nodes.find((node) => node.kind === "manual_review" && !candidate.edges.some((edge) => edge.target === node.id));
@@ -2251,6 +2251,10 @@ function NodeInspector({
   const closeInspector = useCallback(async (requireModel = false) => {
     if (auditPolicySaving) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
+    if (requireModel && node?.kind === "file" && fileReviewError(node)) {
+      setAuditPolicyError(fileReviewError(node) ?? "请完善审核步骤配置");
+      return;
+    }
     if (requireModel && missingAuditModel) {
       setModelValidationAttempt((current) => current + 1);
       return;
@@ -2282,6 +2286,7 @@ function NodeInspector({
   }, [
     auditPolicy,
     auditPolicyChanged,
+    node,
     missingAuditModel,
     auditPolicyFieldErrors,
     auditPolicyParams,
@@ -2344,8 +2349,10 @@ function NodeInspector({
   const timeSettingsLabel = getTimeSettingsLabel(node);
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
-  const scriptLocksFileTypes = Boolean(node.auditScriptAcceptedExtensions?.length);
-  const lockedFileTypeLabel = (node.auditScriptAcceptedExtensions ?? [])
+  const stepExtensions = node.kind === "file" ? fileReviewSteps(node).filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length).map((step) => step.auditScriptAcceptedExtensions!) : [];
+  const effectiveExtensions = stepExtensions.length ? stepExtensions[0].filter((ext) => stepExtensions.every((list) => list.includes(ext))) : node.auditScriptAcceptedExtensions;
+  const scriptLocksFileTypes = Boolean(effectiveExtensions?.length);
+  const lockedFileTypeLabel = (effectiveExtensions ?? [])
     .map((extension) => extension.replace(/^\./, "").toUpperCase())
     .join(" · ");
 

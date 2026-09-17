@@ -42,6 +42,8 @@ async def start_audit_worker_pool(worker_count: int) -> AuditWorkerPool:
     await asyncio.to_thread(synchronize_audit_script_states)
     await asyncio.to_thread(synchronize_existing_audit_policies)
     await asyncio.to_thread(recover_audit_jobs)
+    from app.repositories.file_review_tasks import recover_tasks
+    await asyncio.to_thread(recover_tasks)
     stop_event = asyncio.Event()
     tasks = [
         asyncio.create_task(_worker_loop(stop_event), name=f"audit-worker-{index + 1}")
@@ -70,6 +72,9 @@ def signal_audit_job_cancellations(job_ids: list[str]) -> None:
 
 async def _worker_loop(stop_event: asyncio.Event) -> None:
     while not stop_event.is_set():
+        from app.repositories.file_review_tasks import run_next_task
+        if await asyncio.to_thread(run_next_task):
+            continue
         job = await asyncio.to_thread(claim_next_audit_job)
         if job is None:
             try:

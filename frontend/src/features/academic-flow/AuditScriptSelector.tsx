@@ -18,6 +18,7 @@ export function AuditScriptSelector({
   parameterDisabled = disabled,
   parameters,
   selectionRequired = false,
+  scoreOnly = false,
 }: {
   disabled?: boolean;
   node: AcademicFlowNode;
@@ -25,6 +26,7 @@ export function AuditScriptSelector({
   parameterDisabled?: boolean;
   parameters?: AuditScriptParameter[];
   selectionRequired?: boolean;
+  scoreOnly?: boolean;
 }) {
   const [scripts, setScripts] = useState<AuditScriptSummary[]>([]);
   const [error, setError] = useState("");
@@ -48,7 +50,7 @@ export function AuditScriptSelector({
     };
   }, []);
 
-  const options = getAuditScriptOptions(scripts, node);
+  const options = getAuditScriptOptions(scripts, node).filter((option) => scoreOnly ? option.value === "uploaded:document-score-audit" : option.value !== "uploaded:document-score-audit");
   const selectedValue = getSelectedAuditScriptValue(node);
   const selectedScript = scripts.find(
     (script) => `uploaded:${script.id}` === selectedValue,
@@ -67,7 +69,7 @@ export function AuditScriptSelector({
     <div className="audit-script-section">
       <div className="audit-script-selector-row">
         <strong className="node-file-material-label">审核</strong>
-        <select
+        {scoreOnly ? <span className="file-review-score-summary">通过阈值 ≥ {node.auditScriptParams?.passThreshold ?? 60} 分 · 满分 100</span> : <select
           aria-label="材料审核脚本"
           disabled={disabled}
           value={selectedValue}
@@ -78,7 +80,7 @@ export function AuditScriptSelector({
               {selectionRequired && !option.value ? "请选择审核规则" : option.label}
             </option>
           ))}
-        </select>
+        </select>}
         {selectedValue ? <button className="node-script-config-toggle" type="button" aria-label="审核脚本配置" title="审核脚本配置" aria-haspopup="dialog" onClick={openConfig}>
           <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m9 3-.6 2.3-2 .9-2.2-.6-2 3.4 1.6 1.7v2.6L2.2 15l2 3.4 2.2-.6 2 .9L9 21h4l.6-2.3 2-.9 2.2.6 2-3.4-1.6-1.7v-2.6L19.8 9l-2-3.4-2.2.6-2-.9L13 3Z"/><circle cx="11" cy="12" r="3"/></svg>
         </button> : null}
@@ -86,8 +88,8 @@ export function AuditScriptSelector({
           <small className="audit-script-lock">🔒 脚本固化</small>
         ) : null}
       </div>
-      <dialog ref={dialogRef} className="node-script-config-dialog" aria-labelledby="node-script-config-title" onKeyDown={(event) => event.stopPropagation()} onCancel={(event) => { event.preventDefault(); dialogRef.current?.close(); }}>
-        <header><div><h2 id="node-script-config-title">审核脚本配置</h2><p>{selectedScript?.name ?? node.auditScriptName}</p></div><button type="button" aria-label="关闭脚本配置" onClick={() => dialogRef.current?.close()}>×</button></header>
+      <dialog ref={dialogRef} className="node-script-config-dialog" aria-labelledby={`node-script-config-title-${node.id}`} onKeyDown={(event) => event.stopPropagation()} onCancel={(event) => { event.preventDefault(); dialogRef.current?.close(); }}>
+        <header><div><h2 id={`node-script-config-title-${node.id}`}>审核脚本配置</h2><p>{selectedScript?.name ?? node.auditScriptName}</p></div><button type="button" aria-label="关闭脚本配置" onClick={() => dialogRef.current?.close()}>×</button></header>
         <div className="node-script-config-body">
         {parameterDefinitions.length ? <div className="audit-script-parameters">
           {parameterDefinitions.map((parameter) => {

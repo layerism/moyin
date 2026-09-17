@@ -13402,3 +13402,7 @@ td {
 
 .node-reference-file { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
 .node-reference-file > .node-template-file-icon { width: 24px; height: 24px; flex: 0 0 24px; font-size: 7px; }
+
+.file-review-score-summary { min-width: 0; padding: 9px 12px; color: #475467; background: #f4f6fa; border-radius: 6px; font-size: 12px; }
+.file-review-step-model { display: flex; justify-content: flex-start; }
+.file-review-step-model .node-model-toggle { min-height: 30px; padding: 5px 10px; font-size: 12px; }

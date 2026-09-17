@@ -4,11 +4,12 @@ import json
 import uuid
 
 from app.domain.workflow_runtime import node_by_key
+from app.domain.file_review_steps import step_kind, structured_steps
 from app.services.security import utc_now_iso
 
 
 def has_manual_review(node):
-    return node.get('kind') == 'file' and 'manual' in node.get('fileReviewSteps', [])
+    return node.get('kind') == 'file' and any(step_kind(step) == 'manual' for step in node.get('fileReviewSteps', []))
 
 
 def review_stage(connection, submission_id):
@@ -16,7 +17,8 @@ def review_stage(connection, submission_id):
     if run is None or run['status'] != 'active':
         return None
     steps = json.loads(run['steps_json'])
-    return steps[run['step_index']] if run['step_index'] < len(steps) else None
+    kind = step_kind(steps[run['step_index']]) if run['step_index'] < len(steps) else None
+    return 'ai' if kind == 'score' else kind
 
 
 def finish_step(connection, submission_id, kind, passed, now):
@@ -41,6 +43,7 @@ def finish_step(connection, submission_id, kind, passed, now):
     connection.execute('UPDATE node_instances SET status = ?, approved_at = ? WHERE id = ?',
                        (status, now if completed else None, row['id']))
     if not passed:
+        connection.execute("UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ? WHERE submission_id = ? AND status = 'pending'", (now, submission_id))
         connection.execute('''UPDATE audit_jobs SET status = 'cancelled', cancellation_reason = 'manual_rejected', finished_at = ?, updated_at = ? WHERE submission_id = ? AND status = 'pending' ''', (now, now, submission_id))
     if completed:
         from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready, version_config
@@ -65,7 +68,10 @@ def file_review_evidence(connection, instance_id, config, node_key):
               'submittedAt': row['submitted_at'] if submission_id else None,
               'submission': json.loads(row['payload_snapshot']) if submission_id else {},
               'files': [dict(file) for file in files]}
+    run = connection.execute('SELECT step_index FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
     evidence = {'nodeKey': node_key, 'sources': [source]}
+    if structured_steps(node) and run:
+        evidence['reviewStepIndex'] = run['step_index']
     encoded = json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
     return evidence, hashlib.sha256(encoded.encode()).hexdigest()
 

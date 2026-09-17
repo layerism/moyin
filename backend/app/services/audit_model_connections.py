@@ -17,10 +17,12 @@ ENV_NAMES = {
 }
 SCRIPT_PROVIDERS = {
     "docx-markdown-completion-audit": "document",
+    "document-score-audit": "document",
     "confirmation-visual-audit": "vision",
 }
 SCRIPT_NAMES = {
     "docx-markdown-completion-audit": "DOCX 完成性审核",
+    "document-score-audit": "文档 AI 评分",
     "confirmation-visual-audit": "确认承诺视觉审核",
 }
 
@@ -172,7 +174,7 @@ def delete_model_card(card_id: str, revision: int, owner_id: int) -> None:
         connection.execute("DELETE FROM audit_model_cards WHERE id = ?", (card_id,))
 
 
-def model_environment(script_id: str, flow_id: str, node_key: str) -> dict[str, str]:
+def model_environment(script_id: str, flow_id: str, node_key: str, card_id: str | None = None) -> dict[str, str]:
     kind = SCRIPT_PROVIDERS.get(script_id)
     if kind is None:
         return {}
@@ -184,6 +186,10 @@ def model_environment(script_id: str, flow_id: str, node_key: str) -> dict[str, 
                WHERE f.id = ? AND p.node_key = ? AND p.script_id = ?""",
             (flow_id, node_key, script_id),
         ).fetchone()
+        if card_id:
+            row = connection.execute("""SELECT c.* FROM flows f JOIN audit_model_cards c
+                ON CAST(c.owner_teacher_id AS TEXT) = f.owner_id WHERE f.id = ? AND c.id = ?""",
+                (flow_id, card_id)).fetchone()
     if row is None or not row["encrypted_api_key"] or not row["api_url"] or not row["model"]:
         raise PublisherModelNotConfigured("当前节点尚未配置发布者自己的审核模型，请联系发布者配置后重试")
     url_name, key_name, model_name = ENV_NAMES[kind]

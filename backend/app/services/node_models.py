@@ -51,14 +51,15 @@ def apply_published_node_models(connection, flow_id: str, config: dict) -> None:
 def validate_flow_models(connection, flow_id: str, config: dict, *, require_configured: bool = False) -> None:
     owner = connection.execute("SELECT owner_id FROM flows WHERE id = ?", (flow_id,)).fetchone()
     published = published_node_models(connection, flow_id)
-    for node in config.get("nodes", []):
+    from app.domain.file_review_steps import review_config_nodes
+    for node in review_config_nodes(config):
         script_id = node_model_script(node)
         card_id = node.get("auditModelCardId")
         try:
             validate_node_model(connection, owner["owner_id"], script_id, card_id)
         except ValueError as exc:
             raise FlowValidationError(f"{node.get('title', node['id'])}：{exc}") from exc
-        if require_configured and script_id in SCRIPT_PROVIDERS and not card_id and node["id"] not in published:
+        if require_configured and script_id in SCRIPT_PROVIDERS and not card_id and (node.get("_fileReviewStep") or node["id"] not in published):
             raise FlowValidationError(f"请为节点“{node.get('title', node['id'])}”选择自己的审核模型")
     # Published models are changed only through the versioned audit-policy endpoint.
     apply_published_node_models(connection, flow_id, config)
@@ -69,6 +70,11 @@ def model_node_usages(connection, owner_id: int) -> list[dict]:
     for flow in connection.execute("SELECT id, name, draft_config FROM flows WHERE owner_id = ?", (str(owner_id),)):
         nodes = {node["id"]: node for node in json.loads(flow["draft_config"]).get("nodes", [])}
         references = [(key, node.get("auditModelCardId")) for key, node in nodes.items()]
+        references.extend((key, step.get("auditModelCardId")) for key, node in nodes.items()
+                          for step in node.get("fileReviewSteps", []) if isinstance(step, dict))
+        for version in connection.execute("SELECT config_snapshot FROM flow_versions WHERE flow_id = ?", (flow["id"],)):
+            references.extend((node["id"], step.get("auditModelCardId")) for node in json.loads(version["config_snapshot"]).get("nodes", [])
+                              for step in node.get("fileReviewSteps", []) if isinstance(step, dict))
         references.extend((row["node_key"], row["model_card_id"]) for row in connection.execute(
             "SELECT node_key, model_card_id FROM node_audit_policies WHERE flow_id = ?", (flow["id"],)
         ))
