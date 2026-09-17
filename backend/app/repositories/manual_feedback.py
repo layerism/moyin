@@ -95,15 +95,23 @@ def remove_feedback_file(node_instance_id, teacher_id, evidence_hash, revision, 
 
 
 def publish_feedback(connection, node_instance_id, teacher_id, evidence_hash, revision, remark):
-    row, _, draft = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision)
+    row, evidence, draft = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision)
     ids = [file['id'] for file in draft['files']]
     existing = connection.execute('SELECT remark, files_json FROM manual_feedback WHERE node_instance_id = ? AND evidence_hash = ? ORDER BY revision DESC LIMIT 1', (node_instance_id, evidence_hash)).fetchone()
     if existing and existing['remark'] == remark.strip() and json.loads(existing['files_json']) == ids:
         return
+    feedback_id = str(uuid.uuid4())
     connection.execute('''INSERT INTO manual_feedback
         (id, flow_instance_id, node_instance_id, node_key, evidence_hash, revision, files_json, remark, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        (str(uuid.uuid4()), row['flow_instance_id'], node_instance_id, row['node_key'], evidence_hash, revision, json.dumps(ids), remark.strip(), utc_now_iso()))
+        (feedback_id, row['flow_instance_id'], node_instance_id, row['node_key'], evidence_hash, revision, json.dumps(ids), remark.strip(), utc_now_iso()))
+    sources = evidence.get('sources', [])
+    if len(sources) == 1 and sources[0].get('nodeKey') == row['node_key']:
+        submission_id = sources[0].get('submissionId')
+        run = connection.execute('SELECT step_index FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+        if run:
+            connection.execute('INSERT INTO file_review_feedback_context VALUES (?, ?, ?)',
+                               (feedback_id, submission_id, run['step_index']))
     connection.execute('UPDATE manual_feedback_drafts SET revision = revision + 1 WHERE node_instance_id = ?', (node_instance_id,))
 
 

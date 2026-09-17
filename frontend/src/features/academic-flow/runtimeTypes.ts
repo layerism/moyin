@@ -79,6 +79,8 @@ export type RuntimeAuditHistoryEntry = {
   id: string;
   attemptNo: number;
   scriptName: string;
+  score?: number;
+  stepIndex?: number;
   passed: boolean;
   reason: string;
   reviewedAt: string | null;
@@ -86,6 +88,10 @@ export type RuntimeAuditHistoryEntry = {
 
 export type RuntimeNodeInstance = {
   auditHistory?: RuntimeAuditHistoryEntry[];
+  reviewTimeline?: { attemptNo: number; steps: {
+    index: number; kind: string; status: string; audit: RuntimeAuditHistoryEntry | null;
+    annotations: { id: string; remark: string; publishedAt: string; files: ManualFeedbackFile[]; passed?: boolean }[];
+  }[] }[];
   reviewStage?: "ai" | "manual" | null;
   approvedAt: string | null;
   feedback?: ManualFeedback[];

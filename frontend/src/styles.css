@@ -13444,3 +13444,44 @@ td {
 .runtime-file-inline-actions button:disabled { cursor: not-allowed; opacity: .58; }
 .runtime-file-inline-actions .runtime-uploaded-file-actions button { font-size: 12px; white-space: nowrap; }
 @media (max-width: 600px) { .runtime-file-inline-actions { grid-column: 1 / -1; } }
+
+/* Compact review disclosure shared by student runtime and teacher preview. */
+.runtime-review-progress { margin: 20px 0; color: #24324b; min-width: 0; }
+.runtime-node-dialog > .runtime-review-progress { margin: 20px 24px; }
+.runtime-review-progress > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.runtime-review-progress h3 { margin: 0; font-size: 17px; }
+.runtime-review-progress small, .runtime-review-progress time { color: #78849a; font-size: 12px; }
+.review-progress-notice { background: #f5f1ff; color: #6941c6; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+.review-progress-steps { list-style: none; padding: 0; margin: 12px 0; }
+.review-progress-steps > li { display: flex; gap: 10px; position: relative; padding-bottom: 10px; }
+.review-step-number { flex: 0 0 24px; height: 24px; margin-top: 14px; border-radius: 50%; background: #eaf1ff; color: #2563eb; text-align: center; line-height: 24px; font-size: 12px; }
+.review-step-disclosure { flex: 1; min-width: 0; border: 1px solid #dfe6f0; border-radius: 8px; background: white; }
+.review-step-disclosure > summary { display: flex; gap: 10px; align-items: center; padding: 12px; cursor: pointer; }
+.review-step-disclosure > summary::after { content: '›'; color: #78849a; }
+.review-step-disclosure[open] > summary::after { transform: rotate(90deg); }
+.review-step-heading { flex: 1; min-width: 0; }
+.review-step-heading strong { display: block; font-size: 14px; }
+.review-step-heading small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+.review-status { flex-shrink: 0; font-size: 12px; color: #64748b; background: #f1f5f9; border-radius: 5px; padding: 3px 8px; }
+.review-status.is-passed { color: #158052; background: #eaf8f0; }
+.review-status.is-rejected { color: #be3434; background: #fff0f0; }
+.review-status.is-active { color: #6941c6; background: #f3edff; }
+.review-step-detail { border-top: 1px solid #edf0f5; padding: 12px; font-size: 13px; }
+.review-annotation { border-bottom: 1px solid #edf0f5; padding: 10px 0; }
+.review-annotation:last-child { border-bottom: 0; }
+.review-annotation > summary { cursor: pointer; font-size: 13px; }
+.review-annotation time { margin: 0 12px; }
+.review-annotation > summary > span { color: #64748b; font-size: 12px; }
+.review-feedback-file { display: flex; align-items: center; gap: 8px; background: #f7f9fc; padding: 8px; border-radius: 6px; margin-top: 8px; }
+.review-feedback-file > span:not(.file-format-icon) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-feedback-file small { display: block; margin-top: 3px; }
+.review-feedback-file button { flex-shrink: 0; }
+.review-reason-scroll, .review-annotation > .runtime-audit-markdown { max-height: 280px; overflow: auto; overflow-wrap: anywhere; }
+.runtime-review-progress .runtime-audit-markdown pre { white-space: pre-wrap; }
+.runtime-review-progress .runtime-audit-markdown table { border-collapse: collapse; width: 100%; }
+.runtime-review-progress .runtime-audit-markdown td, .runtime-review-progress .runtime-audit-markdown th { border: 1px solid #dfe6f0; padding: 6px; }
+.review-report-button { border: 0; background: transparent; color: #2563eb; padding: 6px 0; font-size: 13px; }
+.review-attempt-history { border-top: 1px solid #e4eaf3; padding-top: 12px; font-size: 13px; }
+.review-attempt-history summary { cursor: pointer; padding: 6px 0; }
+.review-progress-empty { color: #78849a; margin: 0; }
+@media (max-width: 600px) { .review-annotation time { display: block; margin: 4px 0; } .review-step-disclosure > summary { gap: 6px; padding: 10px; } }

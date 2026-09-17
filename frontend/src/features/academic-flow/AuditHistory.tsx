@@ -3,7 +3,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { RuntimeAuditHistoryEntry, RuntimeNodeInstance } from "./runtimeTypes";
 
-function Report({ value }: { value: string }) {
+export function Report({ value }: { value: string }) {
   return <div className="runtime-audit-markdown"><Markdown skipHtml remarkPlugins={[remarkGfm]} components={{
     a: ({ node: _node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
     img: () => null,

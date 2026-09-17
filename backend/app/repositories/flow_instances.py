@@ -1,3 +1,4 @@
+from app.repositories.review_timeline import review_timeline
 import hashlib
 import json
 import math
@@ -351,6 +352,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "sourceReviews": reviews,
                     "reviewStage": current_review_stage,
                     "auditHistory": _audit_history(connection, row, config_node) if config_node.get("kind") == "file" else [],
+                    "reviewTimeline": review_timeline(connection, row["id"], _audit_history(connection, row, config_node)) if config_node.get("kind") == "file" else [],
                     "manualRejection": {"id": rejection["id"], "remark": rejection["remark"], "reviewedAt": rejection["created_at"], "files": rejection_files} if rejection else None,
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),

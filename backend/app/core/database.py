@@ -318,6 +318,12 @@ CREATE TABLE IF NOT EXISTS manual_feedback (
     UNIQUE(node_instance_id, revision)
 );
 CREATE INDEX IF NOT EXISTS idx_manual_feedback_node ON manual_feedback(flow_instance_id, node_key);
+CREATE TABLE IF NOT EXISTS file_review_feedback_context (
+    feedback_id TEXT PRIMARY KEY REFERENCES manual_feedback(id) ON DELETE CASCADE,
+    submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    step_index INTEGER NOT NULL
+);
+
 
 CREATE TABLE IF NOT EXISTS manual_node_rejections (
     id TEXT PRIMARY KEY,

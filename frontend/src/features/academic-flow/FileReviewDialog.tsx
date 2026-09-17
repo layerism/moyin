@@ -112,12 +112,16 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
                 const draft = await workflowApi.removeManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, file.id);
                 setDetail((value) => value ? { ...value, feedbackDraft: draft } : value);
               })}>移除</button></div>)}
-              <p className="file-review-muted">提交结论后，学生可查看评语并下载审核材料。</p>
+              <p className="file-review-muted">发布批注可补充意见和附件，不结束审核；通过或退回才会提交最终结论。</p>
             </section> : <p className="file-review-muted">{current.status === "approved" ? "本节点已通过。" : current.status === "rejected" ? "本次材料已退回，等待学生重新提交。" : "当前未轮到人工审核，请刷新查看最新状态。"}</p>}
             <ManualFeedbackList feedback={current.feedback} />
             {current.history.length ? <details className="file-review-history"><summary>历史人工审核记录（{current.history.length}）</summary>{current.history.map((item) => <article key={item.id}><strong>{item.passed ? "审核通过" : "退回修改"}</strong><small>{new Date(item.reviewedAt).toLocaleString("zh-CN")} · {item.teacherName}</small><p>{item.remark}</p></article>)}</details> : null}
           </div>
-          {current.canReview ? <footer className="manual-review-action"><div className="manual-review-action-buttons"><small>评语与审核材料同时提交；全部步骤通过后开放下游。</small><button type="button" className="file-review-reject" disabled={!canReview} onClick={() => decide(false)}>退回修改</button><button type="button" className="file-review-approve" disabled={!canReview} onClick={() => decide(true)}>{busy ? "处理中…" : "审核通过"}</button></div></footer> : null}
+          {current.canReview ? <footer className="manual-review-action"><div className="manual-review-action-buttons"><small>评语与审核材料同时提交；全部步骤通过后开放下游。</small><button type="button" disabled={!canReview || !remark.trim()} onClick={() => void act(async () => {
+                if (!current) return;
+                await workflowApi.saveManualFeedback(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision);
+                setRefresh((value) => value + 1);
+              })}>发布批注</button><button type="button" className="file-review-reject" disabled={!canReview} onClick={() => decide(false)}>退回修改</button><button type="button" className="file-review-approve" disabled={!canReview} onClick={() => decide(true)}>{busy ? "处理中…" : "审核通过"}</button></div></footer> : null}
         </> : <p className="file-review-empty">{active ? "学生尚未提交材料。" : "请选择学生查看材料。"}</p>}
       </section>
     </div>
