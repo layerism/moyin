@@ -470,3 +470,37 @@ def post_audit_retry(
         return get_instance(instance_id, student_id)
     except (KeyError, RosterAccessError, AuditJobConflictError) as exc:
         raise runtime_error(exc) from exc
+
+
+@router.get('/downloads/{kind}/{resource_id}')
+def save_student_file(kind: str, resource_id: str, student=Depends(get_current_runtime_student)):
+    """Authenticated same-origin transfer for the browser's Save As picker."""
+    import tempfile
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+    from app.repositories.manual_feedback import feedback_download
+
+    student_id = int(student['id'])
+    try:
+        if kind == 'file':
+            record = get_uploaded_file_for_download(resource_id, student_id)
+        elif kind == 'template':
+            record = get_student_template(resource_id, student_id)
+        elif kind == 'reference':
+            record = get_student_reference(resource_id, student_id)
+        elif kind == 'feedback':
+            record = feedback_download(resource_id, student_id=student_id)
+        else:
+            raise HTTPException(404, '文件类型不存在')
+    except (KeyError, RosterAccessError, TemplateDownloadError) as exc:
+        raise runtime_error(exc) from exc
+    with tempfile.NamedTemporaryFile(prefix='moyin-download-', delete=False) as temporary:
+        path = Path(temporary.name)
+    try:
+        get_object_storage().download_to_file(str(record['storage_key']), path)
+    except Exception as exc:
+        path.unlink(missing_ok=True)
+        raise HTTPException(502, '文件下载失败，请稍后重试') from exc
+    return FileResponse(path, filename=str(record['original_name']), media_type='application/octet-stream',
+                        headers={'Cache-Control': 'no-store'}, background=BackgroundTask(path.unlink, missing_ok=True))

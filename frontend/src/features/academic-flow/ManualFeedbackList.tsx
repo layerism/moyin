@@ -1,13 +1,15 @@
+import { saveStudentFile } from "./saveStudentFile";
 import { useState, type ReactNode } from "react";
 import { workflowApi } from "./api";
 import type { ManualFeedback, ManualSourceReview, ManualFeedbackFile } from "./runtimeTypes";
 
-export function FeedbackDownload({ fileId, student = false, children }: { fileId: string; student?: boolean; children: ReactNode }) {
+export function FeedbackDownload({ fileId, filename = "审核反馈", student = false, children }: { fileId: string; filename?: string; student?: boolean; children: ReactNode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const download = async () => {
     setBusy(true); setError("");
     try {
+      if (student) { await saveStudentFile("feedback", fileId, filename); return; }
       const result = await workflowApi.downloadManualFeedback(fileId, student);
       const anchor = document.createElement("a");
       anchor.href = result.url; anchor.rel = "noreferrer"; anchor.download = "";
@@ -21,7 +23,7 @@ export function FeedbackDownload({ fileId, student = false, children }: { fileId
 function FeedbackFiles({ files, student }: { files: ManualFeedbackFile[]; student: boolean }) {
   return <>{files.map((file) => <div key={file.id} className="manual-feedback-published-file">
     <span><strong>{file.name}</strong><small>对应原件：{file.sourceName}</small></span>
-    <FeedbackDownload fileId={file.id} student={student}>下载批改件</FeedbackDownload>
+    <FeedbackDownload fileId={file.id} filename={file.name} student={student}>下载批改件</FeedbackDownload>
   </div>)}</>;
 }
 

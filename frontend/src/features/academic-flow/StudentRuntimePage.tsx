@@ -1,3 +1,4 @@
+import { saveStudentFile } from "./saveStudentFile";
 import { FileReviewDialog } from "./FileReviewDialog";
 import { hasFileManualReview } from "./FileReviewStepsEditor";
 import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
@@ -273,14 +274,8 @@ export function StudentRuntimePage({
     setNotice("");
     setActionWarning("");
     try {
-      const result = await workflowApi.downloadNodeTemplate(runtime.id);
-      const anchor = document.createElement("a");
-      anchor.href = result.url;
-      anchor.download = result.originalName;
-      anchor.rel = "noreferrer";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
+      if (!await saveStudentFile("template", runtime.id, runtime.template?.originalName || "填写模板")) return;
+      await workflowApi.downloadNodeTemplate(runtime.id);
       setInstance(await workflowApi.getInstance(instanceId));
     } catch (reason) {
       setActionWarning(reason instanceof Error ? reason.message : "模板下载失败");
@@ -294,14 +289,9 @@ export function StudentRuntimePage({
     setNotice("");
     setActionWarning("");
     try {
-      const result = await workflowApi.downloadNodeFile(fileId);
-      const anchor = document.createElement("a");
-      anchor.href = result.url;
-      anchor.download = result.originalName;
-      anchor.rel = "noreferrer";
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
+      const candidates = [runtime.draft.file, runtime.submission.file, ...(Array.isArray(runtime.submission.scans) ? runtime.submission.scans : [])];
+      const file = candidates.find((item) => item && typeof item === "object" && "fileId" in item && item.fileId === fileId) as { name?: string } | undefined;
+      await saveStudentFile("file", fileId, file?.name || "下载文件");
     } catch (reason) {
       setActionWarning(reason instanceof Error ? reason.message : "文件下载失败");
     } finally {
@@ -720,11 +710,11 @@ function RuntimeNodeDialog({
           <small>{node.kind === "manual_review" ? "请等待教师重新审核本节点。" : "请根据审核意见修改本节点内容，并重新提交。"}</small>
           {runtime.manualRejection.files.map((file) => <div className="manual-feedback-published-file" key={file.id}>
             <span><strong>{file.name}</strong><small>对应原件：{file.sourceName}</small></span>
-            <FeedbackDownload fileId={file.id} student>下载批改件</FeedbackDownload>
+            <FeedbackDownload fileId={file.id} filename={file.name} student>下载批改件</FeedbackDownload>
           </div>)}
         </section> : null}
         {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
-        {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.reviewTimeline?.length && runtime.audit.status !== "failed" && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
+        {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.reviewTimeline?.length && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
         {node.kind === "file" && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
         {node.kind === "file" && writable && node.referenceAsset ? <NodeReferenceCard node={node} nodeInstanceId={runtime.id} /> : null}
@@ -1170,6 +1160,7 @@ function ReadonlySubmission({
     return (
       <section className="runtime-file-summary">
         <strong>已提交文件</strong>
+        {typeof fileData.fileId === "string" && onDownloadFile ? <button type="button" onClick={() => onDownloadFile(fileData.fileId as string)}>下载文件</button> : null}
         <dl>
           <div><dt>文件名</dt><dd>{formatSubmittedValue(fileData.name)}</dd></div>
           <div><dt>文件大小</dt><dd>{formatFileSize(fileData.size)}</dd></div>
@@ -1305,10 +1296,7 @@ function NodeReferenceCard({ node, nodeInstanceId }: { node: AcademicFlowNode; n
   const download = async () => {
     setBusy(true); setError("");
     try {
-      const file = await workflowApi.downloadNodeReference(nodeInstanceId);
-      const anchor = document.createElement("a");
-      anchor.href = file.url; anchor.download = file.originalName; anchor.rel = "noreferrer";
-      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      await saveStudentFile("reference", nodeInstanceId, node.referenceAsset?.originalName || "填写参考");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "参考文件下载失败"); }
     finally { setBusy(false); }
   };
