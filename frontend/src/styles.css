@@ -13399,3 +13399,6 @@ td {
   margin-bottom: 12px;
 }
 .runtime-audit-history-actions:empty { display: none; }
+
+.node-reference-file { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+.node-reference-file > .node-template-file-icon { width: 24px; height: 24px; flex: 0 0 24px; font-size: 7px; }

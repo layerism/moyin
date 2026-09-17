@@ -2637,7 +2637,7 @@ function NodeInspector({
               <section className="node-reference-card" aria-label="填写参考" title="可选；DOCX、PDF 或图片，最大 50 MB。发布后学生可查看、下载。">
                 <strong className="node-reference-heading">填写参考</strong>
                 {node.referenceAsset ? <>
-                  <div className="node-reference-copy"><strong title={`${node.referenceAsset.originalName} · ${formatTemplateSize(node.referenceAsset.sizeBytes)}`}>{node.referenceAsset.originalName}</strong></div>
+                  <div className="node-reference-file"><span aria-hidden="true" className="node-template-file-icon">{formatTemplateType(node.referenceAsset.originalName)}</span><div className="node-reference-copy"><strong title={`${node.referenceAsset.originalName} · ${formatTemplateSize(node.referenceAsset.sizeBytes)}`}>{node.referenceAsset.originalName}</strong></div></div>
                   {coreSettingsDisabled ? <small className="node-reference-locked">发布版固化</small> : <div className="node-reference-actions">
                     <label className="node-reference-upload">替换<input type="file" aria-label="替换参考文件" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
                       const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
