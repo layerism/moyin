@@ -53,6 +53,15 @@ def finish_step(connection, submission_id, kind, passed, now):
     return True
 
 
+def can_amend_review(connection, submission_id, status):
+    run = connection.execute('SELECT * FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+    if not run or status not in {'approved', 'rejected'}:
+        return False
+    steps = json.loads(run['steps_json'])
+    return bool(steps and step_kind(steps[-1]) == 'manual' and
+                (run['status'] == 'completed' or (run['status'] == 'rejected' and run['step_index'] == len(steps) - 1)))
+
+
 def file_review_evidence(connection, instance_id, config, node_key):
     node = node_by_key(config, node_key)
     row = connection.execute('''SELECT s.* FROM node_instances n LEFT JOIN submissions s
@@ -68,10 +77,10 @@ def file_review_evidence(connection, instance_id, config, node_key):
               'submittedAt': row['submitted_at'] if submission_id else None,
               'submission': json.loads(row['payload_snapshot']) if submission_id else {},
               'files': [dict(file) for file in files]}
-    run = connection.execute('SELECT step_index FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+    run = connection.execute('SELECT step_index, steps_json, status FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
     evidence = {'nodeKey': node_key, 'sources': [source]}
     if structured_steps(node) and run:
-        evidence['reviewStepIndex'] = run['step_index']
+        evidence['reviewStepIndex'] = min(run['step_index'], len(json.loads(run['steps_json'])) - 1)
     encoded = json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
     return evidence, hashlib.sha256(encoded.encode()).hexdigest()
 
@@ -96,6 +105,7 @@ def file_review_detail(connection, row, config, node, status):
             reference_files.append({**dict(asset), 'label': label})
     return {'referenceFiles': reference_files, 'nodeInstanceId': row['id'], 'title': node['title'], 'requirement': node.get('requirement', ''),
             'student': {'name': row['name'], 'studentNo': row['student_no']}, 'status': status,
+            'canAmend': can_amend_review(connection, submission_id, status),
             'canReview': status == 'reviewing' and review_stage(connection, submission_id) == 'manual',
             'evidenceHash': fingerprint, 'sources': evidence['sources'], 'sourceReviews': [],
             'feedbackDraft': draft_feedback(connection, row['id'], fingerprint),
@@ -113,14 +123,30 @@ def decide_file_review(connection, row, config, node, status, teacher_id, eviden
         raise ValueError('请填写 1–1000 字的审核评语')
     evidence, fingerprint = file_review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
     submission_id = evidence['sources'][0]['submissionId']
-    if fingerprint != evidence_hash or status != 'reviewing' or review_stage(connection, submission_id) != 'manual':
+    amending = can_amend_review(connection, submission_id, status)
+    if fingerprint != evidence_hash or (not amending and (status != 'reviewing' or review_stage(connection, submission_id) != 'manual')):
         raise ManualReviewConflict('本次材料或审核状态已变化，请刷新后重试')
     publish_feedback(connection, row['id'], teacher_id, fingerprint, revision, remark)
     now = utc_now_iso()
+    connection.execute('UPDATE manual_feedback_drafts SET revision = revision + 1 WHERE node_instance_id = ?', (row['id'],))
     connection.execute('''INSERT INTO manual_reviews
         (id, flow_instance_id, node_instance_id, node_key, evidence_hash, evidence_snapshot, teacher_id, remark, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (str(uuid.uuid4()), row['flow_instance_id'], row['id'], row['node_key'], fingerprint,
          json.dumps({**evidence, 'passed': passed}, ensure_ascii=False), teacher_id, remark.strip(), now))
+    if amending:
+        if status == 'approved' and not passed:
+            from app.domain.workflow_revision import reachable_successors
+            from app.repositories.manual_review_state import invalidate_nodes
+            affected = reachable_successors(config, {row['node_key']})
+            invalidate_nodes(connection, row['flow_instance_id'], config, affected, now)
+            for key in affected:
+                connection.execute('''UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ?
+                    WHERE status IN ('pending', 'running') AND submission_id IN
+                    (SELECT s.id FROM submissions s JOIN node_instances n ON n.id = s.node_instance_id
+                     WHERE n.flow_instance_id = ? AND n.node_key = ?)''', (now, row['flow_instance_id'], key))
+        run = connection.execute('SELECT steps_json FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+        connection.execute("UPDATE file_review_runs SET status = 'active', step_index = ? WHERE submission_id = ?", (len(json.loads(run['steps_json'])) - 1, submission_id))
+        connection.execute("UPDATE node_instances SET status = 'reviewing', approved_at = NULL WHERE id = ?", (row['id'],))
     finish_step(connection, submission_id, 'manual', passed, now)
     return connection.execute('SELECT status FROM node_instances WHERE id = ?', (row['id'],)).fetchone()['status'] == 'approved'

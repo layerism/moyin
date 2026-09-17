@@ -90,7 +90,7 @@ export type RuntimeNodeInstance = {
   auditHistory?: RuntimeAuditHistoryEntry[];
   reviewTimeline?: { attemptNo: number; steps: {
     index: number; kind: string; status: string; audit: RuntimeAuditHistoryEntry | null;
-    annotations: { id: string; remark: string; publishedAt: string; files: ManualFeedbackFile[]; passed?: boolean }[];
+    annotations: { id: string; remark: string; publishedAt: string; files: ManualFeedbackFile[]; passed?: boolean; corrected?: boolean }[];
   }[] }[];
   reviewStage?: "ai" | "manual" | null;
   approvedAt: string | null;
@@ -177,6 +177,7 @@ export type WorkflowProgress = {
 
 export type ManualReviewStudent = {
   canReview?: boolean;
+  canAmend?: boolean;
   id: number;
   name: string;
   studentNo: string;
@@ -195,6 +196,7 @@ export type ManualFeedbackDraft = { revision: number; remark: string; files: Man
 export type ManualReviewDetail = {
   referenceFiles?: Array<{ id: string; label: string; original_name: string; url: string }>;
   canReview?: boolean;
+  canAmend?: boolean;
   sourceReviews: ManualSourceReview[];
   feedbackDraft: ManualFeedbackDraft;
   feedback: ManualFeedback[];

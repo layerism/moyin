@@ -15,7 +15,7 @@ export function ReviewProgress({ runtime, onPreviewReview }: { runtime: RuntimeN
   return <section className="runtime-review-progress" aria-label="审核进度">
     <header><h3>审核进度</h3><small>第 {runtime.attemptNo} 次提交</small></header>
     {runtime.status === "reviewing" ? <p className="review-progress-notice" role="status">{runtime.reviewStage === "manual" ? "等待教师最终审核" : "正在进行 AI 审核"} · 结果自动刷新</p> : null}
-    {current ? <Steps attempt={current} onPreviewReview={runtime.status === "reviewing" && runtime.reviewStage === "manual" ? onPreviewReview : undefined} /> : null}
+    {current ? <Steps attempt={current} onPreviewReview={(runtime.reviewStage === "manual" || runtime.status === "approved" || runtime.status === "rejected") ? onPreviewReview : undefined} /> : null}
   </section>;
 }
 
@@ -23,15 +23,15 @@ function Steps({ attempt, onPreviewReview }: { attempt: Attempt; onPreviewReview
   return <ol className="review-progress-steps">{attempt.steps.map((step) => <li key={step.index}>
     <span className="review-step-number">{step.index + 1}</span>
     <details className="review-step-disclosure">
-      <summary><span className="review-step-heading"><strong>{step.kind === "manual" ? "人工审核" : step.kind === "score" ? "AI 评分审核" : "AI 审核"}</strong><small>{step.kind === "manual" ? `${step.annotations.length} 条反馈 · ${step.annotations.reduce((count, item) => count + item.files.length, 0)} 个附件` : step.audit?.scriptName.replace(/^第 \d+ 步 · /, "") || "按配置顺序执行"}</small></span><span className={`review-status is-${step.status}`}>{step.audit?.score != null ? `${step.audit.score} 分 · ` : ""}{labels[step.status] ?? "待开始"}</span>{step.kind === "manual" && step.status === "active" && onPreviewReview ? <button type="button" className="review-preview-action" onClick={(event) => {
+      <summary><span className="review-step-heading"><strong>{step.kind === "manual" ? "人工审核" : step.kind === "score" ? "AI 评分审核" : "AI 审核"}</strong><small>{step.kind === "manual" ? `${step.annotations.length} 条反馈 · ${step.annotations.reduce((count, item) => count + item.files.length, 0)} 个附件` : step.audit?.scriptName.replace(/^第 \d+ 步 · /, "") || "按配置顺序执行"}</small></span><span className={`review-status is-${step.status}`}>{step.audit?.score != null ? `${step.audit.score} 分 · ` : ""}{labels[step.status] ?? "待开始"}</span>{step.kind === "manual" && (step.status === "active" || (step.index === attempt.steps.length - 1 && ["passed", "rejected"].includes(step.status))) && onPreviewReview ? <button type="button" className="review-preview-action" onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
         onPreviewReview();
-      }}>模拟审核</button> : null}</summary>
+      }}>{step.status === "active" ? "模拟审核" : "修改审核结果"}</button> : null}</summary>
       <div className="review-step-detail">
         {step.audit ? <AuditDetail audit={step.audit} /> : null}
         {step.annotations.map((item, index) => <details className="review-annotation" key={item.id}>
-          <summary><strong>{item.passed === undefined ? `批注 ${index + 1}` : "最终结论"}</strong><time>{date(item.publishedAt)}</time><span>{item.passed === undefined ? "补充意见" : item.passed ? "通过" : "退回修改"}</span></summary>
+          <summary><strong>{item.passed === undefined ? `批注 ${index + 1}` : item.corrected ? "教师已更正" : "最终结论"}</strong><time>{date(item.publishedAt)}</time><span>{item.passed === undefined ? "补充意见" : item.passed ? "通过" : "退回修改"}</span></summary>
           <Report value={item.remark} />
           {item.files.map((file) => <div className="review-feedback-file" key={file.id}><FileFormatIcon filename={file.name} /><span title={file.name}>{file.name}<small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} student>下载</FeedbackDownload></div>)}
         </details>)}

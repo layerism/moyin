@@ -12,7 +12,7 @@ def review_timeline(connection, node_id, audits):
     feedback = connection.execute('''SELECT f.*, c.submission_id, c.step_index FROM manual_feedback f
         LEFT JOIN file_review_feedback_context c ON c.feedback_id = f.id
         WHERE f.node_instance_id = ? ORDER BY f.created_at, f.revision''', (node_id,)).fetchall()
-    decisions = connection.execute('SELECT * FROM manual_reviews WHERE node_instance_id = ? ORDER BY created_at', (node_id,)).fetchall()
+    decisions = connection.execute('SELECT * FROM manual_reviews WHERE node_instance_id = ? ORDER BY created_at, rowid', (node_id,)).fetchall()
     result = []
     for run in runs:
         steps = json.loads(run['steps_json'])
@@ -40,6 +40,7 @@ def review_timeline(connection, node_id, audits):
                 passed = json.loads(final['evidence_snapshot']).get('passed')
                 if annotations and annotations[-1]['remark'] == final['remark']:
                     annotations[-1]['passed'] = passed
+                    annotations[-1]['corrected'] = len(decisions_here) > 1
                     annotations[-1]['publishedAt'] = final['created_at']
                 else:
                     annotations.append({'id': final['id'], 'remark': final['remark'], 'publishedAt': final['created_at'], 'files': [], 'passed': passed})

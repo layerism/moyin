@@ -26,7 +26,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   const active = students.find((student) => student.id === selected) ?? students[0];
   const activeId = active?.nodeInstanceId;
   const current = detail?.nodeInstanceId === activeId ? detail : null;
-  const canReview = Boolean(current?.canReview && !busy && !loading);
+  const canReview = Boolean((current?.canReview || current?.canAmend) && !busy && !loading);
 
   useEffect(() => {
     dialog.current?.showModal();
@@ -63,6 +63,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   const decide = (passed: boolean) => {
     if (!current || !canReview) return;
     if (!remark.trim()) { setError("请填写审核评语"); dialog.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus(); return; }
+    if (current.canAmend && current.status === "approved" && !passed && !window.confirm("改为退回将暂停依赖此节点的所有后续节点，已有材料保留并需重新确认。确定修改？")) return;
     void act(async () => {
       if (passed) await workflowApi.approveManualReview(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision, null, "");
       else await workflowApi.rejectManualSource(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, nodeKey, remark);
@@ -103,7 +104,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
               {current.sources.flatMap((source) => source.files).map((file) => <div className="file-review-original" key={file.id}><span>{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span><a href={file.url} target="_blank" rel="noreferrer">下载原件</a></div>)}
             </section>
             {current.referenceFiles?.length ? <details className="manual-review-instructions"><summary>填写模板与参考材料</summary>{current.referenceFiles.map((file) => <p key={file.id}>{file.label}：<a href={file.url} target="_blank" rel="noreferrer">{file.original_name}</a></p>)}</details> : null}
-            {current.canReview ? <section className="manual-review-source"><header><h4>人工审核</h4><small>发布者本人处理</small></header>
+            {current.canReview || current.canAmend ? <section className="manual-review-source"><header><h4>人工审核</h4><small>发布者本人处理</small></header>
               <label className="file-review-remark">审核评语（必填）<textarea disabled={busy} maxLength={1000} value={remark} onChange={(event) => setRemark(event.target.value)} placeholder="请填写审核结论及建议；退回时写清需要修改的内容。" /></label>
               <div className="file-review-upload"><span><strong>审核材料（选填）</strong><small>支持多个批改文档、审核意见书或说明附件；单文件不超过 50 MB</small></span>
                 <label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>＋ 上传审核材料<input aria-label="上传审核材料" disabled={busy} type="file" multiple onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>
@@ -117,7 +118,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
             <ManualFeedbackList feedback={current.feedback} />
             {current.history.length ? <details className="file-review-history"><summary>历史人工审核记录（{current.history.length}）</summary>{current.history.map((item) => <article key={item.id}><strong>{item.passed ? "审核通过" : "退回修改"}</strong><small>{new Date(item.reviewedAt).toLocaleString("zh-CN")} · {item.teacherName}</small><p>{item.remark}</p></article>)}</details> : null}
           </div>
-          {current.canReview ? <footer className="manual-review-action"><div className="manual-review-action-buttons"><small>评语与审核材料同时提交；全部步骤通过后开放下游。</small><button type="button" disabled={!canReview || !remark.trim()} onClick={() => void act(async () => {
+          {current.canReview || current.canAmend ? <footer className="manual-review-action"><div className="manual-review-action-buttons"><small>评语与审核材料同时提交；全部步骤通过后开放下游。</small><button type="button" disabled={!canReview || !remark.trim()} onClick={() => void act(async () => {
                 if (!current) return;
                 await workflowApi.saveManualFeedback(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision);
                 setRefresh((value) => value + 1);

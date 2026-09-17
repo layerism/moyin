@@ -41,9 +41,9 @@ def checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revis
     row, config, node, status = _context(connection, node_instance_id, teacher_id)
     evidence, current_hash = review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
     if node.get('kind') == 'file':
-        from app.repositories.file_reviews import review_stage
+        from app.repositories.file_reviews import review_stage, can_amend_review
         submission_id = evidence['sources'][0]['submissionId']
-        if status != 'reviewing' or review_stage(connection, submission_id) != 'manual':
+        if not can_amend_review(connection, submission_id, status) and (status != 'reviewing' or review_stage(connection, submission_id) != 'manual'):
             raise ManualReviewConflict('当前材料未轮到人工审核或本轮已结束，请刷新')
 
     if current_hash != evidence_hash:
@@ -108,10 +108,10 @@ def publish_feedback(connection, node_instance_id, teacher_id, evidence_hash, re
     sources = evidence.get('sources', [])
     if len(sources) == 1 and sources[0].get('nodeKey') == row['node_key']:
         submission_id = sources[0].get('submissionId')
-        run = connection.execute('SELECT step_index FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+        run = connection.execute('SELECT step_index, steps_json FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
         if run:
             connection.execute('INSERT INTO file_review_feedback_context VALUES (?, ?, ?)',
-                               (feedback_id, submission_id, run['step_index']))
+                               (feedback_id, submission_id, min(run['step_index'], len(json.loads(run['steps_json'])) - 1)))
     connection.execute('UPDATE manual_feedback_drafts SET revision = revision + 1 WHERE node_instance_id = ?', (node_instance_id,))
 
 
