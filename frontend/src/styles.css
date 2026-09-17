@@ -13409,3 +13409,31 @@ td {
 
 .node-template-file-icon.file-format-icon { background: transparent; }
 .file-format-icon > svg { display: block; flex-shrink: 0; }
+
+/* Shared file rows in every node inspector. */
+.node-file-row { display: flex; align-items: center; gap: 12px; min-width: 0; min-height: 56px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; }
+.node-file-row-label { flex: 0 0 48px; font-size: 12px; color: #344054; }
+.node-file-row-content { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+.node-file-row .file-format-icon { width: 24px; height: 24px; flex: 0 0 24px; }
+.node-file-row-copy { display: grid; gap: 2px; min-width: 0; }
+.node-file-row-copy strong { font-size: 13px; color: #344054; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-file-row-copy small, .node-file-row-hint, .node-file-row-lock { font-size: 11px; color: #667085; }
+.node-file-row-actions { display: flex; flex-shrink: 0; gap: 8px; }
+.node-file-row-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 32px; padding: 0 9px; border: 1px solid #bad0ff; border-radius: 6px; background: #fff; color: #175cd3; font: inherit; font-size: 12px; cursor: pointer; }
+.node-file-row-actions .node-file-row-remove { color: #b42318; border-color: #fda29b; }
+.node-file-row-actions button:hover { background: #eff5ff; }
+.node-file-row-actions .node-file-row-remove:hover { background: #fff1f0; }
+.node-file-row-actions svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.node-file-row-select { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 0; border: 0; background: none; color: #175cd3; cursor: pointer; }
+.node-file-row-select > span { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 6px; background: #eaf2ff; font-size: 19px; }
+.node-file-row-select strong { white-space: nowrap; font-size: 12px; }
+.node-file-row-select small { color: #8491a6; font-size: 11px; text-align: left; }
+.node-file-row button:focus-visible { outline: 2px solid #2670ef; outline-offset: 2px; }
+.node-file-row-lock { white-space: nowrap; }
+@media (max-width: 560px) {
+  .node-file-row { flex-wrap: wrap; }
+  .node-file-row-content { flex-basis: calc(100% - 60px); }
+  .node-file-row-actions, .node-file-row-lock { margin-left: auto; }
+  .node-file-row-select { flex-wrap: wrap; }
+  .node-file-row-select small { flex-basis: 100%; margin-left: 31px; }
+}

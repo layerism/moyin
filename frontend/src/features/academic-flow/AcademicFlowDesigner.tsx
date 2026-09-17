@@ -1,4 +1,4 @@
-import { FileFormatIcon } from "./FileFormatIcon";
+import { NodeFileRow } from "./NodeFileRow";
 import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
 import { NodeModelSelector } from "./NodeModelSelector";
@@ -2588,79 +2588,14 @@ function NodeInspector({
                 </strong>
                 <small>文件节点</small>
               </header>
-              <div className="node-file-template-row">
-                <strong className="node-file-material-label">文件模板</strong>
-                {node.templateAsset ? (
-                  <div className="node-template-file node-file-template-file">
-                    <FileFormatIcon filename={node.templateAsset.originalName} />
-                    <div className="node-template-file-copy">
-                      <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
-                      <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
-                    </div>
-                    {coreSettingsDisabled ? (
-                      <span className="node-file-material-lock">🔒 发布版固化</span>
-                    ) : (
-                      <div className="node-template-actions">
-                        <label>
-                          替换模板
-                          <input
-                            accept={node.fileExtensions.split(",").map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
-                            type="file"
-                            onChange={(event) => {
-                              const file = event.target.files?.[0];
-                              event.currentTarget.value = "";
-                              if (file) onUploadTemplate(file);
-                            }}
-                          />
-                        </label>
-                        <button onClick={onDeleteTemplate} type="button">删除模板</button>
-                      </div>
-                    )}
-                  </div>
-                ) : coreSettingsDisabled ? (
-                  <div className="node-file-template-empty">
-                    <span>未配置模板</span>
-                    <small>🔒 发布版固化</small>
-                  </div>
-                ) : (
-                  <label className="node-file-template-upload">
-                    <input
-                      accept={node.fileExtensions.split(",").map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
-                      type="file"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        event.currentTarget.value = "";
-                        if (file) onUploadTemplate(file);
-                      }}
-                    />
-                    <span aria-hidden="true">＋</span>
-                    <strong>选择模板文件</strong>
-                    <small>可选；须符合上传限制</small>
-                  </label>
-                )}
-              </div>
-
-              <section className="node-reference-card" aria-label="填写参考" title="可选；DOCX、PDF 或图片，最大 50 MB。发布后学生可查看、下载。">
-                <strong className="node-reference-heading">填写参考</strong>
-                {node.referenceAsset ? <>
-                  <div className="node-reference-file"><FileFormatIcon filename={node.referenceAsset.originalName} /><div className="node-reference-copy"><strong title={`${node.referenceAsset.originalName} · ${formatTemplateSize(node.referenceAsset.sizeBytes)}`}>{node.referenceAsset.originalName}</strong></div></div>
-                  {coreSettingsDisabled ? <small className="node-reference-locked">发布版固化</small> : <div className="node-reference-actions">
-                    <label className="node-reference-upload">替换<input type="file" aria-label="替换参考文件" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
-                      const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
-                      if (file) onUploadReference(file);
-                    }} /></label>
-                    <button type="button" onClick={onDeleteReference}>删除</button>
-                  </div>}
-                </> : coreSettingsDisabled ? <div className="node-file-template-empty"><span>未配置参考</span><small>🔒 发布版固化</small></div> : (
-                  <label className="node-file-template-upload">
-                    <input type="file" aria-label="选择参考文件" accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
-                      const file = event.currentTarget.files?.[0]; event.currentTarget.value = "";
-                      if (file) onUploadReference(file);
-                    }} />
-                    <span aria-hidden="true">＋</span><strong>选择参考文件</strong><small>可选；DOCX、PDF 或图片</small>
-                  </label>
-                )}
-              </section>
+              <NodeFileRow label="文件模板" asset={node.templateAsset}
+                accept={node.fileExtensions.split(",").filter((value) => value.trim()).map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
+                hint="可选；须符合上传限制" disabled={coreSettingsDisabled}
+                onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
+              <NodeFileRow label="填写参考" asset={node.referenceAsset}
+                accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff"
+                hint="可选；DOCX、PDF 或图片，≤50 MB" disabled={coreSettingsDisabled}
+                onUpload={onUploadReference} onRemove={onDeleteReference} />
 
               <FileReviewStepsEditor
                 disabled={coreSettingsDisabled}
@@ -2833,10 +2768,6 @@ function ConfirmationScanSettings({
       ? "请输入 0–100 的整数"
       : ""
   );
-  const selectTemplate = (file: File | undefined, input: HTMLInputElement) => {
-    input.value = "";
-    if (file) onUploadTemplate(file);
-  };
   return (
     <section className="inspector-section confirmation-scan-settings">
       <header className="confirmation-scan-heading">
@@ -2846,48 +2777,9 @@ function ConfirmationScanSettings({
         </strong>
         <small>视觉审核</small>
       </header>
-      <div className="confirmation-template-row">
-        {node.templateAsset ? (
-          <div className="node-template-file confirmation-template-file">
-            <FileFormatIcon filename="template.docx" />
-            <div className="node-template-file-copy">
-              <strong title={node.templateAsset.originalName}>{node.templateAsset.originalName}</strong>
-              <small>{formatTemplateSize(node.templateAsset.sizeBytes)}</small>
-            </div>
-            {disabled ? (
-              <span className="confirmation-template-lock">🔒 发布版固化</span>
-            ) : (
-              <div className="node-template-actions">
-                <label>
-                  替换模板
-                  <input
-                    accept=".docx"
-                    type="file"
-                    onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)}
-                  />
-                </label>
-                <button onClick={onDeleteTemplate} type="button">删除模板</button>
-              </div>
-            )}
-          </div>
-        ) : disabled ? (
-          <div className="confirmation-template-empty">
-            <span>未配置 DOCX 模板</span>
-            <small>🔒 发布版固化</small>
-          </div>
-        ) : (
-          <label className="confirmation-template-upload">
-            <input
-              accept=".docx"
-              type="file"
-              onChange={(event) => selectTemplate(event.target.files?.[0], event.currentTarget)}
-            />
-            <span aria-hidden="true">＋</span>
-            <strong>选择 DOCX 模板</strong>
-            <small>可选；不提供时学生直接上传图片</small>
-          </label>
-        )}
-      </div>
+      <NodeFileRow label="文件模板" asset={node.templateAsset} accept=".docx"
+        hint="可选；DOCX，不提供时直接上传图片" disabled={disabled}
+        onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
       <div className="confirmation-audit-row">
         <strong className="confirmation-audit-label">审核</strong>
         <fieldset aria-label="审核方式" className="scan-audit-mode" disabled={disabled}>
@@ -3097,11 +2989,6 @@ function getTimeWindowSummary(node: AcademicFlowNode) {
   if (node.startAt) return "到达起始时间且所有前置节点通过后开放。";
   if (node.deadlineAt) return "前置节点通过后立即开放，并在截止时间关闭。";
   return "前置节点通过后立即开放，不自动截止。";
-}
-
-function formatTemplateSize(value: number) {
-  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
-  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function getPortLabel(port: AcademicFlowPort) {
