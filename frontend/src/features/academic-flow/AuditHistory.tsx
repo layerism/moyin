@@ -48,7 +48,7 @@ function HistoryEntry({ entry }: { entry: RuntimeAuditHistoryEntry }) {
         if (expanded) cardRef.current?.scrollIntoView({ block: "start" });
         setExpanded(!expanded);
       }}>{expanded ? "收起全文" : "展开全文"}</button> : null}
-      <button type="button" onClick={() => dialogRef.current?.showModal()}>查看报告 ↗</button>
+      {entry.reason.trim() ? <button type="button" onClick={() => dialogRef.current?.showModal()}>查看报告 ↗</button> : null}
     </div>
     <dialog className="runtime-audit-report-dialog" ref={dialogRef} aria-label={`${entry.scriptName}审核报告`}
       onKeyDown={(event) => event.stopPropagation()}

@@ -13385,3 +13385,17 @@ td {
 .runtime-audit-history .runtime-audit-markdown table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .runtime-audit-history .runtime-audit-markdown th, .runtime-audit-history .runtime-audit-markdown td { padding: 8px; border: 1px solid #dfe6f0; overflow-wrap: anywhere; }
 .runtime-audit-history .runtime-audit-markdown pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Direct feedback siblings need the same inset as the submission form.
+   Reviewing content already supplies its own padding. */
+.runtime-node-dialog > .runtime-audit-history,
+.runtime-node-dialog > .manual-feedback-list {
+  margin: 20px 24px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.runtime-node-dialog > .manual-feedback-list > h4 {
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+.runtime-audit-history-actions:empty { display: none; }
