@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { AuditHistory, Report } from "./AuditHistory";
-import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
+import { FeedbackDownload } from "./ManualFeedbackList";
 import { FileFormatIcon } from "./FileFormatIcon";
 import type { RuntimeNodeInstance } from "./runtimeTypes";
 
@@ -10,20 +10,12 @@ const date = (value: string) => new Date(value).toLocaleString("zh-CN");
 
 export function ReviewProgress({ runtime, onPreviewReview }: { runtime: RuntimeNodeInstance; onPreviewReview?: () => void }) {
   const attempts = runtime.reviewTimeline ?? [];
-  if (!attempts.length) return <AuditHistory runtime={runtime} />;
-  const represented = new Set(attempts.map((item) => item.attemptNo));
-  const earlyAudits = (runtime.auditHistory ?? []).filter((item) => !represented.has(item.attemptNo));
+  if (!attempts.length) return <AuditHistory runtime={{ ...runtime, auditHistory: (runtime.auditHistory ?? []).filter((entry) => entry.attemptNo === runtime.attemptNo) }} />;
   const current = attempts.find((item) => item.attemptNo === runtime.attemptNo);
-  const linked = new Set(attempts.flatMap((attempt) => attempt.steps.flatMap((step) => step.annotations.map((item) => item.id))));
-  const legacy = (runtime.feedback ?? []).filter((item) => !linked.has(item.id));
-  const history = attempts.filter((item) => item !== current);
   return <section className="runtime-review-progress" aria-label="审核进度">
     <header><h3>审核进度</h3><small>第 {runtime.attemptNo} 次提交</small></header>
     {runtime.status === "reviewing" ? <p className="review-progress-notice" role="status">{runtime.reviewStage === "manual" ? "等待教师最终审核" : "正在进行 AI 审核"} · 结果自动刷新</p> : null}
     {current ? <Steps attempt={current} onPreviewReview={runtime.status === "reviewing" && runtime.reviewStage === "manual" ? onPreviewReview : undefined} /> : null}
-    {history.length ? <details className="review-attempt-history"><summary>历史提交（{history.length}）</summary>{history.map((attempt) => <details key={attempt.attemptNo}><summary>第 {attempt.attemptNo} 次提交</summary><Steps attempt={attempt} /></details>)}</details> : null}
-    {earlyAudits.length ? <details className="review-attempt-history"><summary>早期 AI 审核记录</summary><AuditHistory runtime={{ ...runtime, auditHistory: earlyAudits }} /></details> : null}
-    {legacy.length ? <details className="review-attempt-history"><summary>早期反馈记录（{legacy.length}）</summary><ManualFeedbackList feedback={legacy} student /></details> : null}
   </section>;
 }
 

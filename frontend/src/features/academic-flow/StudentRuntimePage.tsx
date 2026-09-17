@@ -714,7 +714,7 @@ function RuntimeNodeDialog({
             开放时间：{new Date(runtime.effectiveStartAt).toLocaleString("zh-CN")} · {formatCountdown(runtime.effectiveStartAt, clock)}
           </p>
         ) : null}
-        {node.kind === "file" && node.referenceAsset ? <NodeReferenceCard node={node} nodeInstanceId={runtime.id} /> : null}
+        {node.kind === "file" && writable && node.referenceAsset ? <NodeReferenceCard node={node} nodeInstanceId={runtime.id} /> : null}
         {runtime.manualRejection ? <section className="runtime-manual-rejection" aria-label="教师审核意见">
           <header><strong>教师审核未通过</strong><small>{formatDateTime(runtime.manualRejection.reviewedAt)}</small></header>
           <p>{runtime.manualRejection.remark}</p>
@@ -727,7 +727,7 @@ function RuntimeNodeDialog({
         {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
         {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.reviewTimeline?.length && runtime.audit.status !== "failed" && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
         {node.kind === "file" && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
-        {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={runtime.feedback ?? []} student /> : null}
+        {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
         {node.kind === "manual_review" ? <section className="manual-review-student-state">
           <div className={`manual-review-result${runtime.status === "approved" ? " is-approved" : ""}`}>
             <span className="manual-review-result-icon" aria-hidden="true">{runtime.status === "approved" ? "✓" : "◷"}</span>
