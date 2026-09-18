@@ -13515,6 +13515,28 @@ td {
 .review-progress-notice { background: #f5f1ff; color: #6941c6; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
 .review-progress-steps { list-style: none; padding: 0; margin: 12px 0; }
 .review-progress-steps > li { display: flex; gap: 10px; position: relative; padding-bottom: 10px; }
+.review-progress-steps > li:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 42px;
+  bottom: -6px;
+  width: 2px;
+  background: #c7d7f5;
+  pointer-events: none;
+}
+.review-progress-steps > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  bottom: -7px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid #9bb7e8;
+  border-bottom: 2px solid #9bb7e8;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
 .review-step-number { flex: 0 0 24px; height: 24px; margin-top: 14px; border-radius: 50%; background: #eaf1ff; color: #2563eb; text-align: center; line-height: 24px; font-size: 12px; }
 .review-step-disclosure { flex: 1; min-width: 0; border: 1px solid #dfe6f0; border-radius: 8px; background: white; }
 .review-step-disclosure > summary { display: flex; gap: 10px; align-items: center; padding: 12px; cursor: pointer; }
@@ -13522,7 +13544,8 @@ td {
 .review-step-disclosure[open] > summary::after { transform: rotate(90deg); }
 .review-step-heading { flex: 1; min-width: 0; }
 .review-step-heading strong { display: block; font-size: 14px; }
-.review-step-heading small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+.review-step-heading small { display: block; line-height: 1.5; overflow-wrap: anywhere; margin-top: 4px; }
+.review-step-heading .review-step-feedback-count { color: #667085; font-size: 11px; }
 .review-status { flex-shrink: 0; font-size: 12px; color: #64748b; background: #f1f5f9; border-radius: 5px; padding: 3px 8px; }
 .review-status.is-passed { color: #158052; background: #eaf8f0; }
 .review-status.is-rejected { color: #be3434; background: #fff0f0; }
