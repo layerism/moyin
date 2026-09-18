@@ -1,35 +1,48 @@
-# 部署
+# 部署：Nginx 与免费 HTTPS
 
-支持 Ubuntu 22.04/24.04、Linux x86_64；使用 Nginx、systemd 和单后端进程。
-仓库只保留配置样例与依赖安装、开发启动脚本。以下命令从项目根目录执行。
+适用：Ubuntu 22.04/24.04、域名 ainami.tech、项目通过 tmux 手动运行。
+本文沿用 deploy/nginx.conf：Nginx 提供构建后的前端，API 转发至本机 8000。无需安装 moyin.service.template。
+以下命令是操作教程，不代表服务器已经执行过。除安装系统软件外，项目命令均在实际仓库根目录执行。
 
-| 文件 | 用途 |
-| --- | --- |
-| install.sh | 安装固定版本的 Python、Node.js 和项目依赖 |
-| run_server.sh | 本地开发启动，不用于生产 |
-| nginx.conf | HTTP 站点配置，修改域名即可；前端统一发布到 /var/www/moyin |
-| moyin.service.template | 后端服务样例，替换运行用户和所有项目路径 |
-| nginx.docker.conf | 保留根目录 Compose 引用的容器配置 |
+## 1. 确认域名和端口
 
-## 1. 安装与配置
+在阿里云 DNS 添加 A 记录：主机记录 @，记录值为实际服务器公网 IP。@ 对应 ainami.tech，而不是 oa.ainami.tech。
+如果存在 AAAA 记录，确保它也指向这台可访问的服务器，否则先修正。
+安全组及服务器防火墙允许 TCP 80、443；有路由器时需转发这两个端口。仅开放 5173 不够。
+
+```bash
+getent ahosts ainami.tech
+sudo ss -ltnp '( sport = :80 or sport = :443 )'
+```
+
+域名解析结果应与服务器一致。若端口被其他服务使用，先确认用途，不要直接终止。
+
+## 2. 安装 Nginx
 
 ```bash
 sudo apt update
-sudo apt install -y nginx curl xz-utils
-bash deploy/install.sh
+sudo apt install -y nginx tmux
+sudo systemctl enable --now nginx
+sudo systemctl status nginx --no-pager
 ```
 
-编辑 backend/.env，填写 OSS、短信、模型及必要加密密钥，并设置：
+若已安装，无须重复安装。此时只有 HTTP，尚未启用 HTTPS。
 
-```dotenv
-APP_ENV=production
-CORS_ORIGINS=["https://ainami.tech"]
+## 3. 启动项目并发布前端
+
+项目依赖尚未安装时，先执行 bash deploy/install.sh，并配置 backend/.env。
+若项目已在运行，不要重复启动，以免端口冲突。
+
+在项目根目录创建 tmux 会话：
+
+```bash
+tmux new -s moyin
+bash deploy/run_server.sh
 ```
 
-.env 不提交 Git，应由服务运行用户读取，不对其他用户公开。
-生产服务样例固定使用项目的 backend/storage；迁移时保留其中全部数据。
+按 Ctrl+B，再按 D 返回普通终端，服务仍在运行。重新进入使用 tmux attach -t moyin；停止时在会话中按 Ctrl+C。
 
-## 2. 构建前端
+回到项目根目录，构建并发布前端：
 
 ```bash
 export PATH="$PWD/.local/node/bin:$PATH"
@@ -39,9 +52,143 @@ sudo cp -r frontend/dist/. /var/www/moyin/
 sudo chmod -R a+rX /var/www/moyin
 ```
 
-前端发布目录与仓库位置无关。迁移服务器继续使用该目录，不需要配置生成脚本。
+只在构建成功后复制。Nginx 读取 /var/www/moyin，不读取源码，也不读取 5173 的页面。
+因此前端修改后须重新构建、复制；Vite 的热更新只适用于开发入口。
 
-## 3. 启动后端
+## 4. 安装 HTTP 站点配置
+
+检查 deploy/nginx.conf 中以下值：
+
+```nginx
+listen 80;
+server_name ainami.tech;
+root "/var/www/moyin";
+index index.html;
+```
+
+/api/ 的 proxy_pass 应为 http://127.0.0.1:8000。root 是前端发布目录，不是后端或整个仓库目录。
+
+首次安装站点前检查：
+
+```bash
+sudo ls -l /etc/nginx/sites-available/ /etc/nginx/sites-enabled/
+```
+
+若已有 moyin 配置或同名软链接，先检查和备份，尤其不要覆盖已配置 HTTPS 的站点。确认没有同名文件时执行：
+
+```bash
+sudo install -m 644 deploy/nginx.conf /etc/nginx/sites-available/moyin
+sudo ln -s /etc/nginx/sites-available/moyin /etc/nginx/sites-enabled/moyin
+sudo nginx -t
+```
+
+只有检查成功才执行：
+
+```bash
+sudo systemctl reload nginx
+```
+
+此处复制配置到系统目录，再用系统内部软链接启用；不将仓库文件直接链接为站点。避免其他配置重复声明 ainami.tech。
+访问 http://ainami.tech，确认可到达网站后申请证书。
+
+## 5. 安装 Certbot 并申请免费证书
+
+使用 Let's Encrypt，无需购买商业证书。以下采用 Certbot 的 snap 安装方式；如果已有其他方式安装的 Certbot，先确认现有安装，不要混装。
+
+```bash
+sudo apt install -y snapd
+sudo snap install --classic certbot
+sudo /snap/bin/certbot --nginx -d ainami.tech --redirect
+```
+
+按提示填写邮箱、阅读并同意条款。Certbot 会通过 HTTP 验证域名控制权，为匹配 server_name 的站点安装证书，并配置 HTTP 跳转 HTTPS。此验证需要公网 80 端口可达。
+
+成功后访问 https://ainami.tech。Certbot 修改系统站点文件，不修改 Git 仓库中的 deploy/nginx.conf。
+申请完成前不要手动添加指向不存在证书的 ssl_certificate，否则 Nginx 可能无法启动。
+
+查看实际证书路径和期限：
+
+```bash
+sudo /snap/bin/certbot certificates
+sudo nginx -t
+```
+
+证书通常位于 /etc/letsencrypt/live/ 下，实际目录以命令输出为准。私钥不得公开或提交 Git。
+
+## 6. 检查自动续期
+
+```bash
+sudo /snap/bin/certbot renew --dry-run
+sudo systemctl status snap.certbot.renew.timer --no-pager
+```
+
+snap 安装包含自动续期安排。dry-run 是续期模拟检查，不是重新购买证书。
+保留验证所需的 DNS 和公网 80 端口配置；不要等证书过期才检查。
+
+## 7. 项目如何使用 HTTPS
+
+```text
+浏览器 https://ainami.tech
+        ↓ HTTPS
+Nginx :443（证书）
+        ├─ 前端：/var/www/moyin
+        └─ /api/ → HTTP 127.0.0.1:8000（tmux 启动的后端）
+```
+
+run_server.sh 不加载证书，也不需要改成 HTTPS。浏览器与 Nginx 之间由证书保护，本机转发继续使用 HTTP。
+IP:5173 仍是 HTTP，不是同一个 HTTPS 入口。
+
+HTTPS 确认可用后，编辑 backend/.env：
+
+```dotenv
+APP_ENV=production
+CORS_ORIGINS=["https://ainami.tech"]
+```
+
+在 tmux 中 Ctrl+C 停止项目，再执行 bash deploy/run_server.sh 加载配置。此时登录 Cookie 仅通过安全连接发送，应统一使用 HTTPS 域名登录。
+域名与 IP 的登录会话不通用，切换入口后重新登录。
+可以在安全组中关闭公网 5173/8000 访问；本机 Nginx 仍可访问后端。
+
+## 8. 更新、迁移和多版本
+
+- 前端更新：重新构建并复制 dist；无需重新申请证书。
+- 后端更新：在 tmux 中重启；不要重复启动多个同端口进程。
+- 不要用仓库 HTTP 配置覆盖 Certbot 已修改的系统站点，否则会丢失 HTTPS 配置。
+- 修改系统站点后，先 nginx -t，再 reload。
+- 新服务器：部署代码和数据、安装 Nginx、修改 DNS，再申请该服务器的证书。
+- 多版本分别使用 /var/www/moyin/prod、/var/www/moyin/test 等目录，并分别配置域名、站点文件、后端端口、数据库及存储。子域名也需要解析和证书。
+
+## 9. 常见故障
+
+| 现象 | 检查方向 |
+| --- | --- |
+| 证书申请超时 | A/AAAA 解析、安全组、防火墙及路由器的公网 80 转发 |
+| 找不到域名对应站点 | server_name 是否正确，配置是否已启用，nginx -t 是否通过 |
+| 默认欢迎页 | 是否访问正确域名、站点是否启用、是否有重复 server_name |
+| 页面 403 | root 是否存在、是否有 index.html、Nginx 用户是否有读取和目录访问权限 |
+| API 502 | tmux 中后端是否运行，proxy_pass 的端口是否匹配 |
+| 证书正常但页面没更新 | 是否重新构建并发布到 root 对应目录 |
+| Secure Cookie 下无法使用 IP 登录 | 改用 HTTPS 域名入口 |
+
+诊断命令：
+
+```bash
+sudo nginx -t
+sudo journalctl -u nginx -n 60 --no-pager
+sudo tail -n 60 /var/log/nginx/error.log
+sudo tail -n 60 /var/log/letsencrypt/letsencrypt.log
+tmux attach -t moyin
+```
+
+## 官方参考
+
+- [Certbot：Nginx 与 snap 安装步骤](https://certbot.eff.org/instructions?os=snap&ws=nginx)
+- [Ubuntu：申请 TLS 证书](https://ubuntu.com/server/docs/how-to/security/obtain-tls-certificates/)
+
+## 可选：正式环境使用 systemd
+
+测试阶段使用上文 tmux 即可。需要开机启动和异常重启时，改用以下方式；不要与 tmux 后端同时运行。
+
 
 编辑 deploy/moyin.service.template：
 
@@ -60,52 +207,11 @@ sudo systemctl enable --now moyin
 
 保持单 worker；审核任务随应用启动，扩进程前需审计任务并发。
 
-## 4. 安装 Nginx 站点
 
-编辑 deploy/nginx.conf 的 server_name，默认 ainami.tech。模板是可直接使用的 HTTP 站点配置。
-域名指向服务器，公网 TCP 80、443 放行。大陆服务器按接入商要求完成备案。
+## 数据备份
 
-以下命令仅用于首次安装。已有同名配置或软链接时先检查并备份，不覆盖其他站点或已有证书配置。
+以下命令针对 systemd；若使用 tmux，先在对应会话停止项目，备份完成后手动启动，跳过 systemctl 命令。
 
-```bash
-sudo install -m 644 deploy/nginx.conf /etc/nginx/sites-available/moyin
-sudo ln -s /etc/nginx/sites-available/moyin /etc/nginx/sites-enabled/moyin
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-仅 nginx -t 成功后 reload；避免其他启用的站点重复声明同一域名。
-此处复制配置，不把仓库文件软链接为系统站点，避免后续更新影响 Certbot 管理的配置。
-
-## 5. 免费 HTTPS
-
-若尚未安装 Certbot，可用 snap 安装；不要与另一套 Certbot 混装：
-
-```bash
-sudo apt install -y snapd
-sudo snap install --classic certbot
-sudo /snap/bin/certbot --nginx -d ainami.tech --redirect
-sudo /snap/bin/certbot renew --dry-run
-```
-
-替换为实际域名。HTTP 验证需要公网 80 端口可达。
-Certbot 自动管理证书与续期，修改系统里的站点配置；不要将私钥提交 Git。
-HTTPS 就绪后使用域名登录，停止对外提供开发端口 5173 和后端端口 8000。
-
-## 6. 更新
-
-更新前记录代码版本并备份，安排审核任务的维护窗口。依赖变化时先停止服务，再执行 install.sh，它可能重建虚拟环境。
-重新执行第 2 步发布前端，然后：
-
-```bash
-sudo systemctl restart moyin
-```
-
-不要重新复制 HTTP nginx.conf 覆盖已启用 HTTPS 的系统配置。
-服务路径或用户变化时重新安装 service、daemon-reload 并 restart。
-保留旧前端资源供已打开页面使用。数据库可能随启动迁移，回滚须匹配代码与数据版本。
-
-## 7. 备份与迁移
 
 在项目根目录停机打包整个数据目录，避免 SQLite WAL 与本地文件不一致。
 确认没有开发进程继续写入；备份目录放在数据目录外，实际使用时修改下面的目标目录。
@@ -123,13 +229,3 @@ sudo systemctl start moyin
 
 迁移：克隆同一版本 → 安装依赖 → 恢复 .env 和完整 backend/storage 并设置运行用户权限 → 修改两份配置中的域名、项目路径和用户 → 构建发布 → 启动服务 → 切换 DNS → 申请证书。
 不复制虚拟环境或 node_modules。切换时停止旧服务器写入，避免两份 SQLite 数据分叉。新站验收前保留旧服务器和备份。
-
-## 8. 验收
-
-```bash
-sudo systemctl status moyin nginx --no-pager
-sudo journalctl -u moyin -n 60 --no-pager
-sudo nginx -t
-```
-
-人工检查 HTTPS、登录、上传下载、审核和前端深层链接刷新。
