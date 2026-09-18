@@ -90,7 +90,9 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
           setAdding(!adding);
         }}>＋ 添加审核 <span aria-hidden="true">⌄</span></button>
         {adding ? createPortal(<div ref={menuRef} style={menuPosition} className="file-review-add-options" role="group" aria-label="选择审核类型">{(["ai", "score", "manual"] as const).map((type) => <button key={type} type="button" onClick={() => {
-          save([...steps, { id: crypto.randomUUID(), kind: type, ...(type === "score" ? { auditScriptId: "document-score-audit", auditScriptName: "文档 AI 评分", auditScriptType: "py" as const, auditScriptAcceptedExtensions: [".docx", ".pdf"], auditScriptParams: { passThreshold: 60, scoringPrompt: "# 评分标准\n\n请从内容完整性、逻辑和表达规范三个方面评分，并说明扣分原因。" } } : {}) }]); setAdding(false); toggleRef.current?.focus();
+          const id = globalThis.crypto?.randomUUID?.()
+            ?? `review-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          save([...steps, { id, kind: type, ...(type === "score" ? { auditScriptId: "document-score-audit", auditScriptName: "文档 AI 评分", auditScriptType: "py" as const, auditScriptAcceptedExtensions: [".docx", ".pdf"], auditScriptParams: { passThreshold: 60, scoringPrompt: "# 评分标准\n\n请从内容完整性、逻辑和表达规范三个方面评分，并说明扣分原因。" } } : {}) }]); setAdding(false); toggleRef.current?.focus();
         }}><span className="file-review-type-icon" aria-hidden="true">{type !== "manual" ? "✦" : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2Z" /></svg>}</span><span><strong>{type === "ai" ? "AI 通过/不通过" : type === "score" ? "AI 评分 0–100" : "人工审核"}</strong><small>{type === "ai" ? "按所选规则自动检查" : type === "score" ? "评分达到阈值后通过" : "由流程发布者审核"}</small></span></button>)}</div>, document.body) : null}
       </div> : null}
     </header>
