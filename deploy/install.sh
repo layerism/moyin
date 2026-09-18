@@ -115,5 +115,6 @@ fi
 npm --prefix "$frontend_dir" ls --depth=0
 npm --prefix "$audit_runtime_dir" ls --depth=0
 
-echo "安装完成。请检查 backend/.env，然后手动运行："
-echo "  $project_dir/deploy/run_server.sh"
+echo "安装完成。请检查 backend/.env。"
+echo "开发启动：bash deploy/run_server.sh"
+echo "生产部署：阅读 deploy/README.md，再执行 bash deploy/deploy.sh"
