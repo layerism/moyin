@@ -2244,17 +2244,18 @@ function NodeInspector({
     )
   ));
 
-  const requiresAuditModel = Boolean(node && (node.kind === "confirmation"
-    ? node.scanAuditEnabled
-    : node.auditScriptId === "docx-markdown-completion-audit"));
+  const requiresAuditModel = Boolean(node?.kind === "confirmation" && node.scanAuditEnabled);
   const missingAuditModel = requiresAuditModel && !(hasPublishedAuditPolicy ? auditModelCardId : node?.auditModelCardId);
 
   const closeInspector = useCallback(async (requireModel = false) => {
     if (auditPolicySaving) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
-    if (requireModel && node?.kind === "file" && fileReviewError(node)) {
-      setAuditPolicyError(fileReviewError(node) ?? "请完善审核步骤配置");
-      return;
+    if (requireModel && node?.kind === "file") {
+      const error = fileReviewError(hasPublishedAuditPolicy ? { ...node, auditModelCardId: auditModelCardId ?? undefined } : node);
+      if (error) {
+        setAuditPolicyError(error);
+        return;
+      }
     }
     if (requireModel && missingAuditModel) {
       setModelValidationAttempt((current) => current + 1);
@@ -2326,6 +2327,7 @@ function NodeInspector({
   const auditControlsNode: AcademicFlowNode = auditPolicy ? {
     ...node,
     auditScriptParams: auditPolicyParams,
+    auditModelCardId: auditModelCardId ?? undefined,
     scanAuditMode: auditPolicyParams.scanAuditMode as "pass_fail" | "score" | undefined,
     scanAuditPrompt: typeof auditPolicyParams.scanAuditPrompt === "string"
       ? auditPolicyParams.scanAuditPrompt
@@ -2408,7 +2410,7 @@ function NodeInspector({
             </span>
             {timeSettingsLabel}
           </button>
-        {(node.kind === "confirmation" ? node.scanAuditEnabled : node.auditScriptId === "docx-markdown-completion-audit") ? (
+        {node.kind === "confirmation" && node.scanAuditEnabled ? (
           <NodeModelSelector
             validationAttempt={missingAuditModel ? modelValidationAttempt : 0}
             value={hasPublishedAuditPolicy ? auditModelCardId : node.auditModelCardId ?? null}
@@ -2602,6 +2604,11 @@ function NodeInspector({
                 disabled={coreSettingsDisabled}
                 node={auditControlsNode}
                 onChange={(patch) => {
+                  if (hasPublishedAuditPolicy && "auditModelCardId" in patch && !("fileReviewSteps" in patch)) {
+                    setAuditPolicyError("");
+                    setAuditModelCardId(patch.auditModelCardId ?? null);
+                    return;
+                  }
                   if (hasPublishedAuditPolicy && patch.auditScriptParams) {
                     setAuditPolicyError("");
                     setAuditPolicyParams(patch.auditScriptParams);

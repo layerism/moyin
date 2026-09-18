@@ -32,6 +32,7 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
   const { node, disabled = false, onChange } = props;
   const [adding, setAdding] = useState(false);
   const steps = fileReviewSteps(node);
+  const legacySteps = !node.fileReviewSteps || node.fileReviewSteps.some((step) => typeof step === "string");
   const save = (next: FileReviewStep[]) => {
     const accepted = next.filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length)
       .map((step) => step.auditScriptAcceptedExtensions!);
@@ -41,7 +42,7 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
     });
   };
   const update = (id: string, patch: Partial<Omit<FileReviewStep, "kind" | "id">>) => {
-    if (disabled && node.fileReviewSteps?.some((step) => typeof step === "string")) {
+    if (disabled && legacySteps) {
       onChange(patch);
       return;
     }
@@ -107,7 +108,7 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
               const { fileExtensions: _extensions, kind: _kind, id: _id, ...selection } = patch;
               update(step.id, selection);
             }} />
-          {(step.kind === "score" || step.auditScriptId === "docx-markdown-completion-audit") ? <div className="file-review-step-model"><NodeModelSelector value={step.auditModelCardId ?? null} disabled={disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /></div> : null}
+          {(step.kind === "score" || step.auditScriptId === "docx-markdown-completion-audit") ? <div className="file-review-step-model"><NodeModelSelector value={step.auditModelCardId ?? null} disabled={legacySteps ? (props.parameterDisabled ?? disabled) : disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /></div> : null}
         </> : null}
       </div>
     </li>)}</ol>
