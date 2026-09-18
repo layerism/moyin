@@ -209,8 +209,8 @@ export function StudentFlowTopology({
                 }}
                 type="button"
               >
-                {runtime.status === "audit_error" ? (
-                  <span className="student-topology-audit-error-marker" aria-hidden="true" title="审核异常，请点击查看">!</span>
+                {runtime.status === "audit_error" || runtime.status === "rejected" ? (
+                  <span className="student-topology-warning-marker" aria-hidden="true" title={runtime.status === "rejected" ? "审核未通过，请点击查看" : "审核异常，请点击查看"}>!</span>
                 ) : null}
                 <strong>{node.kind === "branch" ? <FlowNodeIcon kind={node.kind} /> : null}{node.title}</strong>
                 {node.kind === "branch" ? <>

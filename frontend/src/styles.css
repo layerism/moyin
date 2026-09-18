@@ -7808,6 +7808,7 @@ button {
 }
 
 .student-topology-node.rejected {
+  overflow: visible;
   border-color: #d92d20;
   background: #fff7f6;
   cursor: pointer;
@@ -7820,19 +7821,20 @@ button {
   cursor: pointer;
 }
 
-.student-topology-audit-error-marker {
+.student-topology-warning-marker {
   position: absolute;
-  top: -12px;
+  top: -24px;
   right: 10px;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border: 2px solid #fff;
   border-radius: 50%;
   background: #d92d20;
   color: #fff;
-  font-size: 16px;
+  box-shadow: 0 3px 8px rgba(217, 45, 32, 0.3);
+  font-size: 22px;
   font-weight: 800;
   line-height: 1;
 }
