@@ -1,4 +1,5 @@
 import type { AcademicFlowNode } from "../../types";
+import { createBranchOptionId } from "./academicFlowData";
 
 type Branches = NonNullable<AcademicFlowNode["branches"]>;
 
@@ -25,7 +26,7 @@ export function BranchOptionsEditor({ branches, disabled, onChange }: {
         onClick={() => onChange(branches.filter((item) => item.id !== option.id))}>×</button>
     </div>)}
     <button type="button" className="branch-add-option" disabled={disabled}
-      onClick={() => onChange([...branches, { id: crypto.randomUUID(), label: `分支 ${branches.length + 1}` }])}>＋ 添加分支</button>
+      onClick={() => onChange([...branches, { id: createBranchOptionId(), label: `分支 ${branches.length + 1}` }])}>＋ 添加分支</button>
     <small>学生提交后不可更改选择。删除选项会同时删除对应连线。</small>
   </section>;
 }

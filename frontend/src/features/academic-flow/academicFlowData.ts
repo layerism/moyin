@@ -56,6 +56,11 @@ export function createFallbackAcademicProcess(id: string): AcademicProcess {
   return createAcademicProcess("未命名 OA 流程", id);
 }
 
+export function createBranchOptionId(): string {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `branch-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export function createNode(
   kind: AcademicFlowNodeKind,
   title: string,
@@ -64,7 +69,7 @@ export function createNode(
   const answerSheet = kind === "answer_sheet" ? createDefaultAnswerSheet().config : undefined;
   return {
     answerSheet,
-    branches: kind === "branch" ? [{ id: crypto.randomUUID(), label: "分支 1" }, { id: crypto.randomUUID(), label: "分支 2" }] : undefined,
+    branches: kind === "branch" ? [{ id: createBranchOptionId(), label: "分支 1" }, { id: createBranchOptionId(), label: "分支 2" }] : undefined,
     auditScriptName: "",
     auditScriptType: "none",
     fileReviewSteps: kind === "file" ? [] : undefined,
