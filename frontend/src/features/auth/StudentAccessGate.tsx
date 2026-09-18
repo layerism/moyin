@@ -1,3 +1,4 @@
+import { RequiredPhoneBinding } from "./SmsPasswordRecovery";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { workflowApi } from "../academic-flow/api";
@@ -28,7 +29,7 @@ export function StudentAccessGate({
         setFlow(shared);
         try {
           const identity = await authApi.me("student");
-          if (identity.mustChangePassword) {
+          if (identity.mustChangePassword || !identity.phoneBound) {
             if (!cancelled) setPendingIdentity(identity);
             return;
           }
@@ -76,7 +77,7 @@ export function StudentAccessGate({
       const identity = mode === "register"
         ? await authApi.registerStudent(credentials)
         : await authApi.login("student", credentials);
-      if (identity.mustChangePassword) {
+      if (identity.mustChangePassword || !identity.phoneBound) {
         setPendingIdentity(identity);
         return;
       }
@@ -97,6 +98,12 @@ export function StudentAccessGate({
     </section>
   );
 
+  if (pendingIdentity && !pendingIdentity.mustChangePassword) {
+    return <RequiredPhoneBinding key={pendingIdentity.id} onBound={async (identity) => {
+      onEntered(await workflowApi.enterShared(token), identity);
+    }} />;
+  }
+
   if (pendingIdentity) {
     return (
       <main className="oa-access-page">
@@ -105,6 +112,10 @@ export function StudentAccessGate({
           <StudentPasswordChangeForm
             identity={pendingIdentity}
             onChanged={async (identity) => {
+              if (!identity.phoneBound) {
+                setPendingIdentity(identity);
+                return;
+              }
               setPendingIdentity(null);
               try {
                 onEntered(await workflowApi.enterShared(token), identity);

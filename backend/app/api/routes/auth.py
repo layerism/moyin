@@ -115,6 +115,7 @@ def register(
         "studentNo": student_no,
         "name": payload.name.strip(),
         "mustChangePassword": False,
+        "phoneBound": False,
     }
 
 
@@ -124,7 +125,7 @@ def login(payload: StudentLoginCredentials, response: Response) -> dict[str, obj
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT id, student_no, name, password_hash, must_change_password
+            SELECT id, student_no, name, password_hash, must_change_password, phone
             FROM student_accounts
             WHERE student_no = ? AND status = 'active' AND account_kind = 'normal'
             """,
@@ -143,6 +144,7 @@ def login(payload: StudentLoginCredentials, response: Response) -> dict[str, obj
         "studentNo": row["student_no"],
         "name": row["name"],
         "mustChangePassword": bool(row["must_change_password"]),
+        "phoneBound": bool(row["phone"]),
     }
 
 
@@ -166,7 +168,7 @@ def change_student_password(
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
             """
-            SELECT id, student_no, name, status, account_kind, must_change_password
+            SELECT id, student_no, name, status, account_kind, must_change_password, phone
             FROM student_accounts
             WHERE id = ?
             """,
@@ -196,6 +198,7 @@ def change_student_password(
         "studentNo": row["student_no"],
         "name": row["name"],
         "mustChangePassword": False,
+        "phoneBound": bool(row["phone"]),
     }
 
 

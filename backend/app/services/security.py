@@ -119,7 +119,7 @@ def get_authenticated_student(
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT a.id, a.student_no, a.name, a.must_change_password
+            SELECT a.id, a.student_no, a.name, a.must_change_password, a.phone
             FROM student_sessions s
             JOIN student_accounts a ON a.id = s.student_account_id
             WHERE s.token_hash = ? AND s.expires_at > ? AND a.status = 'active'
@@ -134,6 +134,7 @@ def get_authenticated_student(
         "studentNo": row["student_no"],
         "name": row["name"],
         "mustChangePassword": bool(row["must_change_password"]),
+        "phoneBound": bool(row["phone"]),
     }
 
 
@@ -146,6 +147,8 @@ def get_current_student(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="请先修改初始密码",
         )
+    if not student["phoneBound"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="请先绑定手机号")
     return student
 
 

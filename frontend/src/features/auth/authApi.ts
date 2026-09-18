@@ -4,6 +4,7 @@ export type AuthIdentity = {
   employeeNo?: string;
   id: number;
   mustChangePassword?: boolean;
+  phoneBound?: boolean;
   name: string;
   role?: "super_admin" | "teacher";
   studentNo?: string;

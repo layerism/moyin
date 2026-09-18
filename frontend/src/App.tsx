@@ -1,3 +1,4 @@
+import { RequiredPhoneBinding } from "./features/auth/SmsPasswordRecovery";
 import { ProfilePage } from "./features/auth/ProfilePage";
 import { ModelCardsAdminPage } from "./features/admin/ModelCardsAdminPage";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -732,6 +733,10 @@ export function App() {
         </section>
       </main>
     );
+  }
+
+  if (requiresStudentIdentity && studentIdentity && !studentIdentity.phoneBound) {
+    return <RequiredPhoneBinding key={studentIdentity.id} onBound={setStudentIdentity} />;
   }
 
   if (screen === "studentChangePassword") {

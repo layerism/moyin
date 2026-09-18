@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { AuthRole } from "./authApi";
+import { authApi, type AuthIdentity, type AuthRole } from "./authApi";
 
 class SmsError extends Error {
   constructor(message: string, public retryAfter: number) { super(message); }
@@ -202,4 +202,26 @@ export function PhoneSecurityPanel({ role }: { role: AuthRole }) {
   if (loading) return <p role="status">正在读取安全设置…</p>;
   if (error) return <div role="alert"><p>{error}</p><button type="button" onClick={() => setAttempt(value => value + 1)}>重试</button></div>;
   return phone ? <div className="profile-phone-bound"><strong>已绑定 {phone}</strong><p>可用于找回密码。更换号码请联系管理员核实身份。</p></div> : <><p className="sms-auth-note">绑定手机号后，可通过短信验证找回密码。</p><SmsForm role={role} onDone={() => setAttempt(value => value + 1)} /></>;
+}
+
+export function RequiredPhoneBinding({ onBound }: { onBound: (identity: AuthIdentity) => void | Promise<void> }) {
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const complete = async () => {
+    if (busy) return;
+    setBusy(true); setError("");
+    try {
+      const identity = await authApi.me("student");
+      if (!identity.phoneBound) throw new Error("请先完成手机号绑定");
+      await onBound(identity);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "进入页面失败，请重试");
+    } finally { setBusy(false); }
+  };
+  return <main className="sms-recovery-page"><section className="sms-recovery-card">
+    <h1>绑定手机号</h1>
+    <p className="sms-auth-note">完成手机号验证后，才能继续使用。</p>
+    <SmsForm role="student" onDone={() => void complete()} />
+    {error && <p className="role-auth-error" role="alert">{error}</p>}
+  </section></main>;
 }
