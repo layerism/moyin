@@ -51,7 +51,7 @@ function BindingIcon({ name }: { name: BindingIconName }) {
   return <svg className="binding-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function SmsForm({ role, onDone, required = false }: { role: AuthRole; onDone: () => void; required?: boolean }) {
+function SmsForm({ role, onDone, required = false, replacing = false }: { role: AuthRole; onDone: () => void; required?: boolean; replacing?: boolean }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -84,13 +84,13 @@ function SmsForm({ role, onDone, required = false }: { role: AuthRole; onDone: (
   };
   if (done) return <div className="sms-auth-form binding-success"><span className="binding-success-icon"><BindingIcon name="check" /></span><h2>手机号绑定成功</h2><p role="status">{notice}</p><button className="primary-action" onClick={onDone}><BindingIcon name="check" />{required ? "进入系统" : "完成"}</button></div>;
   return <form className="sms-auth-form phone-binding-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-    <label><span className="binding-field-label"><BindingIcon name="phone" />待绑定手机号</span><input required type="tel" autoComplete="tel" inputMode="numeric" pattern="1[3-9][0-9]{9}" maxLength={11} value={phone} disabled={busy} onChange={(event) => setPhone(event.target.value.trim())} /></label>
+    <label><span className="binding-field-label"><BindingIcon name="phone" />{replacing ? "新手机号" : "待绑定手机号"}</span><input required type="tel" autoComplete="tel" inputMode="numeric" pattern="1[3-9][0-9]{9}" maxLength={11} value={phone} disabled={busy} onChange={(event) => setPhone(event.target.value.trim())} /></label>
     <label><span className="binding-field-label"><BindingIcon name="lock" />当前密码</span><input required type="password" autoComplete="current-password" maxLength={128} value={password} disabled={busy || !!challengeId} onChange={(event) => setPassword(event.target.value)} /></label>
     <label><span className="binding-field-label"><BindingIcon name="code" />短信验证码</span><div className="sms-code-row"><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} disabled={busy} onChange={(event) => setCode(event.target.value)} /><button type="button" disabled={busy || remaining > 0 || !/^1[3-9]\d{9}$/.test(phone) || password.length < 3} onClick={() => void send()}><BindingIcon name="message" />{remaining ? `${remaining} 秒后重发` : "获取验证码"}</button></div></label>
     {notice && <p className="sms-auth-note" role="status">{notice}</p>}
     {error && <p className="role-auth-error" role="alert">{error}</p>}
     <button className="primary-action" disabled={busy || !challengeId}><BindingIcon name="shield" />{busy ? "处理中…" : "验证并绑定"}</button>
-    <p className="sms-auth-note">绑定后可通过短信找回密码。更换已绑定号码请联系管理员核实身份。</p>
+    <p className="sms-auth-note">绑定后可通过短信找回密码。更换号码只需验证当前密码和新号码。</p>
   </form>;
 }
 
@@ -167,6 +167,14 @@ export function SmsPasswordRecovery({ role, onBack }: { role: AuthRole; onBack: 
   </section></main>;
 }
 
+function BoundPhone({ role, phone, onDone }: { role: AuthRole; phone: string; onDone: () => void }) {
+  const [editing, setEditing] = useState(false);
+  return <div className="profile-phone-bound">
+    <strong>已绑定 {phone}</strong>
+    {editing ? <><SmsForm role={role} replacing onDone={onDone} /><button type="button" className="sms-binding-button" onClick={onDone}>返回</button></> : <><p>可用于短信找回密码。</p><button type="button" className="sms-binding-button" onClick={() => setEditing(true)}>更换手机号</button></>}
+  </div>;
+}
+
 export function PhoneBindingButton({ role }: { role: AuthRole }) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
@@ -194,7 +202,7 @@ export function PhoneBindingButton({ role }: { role: AuthRole }) {
       if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
-  }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card" role="dialog" aria-modal="true" aria-label="安全手机号"><div className="sms-dialog-heading"><h2>安全手机号</h2><button type="button" aria-label="关闭" onClick={() => setOpen(false)}>×</button></div>{loading ? <p>正在读取…</p> : error ? <p role="alert">{error}</p> : phone ? <p>已绑定 {phone}，可用于找回密码。更换号码请联系管理员。</p> : <SmsForm role={role} onDone={() => setOpen(false)} />}</section></div>, document.body)}</>;
+  }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card" role="dialog" aria-modal="true" aria-label="安全手机号"><div className="sms-dialog-heading"><h2>安全手机号</h2><button type="button" aria-label="关闭" onClick={() => setOpen(false)}>×</button></div>{loading ? <p>正在读取…</p> : error ? <p role="alert">{error}</p> : phone ? <BoundPhone role={role} phone={phone} onDone={() => setOpen(false)} /> : <SmsForm role={role} onDone={() => setOpen(false)} />}</section></div>, document.body)}</>;
 }
 
 export function PhoneSecurityPanel({ role }: { role: AuthRole }) {
@@ -214,7 +222,7 @@ export function PhoneSecurityPanel({ role }: { role: AuthRole }) {
   }, [role, attempt]);
   if (loading) return <p role="status">正在读取安全设置…</p>;
   if (error) return <div role="alert"><p>{error}</p><button type="button" onClick={() => setAttempt(value => value + 1)}>重试</button></div>;
-  return phone ? <div className="profile-phone-bound"><strong>已绑定 {phone}</strong><p>可用于找回密码。更换号码请联系管理员核实身份。</p></div> : <><p className="sms-auth-note">绑定手机号后，可通过短信验证找回密码。</p><SmsForm role={role} onDone={() => setAttempt(value => value + 1)} /></>;
+  return phone ? <BoundPhone key={phone} role={role} phone={phone} onDone={() => setAttempt(value => value + 1)} /> : <><p className="sms-auth-note">绑定手机号后，可通过短信验证找回密码。</p><SmsForm role={role} onDone={() => setAttempt(value => value + 1)} /></>;
 }
 
 export function RequiredPhoneBinding({ onBound }: { onBound: (identity: AuthIdentity) => void | Promise<void> }) {

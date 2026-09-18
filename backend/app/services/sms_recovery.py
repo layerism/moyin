@@ -88,8 +88,8 @@ def send_code(role: str, purpose: str, phone: str, ip: str, recovery_token: str 
                 binding_error = "当前密码不正确或账号已失效"
             elif role == "student" and row["must_change_password"]:
                 binding_error = "请先修改初始密码，再绑定手机号"
-            elif row["phone"]:
-                binding_error = "已绑定手机号；更换号码请联系管理员核实身份"
+            elif row["phone"] == phone:
+                binding_error = "新手机号不能与当前绑定号码相同"
             elif connection.execute(f"SELECT id FROM {table} WHERE phone = ?", (phone,)).fetchone():
                 binding_error = "该手机号无法绑定，请联系管理员"
             if binding_error:
@@ -145,8 +145,7 @@ def complete(role: str, purpose: str, challenge_id: str, code: str,
             connection.execute("BEGIN IMMEDIATE")
             account = connection.execute(f"SELECT * FROM {table} WHERE id = ?", (row["account_id"],)).fetchone()
             if (not active(account, role) or version(account) != row["password_version"]
-                    or (purpose == "reset" and account["phone"] != row["phone"])
-                    or (purpose == "bind" and account["phone"])):
+                    or (purpose == "reset" and account["phone"] != row["phone"])):
                 raise HTTPException(400, INVALID)
             changed = connection.execute("UPDATE sms_challenges SET state = 'consumed' WHERE id = ? AND state = 'checking' AND expires_at > ?",
                                          (challenge_id, int(time.time()))).rowcount
@@ -155,6 +154,8 @@ def complete(role: str, purpose: str, challenge_id: str, code: str,
             if purpose == "bind":
                 connection.execute(f"UPDATE {table} SET phone = ?, phone_verified_at = ?, updated_at = ? WHERE id = ?",
                                    (row["phone"], utc_now_iso(), utc_now_iso(), account["id"]))
+                connection.execute("UPDATE password_recoveries SET state = 'expired' WHERE role = ? AND account_id = ? AND state != 'consumed'",
+                                   (role, account["id"]))
             else:
                 recovery_account(connection, role, row["recovery_hash"], "identified")
                 connection.execute("""UPDATE password_recoveries SET state = 'verified',
