@@ -9,7 +9,7 @@ export function StudentAccessGate({
   onEntered,
   token,
 }: {
-  onEntered: (instance: RuntimeFlowInstance) => void;
+  onEntered: (instance: RuntimeFlowInstance, identity: AuthIdentity) => void;
   token: string;
 }) {
   const [flow, setFlow] = useState<SharedFlow | null>(null);
@@ -33,7 +33,7 @@ export function StudentAccessGate({
             return;
           }
           const instance = await workflowApi.enterShared(token);
-          if (!cancelled) onEntered(instance);
+          if (!cancelled) onEntered(instance, identity);
           return;
         } catch (reason) {
           if (!(reason instanceof AuthApiError) || reason.status !== 401) throw reason;
@@ -80,7 +80,7 @@ export function StudentAccessGate({
         setPendingIdentity(identity);
         return;
       }
-      onEntered(await workflowApi.enterShared(token));
+      onEntered(await workflowApi.enterShared(token), identity);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "登录失败");
     } finally {
@@ -104,10 +104,10 @@ export function StudentAccessGate({
         <section className="oa-access-auth">
           <StudentPasswordChangeForm
             identity={pendingIdentity}
-            onChanged={async () => {
+            onChanged={async (identity) => {
               setPendingIdentity(null);
               try {
-                onEntered(await workflowApi.enterShared(token));
+                onEntered(await workflowApi.enterShared(token), identity);
               } catch (reason) {
                 setError(reason instanceof Error ? reason.message : "进入流程失败");
               }

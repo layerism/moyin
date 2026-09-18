@@ -895,8 +895,8 @@ export function App() {
     return (
       <StudentAccessGate
         token={activeStudentToken}
-        onEntered={(instance) => {
-          void authApi.me("student").then(setStudentIdentity);
+        onEntered={(instance, identity) => {
+          setStudentIdentity(identity);
           setRuntimeInstance(instance);
           setActiveRuntimeInstanceId(instance.id);
           pushAppPath(`/student/flows/${encodeURIComponent(instance.id)}`);
