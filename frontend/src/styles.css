@@ -7814,9 +7814,27 @@ button {
 }
 
 .student-topology-node.audit_error {
+  overflow: visible;
   border-color: #d92d20;
   background: #fff1f0;
   cursor: pointer;
+}
+
+.student-topology-audit-error-marker {
+  position: absolute;
+  top: -12px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #d92d20;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .student-topology-node.reviewing,
