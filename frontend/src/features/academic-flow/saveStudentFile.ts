@@ -5,6 +5,12 @@ type SaveWindow = Window & { showSaveFilePicker?: (options: { suggestedName: str
 
 /** Must be called directly from the click handler, before any network await. */
 export async function saveStudentFile(kind: "file" | "template" | "reference" | "feedback", id: string, filename: string): Promise<boolean> {
+  const headers = new Headers();
+  applyPreviewHeaders(headers);
+  return saveDownloadFile(`/api/student/downloads/${kind}/${encodeURIComponent(id)}`, filename, headers);
+}
+
+export async function saveDownloadFile(endpoint: string, filename: string, headers?: Headers): Promise<boolean> {
   const picker = (window as SaveWindow).showSaveFilePicker;
   let handle: SaveHandle | undefined;
   if (picker) {
@@ -14,9 +20,7 @@ export async function saveStudentFile(kind: "file" | "template" | "reference" | 
       throw error;
     }
   }
-  const headers = new Headers();
-  applyPreviewHeaders(headers);
-  const response = await fetch(`/api/student/downloads/${kind}/${encodeURIComponent(id)}`, { credentials: "include", headers });
+  const response = await fetch(endpoint, { credentials: "include", headers });
   if (!response.ok) {
     const error = await response.json().catch(() => null);
     throw new Error(typeof error?.detail === "string" ? error.detail : "文件下载失败，请重试");

@@ -1,3 +1,4 @@
+import { saveDownloadFile } from "./saveStudentFile";
 import { DownloadIcon } from "./DownloadIcon";
 import { FileFormatIcon } from "./FileFormatIcon";
 import { useEffect, useRef, useState } from "react";
@@ -9,6 +10,20 @@ const labels = { all: "全部", waiting: "未就绪", pending: "待人工审核"
 type Filter = keyof typeof labels;
 const category = (student: ManualReviewStudent): Exclude<Filter, "all"> => student.status === "approved" ? "approved"
   : student.status === "rejected" ? "returned" : student.canReview ? "pending" : "waiting";
+
+function OriginalDownload({ nodeId, fileId, filename }: { nodeId: string; fileId: string; filename: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const download = async () => {
+    setBusy(true); setError("");
+    try {
+      await saveDownloadFile(`/api/workflow-admin/node-instances/${encodeURIComponent(nodeId)}/manual-review/files/${encodeURIComponent(fileId)}/download`, filename);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "下载失败，请重试");
+    } finally { setBusy(false); }
+  };
+  return <span><button type="button" className="review-download-icon" disabled={busy} title={busy ? "正在下载…" : "下载原件"} aria-label={`下载原件：${filename}`} onClick={() => void download()}><DownloadIcon /></button>{error && <small className="dialog-error" role="alert">{error}</small>}</span>;
+}
 
 export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo = "" }: { versionId: string; nodeKey: string; onClose: () => void; initialStudentNo?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -110,7 +125,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
           <div className="manual-review-student-heading"><h3>{current.student.name}<small>{current.student.studentNo}</small></h3><span>{active ? labels[category(active)] : ""}</span></div>
           <div className="manual-review-content">
             <section className="manual-review-source"><header><h4>本次提交</h4><small>{current.sources[0]?.submittedAt ? new Date(current.sources[0].submittedAt).toLocaleString("zh-CN") : "尚未提交"}</small></header>
-              {current.sources.flatMap((source) => source.files).map((file) => <div className="file-review-original" key={file.id}><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span><a className="review-download-icon" href={file.url} target="_blank" rel="noreferrer" title="下载原件" aria-label={`下载原件：${file.original_name}`}><DownloadIcon /></a></div>)}
+              {current.sources.flatMap((source) => source.files).map((file) => <div className="file-review-original" key={file.id}><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span><OriginalDownload nodeId={current.nodeInstanceId} fileId={file.id} filename={file.original_name} /></div>)}
             </section>
             {current.canReview || current.canAmend ? <section className="file-review-workspace" aria-label="填写审核意见">
               <label className="file-review-remark">审核评语 *<textarea disabled={busy} maxLength={1000} value={remark} onChange={(event) => setRemark(event.target.value)} placeholder="填写评阅意见或需要修改的内容…" /></label>

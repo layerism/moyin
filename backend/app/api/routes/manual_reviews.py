@@ -166,3 +166,31 @@ def teacher_download(file_id: str, teacher=Depends(get_current_teacher)):
 @router.get('/manual-feedback/files/{file_id}/student-download')
 def student_download(file_id: str, student=Depends(get_current_runtime_student)):
     return download_result(file_id, student_id=int(student['id']))
+
+
+@router.get('/node-instances/{node_instance_id}/manual-review/files/{file_id}/download')
+def download_review_original(node_instance_id: str, file_id: str, teacher=Depends(get_current_teacher)):
+    import tempfile
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+
+    try:
+        review = get_manual_review(node_instance_id, int(teacher['id']))
+    except KeyError as exc:
+        raise HTTPException(404, '审核节点不存在或预览已失效') from exc
+    except RosterAccessError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    record = next((file for source in review['sources'] for file in source['files']
+                   if file['id'] == file_id), None)
+    if record is None:
+        raise HTTPException(404, '原件不存在或已不属于本次审核，请刷新后重试')
+    with tempfile.NamedTemporaryFile(prefix='moyin-review-download-', delete=False) as temporary:
+        path = Path(temporary.name)
+    try:
+        get_object_storage().download_to_file(str(record['storage_key']), path)
+    except Exception as exc:
+        path.unlink(missing_ok=True)
+        raise HTTPException(502, '原件下载失败，请稍后重试') from exc
+    return FileResponse(path, filename=str(record['original_name']), media_type='application/octet-stream',
+                        headers={'Cache-Control': 'no-store'}, background=BackgroundTask(path.unlink, missing_ok=True))
