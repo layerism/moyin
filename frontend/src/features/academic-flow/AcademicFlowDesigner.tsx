@@ -2375,7 +2375,8 @@ function NodeInspector({
           </button>
         </header>
         <div className="node-inspector-fields">
-        <label className="node-basic-title-field">
+        <label className="node-basic-title-field" title={editingLocked ? undefined : "点击修改节点标题"}>
+          {!editingLocked ? <svg className="node-basic-edit-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15v5Z" /></svg> : null}
           <input
             aria-label="节点标题"
             disabled={editingLocked}
@@ -2385,9 +2386,11 @@ function NodeInspector({
             onChange={(event) => onUpdateNode(node.id, { title: event.target.value })}
           />
         </label>
-        <label className="node-basic-description-field">
+        <label className="node-basic-description-field" title={editingLocked ? undefined : "点击修改节点说明"}>
+          {!editingLocked ? <svg className="node-basic-edit-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15v5Z" /></svg> : null}
           <textarea
             aria-label="节点说明"
+            rows={2}
             disabled={editingLocked}
             placeholder="添加描述"
             value={node.requirement}

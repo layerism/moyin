@@ -4756,7 +4756,7 @@ button {
   display: grid;
   gap: 16px;
   margin: 0;
-  padding: 20px 22px 24px;
+  padding: 14px 22px 24px;
   overflow: auto;
   overscroll-behavior: contain;
   border: 0;
@@ -4774,10 +4774,11 @@ button {
 }
 
 .node-inspector-modal {
+  position: relative;
   width: min(720px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   padding: 0;
   overflow: hidden;
   border: 1px solid #d7e1ee;
@@ -4787,9 +4788,11 @@ button {
 }
 
 .node-inspector-toolbar {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 16px;
   display: flex;
-  justify-content: flex-end;
-  padding: 14px 16px 0;
 }
 
 .node-inspector-toolbar button {
@@ -4892,43 +4895,77 @@ button {
   resize: vertical;
 }
 
+.node-basic-title-field,
+.node-basic-description-field {
+  position: relative;
+  min-width: 0;
+}
+
+.node-basic-title-field {
+  margin-right: 42px;
+}
+
+.node-basic-edit-icon {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  color: #94a3b8;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.node-basic-title-field:focus-within .node-basic-edit-icon,
+.node-basic-description-field:focus-within .node-basic-edit-icon {
+  color: #2563eb;
+}
+
 .node-basic-title-field input,
 .node-basic-description-field textarea {
-  padding-right: 0;
-  padding-left: 0;
-  border: 0;
-  border-radius: 0;
+  padding: 4px 32px 4px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
 }
 
 .node-basic-title-field input {
-  min-height: 52px;
+  min-height: 36px;
+  height: 36px;
   color: #172033;
-  font-size: 28px;
+  font-size: 22px;
   font-weight: 800;
   line-height: 1.25;
 }
 
-.node-basic-title-field input::placeholder {
-  color: #b8bcc4;
-}
-
-.node-basic-description-field textarea {
-  min-height: 52px;
-  padding-top: 0;
-  color: #475569;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.6;
-}
-
+.node-basic-title-field input::placeholder,
 .node-basic-description-field textarea::placeholder {
   color: #b8bcc4;
 }
 
+.node-basic-description-field textarea {
+  min-height: 48px;
+  height: 48px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.node-basic-title-field input:enabled:hover,
+.node-basic-description-field textarea:enabled:hover {
+  background: #f8fafc;
+}
+
 .node-basic-title-field input:focus,
 .node-basic-description-field textarea:focus {
-  box-shadow: inset 0 -2px #2874f6;
+  border-color: #93b8ff;
+  box-shadow: 0 0 0 2px #eff6ff;
+  outline: none;
 }
 
 .node-basic-actions {
