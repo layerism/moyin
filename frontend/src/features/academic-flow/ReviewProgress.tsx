@@ -51,3 +51,19 @@ function AuditDetail({ audit }: { audit: NonNullable<Attempt["steps"][number]["a
       <header><h3>{audit.scriptName}</h3><button type="button" aria-label="关闭报告" onClick={() => dialog.current?.close()}>×</button></header><div className="runtime-audit-report-body"><Report value={audit.reason} /></div><footer><button type="button" onClick={() => dialog.current?.close()}>返回审核进度</button></footer>
     </dialog></>;
 }
+
+export function CompletedReviewFeedback({ runtime }: { runtime: RuntimeNodeInstance }) {
+  const current = runtime.reviewTimeline?.find((attempt) => attempt.attemptNo === runtime.attemptNo);
+  const annotations = current?.steps.filter((step) => step.kind === "manual").flatMap((step) => step.annotations) ?? [];
+  if (!annotations.length) return null;
+  return <section className="completed-review-feedback" aria-label="教师评语与评阅附件">
+    <header><h3>教师评语与评阅附件</h3><small>可下载评阅文件查看</small></header>
+    {annotations.map((item) => <article key={item.id}>
+      <time>{date(item.publishedAt)}</time><Report value={item.remark} />
+      {item.files.map((file) => <div className="review-feedback-file" key={file.id}>
+        <FileFormatIcon filename={file.name} /><span>{file.name}<small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span>
+        <FeedbackDownload fileId={file.id} filename={file.name} student iconOnly />
+      </div>)}
+    </article>)}
+  </section>;
+}

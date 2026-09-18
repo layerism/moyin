@@ -5,7 +5,7 @@ import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import Markdown from "react-markdown";
-import { ReviewProgress } from "./ReviewProgress";
+import { CompletedReviewFeedback, ReviewProgress } from "./ReviewProgress";
 
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
@@ -716,6 +716,7 @@ function RuntimeNodeDialog({
         {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
         {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.reviewTimeline?.length && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
         {node.kind === "file" && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
+        {node.kind === "file" && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
         {node.kind === "file" && writable && node.referenceAsset ? <NodeReferenceCard node={node} nodeInstanceId={runtime.id} /> : null}
         {node.kind === "manual_review" ? <section className="manual-review-student-state">

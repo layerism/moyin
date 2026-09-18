@@ -1,9 +1,10 @@
+import { DownloadIcon } from "./DownloadIcon";
 import { saveStudentFile } from "./saveStudentFile";
 import { useState, type ReactNode } from "react";
 import { workflowApi } from "./api";
 import type { ManualFeedback, ManualSourceReview, ManualFeedbackFile } from "./runtimeTypes";
 
-export function FeedbackDownload({ fileId, filename = "审核反馈", student = false, children }: { fileId: string; filename?: string; student?: boolean; children: ReactNode }) {
+export function FeedbackDownload({ fileId, filename = "审核反馈", student = false, children, iconOnly = false }: { fileId: string; filename?: string; student?: boolean; children?: ReactNode; iconOnly?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const download = async () => {
@@ -17,7 +18,7 @@ export function FeedbackDownload({ fileId, filename = "审核反馈", student = 
     } catch (reason) { setError(reason instanceof Error ? reason.message : "下载失败"); }
     finally { setBusy(false); }
   };
-  return <span><button type="button" disabled={busy} onClick={() => void download()}>{busy ? "正在下载…" : children}</button>{error ? <small role="alert" className="dialog-error">{error}</small> : null}</span>;
+  return <span><button className={iconOnly ? "review-download-icon" : undefined} title={iconOnly ? (busy ? "正在下载…" : "下载文件") : undefined} aria-label={iconOnly ? `下载文件：${filename}` : undefined} type="button" disabled={busy} onClick={() => void download()}>{iconOnly ? <DownloadIcon /> : busy ? "正在下载…" : children}</button>{error ? <small role="alert" className="dialog-error">{error}</small> : null}</span>;
 }
 
 function FeedbackFiles({ files, student }: { files: ManualFeedbackFile[]; student: boolean }) {
