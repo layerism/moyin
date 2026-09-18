@@ -13601,11 +13601,10 @@ td {
   cursor: pointer;
 }
 
-/* Let file dialogs fit their content while reserving scrollbar space. */
+/* Let file dialogs fit their content without reserving an unused scrollbar gutter. */
 .runtime-node-dialog.runtime-file-dialog {
   box-sizing: border-box;
   max-height: calc(100dvh - 48px);
-  scrollbar-gutter: stable;
 }
 .runtime-file-dialog .review-reason-scroll,
 .runtime-file-dialog .review-annotation > .runtime-audit-markdown,
