@@ -948,9 +948,6 @@ function RuntimeNodeDialog({
                       ? "重新提交"
                       : "提交节点"}
               </button>
-              {node.kind === "file" && !fileReady && needsFileReplacement ? (
-                <small>请重新上传文件</small>
-              ) : null}
               {node.kind === "answer_sheet" && unansweredCount === 0 && Object.keys(clientFieldErrors).length > 0 ? (
                 <small>请检查答案后再提交</small>
               ) : null}
