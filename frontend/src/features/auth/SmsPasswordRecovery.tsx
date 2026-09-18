@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { authApi, type AuthIdentity, type AuthRole } from "./authApi";
 
@@ -38,7 +38,20 @@ function useSmsCooldown(phone: string) {
   return { remaining, coolDown };
 }
 
-function SmsForm({ role, onDone }: { role: AuthRole; onDone: () => void }) {
+type BindingIconName = "shield" | "phone" | "lock" | "code" | "message" | "check";
+function BindingIcon({ name }: { name: BindingIconName }) {
+  const paths: Record<BindingIconName, ReactNode> = {
+    shield: <><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z" /><path d="m8 12 3 3 5-6" /></>,
+    phone: <><rect x="6" y="2" width="12" height="20" rx="3" /><path d="M10 5h4M11 18h2" /></>,
+    lock: <><rect x="4" y="10" width="16" height="11" rx="3" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" /></>,
+    code: <><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M7 10h10M7 14h2m3 0h1m3 0h1" /></>,
+    message: <><path d="M21 11a8 8 0 0 1-8 8H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M7 8h10M7 12h6" /></>,
+    check: <path d="m5 12 4 4L19 6" />,
+  };
+  return <svg className="binding-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
+function SmsForm({ role, onDone, required = false }: { role: AuthRole; onDone: () => void; required?: boolean }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -69,14 +82,14 @@ function SmsForm({ role, onDone }: { role: AuthRole; onDone: () => void }) {
     } catch (reason) { setError(reason instanceof Error ? reason.message : "操作未完成"); }
     finally { setBusy(false); }
   };
-  if (done) return <div className="sms-auth-form"><p role="status">{notice}</p><button className="primary-action" onClick={onDone}>完成</button></div>;
-  return <form className="sms-auth-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-    <label>待绑定手机号<input required type="tel" autoComplete="tel" inputMode="numeric" pattern="1[3-9][0-9]{9}" maxLength={11} value={phone} disabled={busy} onChange={(event) => setPhone(event.target.value.trim())} /></label>
-    <label>当前密码<input required type="password" autoComplete="current-password" maxLength={128} value={password} disabled={busy || !!challengeId} onChange={(event) => setPassword(event.target.value)} /></label>
-    <label>短信验证码<div className="sms-code-row"><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} disabled={busy} onChange={(event) => setCode(event.target.value)} /><button type="button" disabled={busy || remaining > 0 || !/^1[3-9]\d{9}$/.test(phone) || password.length < 3} onClick={() => void send()}>{remaining ? `${remaining} 秒后重发` : "获取验证码"}</button></div></label>
+  if (done) return <div className="sms-auth-form binding-success"><span className="binding-success-icon"><BindingIcon name="check" /></span><h2>手机号绑定成功</h2><p role="status">{notice}</p><button className="primary-action" onClick={onDone}><BindingIcon name="check" />{required ? "进入系统" : "完成"}</button></div>;
+  return <form className="sms-auth-form phone-binding-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+    <label><span className="binding-field-label"><BindingIcon name="phone" />待绑定手机号</span><input required type="tel" autoComplete="tel" inputMode="numeric" pattern="1[3-9][0-9]{9}" maxLength={11} value={phone} disabled={busy} onChange={(event) => setPhone(event.target.value.trim())} /></label>
+    <label><span className="binding-field-label"><BindingIcon name="lock" />当前密码</span><input required type="password" autoComplete="current-password" maxLength={128} value={password} disabled={busy || !!challengeId} onChange={(event) => setPassword(event.target.value)} /></label>
+    <label><span className="binding-field-label"><BindingIcon name="code" />短信验证码</span><div className="sms-code-row"><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} disabled={busy} onChange={(event) => setCode(event.target.value)} /><button type="button" disabled={busy || remaining > 0 || !/^1[3-9]\d{9}$/.test(phone) || password.length < 3} onClick={() => void send()}><BindingIcon name="message" />{remaining ? `${remaining} 秒后重发` : "获取验证码"}</button></div></label>
     {notice && <p className="sms-auth-note" role="status">{notice}</p>}
     {error && <p className="role-auth-error" role="alert">{error}</p>}
-    <button className="primary-action" disabled={busy || !challengeId}>{busy ? "处理中…" : "验证并绑定"}</button>
+    <button className="primary-action" disabled={busy || !challengeId}><BindingIcon name="shield" />{busy ? "处理中…" : "验证并绑定"}</button>
     <p className="sms-auth-note">绑定后可通过短信找回密码。更换已绑定号码请联系管理员核实身份。</p>
   </form>;
 }
@@ -218,10 +231,9 @@ export function RequiredPhoneBinding({ onBound }: { onBound: (identity: AuthIden
       setError(reason instanceof Error ? reason.message : "进入页面失败，请重试");
     } finally { setBusy(false); }
   };
-  return <main className="sms-recovery-page"><section className="sms-recovery-card">
-    <h1>绑定手机号</h1>
-    <p className="sms-auth-note">完成手机号验证后，才能继续使用。</p>
-    <SmsForm role="student" onDone={() => void complete()} />
+  return <main className="sms-recovery-page"><section className="sms-recovery-card required-binding-card">
+    <header className="binding-heading"><span className="binding-heading-icon"><BindingIcon name="shield" /></span><div><h1>绑定手机号</h1><p className="sms-auth-note">完成安全验证，开启你的工作流程</p></div></header>
+    <SmsForm role="student" required onDone={() => void complete()} />
     {error && <p className="role-auth-error" role="alert">{error}</p>}
   </section></main>;
 }
