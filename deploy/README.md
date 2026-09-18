@@ -1,141 +1,130 @@
-# 部署与迁移
+# 部署
 
-支持 Ubuntu 22.04/24.04、Linux x86_64、systemd、Nginx；不是任意操作系统通用安装器。
-所有命令从仓库根目录运行。项目目录使用无空格、无 `$`、无 `%` 的绝对路径；生产服务使用普通用户，不能以 root 运行。
+支持 Ubuntu 22.04/24.04、Linux x86_64；使用 Nginx、systemd 和单后端进程。
+仓库只保留配置样例与依赖安装、开发启动脚本。以下命令从项目根目录执行。
 
-## 文件职责
+| 文件 | 用途 |
+| --- | --- |
+| install.sh | 安装固定版本的 Python、Node.js 和项目依赖 |
+| run_server.sh | 本地开发启动，不用于生产 |
+| nginx.conf | HTTP 站点配置，修改域名即可；前端统一发布到 /var/www/moyin |
+| moyin.service.template | 后端服务样例，替换运行用户和所有项目路径 |
+| nginx.docker.conf | 保留根目录 Compose 引用的容器配置 |
 
-- `install.sh`：安装项目固定 Python、Node、npm 和依赖；已有 backend/.env 不覆盖。
-- `run_server.sh`：开发服务，使用 Vite 和后端热重载，不用于正式部署。
-- `.env.example` → `.env`：部署参数，不包含业务密钥；`.env` 为可信 Bash 配置。
-- `nginx.conf.template`、`moyin.service.template`：生产配置模板。
-- `deploy.sh`：构建前端、生成 `.generated/`，不修改系统服务或数据。
-- `backup.sh`：停机后打包完整数据目录，不包含 OSS 文件和密钥。
-- `nginx.docker.conf`：保留原 Compose 部署兼容性，本说明不启动 Docker。
-- `INSTALL_DESIGN.md`、`INSTALL_PLAN.md`：历史依赖安装设计，本文件为当前部署入口。
-
-生成配置和本地 `.env` 已由 deploy/.gitignore 排除。只改源码不会更新正式前端，必须重新构建并发布。
-
-## 1. 准备
+## 1. 安装与配置
 
 ```bash
 sudo apt update
-sudo apt install -y nginx gettext-base curl xz-utils
+sudo apt install -y nginx curl xz-utils
 bash deploy/install.sh
-cp -n deploy/.env.example deploy/.env
 ```
 
-编辑 deploy/.env：
+编辑 backend/.env，填写 OSS、短信、模型及必要加密密钥，并设置：
 
 ```dotenv
-SITE_DOMAIN=ainami.tech
-APP_PORT=8000
-SERVICE_USER=ubuntu
-DATA_DIR=/var/lib/moyin
-WEB_ROOT=/var/www/moyin
-BACKEND_ENV=
+APP_ENV=production
+CORS_ORIGINS=["https://ainami.tech"]
 ```
 
-SERVICE_USER 改成实际部署用户。BACKEND_ENV 留空使用 backend/.env；可以指定外部文件。
-数据目录留空则继续使用当前 backend/storage。现有部署不要直接改到空目录，否则应用会看到新数据库。
-业务配置（OSS、短信、模型、加密密钥等）写入 BACKEND_ENV 对应文件；该文件须兼容 systemd EnvironmentFile 的 KEY=value 格式，不写 export 或变量替换。
-设置 CORS_ORIGINS=["https://ainami.tech"]。服务启动时强制 APP_ENV=production，数据路径来自部署配置。
+.env 不提交 Git，应由服务运行用户读取，不对其他用户公开。
+生产服务样例固定使用项目的 backend/storage；迁移时保留其中全部数据。
 
-公网域名解析到服务器，放行 TCP 80、443；保留 SSH 管理端口。后端只监听本机。大陆服务器按接入商要求完成备案。
-
-## 2. 生成生产配置
+## 2. 构建前端
 
 ```bash
-bash deploy/deploy.sh
+export PATH="$PWD/.local/node/bin:$PATH"
+npm --prefix frontend run build
+sudo mkdir -p /var/www/moyin
+sudo cp -r frontend/dist/. /var/www/moyin/
+sudo chmod -R a+rX /var/www/moyin
 ```
 
-查看 `.generated/nginx.conf` 和 `.generated/moyin.service`。Nginx 模板不能直接加载，也不要再把它软链接到 sites-enabled。
-`render_nginx.sh` 单独运行只输出配置，不写入系统；它的静态目录取 WEB_ROOT。
+前端发布目录与仓库位置无关。迁移服务器继续使用该目录，不需要配置生成脚本。
 
-首次创建数据目录并赋予服务用户权限；使用已有目录时先备份，不改变业务文件内容：
+## 3. 启动后端
 
-```bash
-source deploy/config.sh
-sudo install -d -o "$SERVICE_USER" -m 700 "$DATA_DIR"
-sudo install -d -m 755 "$WEB_ROOT"
-sudo cp -r frontend/dist/. "$WEB_ROOT/"
-sudo chmod -R a+rX "$WEB_ROOT"
-```
+编辑 deploy/moyin.service.template：
 
-项目运行环境和 BACKEND_ENV 必须可被 SERVICE_USER 读取；密钥文件不要设为全员可读。
-迁移旧数据库时先停止旧服务，再复制完整旧数据目录到 DATA_DIR，不能只复制运行中的 app.db。
+- 将 ubuntu 替换为实际普通用户，不使用 root。
+- 将所有 /opt/moyin 替换为当前项目的绝对路径（使用无空格、无 % 的路径）。
+- 用户须能访问项目、虚拟环境和 backend/.env，并能写入 backend/storage。
+- 默认端口 8000；修改时同步 nginx.conf 的 proxy_pass。
 
-## 3. 首次安装服务和 HTTP 站点
-
-先停止旧的开发启动脚本，释放后端端口。只停止确认属于本项目的进程。
+先停止占用同一端口的本项目开发服务，再执行：
 
 ```bash
-sudo install -m 644 deploy/.generated/moyin.service /etc/systemd/system/moyin.service
+sudo install -m 644 deploy/moyin.service.template /etc/systemd/system/moyin.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now moyin
 ```
 
-如果 `/etc/nginx/sites-available/moyin` 或 `/etc/nginx/sites-enabled/moyin` 已存在，先核对并备份。特别是旧模板软链接，必须改为生成配置的普通文件；不要覆盖其他站点或已有 HTTPS 配置。
-首次没有同名文件时执行：
+保持单 worker；审核任务随应用启动，扩进程前需审计任务并发。
+
+## 4. 安装 Nginx 站点
+
+编辑 deploy/nginx.conf 的 server_name，默认 ainami.tech。模板是可直接使用的 HTTP 站点配置。
+域名指向服务器，公网 TCP 80、443 放行。大陆服务器按接入商要求完成备案。
+
+以下命令仅用于首次安装。已有同名配置或软链接时先检查并备份，不覆盖其他站点或已有证书配置。
 
 ```bash
-sudo install -m 644 deploy/.generated/nginx.conf /etc/nginx/sites-available/moyin
+sudo install -m 644 deploy/nginx.conf /etc/nginx/sites-available/moyin
 sudo ln -s /etc/nginx/sites-available/moyin /etc/nginx/sites-enabled/moyin
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-仅在 nginx -t 成功后 reload。确保其他站点没有重复声明同一域名。
+仅 nginx -t 成功后 reload；避免其他启用的站点重复声明同一域名。
+此处复制配置，不把仓库文件软链接为系统站点，避免后续更新影响 Certbot 管理的配置。
 
-## 4. 免费 HTTPS
+## 5. 免费 HTTPS
 
-安装 Certbot 后执行（以下为 snap 安装方式，不与另一套 Certbot 混装）：
+若尚未安装 Certbot，可用 snap 安装；不要与另一套 Certbot 混装：
 
 ```bash
 sudo apt install -y snapd
 sudo snap install --classic certbot
-source deploy/config.sh
-sudo /snap/bin/certbot --nginx -d "$SITE_DOMAIN" --redirect
+sudo /snap/bin/certbot --nginx -d ainami.tech --redirect
 sudo /snap/bin/certbot renew --dry-run
 ```
 
-Certbot 修改的是系统站点文件，不改仓库模板。私钥留在 `/etc/letsencrypt/`，不提交 Git。
-服务为 production 模式，登录应在 HTTPS 就绪后使用。HTTPS 验收后关闭公网 5173/8000 入口。
+替换为实际域名。HTTP 验证需要公网 80 端口可达。
+Certbot 自动管理证书与续期，修改系统里的站点配置；不要将私钥提交 Git。
+HTTPS 就绪后使用域名登录，停止对外提供开发端口 5173 和后端端口 8000。
 
-## 5. 后续更新
+## 6. 更新
 
-更新前记录 Git 版本并备份。审核任务运行时避免更新，应安排维护窗口。
-依赖发生变化时，在维护窗口运行 install.sh；它可能重建虚拟环境，不应在正在运行的服务上执行。
+更新前记录代码版本并备份，安排审核任务的维护窗口。依赖变化时先停止服务，再执行 install.sh，它可能重建虚拟环境。
+重新执行第 2 步发布前端，然后：
 
 ```bash
-bash deploy/deploy.sh
-source deploy/config.sh
-sudo cp -r frontend/dist/. "$WEB_ROOT/"
-sudo chmod -R a+rX "$WEB_ROOT"
 sudo systemctl restart moyin
 ```
 
-保留旧静态资源供已打开页面使用，不能自动清空数据或密钥。
-**普通更新不重新安装 nginx.conf，以免覆盖 Certbot 配置。** 若域名、端口或目录变化，审阅生成配置后合并系统配置，并运行 nginx -t。
-systemd 配置变化时重新 install 服务文件、daemon-reload、restart。数据库可能在启动时迁移，回滚须同时考虑代码与数据库版本。
+不要重新复制 HTTP nginx.conf 覆盖已启用 HTTPS 的系统配置。
+服务路径或用户变化时重新安装 service、daemon-reload 并 restart。
+保留旧前端资源供已打开页面使用。数据库可能随启动迁移，回滚须匹配代码与数据版本。
 
-## 6. 备份与迁移
+## 7. 备份与迁移
 
-完整备份需停机（开发进程也须停止），避免 SQLite WAL 和本地文件不一致：
+在项目根目录停机打包整个数据目录，避免 SQLite WAL 与本地文件不一致。
+确认没有开发进程继续写入；备份目录放在数据目录外，实际使用时修改下面的目标目录。
 
 ```bash
 sudo systemctl stop moyin
-bash deploy/backup.sh /absolute/path/outside-data/backups
+umask 077
+mkdir -p "$HOME/moyin-backups"
+tar -czf "$HOME/moyin-backups/data-$(date -u +%Y%m%dT%H%M%S).tar.gz" -C backend/storage .
 sudo systemctl start moyin
 ```
 
-即使备份失败，也需检查并恢复服务。备份使用受限权限；服务用户与登录用户不同，应由可读取数据目录的用户执行。
-另外单独安全保存 BACKEND_ENV，尤其是加密密钥，以及 Git 版本；备份包不包含这些信息。OSS 对象需单独保留或备份。
+备份失败也需检查并恢复服务。执行备份的用户必须能读取数据文件。
+另行安全保存 backend/.env（特别是加密密钥）、代码版本；OSS 对象须单独保留或备份。
 
-迁移顺序：克隆同一代码版本 → install.sh → 恢复部署参数和业务配置 → 停机恢复完整数据目录并设置 SERVICE_USER 所有权 → deploy.sh → 安装服务与站点 → 切换 DNS → 新服务器申请证书。
-虚拟环境和 node_modules 不直接复制。切换期间停止旧服务器写入，不让两台独立 SQLite 实例同时接收业务。旧数据和服务器保留到新站验收完毕。
+迁移：克隆同一版本 → 安装依赖 → 恢复 .env 和完整 backend/storage 并设置运行用户权限 → 修改两份配置中的域名、项目路径和用户 → 构建发布 → 启动服务 → 切换 DNS → 申请证书。
+不复制虚拟环境或 node_modules。切换时停止旧服务器写入，避免两份 SQLite 数据分叉。新站验收前保留旧服务器和备份。
 
-## 7. 人工验收
+## 8. 验收
 
 ```bash
 sudo systemctl status moyin nginx --no-pager
@@ -143,5 +132,4 @@ sudo journalctl -u moyin -n 60 --no-pager
 sudo nginx -t
 ```
 
-人工检查 HTTPS、登录、手机号、上传下载、审核以及刷新前端深层链接。
-单 worker 保持现有审核进程结构；扩展进程数量前先审计任务并发领取机制。
+人工检查 HTTPS、登录、上传下载、审核和前端深层链接刷新。

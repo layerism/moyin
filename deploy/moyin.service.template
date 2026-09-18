@@ -1,3 +1,4 @@
+# Replace ubuntu and every /opt/moyin with your deployment user and project path.
 [Unit]
 Description=Moyin API and audit worker
 After=network-online.target
@@ -5,11 +6,11 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=${SERVICE_USER}
-WorkingDirectory=${PROJECT_DIR}/backend
-EnvironmentFile=${BACKEND_ENV}
-Environment="PATH=${PROJECT_DIR}/.local/node/bin:${PROJECT_DIR}/.local/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/usr/bin/env "APP_ENV=production" "DATABASE_PATH=${DATA_DIR}/app.db" "STORAGE_ROOT=${DATA_DIR}" ${PROJECT_DIR}/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port ${APP_PORT} --workers 1
+User=ubuntu
+WorkingDirectory=/opt/moyin/backend
+EnvironmentFile=/opt/moyin/backend/.env
+Environment="PATH=/opt/moyin/.local/node/bin:/opt/moyin/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/usr/bin/env "APP_ENV=production" "DATABASE_PATH=/opt/moyin/backend/storage/app.db" "STORAGE_ROOT=/opt/moyin/backend/storage" /opt/moyin/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 1
 Restart=on-failure
 RestartSec=5
 UMask=0077

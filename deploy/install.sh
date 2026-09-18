@@ -117,4 +117,4 @@ npm --prefix "$audit_runtime_dir" ls --depth=0
 
 echo "安装完成。请检查 backend/.env。"
 echo "开发启动：bash deploy/run_server.sh"
-echo "生产部署：阅读 deploy/README.md，再执行 bash deploy/deploy.sh"
+echo "生产部署：按 deploy/README.md 构建前端并配置 Nginx、systemd"
