@@ -13601,10 +13601,9 @@ td {
   cursor: pointer;
 }
 
-/* Reserve scrollbar space and keep the file dialog stationary during disclosure. */
+/* Let file dialogs fit their content while reserving scrollbar space. */
 .runtime-node-dialog.runtime-file-dialog {
   box-sizing: border-box;
-  height: calc(100dvh - 48px);
   max-height: calc(100dvh - 48px);
   scrollbar-gutter: stable;
 }
