@@ -1118,6 +1118,13 @@ function RuntimeWarningDialog({
   );
 }
 
+function SubmissionDownloadButton({ filename, onDownload }: { filename: string; onDownload: () => void }) {
+  return <button className="runtime-attachment-download" type="button" onClick={onDownload}
+    title="下载文件" aria-label={`下载文件：${filename}`}>
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg>
+  </button>;
+}
+
 function ReadonlySubmission({
   instanceId,
   node,
@@ -1157,18 +1164,26 @@ function ReadonlySubmission({
   if (node.kind === "file") {
     const file = payload.file;
     const fileData = file && typeof file === "object" ? file as Record<string, unknown> : {};
+    const filename = formatSubmittedValue(fileData.name);
+    const extension = typeof fileData.name === "string" ? fileData.name.match(/\.([a-z0-9]{1,6})$/i)?.[1].toUpperCase() : undefined;
     return (
-      <section className="runtime-file-summary">
-        <strong>已提交文件</strong>
-        {typeof fileData.fileId === "string" && onDownloadFile ? <button type="button" onClick={() => onDownloadFile(fileData.fileId as string)}>下载文件</button> : null}
-        <dl>
-          <div><dt>文件名</dt><dd>{formatSubmittedValue(fileData.name)}</dd></div>
-          <div><dt>文件大小</dt><dd>{formatFileSize(fileData.size)}</dd></div>
-          <div><dt>提交时间</dt><dd>{formatDateTime(submittedAt)}</dd></div>
-        </dl>
+      <section className="runtime-file-summary" aria-label="已提交文件">
+        <div className="runtime-attachment-type" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M14 3H6v18h12V7l-4-4Zm0 0v5h4M9 12h6m-6 4h6" /></svg>
+          <span>{extension || "FILE"}</span>
+        </div>
+        <div className="runtime-attachment-details">
+          <strong>{filename}</strong>
+          <span>{formatFileSize(fileData.size)} · 已提交</span>
+          <small>提交于 {formatDateTime(submittedAt)}</small>
+        </div>
+        {typeof fileData.fileId === "string" && onDownloadFile ? (
+          <SubmissionDownloadButton filename={filename} onDownload={() => onDownloadFile(fileData.fileId as string)} />
+        ) : null}
       </section>
     );
   }
+
   if (node.kind === "confirmation" && Array.isArray(payload.scans)) {
     const scans = Array.isArray(payload.scans) ? payload.scans : [];
     return <section className="runtime-readonly-submission runtime-readonly-confirmation">
@@ -1176,7 +1191,7 @@ function ReadonlySubmission({
       <ul className="runtime-submitted-scan-list">{scans.map((value, index) => {
         const scan = value && typeof value === "object" ? value as Record<string, unknown> : {};
         const fileId = typeof scan.fileId === "string" ? scan.fileId : "";
-        return <li key={fileId || index}><span>{formatSubmittedValue(scan.name)} · {formatSubmittedValue(scan.pageCount)} 页</span>{fileId && onDownloadFile ? <button onClick={() => onDownloadFile(fileId)} type="button">下载扫描件</button> : null}</li>;
+        return <li key={fileId || index}><span>{formatSubmittedValue(scan.name)} · {formatSubmittedValue(scan.pageCount)} 页</span>{fileId && onDownloadFile ? <SubmissionDownloadButton filename={formatSubmittedValue(scan.name)} onDownload={() => onDownloadFile(fileId)} /> : null}</li>;
       })}</ul>
     </section>;
   }

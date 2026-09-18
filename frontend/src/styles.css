@@ -8267,8 +8267,7 @@ button {
   border-bottom: 0;
 }
 
-.runtime-readonly-field small,
-.runtime-file-summary dt {
+.runtime-readonly-field small {
   color: #667085;
   font-size: 12px;
   font-weight: 700;
@@ -8284,29 +8283,91 @@ button {
   color: #166534;
 }
 
-.runtime-file-summary > strong {
-  color: #172033;
+.runtime-file-summary {
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  background: #fff;
 }
 
-.runtime-file-summary dl {
+.runtime-attachment-type {
   display: grid;
-  gap: 10px;
-  margin: 0;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #2563eb;
 }
 
-.runtime-file-summary dl > div {
+.runtime-attachment-type svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+
+.runtime-attachment-type span {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.runtime-attachment-details {
   display: grid;
-  grid-template-columns: 82px minmax(0, 1fr);
-  gap: 10px;
+  min-width: 0;
+  gap: 5px;
+  color: #667085;
+  font-size: 12px;
 }
 
-.runtime-file-summary dt,
-.runtime-file-summary dd {
-  margin: 0;
-}
-
-.runtime-file-summary dd {
+.runtime-attachment-details strong {
   color: #172033;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.runtime-attachment-details small {
+  font-size: 12px;
+}
+
+.runtime-attachment-download {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #d8e4f5;
+  border-radius: 8px;
+  background: #f5f9ff;
+  color: #2563eb;
+  cursor: pointer;
+}
+
+.runtime-attachment-download:hover {
+  background: #eaf2ff;
+  border-color: #93b4f5;
+}
+
+.runtime-attachment-download:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.runtime-attachment-download svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.runtime-submitted-scan-list li > span {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
