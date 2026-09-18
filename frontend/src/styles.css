@@ -4788,14 +4788,15 @@ button {
 }
 
 .node-inspector-toolbar {
-  position: absolute;
-  z-index: 2;
-  top: 12px;
-  right: 16px;
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
 }
 
 .node-inspector-toolbar button {
+  flex-shrink: 0;
   width: 34px;
   height: 34px;
   border: 1px solid #d9e2ef;
@@ -4901,14 +4902,40 @@ button {
   min-width: 0;
 }
 
-.node-basic-title-field {
-  margin-right: 42px;
+.inspector-panel .node-basic-title-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.node-basic-title-size {
+  position: relative;
+  display: block;
+  min-width: 0;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.node-basic-title-size > span {
+  display: block;
+  height: 36px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  white-space: pre;
+  visibility: hidden;
+  overflow: hidden;
+}
+
+.node-basic-title-size input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
 }
 
 .node-basic-edit-icon {
-  position: absolute;
-  top: 10px;
-  right: 8px;
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
   color: #94a3b8;
@@ -4919,14 +4946,13 @@ button {
   pointer-events: none;
 }
 
-.node-basic-title-field:focus-within .node-basic-edit-icon,
-.node-basic-description-field:focus-within .node-basic-edit-icon {
+.node-basic-title-field:focus-within .node-basic-edit-icon {
   color: #2563eb;
 }
 
 .node-basic-title-field input,
 .node-basic-description-field textarea {
-  padding: 4px 32px 4px 6px;
+  padding: 4px 6px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
@@ -4947,8 +4973,10 @@ button {
 }
 
 .node-basic-description-field textarea {
-  min-height: 48px;
-  height: 48px;
+  border-color: #dce3ed;
+  padding: 6px 10px;
+  min-height: 52px;
+  height: 52px;
   color: #475569;
   font-size: 14px;
   font-weight: 500;
