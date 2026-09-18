@@ -56,11 +56,12 @@ export function CompletedReviewFeedback({ runtime }: { runtime: RuntimeNodeInsta
   const current = runtime.reviewTimeline?.find((attempt) => attempt.attemptNo === runtime.attemptNo);
   const annotations = current?.steps.filter((step) => step.kind === "manual").flatMap((step) => step.annotations) ?? [];
   if (!annotations.length) return null;
+  const latest = annotations[annotations.length - 1];
   return <section className="completed-review-feedback" aria-label="教师评语与评阅附件">
     <header><h3>教师评语与评阅附件</h3><small>可下载评阅文件查看</small></header>
     {annotations.map((item) => <article key={item.id}>
       <time>{date(item.publishedAt)}</time><Report value={item.remark} />
-      {item.files.map((file) => <div className="review-feedback-file" key={file.id}>
+      {(item === latest ? item.files : []).map((file) => <div className="review-feedback-file" key={file.id}>
         <FileFormatIcon filename={file.name} /><span>{file.name}<small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span>
         <FeedbackDownload fileId={file.id} filename={file.name} student iconOnly />
       </div>)}
