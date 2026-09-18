@@ -124,7 +124,11 @@ export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
 
   return <dialog className="manual-review-dialog" ref={dialog} aria-labelledby="manual-review-title"
     onKeyDown={(event) => event.stopPropagation()}
-    onCancel={(event) => { event.preventDefault(); if (!saving) onClose(); }}>
+    onCancel={(event) => {
+      if (event.target !== event.currentTarget) return;
+      event.preventDefault();
+      if (!saving) onClose();
+    }}>
     <header><div><h2 id="manual-review-title">{queue?.title ?? "正在读取审核列表"}</h2></div>
       <button aria-label="关闭审核" disabled={saving} onClick={onClose} type="button">×</button></header>
     <div className="manual-review-filters">

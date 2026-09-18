@@ -86,7 +86,11 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
     });
   };
   return <dialog ref={dialog} className="manual-review-dialog file-manual-review-dialog" aria-label="文件人工审核" onKeyDown={(event) => event.stopPropagation()}
-    onCancel={(event) => { event.preventDefault(); if (!actionInFlight.current) onClose(); }}>
+    onCancel={(event) => {
+      if (event.target !== event.currentTarget) return;
+      event.preventDefault();
+      if (!actionInFlight.current) onClose();
+    }}>
     <header><div><h2>{queue?.title ?? "文件节点"} · 人工审核</h2></div><button type="button" disabled={busy} aria-label="关闭人工审核" onClick={onClose}>×</button></header>
     {error ? <p className="dialog-error" role="alert">{error}</p> : null}
     <div className="manual-review-layout">
