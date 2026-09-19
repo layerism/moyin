@@ -36,6 +36,12 @@ class Reset(BaseModel):
     newPassword: str = Field(min_length=8, max_length=128)
 
 
+class ChangePassword(BaseModel):
+    challengeId: str = Field(min_length=32, max_length=64)
+    code: str = Field(pattern=r"^[0-9]{6}$")
+    newPassword: str = Field(min_length=8, max_length=128)
+
+
 def identity(role: Role, oa_session: str | None = Cookie(default=None),
              teacher_session: str | None = Cookie(default=None)) -> dict:
     return get_authenticated_student(oa_session) if role == "student" else get_current_teacher(teacher_session)
@@ -60,6 +66,18 @@ def binding_code(role: Role, payload: SendBinding, request: Request, user: dict 
 def bind_phone(role: Role, payload: Verify, user: dict = Depends(identity)) -> dict:
     sms_recovery.complete(role, "bind", payload.challengeId, payload.code, account_id=int(user["id"]))
     return {"message": "手机号已绑定，可用于找回密码"}
+
+
+@router.post("/{role}/password-change/code")
+def password_change_code(role: Role, request: Request, user: dict = Depends(identity)) -> dict:
+    return sms_recovery.send_change_code(role, int(user["id"]),
+        request.client.host if request.client else "unknown")
+
+
+@router.post("/{role}/password-change/confirm")
+def change_password(role: Role, payload: ChangePassword, user: dict = Depends(identity)) -> dict:
+    return sms_recovery.complete(role, "change", payload.challengeId, payload.code,
+        account_id=int(user["id"]), new_password=payload.newPassword)
 
 
 @router.post("/{role}/password-reset/identify")

@@ -70,7 +70,7 @@ def send_code(role: str, purpose: str, phone: str, ip: str, recovery_token: str 
     recovery_hash = token_hash(recovery_token) if purpose == "reset" else None
     if recovery_hash:
         authorize_recovery_phone(role, recovery_hash, phone)
-    binding_error = None
+    authorization_error = None
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         connection.execute("DELETE FROM sms_challenges WHERE created_at < ?", (now - 86400,))
@@ -85,14 +85,24 @@ def send_code(role: str, purpose: str, phone: str, ip: str, recovery_token: str 
         if purpose == "bind":
             row = connection.execute(f"SELECT * FROM {table} WHERE id = ?", (account_id,)).fetchone()
             if not active(row, role) or not verify_password(password, row["password_hash"]):
-                binding_error = "当前密码不正确或账号已失效"
+                authorization_error = "当前密码不正确或账号已失效"
             elif role == "student" and row["must_change_password"]:
-                binding_error = "请先修改初始密码，再绑定手机号"
+                authorization_error = "请先修改初始密码，再绑定手机号"
             elif row["phone"] == phone:
-                binding_error = "新手机号不能与当前绑定号码相同"
+                authorization_error = "新手机号不能与当前绑定号码相同"
             elif connection.execute(f"SELECT id FROM {table} WHERE phone = ?", (phone,)).fetchone():
-                binding_error = "该手机号无法绑定，请联系管理员"
-            if binding_error:
+                authorization_error = "该手机号无法绑定，请联系管理员"
+            if authorization_error:
+                row = None
+        elif purpose == "change":
+            row = connection.execute(f"SELECT * FROM {table} WHERE id = ?", (account_id,)).fetchone()
+            if not active(row, role):
+                authorization_error = "账号已失效，请重新登录"
+            elif role == "student" and row["must_change_password"]:
+                authorization_error = "请先修改初始密码"
+            elif not row["phone"] or not row["phone_verified_at"] or row["phone"] != phone:
+                authorization_error = "请先绑定安全手机号"
+            if authorization_error:
                 row = None
         else:
             recovery, row = recovery_account(connection, role, recovery_hash, "identified")
@@ -103,8 +113,8 @@ def send_code(role: str, purpose: str, phone: str, ip: str, recovery_token: str 
             VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
             (challenge_id, role, purpose, row["id"] if row else None, phone, ip,
              version(row) if row else "", now, now + 300, "pending", recovery_hash))
-    if binding_error:
-        raise HTTPException(400, binding_error, headers={"Retry-After": "60"})
+    if authorization_error:
+        raise HTTPException(400, authorization_error, headers={"Retry-After": "60"})
     if row:
         try:
             pnvs.send(phone, scheme(role, purpose), challenge_id)
@@ -118,14 +128,15 @@ def send_code(role: str, purpose: str, phone: str, ip: str, recovery_token: str 
 
 
 def complete(role: str, purpose: str, challenge_id: str, code: str,
-             account_id: int | None = None) -> dict:
+             account_id: int | None = None, new_password: str = "") -> dict:
     now = int(time.time())
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute("SELECT * FROM sms_challenges WHERE id = ? AND role = ? AND purpose = ?",
                                  (challenge_id, role, purpose)).fetchone()
         if (not row or row["state"] != "ready" or row["expires_at"] <= now
-                or row["attempts"] >= 5 or (purpose == "bind" and row["account_id"] != account_id)):
+                or row["attempts"] >= 5
+                or (purpose in ("bind", "change") and row["account_id"] != account_id)):
             raise HTTPException(400, INVALID)
         connection.execute("UPDATE sms_challenges SET state = 'checking', attempts = attempts + 1 WHERE id = ?", (challenge_id,))
     try:
@@ -140,12 +151,15 @@ def complete(role: str, purpose: str, challenge_id: str, code: str,
         raise HTTPException(400, INVALID)
     table, _ = TABLES[role]
     reset_token = secrets.token_urlsafe(32) if purpose == "reset" else None
+    password_hash = hash_password(new_password) if purpose == "change" else None
     try:
         with get_connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             account = connection.execute(f"SELECT * FROM {table} WHERE id = ?", (row["account_id"],)).fetchone()
             if (not active(account, role) or version(account) != row["password_version"]
-                    or (purpose == "reset" and account["phone"] != row["phone"])):
+                    or (purpose in ("reset", "change")
+                        and (account["phone"] != row["phone"] or not account["phone_verified_at"]))
+                    or (purpose == "change" and role == "student" and account["must_change_password"])):
                 raise HTTPException(400, INVALID)
             changed = connection.execute("UPDATE sms_challenges SET state = 'consumed' WHERE id = ? AND state = 'checking' AND expires_at > ?",
                                          (challenge_id, int(time.time()))).rowcount
@@ -156,17 +170,39 @@ def complete(role: str, purpose: str, challenge_id: str, code: str,
                                    (row["phone"], utc_now_iso(), utc_now_iso(), account["id"]))
                 connection.execute("UPDATE password_recoveries SET state = 'expired' WHERE role = ? AND account_id = ? AND state != 'consumed'",
                                    (role, account["id"]))
-            else:
+            elif purpose == "reset":
                 recovery_account(connection, role, row["recovery_hash"], "identified")
                 connection.execute("""UPDATE password_recoveries SET state = 'verified',
                     reset_token_hash = ?, expires_at = ? WHERE token_hash = ?""",
                     (token_hash(reset_token), int(time.time()) + 300, row["recovery_hash"]))
+            else:
+                if verify_password(new_password, account["password_hash"]):
+                    raise HTTPException(422, "新密码不能与当前密码相同")
+                connection.execute(f"UPDATE {table} SET password_hash = ?, updated_at = ? WHERE id = ?",
+                                   (password_hash, utc_now_iso(), account["id"]))
+                connection.execute(f"DELETE FROM {role}_sessions WHERE {role}_account_id = ?", (account["id"],))
+                connection.execute("UPDATE password_recoveries SET state = 'expired' WHERE role = ? AND account_id = ? AND state != 'consumed'",
+                                   (role, account["id"]))
             connection.execute("UPDATE sms_challenges SET state = 'expired' WHERE role = ? AND account_id = ? AND id != ? AND state != 'consumed'",
                                (role, account["id"], challenge_id))
     except sqlite3.IntegrityError:
         raise HTTPException(409, "该手机号无法绑定，请联系管理员") from None
 
-    return {"resetToken": reset_token} if reset_token else {"message": "手机号已绑定，可用于找回密码"}
+    if reset_token:
+        return {"resetToken": reset_token}
+    return {"message": "密码已修改，请重新登录" if purpose == "change" else "手机号已绑定，可用于找回密码"}
+
+
+def send_change_code(role: str, account_id: int, ip: str) -> dict:
+    table, _ = TABLES[role]
+    with get_connection() as connection:
+        account = connection.execute(f"SELECT * FROM {table} WHERE id = ?", (account_id,)).fetchone()
+        if not active(account, role):
+            raise HTTPException(400, "账号已失效，请重新登录")
+        if not account["phone"] or not account["phone_verified_at"]:
+            raise HTTPException(400, "请先绑定安全手机号")
+        phone = account["phone"]
+    return send_code(role, "change", phone, ip, account_id=account_id)
 
 
 def token_hash(token: str) -> str:

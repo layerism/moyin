@@ -386,6 +386,12 @@ export function App() {
     navigateAuth("login", role);
   };
 
+  const completePasswordChange = (role: AuthRole) => {
+    if (role === "teacher") setTeacherIdentity(null);
+    else setStudentIdentity(null);
+    navigateAuth("login", role);
+  };
+
   const openWorkflowTemplates = (sourceId?: string) => {
     pushAppPath(`/workflow-templates${sourceId ? `?source=${encodeURIComponent(sourceId)}` : ""}`);
     setScreen("workflowTemplates");
@@ -702,7 +708,7 @@ export function App() {
   }
 
   if (screen === "profile") {
-    return <ProfilePage key={teacherIdentity!.id} identity={teacherIdentity!} onBack={openAcademicFlow} onLogout={() => logoutRole("teacher")} />;
+    return <ProfilePage key={teacherIdentity!.id} identity={teacherIdentity!} onBack={openAcademicFlow} onLogout={() => logoutRole("teacher")} onPasswordChanged={() => completePasswordChange("teacher")} />;
   }
 
   if (screen === "adminModels") {
@@ -732,6 +738,7 @@ export function App() {
       <StudentAccountPage
         identity={studentIdentity}
         onLogout={() => void logoutRole("student")}
+        onPasswordChanged={() => completePasswordChange("student")}
         onOpenFlow={async (flowId) => {
           const instance = await workflowApi.enterFlow(flowId);
           setRuntimeInstance(instance);

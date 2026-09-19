@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 
 import type { AuthIdentity, StudentFlowSummary } from "./authApi";
 import { authApi } from "./authApi";
-import { PhoneBindingButton } from "./SmsPasswordRecovery";
+import { PasswordChangeButton, PhoneBindingButton } from "./SmsPasswordRecovery";
 
 export function StudentAccountPage({
   identity,
   onLogout,
   onOpenFlow,
+  onPasswordChanged,
 }: {
   identity: AuthIdentity;
   onLogout: () => void;
   onOpenFlow: (flowId: string) => Promise<void>;
+  onPasswordChanged: () => void;
 }) {
   const [flows, setFlows] = useState<StudentFlowSummary[]>([]);
   const [notice, setNotice] = useState("");
@@ -37,7 +39,7 @@ export function StudentAccountPage({
     <main className="student-account-page">
       <header>
         <div><span className="oa-brand-mark">OA</span><strong>学生流程中心</strong></div>
-        <div><span>{identity.name}</span><small>{identity.studentNo}</small><PhoneBindingButton role="student" /><button onClick={onLogout}>退出登录</button></div>
+        <div><span>{identity.name}</span><small>{identity.studentNo}</small><PhoneBindingButton role="student" /><PasswordChangeButton role="student" onChanged={onPasswordChanged} /><button onClick={onLogout}>退出登录</button></div>
       </header>
       <section className="student-account-main">
         <div className="student-account-heading">

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { AuthIdentity } from "./authApi";
-import { PhoneSecurityPanel } from "./SmsPasswordRecovery";
+import { PasswordChangeButton, PhoneSecurityPanel } from "./SmsPasswordRecovery";
 import { ModelCardsAdminPage } from "../admin/ModelCardsAdminPage";
 import { DatabaseAdminPage } from "../admin/DatabaseAdminPage";
 import { TeacherInvitationsAdminPage } from "../admin/TeacherInvitationsAdminPage";
@@ -20,10 +20,11 @@ function ProfileIcon({ name }: { name: IconName }) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>;
 }
 
-export function ProfilePage({ identity, onBack, onLogout }: {
+export function ProfilePage({ identity, onBack, onLogout, onPasswordChanged }: {
   identity: AuthIdentity;
   onBack: () => void;
   onLogout: () => Promise<void>;
+  onPasswordChanged: () => void;
 }) {
   const [section, setSection] = useState<Section>("personal");
   const [leaving, setLeaving] = useState(false);
@@ -32,7 +33,7 @@ export function ProfilePage({ identity, onBack, onLogout }: {
   const roleName = admin ? "超级管理员" : "发布者";
   const items: { id: Section; label: string }[] = [
     { id: "personal", label: "个人资料" },
-    { id: "security", label: "安全手机号" },
+    { id: "security", label: "账户安全" },
     { id: "models", label: "我的模型配置" },
     ...(admin ? [{ id: "invitations" as const, label: "邀请管理" }, { id: "database" as const, label: "数据库管理" }] : []),
   ];
@@ -53,7 +54,7 @@ export function ProfilePage({ identity, onBack, onLogout }: {
         <article className="profile-card"><h2>基本信息</h2><div className="profile-identity"><span className="profile-avatar">{Array.from(identity.name)[0] ?? "用"}</span><div><strong>{identity.name}</strong><span className="profile-role">{roleName}</span></div></div><dl><div><dt>姓名</dt><dd>{identity.name}</dd></div><div><dt>账号</dt><dd>{identity.employeeNo ?? "—"}</dd></div><div><dt>角色</dt><dd>{roleName}</dd></div></dl></article>
         <article className="profile-card profile-security-summary"><span className="profile-security-icon"><ProfileIcon name="security" /></span><h2>安全手机号</h2><p>绑定手机号后，可通过短信验证找回密码。</p><button className="primary-action" type="button" onClick={() => setSection("security")}>查看安全设置</button></article>
       </div>}
-      {section === "security" && <article className="profile-card profile-security-panel"><h2>安全手机号</h2><PhoneSecurityPanel role="teacher" /></article>}
+      {section === "security" && <article className="profile-card profile-security-panel"><h2>账户安全</h2><section className="profile-security-setting"><h3>安全手机号</h3><PhoneSecurityPanel role="teacher" /></section><section className="profile-security-setting"><h3>登录密码</h3><p>通过已绑定手机号验证后修改密码。修改成功后，所有登录设备都会退出。</p><PasswordChangeButton role="teacher" onChanged={onPasswordChanged} /></section></article>}
       <div className="profile-embedded">
         {section === "models" && <ModelCardsAdminPage identity={identity} onBack={() => setSection("personal")} />}
         {section === "invitations" && admin && <TeacherInvitationsAdminPage identity={identity} onBack={() => setSection("personal")} />}

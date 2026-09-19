@@ -205,6 +205,81 @@ export function PhoneBindingButton({ role }: { role: AuthRole }) {
   }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card" role="dialog" aria-modal="true" aria-label="安全手机号"><div className="sms-dialog-heading"><h2>安全手机号</h2><button type="button" aria-label="关闭" onClick={() => setOpen(false)}>×</button></div>{loading ? <p>正在读取…</p> : error ? <p role="alert">{error}</p> : phone ? <BoundPhone role={role} phone={phone} onDone={() => setOpen(false)} /> : <SmsForm role={role} onDone={() => setOpen(false)} />}</section></div>, document.body)}</>;
 }
 
+export function PasswordChangeButton({ role, onChanged }: {
+  role: AuthRole;
+  onChanged: () => void | Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [phone, setPhone] = useState<string | null>(null);
+  const [challengeId, setChallengeId] = useState("");
+  const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const dialogRef = useRef<HTMLElement>(null);
+  const { remaining, coolDown } = useSmsCooldown(`${role}:password-change:${phone ?? "unbound"}`);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
+    return () => previous?.focus();
+  }, [open]);
+  const show = async () => {
+    setOpen(true); setLoading(true); setPhone(null); setChallengeId("");
+    setCode(""); setPassword(""); setConfirm(""); setNotice(""); setError("");
+    try { setPhone((await call<{ phone: string | null }>(role, "phone")).phone); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : "读取失败"); }
+    finally { setLoading(false); }
+  };
+  const send = async () => {
+    setBusy(true); setError(""); setNotice(""); setChallengeId(""); setCode("");
+    try {
+      const data = await call<{ challengeId: string; retryAfter: number }>(role, "password-change/code", {});
+      setChallengeId(data.challengeId); coolDown(data.retryAfter); setNotice("验证码已发送，5 分钟内有效。");
+    } catch (reason) {
+      if (reason instanceof SmsError && reason.retryAfter) coolDown(reason.retryAfter);
+      setError(reason instanceof Error ? reason.message : "发送失败，请重试");
+    } finally { setBusy(false); }
+  };
+  const submit = async () => {
+    setError("");
+    if (password !== confirm) { setError("两次输入的密码不一致"); return; }
+    setBusy(true);
+    try {
+      await call(role, "password-change/confirm", { challengeId, code, newPassword: password });
+      await onChanged();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "修改密码失败，请重试");
+      setBusy(false);
+    }
+  };
+  return <><button type="button" className="sms-binding-button" onClick={() => void show()}>修改密码</button>{open && createPortal(<div className="sms-binding-backdrop" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => {
+    if (event.key === "Escape" && !busy) { event.stopPropagation(); setOpen(false); }
+    if (event.key === "Tab") {
+      const controls = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]');
+      if (!controls?.length) return;
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+  }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card" role="dialog" aria-modal="true" aria-label="修改密码">
+    <div className="sms-dialog-heading"><h2>修改密码</h2><button type="button" aria-label="关闭" disabled={busy} onClick={() => setOpen(false)}>×</button></div>
+    {loading ? <p>正在读取安全设置…</p> : error && !phone ? <p className="role-auth-error" role="alert">{error}</p> : !phone ? <><p className="sms-auth-note password-change-unbound">修改密码前，请先绑定安全手机号。</p><button type="button" className="sms-binding-button" onClick={() => setOpen(false)}>返回</button></> : <form className="sms-auth-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
+      <p className="sms-auth-note">验证码将发送至已绑定手机号 <strong>{phone}</strong>。</p>
+      <label><span className="binding-field-label"><BindingIcon name="code" />短信验证码</span><div className="sms-code-row"><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} disabled={busy} onChange={(event) => setCode(event.target.value)} /><button type="button" disabled={busy || remaining > 0} onClick={() => void send()}><BindingIcon name="message" />{remaining ? `${remaining} 秒后重发` : "获取验证码"}</button></div></label>
+      <label><span className="binding-field-label"><BindingIcon name="lock" />新密码</span><input required type="password" autoComplete="new-password" minLength={8} maxLength={128} value={password} disabled={busy} onChange={(event) => setPassword(event.target.value)} /></label>
+      <label><span className="binding-field-label"><BindingIcon name="lock" />确认新密码</span><input required type="password" autoComplete="new-password" minLength={8} maxLength={128} value={confirm} disabled={busy} onChange={(event) => setConfirm(event.target.value)} /></label>
+      {notice && <p className="sms-auth-note" role="status">{notice}</p>}
+      {error && <p className="role-auth-error" role="alert">{error}</p>}
+      <button className="primary-action" disabled={busy || !challengeId}>{busy ? "处理中…" : "验证并修改密码"}</button>
+      <p className="sms-auth-note">修改成功后，所有登录设备都会退出，请使用新密码重新登录。</p>
+    </form>}
+  </section></div>, document.body)}</>;
+}
+
 export function PhoneSecurityPanel({ role }: { role: AuthRole }) {
   const [phone, setPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
