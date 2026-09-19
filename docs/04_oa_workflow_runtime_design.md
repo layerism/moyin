@@ -2,7 +2,7 @@
 
 ## 1. 目标
 
-教师通过现有低代码设计器配置 OA DAG 流程。流程发布后生成高熵共享链接；学生打开链接时必须注册或登录，登录成功后进入统一的学生填写页面。所有学生共享同一份流程定义，但系统为每名学生维护独立的流程实例、节点状态、填写数据与审核记录。
+教师通过现有低代码设计器配置 OA DAG 流程。流程发布后，名单内学生登录流程中心并选择流程进入统一填写页面。所有学生共享同一份流程定义，但系统为每名学生维护独立的流程实例、节点状态、填写数据与审核记录。
 
 本设计采用“版本化流程定义 + 关系型运行实例”方案。流程定义以 JSON 快照保存，运行状态使用关系表保存，以同时满足灵活配置、状态约束、统计查询和审计追踪要求。
 
@@ -29,18 +29,16 @@
 - 发布前校验无环图、连接完整性、必填字段、节点标识唯一性和截止时间合法性。
 - 发布操作将当前草稿转换为不可变 `FlowVersion` 快照。
 
-### 3.2 共享访问域
+### 3.2 名单访问域
 
-- 每个已发布流程生成至少一个高熵访问令牌。
-- URL 仅包含随机令牌，不包含流程 ID、学生 ID、学号等业务标识。
-- 数据库保存校验用令牌哈希及教师恢复链接所需的令牌值；数据库管理界面对令牌值脱敏。
-- 未认证的分享元数据接口只返回流程名称和说明，不返回节点、连线或名单。
-- 令牌支持启用、停用、失效时间和重新生成；重新生成后旧令牌立即失效。
+- 学生登录后只能列出姓名和学号同时匹配有效名单记录的已发布流程。
+- 学生选择流程时，服务端再次校验账号、名单授权和最新发布版本。
+- 名单被撤销后，历史实例仍保留，但读取、暂存和提交均被拒绝。
+- 历史 `share_tokens` 表只用于旧数据库兼容和流程删除清理，不参与访问授权。
 
 ### 3.3 学生运行域
 
-- 未登录用户访问共享链接时，将令牌保存到短期服务端会话并跳转登录或注册。
-- 登录成功后恢复原始访问意图，校验令牌并进入填写页面。
+- 学生登录流程中心后，从本人有权访问的流程列表进入填写页面。
 - 首次进入时，以 `(flow_version_id, student_user_id)` 幂等创建 `FlowInstance`。
 - 后续访问复用原实例，恢复各节点状态及暂存数据。
 
@@ -59,7 +57,7 @@
 | `flows` | `id`, `name`, `description`, `owner_id`, `status`, `draft_config`, `created_at`, `updated_at` | 流程主体和当前草稿 |
 | `flow_versions` | `id`, `flow_id`, `version_no`, `config_snapshot`, `config_hash`, `published_by`, `published_at`, `status` | 不可变发布快照 |
 | `flow_node_runtime_configs` | `flow_version_id`, `node_key`, `deadline_at`, `updated_by`, `updated_at` | 发布后允许修改的节点运行参数 |
-| `share_tokens` | `id`, `flow_version_id`, `token_hash`, `token_value`, `status`, `expires_at`, `created_by`, `created_at` | 高熵共享链接 |
+| `share_tokens` | `id`, `flow_version_id`, `token_hash`, `token_value`, `status`, `expires_at`, `created_by`, `created_at` | 仅保留历史兼容和流程删除清理，不再生成或用于访问 |
 | `flow_roster_entries` | `id`, `flow_id`, `student_no`, `name`, `status`, `updated_by`, `created_at`, `updated_at` | 流程级学生访问名单 |
 
 `config_snapshot` 保存设计器导出的完整配置，包括：
@@ -140,19 +138,15 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 1. 教师请求发布草稿。
 2. 服务端进行 JSON Schema、DAG、字段和规则校验。
 3. 校验流程至少存在一名有效名单学生。
-4. 在事务中创建 `flow_versions`、节点运行配置和共享令牌。
-5. 返回共享 URL；教师后续可从流程详情恢复同一有效链接。
+4. 在事务中创建 `flow_versions` 和节点运行配置。
+5. 返回发布版本信息；学生从流程中心进入。
 
-### 6.2 学生访问与登录回跳
+### 6.2 学生从流程中心进入
 
-1. 学生访问 `/s/{token}`。
-2. 服务端哈希令牌并校验状态、失效时间和流程版本状态。
-3. 未登录时记录短期 `return_ticket`，跳转注册或登录。
-4. 登录成功后消费 `return_ticket`，再次校验共享令牌。
-5. 按当前账号的姓名和学号校验 `flow_roster_entries` 有效记录。
-6. 幂等创建或读取学生流程实例，并重定向至 `/student/flows/{instanceId}`。
-
-`return_ticket` 必须一次性使用、短期有效，并与浏览器会话绑定，防止开放重定向和令牌固定攻击。
+1. 学生登录后请求本人可访问的流程列表。
+2. 服务端按当前账号的姓名和学号校验 `flow_roster_entries` 有效记录。
+3. 学生选择流程后，服务端再次校验名单授权及最新已发布版本。
+4. 幂等创建或读取学生流程实例，并进入 `/student/flows/{instanceId}`。
 
 ### 6.3 暂存与提交
 
@@ -180,8 +174,6 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 - `POST /api/flows`
 - `PUT /api/flows/{flowId}/draft`
 - `POST /api/flows/{flowId}/publish`
-- `POST /api/flow-versions/{versionId}/share-tokens`
-- `DELETE /api/share-tokens/{tokenId}`
 - `PATCH /api/flow-versions/{versionId}/nodes/{nodeKey}/deadline`
 - `PUT /api/flow-instances/{instanceId}/nodes/{nodeKey}/deadline-override`
 - `GET /api/flow-versions/{versionId}/progress`
@@ -192,7 +184,8 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 
 ### 7.2 学生端
 
-- `GET /s/{token}`
+- `GET /api/student/flows`
+- `POST /api/student/flows/{flowId}/enter`
 - `GET /api/student/flow-instances/{instanceId}`
 - `PUT /api/student/node-instances/{nodeInstanceId}/draft`
 - `POST /api/student/node-instances/{nodeInstanceId}/files`
@@ -202,8 +195,6 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 
 ## 8. 安全与一致性
 
-- 共享令牌至少包含 128 位随机熵，使用密码学安全随机数生成器。
-- 令牌在日志、监控、分析参数和 Referer 中必须脱敏。
 - 登录密码使用成熟密码哈希算法；认证会话使用 `HttpOnly`、`Secure`、`SameSite` Cookie。
 - 附件保存至对象存储或受控文件存储，数据库只保存存储键和校验信息。
 - 当前实现使用阿里云 OSS：`OSS_ENDPOINT`、`OSS_BUCKET`、`OSS_PREFIX`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET` 和 `OSS_SIGNED_URL_EXPIRES_SECONDS` 从后端 `.env` 读取；AccessKey 不下发到浏览器。
@@ -223,8 +214,7 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 
 ## 10. 错误处理
 
-- 共享令牌无效或停用：返回统一的链接不可用页面，避免泄露流程存在性。
-- 登录回跳失效：要求用户重新打开共享链接。
+- 名单授权不存在或已撤销：返回统一的无权访问提示。
 - 流程已停用：保留历史记录，但禁止创建新实例和新提交。
 - 状态冲突：返回 `409 Conflict` 及最新节点状态，前端刷新数据。
 - 截止时间已过：返回 `422` 和有效截止时间，不接受客户端时间覆盖。
@@ -238,12 +228,12 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 - DAG 校验、节点开放计算和条件分支。
 - 有效截止时间及个别延期优先级。
 - 节点状态迁移合法性。
-- 令牌生成、哈希、停用和失效判定。
+- 名单授权和流程版本选择。
 
 ### 11.2 集成测试
 
 - 发布事务及配置快照不可变性。
-- 未登录访问、注册登录和原链接回跳。
+- 学生登录、流程列表和名单内流程进入。
 - 同一学生重复访问只创建一个流程实例。
 - 暂存、提交、审核、退回和重新提交。
 - 并发提交、重复请求和幂等键。
@@ -253,16 +243,16 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 
 ### 11.3 端到端测试
 
-- 教师设计并发布流程，复制共享链接。
-- 新学生通过链接注册登录并完成多节点填写。
+- 教师设计并发布流程。
+- 名单内学生登录流程中心并完成多节点填写。
 - 两名学生共享同一流程结构但具有独立进度。
 - 教师查看总体进度并为单个学生延期。
 - 截止后禁止提交，延期后允许继续提交。
 
 ## 12. 分阶段实施
 
-1. 建立流程定义、发布快照、共享令牌及数据库迁移。
-2. 完成学生登录回跳、流程实例和节点状态机。
+1. 建立流程定义、发布快照及数据库迁移。
+2. 完成学生流程中心、流程实例和节点状态机。
 3. 完成表单暂存、附件、提交、审核和 DAG 推进。
 4. 完成教师进度追踪、截止时间和个别延期。
 5. 补充审计、安全加固、并发测试和端到端测试。

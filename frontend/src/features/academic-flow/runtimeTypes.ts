@@ -4,8 +4,6 @@ export type PublishedFlow = {
   configHash: string;
   flowId: string;
   flowVersionId: string;
-  shareUrl: string;
-  token: string;
   versionNo: number;
 };
 
@@ -31,11 +29,6 @@ export type RevisionImpact = {
   nextVersionNo: number;
   predecessorChangedNodeIds: string[];
   sourceVersionImpacts: RevisionImpactSource[];
-};
-
-export type SharedFlow = {
-  description: string;
-  name: string;
 };
 
 export type RuntimeNodeStatus =

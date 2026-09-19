@@ -43,7 +43,6 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
         frozenset({"status", "opened_at", "submitted_at", "approved_at", "attempt_no"}),
         deletable=True,
     ),
-    "share_tokens": TablePolicy(frozenset({"status", "expires_at"}), deletable=True),
     "student_accounts": TablePolicy(
         frozenset({"student_no", "name", "status"}), deletable=True
     ),

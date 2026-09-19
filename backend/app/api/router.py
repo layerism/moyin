@@ -35,7 +35,6 @@ api_router.include_router(submissions.router, prefix="/submissions", tags=["subm
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
 api_router.include_router(workflows.router, prefix="/workflows", tags=["workflows"])
 api_router.include_router(flow_roster.router, prefix="/workflows", tags=["flow-roster"])
-api_router.include_router(workflows.shared_router, prefix="/shared-flows", tags=["shared-flows"])
 api_router.include_router(student_flows.router, prefix="/student", tags=["student-flows"])
 api_router.include_router(workflow_admin.router, prefix="/workflow-admin", tags=["workflow-admin"])
 

@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import secrets
 import uuid
 from collections import deque
 from typing import Any, Callable
@@ -250,7 +249,7 @@ def _published_versions(connection: Any, flow_id: str, teacher_id: int) -> list[
 
 
 def _revision_source_versions(
-    connection: Any, flow_id: str, teacher_id: int, now: str
+    connection: Any, flow_id: str, teacher_id: int
 ) -> list[Any]:
     return connection.execute(
         """
@@ -258,20 +257,12 @@ def _revision_source_versions(
         FROM flow_versions v
         JOIN flows f ON f.id = v.flow_id
         WHERE v.flow_id = ? AND f.owner_id = ? AND v.status != 'preview'
-          AND (
-              v.status = 'published'
-              OR EXISTS (
-                  SELECT 1 FROM flow_instances i WHERE i.flow_version_id = v.id
-              )
-              OR EXISTS (
-                  SELECT 1 FROM share_tokens t
-                  WHERE t.flow_version_id = v.id AND t.status = 'active'
-                    AND (t.expires_at IS NULL OR t.expires_at > ?)
-              )
-          )
+          AND (v.status = 'published' OR EXISTS (
+              SELECT 1 FROM flow_instances i WHERE i.flow_version_id = v.id
+          ))
         ORDER BY v.version_no
         """,
-        (flow_id, str(teacher_id), now),
+        (flow_id, str(teacher_id)),
     ).fetchall()
 
 
@@ -768,26 +759,11 @@ def copy_flow_definition(
 
 
 def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
-    now = utc_now_iso()
     with get_connection() as connection:
         row = _owned_flow(connection, flow_id, teacher_id)
         if row is None:
             raise KeyError(flow_id)
         published = _latest_published_version(connection, flow_id, teacher_id)
-        token = (
-            connection.execute(
-                """
-                SELECT token_value FROM share_tokens
-                WHERE flow_version_id = ? AND status = 'active'
-                  AND (expires_at IS NULL OR expires_at > ?)
-                ORDER BY created_at DESC
-                LIMIT 1
-                """,
-                (published["id"], now),
-            ).fetchone()
-            if published
-            else None
-        )
         draft_config = json.loads(row["draft_config"])
         apply_published_node_models(connection, flow_id, draft_config)
         draft_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
@@ -825,7 +801,6 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         else [],
         "publishedVersionNo": published["version_no"] if published else None,
         "hasUnpublishedChanges": has_unpublished_changes,
-        "shareUrl": f"/s/{token['token_value']}" if token and token["token_value"] else "",
         "description": row["description"],
         "status": row["status"],
         "config": visible_config,
@@ -1008,42 +983,6 @@ def _new_version_deadline(connection: Any, version_id: str, node_key: str) -> st
         (version_id, node_key),
     ).fetchone()
     return row["deadline_at"] if row is not None else None
-
-
-def _create_share_token(
-    connection: Any, version_id: str, teacher_id: int, now: str
-) -> tuple[str, str]:
-    token = secrets.token_urlsafe(32)
-    token_id = str(uuid.uuid4())
-    connection.execute(
-        """
-        INSERT INTO share_tokens
-            (id, flow_version_id, token_hash, token_value, created_by, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (
-            token_id,
-            version_id,
-            hashlib.sha256(token.encode("utf-8")).hexdigest(),
-            token,
-            str(teacher_id),
-            now,
-        ),
-    )
-    connection.execute(
-        """
-        INSERT INTO audit_logs
-            (actor_id, action, entity_type, entity_id, after_data, created_at)
-        VALUES (?, 'share_token_created', 'share_token', ?, ?, ?)
-        """,
-        (
-            str(teacher_id),
-            token_id,
-            canonical_json({"flowVersionId": version_id, "status": "active"}),
-            now,
-        ),
-    )
-    return token, token_id
 
 
 def _invalidation_reasons(impact: dict[str, list[str]], node_key: str) -> list[str]:
@@ -1326,7 +1265,7 @@ def publish_flow(
             str(node["id"])
             for node in (json.loads(published["config_snapshot"]).get("nodes", []) if published else [])
         }
-        source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
+        source_versions = _revision_source_versions(connection, flow_id, teacher_id)
         baseline = (
             published
             or (source_versions[-1] if source_versions else None)
@@ -1412,9 +1351,7 @@ def publish_flow(
                 """,
                 (version_id, node_key, asset_id),
             )
-        if baseline is None:
-            token, _ = _create_share_token(connection, version_id, teacher_id, now)
-        else:
+        if baseline is not None:
             analysis = plan["analysis"]
             migrated_student_count = _migrate_instances(
                 connection,
@@ -1424,47 +1361,6 @@ def publish_flow(
                 teacher_id,
                 now,
             )
-            active_tokens = connection.execute(
-                """
-                SELECT t.id, t.flow_version_id, t.token_value
-                FROM share_tokens t
-                JOIN flow_versions v ON v.id = t.flow_version_id
-                WHERE v.flow_id = ? AND v.id != ? AND t.status = 'active'
-                  AND (t.expires_at IS NULL OR t.expires_at > ?)
-                ORDER BY v.version_no DESC, t.created_at DESC
-                """,
-                (flow_id, version_id, now),
-            ).fetchall()
-            for active_token in active_tokens:
-                connection.execute(
-                    "UPDATE share_tokens SET flow_version_id = ? WHERE id = ?",
-                    (version_id, active_token["id"]),
-                )
-                connection.execute(
-                    """
-                    INSERT INTO audit_logs
-                        (actor_id, action, entity_type, entity_id,
-                         before_data, after_data, created_at)
-                    VALUES (?, 'share_token_retargeted', 'share_token', ?, ?, ?, ?)
-                    """,
-                    (
-                        str(teacher_id),
-                        active_token["id"],
-                        canonical_json({"sourceVersionId": active_token["flow_version_id"]}),
-                        canonical_json({"targetVersionId": version_id}),
-                        now,
-                    ),
-                )
-            token = next(
-                (
-                    active_token["token_value"]
-                    for active_token in active_tokens
-                    if active_token["token_value"]
-                ),
-                None,
-            )
-            if token is None:
-                token, _ = _create_share_token(connection, version_id, teacher_id, now)
             connection.execute(
                 """
                 UPDATE flow_versions SET status = 'disabled'
@@ -1505,8 +1401,6 @@ def publish_flow(
         "flowId": flow_id,
         "flowVersionId": version_id,
         "versionNo": version_no,
-        "token": token,
-        "shareUrl": f"/s/{token}",
         "configHash": config_hash,
         "draftHash": draft_hash,
     }
@@ -1558,7 +1452,7 @@ def get_revision_impact(
         validate_flow_models(connection, flow_id, config, require_configured=True)
         validate_version_templates(connection, flow_id, config)
         published = _latest_published_version(connection, flow_id, teacher_id)
-        source_versions = _revision_source_versions(connection, flow_id, teacher_id, now)
+        source_versions = _revision_source_versions(connection, flow_id, teacher_id)
         baseline = (
             published
             or (source_versions[-1] if source_versions else None)
@@ -1734,31 +1628,3 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
                 now,
             ),
         )
-
-
-def resolve_share_token(token: str) -> dict[str, object]:
-    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-    with get_connection() as connection:
-        row = connection.execute(
-            """
-            SELECT v.id AS version_id, v.flow_id, v.version_no, v.config_snapshot,
-                   f.name, f.description
-            FROM share_tokens t
-            JOIN flow_versions v ON v.id = t.flow_version_id
-            JOIN flows f ON f.id = v.flow_id
-            WHERE t.token_hash = ? AND t.status = 'active'
-              AND (t.expires_at IS NULL OR t.expires_at > ?)
-              AND v.status = 'published'
-            """,
-            (token_hash, utc_now_iso()),
-        ).fetchone()
-    if row is None:
-        raise KeyError(token)
-    return {
-        "flowId": row["flow_id"],
-        "flowVersionId": row["version_id"],
-        "versionNo": row["version_no"],
-        "name": row["name"],
-        "description": row["description"],
-        "config": json.loads(row["config_snapshot"]),
-    }

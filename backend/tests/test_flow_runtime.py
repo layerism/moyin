@@ -116,12 +116,12 @@ def test_confirmation_scan_filename_allows_arbitrary_image_name_without_template
 
 def test_students_share_definition_but_have_independent_progress(client: TestClient) -> None:
     published = publish_flow(client)
-    token = published["token"]
+    flow_id = published["flowId"]
     register(client, "20260011", "学生甲")
-    first = client.post(f"/api/student/shared/{token}/enter").json()
+    first = client.post(f"/api/student/flows/{flow_id}/enter").json()
     client.post("/api/auth/logout")
     register(client, "20260012", "学生乙")
-    second = client.post(f"/api/student/shared/{token}/enter").json()
+    second = client.post(f"/api/student/flows/{flow_id}/enter").json()
 
     assert first["flowVersionId"] == second["flowVersionId"]
     assert first["id"] != second["id"]
@@ -134,7 +134,7 @@ def test_approved_root_opens_downstream_without_changing_other_students(
 ) -> None:
     published = publish_flow(client)
     register(client, "20260021", "学生甲")
-    first = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    first = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     root = first["nodeInstances"][0]
 
     submitted = client.post(
@@ -155,7 +155,7 @@ def test_approved_form_can_be_amended_without_relocking_downstream(
 ) -> None:
     published = publish_flow(client)
     register(client, "20260011", "学生甲")
-    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     form = instance["nodeInstances"][0]
 
     first = client.post(
@@ -207,7 +207,7 @@ def test_approved_form_can_be_amended_without_relocking_downstream(
 def test_approved_non_form_nodes_remain_locked(client: TestClient) -> None:
     published = publish_flow(client)
     register(client, "20260012", "学生乙")
-    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     form = instance["nodeInstances"][0]
     form_result = client.post(
         f"/api/student/node-instances/{form['id']}/submit",
@@ -243,7 +243,7 @@ def test_expired_approved_form_can_be_amended_after_teacher_extension(
 ) -> None:
     published = publish_flow(client, deadline_at="2030-01-01T00:00:00+00:00")
     register(client, "20260031", "延期学生")
-    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     form = instance["nodeInstances"][0]
     submitted = client.post(
         f"/api/student/node-instances/{form['id']}/submit",
@@ -287,7 +287,7 @@ def test_expired_approved_form_can_be_amended_after_teacher_extension(
 def test_expired_node_rejects_submit_and_override_reopens(client: TestClient) -> None:
     published = publish_flow(client, deadline_at="2020-01-01T00:00:00+00:00")
     register(client, "20260031", "延期学生")
-    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     root = instance["nodeInstances"][0]
 
     rejected = client.post(
@@ -311,10 +311,10 @@ def test_expired_node_rejects_submit_and_override_reopens(client: TestClient) ->
 def test_teacher_progress_lists_each_student_instance(client: TestClient) -> None:
     published = publish_flow(client)
     register(client, "20260041", "学生甲")
-    client.post(f"/api/student/shared/{published['token']}/enter")
+    client.post(f"/api/student/flows/{published['flowId']}/enter")
     client.post("/api/auth/logout")
     register(client, "20260042", "学生乙")
-    client.post(f"/api/student/shared/{published['token']}/enter")
+    client.post(f"/api/student/flows/{published['flowId']}/enter")
 
     progress = client.get(
         f"/api/workflow-admin/versions/{published['flowVersionId']}/progress"
@@ -330,7 +330,7 @@ def test_teacher_progress_lists_each_student_instance(client: TestClient) -> Non
 def test_teacher_cannot_manage_another_teachers_flow_runtime(client: TestClient) -> None:
     published = publish_flow(client)
     register(client, "20260043", "流程学生")
-    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     client.post("/api/auth/teacher/logout")
     provision_teacher(employee_no="12002", name="另一位教师")
     login_teacher(client, employee_no="12002", name="另一位教师")
@@ -359,7 +359,7 @@ def test_teacher_cannot_manage_another_teachers_flow_runtime(client: TestClient)
 def test_student_lists_joined_flow_instances(client: TestClient) -> None:
     published = publish_flow(client)
     register(client, "20260051", "学生账户页")
-    entered = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    entered = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
 
     response = client.get("/api/student/flow-instances")
 
@@ -376,7 +376,7 @@ def test_unlisted_student_cannot_enter_shared_flow(client: TestClient) -> None:
     published = publish_flow(client)
     register(client, "20999999", "名单外学生")
 
-    response = client.post(f"/api/student/shared/{published['token']}/enter")
+    response = client.post(f"/api/student/flows/{published['flowId']}/enter")
 
     assert response.status_code == 403
     assert response.json() == {"detail": "你不在该流程的有效学生名单中"}
@@ -387,7 +387,7 @@ def test_revoked_student_loses_runtime_access_and_restoration_keeps_instance(
 ) -> None:
     published = publish_flow(client)
     register(client, "20260061", "权限学生")
-    entered = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    entered = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     root = entered["nodeInstances"][0]
     roster = client.get(f"/api/workflows/{published['flowId']}/roster").json()
     entry = next(item for item in roster["entries"] if item["studentNo"] == "20260061")

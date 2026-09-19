@@ -25,7 +25,6 @@ from app.repositories.workflows import (
     list_flows,
     publish_flow,
     rename_flow,
-    resolve_share_token,
     save_draft,
 )
 from app.repositories.audit_policies import (
@@ -70,7 +69,6 @@ from app.services.object_storage import (
 from app.services.security import get_current_teacher
 
 router = APIRouter(dependencies=[Depends(get_current_teacher)])
-shared_router = APIRouter()
 
 
 class CreateFlowRequest(BaseModel):
@@ -620,12 +618,3 @@ def delete_workflow(
     except ObjectStorageError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
-@shared_router.get("/{token}")
-def get_shared_flow(token: str) -> dict[str, object]:
-    try:
-        shared = resolve_share_token(token)
-        return {"name": shared["name"], "description": shared["description"]}
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="分享链接无效或已停用") from exc

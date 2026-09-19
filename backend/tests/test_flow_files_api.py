@@ -132,7 +132,7 @@ def test_upload_persists_metadata_and_submit_attaches_it(client):
     test_client, storage = client
     published = publish_file_flow(test_client)
     register_student(test_client, "20260071", "上传学生")
-    instance = test_client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = test_client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     node_id = instance["nodeInstances"][0]["id"]
 
     uploaded = test_client.post(
@@ -162,7 +162,7 @@ def test_wrong_extension_and_cross_student_file_id_are_rejected(client):
     test_client, _ = client
     published = publish_file_flow(test_client)
     register_student(test_client, "20260071", "上传学生")
-    instance = test_client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = test_client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     node_id = instance["nodeInstances"][0]["id"]
     wrong = test_client.post(
         f"/api/student/node-instances/{node_id}/file",
@@ -175,7 +175,7 @@ def test_wrong_extension_and_cross_student_file_id_are_rejected(client):
     ).json()
     test_client.post("/api/auth/logout")
     register_student(test_client, "20260072", "另一位学生")
-    other = test_client.post(f"/api/student/shared/{published['token']}/enter").json()
+    other = test_client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     cross_student = test_client.post(
         f"/api/student/node-instances/{other['nodeInstances'][0]['id']}/submit",
         json={"payload": {"file": {"fileId": valid["fileId"]}}, "idempotencyKey": "cross-1"},
@@ -187,7 +187,7 @@ def test_storage_failure_does_not_leave_metadata(client):
     test_client, storage = client
     published = publish_file_flow(test_client)
     register_student(test_client, "20260071", "上传学生")
-    instance = test_client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = test_client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     storage.fail_put = True
 
     response = test_client.post(
@@ -203,7 +203,7 @@ def test_confirmation_scan_upload_rejects_wrong_filename_before_storage(client):
     test_client, storage = client
     published = publish_confirmation_flow(test_client)
     register_student(test_client, "20260081", "签署学生")
-    instance = test_client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = test_client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     node_id = instance["nodeInstances"][0]["id"]
     downloaded = test_client.post(f"/api/student/node-instances/{node_id}/template/download")
     assert downloaded.status_code == 200
@@ -226,7 +226,7 @@ def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
     test_client, _ = client
     published = publish_confirmation_flow(test_client)
     register_student(test_client, "20260081", "签署学生")
-    instance = test_client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = test_client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     node_id = instance["nodeInstances"][0]["id"]
     downloaded = test_client.post(f"/api/student/node-instances/{node_id}/template/download")
     assert downloaded.status_code == 200

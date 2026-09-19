@@ -9,8 +9,6 @@ export type Screen =
   | "workflowTemplates"
   | "academicFlow"
   | "academicFlowDetail"
-  | "academicFlowShared"
-  | "academicFlowStudent"
   | "academicFlowStudentRuntime"
   | "login"
   | "reset"
@@ -244,7 +242,6 @@ export type AcademicProcess = {
   description: string;
   draftConfig: AcademicFlowConfig;
   edges: AcademicFlowEdge[];
-  encryptedSlug: string;
   hasUnpublishedChanges: boolean;
   id: string;
   name: string;
@@ -254,7 +251,6 @@ export type AcademicProcess = {
   publishedVersionId?: string;
   publishedVersionNo?: number;
   serverId?: string;
-  shareUrl: string;
 };
 
 export type Stats = {

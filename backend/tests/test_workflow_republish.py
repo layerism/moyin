@@ -3,7 +3,6 @@ from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
-import secrets
 import sqlite3
 import uuid
 
@@ -14,7 +13,7 @@ from app.core.config import settings
 from app.core.database import get_connection
 from app.main import app
 from app.repositories import flow_instances
-from app.repositories.workflows import canonical_json, publish_flow, resolve_share_token
+from app.repositories.workflows import canonical_json, publish_flow
 from tests.teacher_auth_helpers import login_teacher, provision_teacher
 
 
@@ -108,7 +107,7 @@ def _completed_flow(
         json={"studentNo": "20260001", "name": "迁移学生", "password": "Pass1234"},
     )
     assert registered.status_code == 201
-    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     for node_key in ("root", "left", "right", "join"):
         instance = _submit(client, instance["id"], node_key)
     assert instance["status"] == "completed"
@@ -240,9 +239,8 @@ def _node_before_data(node_instance_id: str) -> dict[str, object]:
 
 def _insert_legacy_published_version(
     flow_id: str, config: dict[str, object], teacher_id: int
-) -> tuple[str, str]:
+) -> str:
     version_id = str(uuid.uuid4())
-    token = secrets.token_urlsafe(32)
     snapshot = canonical_json(config)
     now = "2026-07-14T04:00:00+00:00"
     with get_connection() as connection:
@@ -276,22 +274,7 @@ def _insert_legacy_published_version(
                 """,
                 (version_id, node["id"], node.get("deadlineAt"), str(teacher_id), now),
             )
-        connection.execute(
-            """
-            INSERT INTO share_tokens
-                (id, flow_version_id, token_hash, token_value, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                str(uuid.uuid4()),
-                version_id,
-                hashlib.sha256(token.encode()).hexdigest(),
-                token,
-                str(teacher_id),
-                now,
-            ),
-        )
-    return version_id, token
+    return version_id
 
 
 def test_content_change_resets_only_changed_branch_and_preserves_artifacts(
@@ -419,25 +402,24 @@ def test_layout_only_republish_preserves_all_progress_and_has_no_invalidation_au
     assert count == 0
 
 
-def test_republish_keeps_token_and_instance_routes_while_moving_progress(
+def test_republish_keeps_instance_route_while_moving_progress(
     client: TestClient,
 ) -> None:
     context = _completed_flow(client)
     original_version_id = context["published"]["flowVersionId"]  # type: ignore[index]
-    token = context["published"]["token"]  # type: ignore[index]
+    flow_id = context["flow"]["id"]  # type: ignore[index]
     instance_id = context["instance"]["id"]  # type: ignore[index]
     changed = deepcopy(BASE_CONFIG)
     changed["nodes"][1]["title"] = "左分支 v2"
 
     republished = _save_and_republish(client, context, changed)
-    entered = client.post(f"/api/student/shared/{token}/enter").json()
+    entered = client.post(f"/api/student/flows/{flow_id}/enter").json()
     fetched = client.get(f"/api/student/flow-instances/{instance_id}").json()
     old_progress = client.get(f"/api/workflow-admin/versions/{original_version_id}/progress").json()
     new_progress = client.get(
         f"/api/workflow-admin/versions/{republished['flowVersionId']}/progress"
     ).json()
 
-    assert republished["token"] == token
     assert republished["versionNo"] == 2
     assert entered["id"] == instance_id
     assert fetched["id"] == instance_id
@@ -478,9 +460,6 @@ def test_invalidation_audit_captures_state_draft_and_submissions_before_delete(
         workflow_audit = connection.execute(
             "SELECT after_data FROM audit_logs WHERE action = 'workflow_republish'"
         ).fetchone()
-        token_audit = connection.execute(
-            "SELECT * FROM audit_logs WHERE action = 'share_token_retargeted'"
-        ).fetchone()
 
     assert [row["entity_id"] for row in invalidated] == [
         node_ids["left"],
@@ -510,10 +489,6 @@ def test_invalidation_audit_captures_state_draft_and_submissions_before_delete(
             }
         ],
     }
-    assert token_audit is not None
-    assert context["published"]["token"] not in "|".join(  # type: ignore[index]
-        str(value) for value in token_audit
-    )
 
 
 def test_late_draft_and_submit_using_invalidated_node_id_are_rejected(
@@ -553,22 +528,12 @@ def test_late_draft_and_submit_using_invalidated_node_id_are_rejected(
     assert new_left["draft"] == {}
 
 
-def test_multiple_published_versions_tokens_and_duplicate_students_are_normalized(
+def test_multiple_published_versions_and_duplicate_students_are_normalized(
     client: TestClient,
 ) -> None:
     context = _completed_flow(client)
     flow_id = context["flow"]["id"]  # type: ignore[index]
     version_one = context["published"]["flowVersionId"]  # type: ignore[index]
-    token_one = context["published"]["token"]  # type: ignore[index]
-    with get_connection() as connection:
-        teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
-        ).fetchone()["id"]
-    version_two, token_two = _insert_legacy_published_version(flow_id, BASE_CONFIG, teacher_id)
-    latest_duplicate = client.post(f"/api/student/shared/{token_two}/enter").json()
-    for node_key in ("root", "left", "right", "join"):
-        latest_duplicate = _submit(client, latest_duplicate["id"], node_key)
-
     roster = client.post(
         f"/api/workflows/{flow_id}/roster/import",
         json={
@@ -583,7 +548,22 @@ def test_multiple_published_versions_tokens_and_duplicate_students_are_normalize
         json={"studentNo": "20260002", "name": "历史版本学生", "password": "Pass1234"},
     )
     assert registered.status_code == 201
-    old_only = client.post(f"/api/student/shared/{token_one}/enter").json()
+    old_only = client.post(f"/api/student/flows/{flow_id}/enter").json()
+    client.post("/api/auth/logout")
+    logged_in = client.post(
+        "/api/auth/login",
+        json={"studentNo": "20260001", "name": "迁移学生", "password": "Pass1234"},
+    )
+    assert logged_in.status_code == 200
+    with get_connection() as connection:
+        teacher_id = connection.execute(
+            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
+        ).fetchone()["id"]
+    version_two = _insert_legacy_published_version(flow_id, BASE_CONFIG, teacher_id)
+    latest_duplicate = client.post(f"/api/student/flows/{flow_id}/enter").json()
+    for node_key in ("root", "left", "right", "join"):
+        latest_duplicate = _submit(client, latest_duplicate["id"], node_key)
+
     with get_connection() as connection:
         connection.execute(
             "UPDATE flow_versions SET status = 'disabled' WHERE id = ?",
@@ -647,8 +627,6 @@ def test_multiple_published_versions_tokens_and_duplicate_students_are_normalize
     assert old_only["id"] in {row["id"] for row in instances}
     assert context["instance"]["id"] not in {row["id"] for row in instances}  # type: ignore[index]
     assert {row["status"] for row in old_statuses} == {"disabled"}
-    assert resolve_share_token(token_one)["flowVersionId"] == republished["flowVersionId"]
-    assert resolve_share_token(token_two)["flowVersionId"] == republished["flowVersionId"]
     audit_data = json.loads(workflow_audit["after_data"])
     assert audit_data["affectedStudentCount"] == 2
     assert audit_data["sourceVersionImpacts"] == impact["sourceVersionImpacts"]
@@ -666,8 +644,8 @@ def test_duplicate_student_impact_uses_only_highest_version_instance(
         teacher_id = connection.execute(
             "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
-    high_version_id, high_token = _insert_legacy_published_version(flow_id, BASE_CONFIG, teacher_id)
-    high_instance = client.post(f"/api/student/shared/{high_token}/enter").json()
+    high_version_id = _insert_legacy_published_version(flow_id, BASE_CONFIG, teacher_id)
+    high_instance = client.post(f"/api/student/flows/{flow_id}/enter").json()
     for node_key in ("root", "left", "right", "join"):
         high_instance = _submit(client, high_instance["id"], node_key)
     saved = client.put(f"/api/workflows/{flow_id}/draft", json={"config": BASE_CONFIG})
@@ -721,7 +699,6 @@ def test_student_enter_after_republish_creates_only_a_new_version_instance(
 ) -> None:
     context = _completed_flow(client)
     flow_id = context["flow"]["id"]  # type: ignore[index]
-    old_token = context["published"]["token"]  # type: ignore[index]
     roster = client.post(
         f"/api/workflows/{flow_id}/roster/import",
         json={
@@ -738,7 +715,7 @@ def test_student_enter_after_republish_creates_only_a_new_version_instance(
     )
     assert registered.status_code == 201
 
-    entered = client.post(f"/api/student/shared/{old_token}/enter").json()
+    entered = client.post(f"/api/student/flows/{flow_id}/enter").json()
 
     assert entered["flowVersionId"] == republished["flowVersionId"]
     with get_connection() as connection:
@@ -853,14 +830,10 @@ def test_republish_restores_deadline_from_deep_history_without_instances(
         teacher_id = connection.execute(
             "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
         ).fetchone()["id"]
-    version_two, _ = _insert_legacy_published_version(flow_id, legacy_config, teacher_id)
+    version_two = _insert_legacy_published_version(flow_id, legacy_config, teacher_id)
     with get_connection() as connection:
         connection.execute(
             "UPDATE flow_versions SET status = 'disabled' WHERE id = ?", (version_one,)
-        )
-        connection.execute(
-            "UPDATE share_tokens SET status = 'disabled' WHERE flow_version_id = ?",
-            (version_one,),
         )
         connection.execute("DELETE FROM flow_instances WHERE flow_version_id = ?", (version_one,))
 
@@ -920,8 +893,8 @@ def test_runtime_writes_begin_immediately_and_revalidate_current_version(
 
     first_statements: list[str] = []
     first, enter_trace = capture(
-        lambda: flow_instances.get_or_create_instance(
-            context["published"]["token"],
+        lambda: flow_instances.enter_flow(
+            context["flow"]["id"],
             student_id,  # type: ignore[index]
         )
     )
@@ -1060,130 +1033,6 @@ def test_get_instance_uses_one_snapshot_when_republish_commits_between_selects(
     assert "review" in {node["nodeKey"] for node in current["nodeInstances"]}
 
 
-def test_republish_retargets_only_unexpired_active_tokens_and_returns_a_valid_one(
-    client: TestClient,
-) -> None:
-    context = _completed_flow(client)
-    old_version_id = context["published"]["flowVersionId"]  # type: ignore[index]
-    original_token = context["published"]["token"]  # type: ignore[index]
-    valid_token = "valid-history-token"
-    expired_token = "expired-history-token"
-    token_ids: dict[str, str] = {}
-    with get_connection() as connection:
-        teacher_id = connection.execute(
-            "SELECT id FROM teacher_accounts WHERE employee_no = '11001'"
-        ).fetchone()["id"]
-        token_ids[original_token] = connection.execute(
-            "SELECT id FROM share_tokens WHERE token_value = ?", (original_token,)
-        ).fetchone()["id"]
-        for token, expires_at, created_at in (
-            (valid_token, "2035-01-01T00:00:00+00:00", "2031-01-01T00:00:00+00:00"),
-            (expired_token, "2020-01-01T00:00:00+00:00", "2032-01-01T00:00:00+00:00"),
-        ):
-            token_id = str(uuid.uuid4())
-            token_ids[token] = token_id
-            connection.execute(
-                """
-                INSERT INTO share_tokens
-                    (id, flow_version_id, token_hash, token_value, status,
-                     expires_at, created_by, created_at)
-                VALUES (?, ?, ?, ?, 'active', ?, ?, ?)
-                """,
-                (
-                    token_id,
-                    old_version_id,
-                    hashlib.sha256(token.encode()).hexdigest(),
-                    token,
-                    expires_at,
-                    str(teacher_id),
-                    created_at,
-                ),
-            )
-
-    republished = _save_and_republish(client, context, deepcopy(BASE_CONFIG))
-
-    assert republished["token"] == valid_token
-    assert resolve_share_token(original_token)["flowVersionId"] == republished["flowVersionId"]
-    assert resolve_share_token(valid_token)["flowVersionId"] == republished["flowVersionId"]
-    with pytest.raises(KeyError):
-        resolve_share_token(expired_token)
-    with get_connection() as connection:
-        token_targets = {
-            row["token_value"]: row["flow_version_id"]
-            for row in connection.execute(
-                """
-                SELECT token_value, flow_version_id FROM share_tokens
-                WHERE token_value IN (?, ?, ?)
-                """,
-                (original_token, valid_token, expired_token),
-            ).fetchall()
-        }
-        token_audits = connection.execute(
-            """
-            SELECT entity_id, before_data, after_data FROM audit_logs
-            WHERE action = 'share_token_retargeted'
-            ORDER BY entity_id
-            """
-        ).fetchall()
-    assert token_targets == {
-        original_token: republished["flowVersionId"],
-        valid_token: republished["flowVersionId"],
-        expired_token: old_version_id,
-    }
-    assert [row["entity_id"] for row in token_audits] == sorted(
-        [token_ids[original_token], token_ids[valid_token]]
-    )
-    for row in token_audits:
-        assert json.loads(row["before_data"]) == {"sourceVersionId": old_version_id}
-        assert json.loads(row["after_data"]) == {"targetVersionId": republished["flowVersionId"]}
-        assert original_token not in "|".join(str(value) for value in row)
-        assert valid_token not in "|".join(str(value) for value in row)
-
-
-def test_republish_creates_a_new_token_when_all_old_tokens_are_expired(
-    client: TestClient,
-) -> None:
-    context = _completed_flow(client)
-    old_token = context["published"]["token"]  # type: ignore[index]
-    old_version_id = context["published"]["flowVersionId"]  # type: ignore[index]
-    with get_connection() as connection:
-        connection.execute(
-            """
-            UPDATE share_tokens SET expires_at = '2020-01-01T00:00:00+00:00'
-            WHERE token_value = ?
-            """,
-            (old_token,),
-        )
-
-    republished = _save_and_republish(client, context, deepcopy(BASE_CONFIG))
-
-    assert republished["token"] != old_token
-    assert (
-        resolve_share_token(republished["token"])["flowVersionId"] == republished["flowVersionId"]
-    )
-    with pytest.raises(KeyError):
-        resolve_share_token(old_token)
-    with get_connection() as connection:
-        old_target = connection.execute(
-            "SELECT flow_version_id FROM share_tokens WHERE token_value = ?",
-            (old_token,),
-        ).fetchone()["flow_version_id"]
-        created_audits = connection.execute(
-            """
-            SELECT entity_id, after_data FROM audit_logs
-            WHERE action = 'share_token_created'
-            ORDER BY id
-            """
-        ).fetchall()
-    assert old_target == old_version_id
-    assert len(created_audits) == 2
-    assert json.loads(created_audits[-1]["after_data"]) == {
-        "flowVersionId": republished["flowVersionId"],
-        "status": "active",
-    }
-    assert republished["token"] not in "|".join(str(value) for value in created_audits[-1])
-
-
 def test_forced_migration_failure_rolls_back_every_republish_change(
     client: TestClient,
 ) -> None:
@@ -1215,7 +1064,7 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
         connection.execute(
             """
             CREATE TRIGGER force_republish_failure
-            BEFORE UPDATE OF flow_version_id ON share_tokens
+            BEFORE UPDATE OF flow_version_id ON flow_instances
             BEGIN
                 SELECT RAISE(ABORT, 'forced migration failure');
             END

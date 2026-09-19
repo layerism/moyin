@@ -3,8 +3,8 @@ import { ProfilePage } from "./features/auth/ProfilePage";
 import { ModelCardsAdminPage } from "./features/admin/ModelCardsAdminPage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { AcademicFlowDesigner, StudentFlowPage } from "./features/academic-flow/AcademicFlowDesigner";
-import { createAcademicProcess, createFallbackAcademicProcess } from "./features/academic-flow/academicFlowData";
+import { AcademicFlowDesigner } from "./features/academic-flow/AcademicFlowDesigner";
+import { createAcademicProcess } from "./features/academic-flow/academicFlowData";
 import { workflowApi, type ServerFlow } from "./features/academic-flow/api";
 import { WorkflowTemplatesPage } from "./features/academic-flow/WorkflowTemplatesPage";
 import { StudentRuntimePage } from "./features/academic-flow/StudentRuntimePage";
@@ -21,7 +21,6 @@ import { AuthPortal } from "./features/auth/AuthPortal";
 import { FreshLoginPortal } from "./features/auth/FreshLoginPortal";
 import { SmsPasswordRecovery } from "./features/auth/SmsPasswordRecovery";
 import { StudentAccountPage } from "./features/auth/StudentAccountPage";
-import { StudentAccessGate } from "./features/auth/StudentAccessGate";
 import { StudentPasswordChangeForm } from "./features/auth/StudentPasswordChangeForm";
 import { TeacherInvitationRegistrationPage } from "./features/auth/TeacherInvitationRegistrationPage";
 import { authApi, type AuthIdentity, type AuthRole } from "./features/auth/authApi";
@@ -40,7 +39,6 @@ type AppRoute = {
   processId: string | null;
   screen: Screen;
   studentInstanceId: string | null;
-  studentSlug: string | null;
   authRole: AuthRole;
   teacherInvitationToken: string | null;
 };
@@ -71,7 +69,6 @@ function getRouteFromPathname(): AppRoute {
   const base = {
     processId: null,
     studentInstanceId: null,
-    studentSlug: null,
     teacherInvitationToken: null,
   };
   if (pathname === "/workflow-templates") {
@@ -123,16 +120,6 @@ function getRouteFromPathname(): AppRoute {
     return { ...base, authRole: "teacher", screen: "teacherInvitationsAdmin" };
   }
 
-  const sharedMatch = pathname.match(/^\/s\/([^/]+)$/);
-  if (sharedMatch) {
-    return {
-      ...base,
-      authRole: "student",
-      screen: "academicFlowShared",
-      studentSlug: decodeURIComponent(sharedMatch[1]),
-    };
-  }
-
   const runtimeMatch = pathname.match(/^\/student\/flows\/([^/]+)$/);
   if (runtimeMatch) {
     return {
@@ -140,19 +127,6 @@ function getRouteFromPathname(): AppRoute {
       authRole: "student",
       screen: "academicFlowStudentRuntime",
       studentInstanceId: decodeURIComponent(runtimeMatch[1]),
-    };
-  }
-
-  const studentMatch = pathname.match(
-    /^\/academic-flow\/([^/]+)\/student\/([^/]+)$/,
-  );
-  if (studentMatch) {
-    return {
-      ...base,
-      processId: decodeURIComponent(studentMatch[1]),
-      authRole: "student",
-      screen: "academicFlowStudent",
-      studentSlug: decodeURIComponent(studentMatch[2]),
     };
   }
 
@@ -203,7 +177,6 @@ function mapServerFlow(flow: ServerFlow): AcademicProcess {
       nodes: flow.draftConfig.nodes ?? [],
     },
     edges: flow.config.edges ?? [],
-    encryptedSlug: "",
     hasUnpublishedChanges: flow.hasUnpublishedChanges,
     id: flow.id,
     name: flow.name,
@@ -213,7 +186,6 @@ function mapServerFlow(flow: ServerFlow): AcademicProcess {
     publishedVersionId: flow.publishedVersionId ?? undefined,
     publishedVersionNo: flow.publishedVersionNo ?? undefined,
     serverId: flow.id,
-    shareUrl: flow.shareUrl,
   };
 }
 
@@ -233,9 +205,6 @@ export function App() {
   const [academicFlowsLoadError, setAcademicFlowsLoadError] = useState("");
   const [activeAcademicProcessId, setActiveAcademicProcessId] = useState<string | null>(
     initialRoute.processId,
-  );
-  const [activeStudentToken, setActiveStudentToken] = useState<string | null>(
-    initialRoute.studentSlug,
   );
   const [teacherInvitationToken, setTeacherInvitationToken] = useState<string | null>(
     initialRoute.teacherInvitationToken,
@@ -259,7 +228,6 @@ export function App() {
   const applyRoute = useCallback((route: AppRoute) => {
     setActiveAcademicProcessId(route.processId);
     setActiveRuntimeInstanceId(route.studentInstanceId);
-    setActiveStudentToken(route.studentSlug);
     setTeacherInvitationToken(route.teacherInvitationToken);
     setAuthRole(route.authRole);
     setScreen(route.screen);
@@ -440,14 +408,6 @@ export function App() {
     setScreen("academicFlowDetail");
   };
 
-  const openStudentFlow = (shareUrl: string) => {
-    pushAppPath(shareUrl);
-    const pathParts = shareUrl.split("/").filter(Boolean);
-    const token = pathParts[pathParts.length - 1] ?? null;
-    setActiveStudentToken(token);
-    setScreen("academicFlowShared");
-  };
-
   const publishAcademicProcess = async (
     process: AcademicProcess,
     expectedDraftConfigHash?: string | null,
@@ -464,13 +424,11 @@ export function App() {
     return {
       ...saved,
       draftConfig: { nodes: saved.nodes, edges: saved.edges },
-      encryptedSlug: published.token,
       hasUnpublishedChanges: false,
       published: true,
       publishedNodeIds: saved.nodes.map((node) => node.id),
       publishedVersionId: published.flowVersionId,
       publishedVersionNo: published.versionNo,
-      shareUrl: published.shareUrl,
     };
   };
 
@@ -875,38 +833,9 @@ export function App() {
       <AcademicFlowDesigner
         process={activeProcess}
         onBack={openAcademicFlow}
-        onOpenStudent={openStudentFlow}
         onPublishProcess={publishAcademicProcess}
         onProcessChange={updateAcademicProcess}
         onSaveProcess={saveAcademicProcess}
-      />
-    );
-  }
-
-  if (screen === "academicFlowStudent") {
-    const activeProcess =
-      academicProcesses.find((process) => process.id === activeAcademicProcessId) ??
-      createFallbackAcademicProcess(activeAcademicProcessId ?? "academic-demo");
-
-    return (
-      <StudentFlowPage
-        process={activeProcess}
-        onBack={() => openAcademicProcess(activeProcess.id)}
-      />
-    );
-  }
-
-  if (screen === "academicFlowShared" && activeStudentToken) {
-    return (
-      <StudentAccessGate
-        token={activeStudentToken}
-        onEntered={(instance, identity) => {
-          setStudentIdentity(identity);
-          setRuntimeInstance(instance);
-          setActiveRuntimeInstanceId(instance.id);
-          pushAppPath(`/student/flows/${encodeURIComponent(instance.id)}`);
-          setScreen("academicFlowStudentRuntime");
-        }}
       />
     );
   }

@@ -271,7 +271,7 @@ def test_teacher_can_only_access_owned_flows(client: TestClient) -> None:
     assert [flow["id"] for flow in client.get("/api/workflows").json()] == [teacher_a_flow["id"]]
 
 
-def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -> None:
+def test_publish_returns_version_and_list_exposes_snapshot(client: TestClient) -> None:
     flow = client.post("/api/workflows", json={"name": "报销流程"}).json()
     client.put(f"/api/workflows/{flow['id']}/draft", json={"config": sample_config()})
     add_roster(client, flow["id"])
@@ -280,14 +280,9 @@ def test_publish_returns_share_url_and_resolvable_snapshot(client: TestClient) -
 
     assert published.status_code == 201
     body = published.json()
-    assert body["shareUrl"].startswith("/s/")
     assert body["versionNo"] == 1
     listed = client.get("/api/workflows").json()[0]
-    assert listed["shareUrl"] == body["shareUrl"]
     assert listed["publishedVersionId"] == body["flowVersionId"]
-    shared = client.get(f"/api/shared-flows/{body['token']}")
-    assert shared.status_code == 200
-    assert shared.json() == {"description": "", "name": "报销流程"}
 
 
 def test_cycle_is_rejected(client: TestClient) -> None:
@@ -374,7 +369,7 @@ def test_published_snapshot_does_not_change_with_draft(client: TestClient) -> No
         json={"name": "流程学生", "studentNo": "W001", "password": "Pass1234"},
     )
     assert registered.status_code == 201
-    instance = client.post(f"/api/student/shared/{published['token']}/enter").json()
+    instance = client.post(f"/api/student/flows/{published['flowId']}/enter").json()
     assert instance["config"]["nodes"][0]["title"] == "基本信息"
 
 
@@ -411,7 +406,7 @@ def test_revision_metadata_and_impact_protect_published_nodes(client: TestClient
             json={**entry, "password": "Pass1234"},
         )
         assert registered.status_code == 201
-        entered = client.post(f"/api/student/shared/{published['token']}/enter")
+        entered = client.post(f"/api/student/flows/{published['flowId']}/enter")
         assert entered.status_code == 200
 
     changed = deepcopy(sample_config())

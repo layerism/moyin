@@ -3259,113 +3259,6 @@ button {
   color: #ffffff;
 }
 
-.student-link-backdrop {
-  position: fixed;
-  z-index: 190;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgb(15 23 42 / 42%);
-}
-
-.student-link-dialog {
-  width: min(720px, 100%);
-  overflow: hidden;
-  border: 1px solid #d7deea;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 28px 80px rgb(15 23 42 / 24%);
-}
-
-.student-link-dialog > header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 20px 22px;
-  border-bottom: 1px solid #e4e9f1;
-}
-
-.student-link-dialog header span {
-  color: #667085;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.student-link-dialog header h2 {
-  margin: 4px 0 0;
-  font-size: 21px;
-}
-
-.student-link-dialog header > button {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
-  border: 1px solid #d7deea;
-  border-radius: 6px;
-  background: #fff;
-  color: #475467;
-  font-size: 20px;
-}
-
-.student-link-list {
-  padding: 22px;
-}
-
-.student-link-list article {
-  display: grid;
-  gap: 14px;
-  padding: 18px;
-  border: 1px solid #d8e3f4;
-  border-radius: 8px;
-  background: #f8fbff;
-}
-
-.student-link-list article > div:first-child {
-  display: grid;
-  gap: 4px;
-}
-
-.student-link-list article small {
-  color: #667085;
-}
-
-.student-link-list article > a {
-  overflow-wrap: anywhere;
-  color: #175cd3;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.student-link-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.student-link-actions button {
-  min-height: 36px;
-  padding: 0 14px;
-  border: 1px solid #cfd7e5;
-  border-radius: 6px;
-  background: #fff;
-  color: #344054;
-  font-weight: 700;
-}
-
-.student-link-actions .primary-action {
-  border-color: #2773f6;
-  background: #2773f6;
-  color: #fff;
-}
-
-.student-link-list article > p {
-  margin: -4px 0 0;
-  color: #b42318;
-  font-size: 12px;
-}
-
 .flow-roster-backdrop {
   position: fixed;
   z-index: 180;
@@ -3802,8 +3695,7 @@ button {
   min-height: 0;
 }
 
-.flow-panel,
-.student-flow-card {
+.flow-panel {
   min-width: 0;
   border: 1px solid #dfe6ef;
   border-radius: 8px;
@@ -6766,143 +6658,6 @@ button {
   }
 }
 
-.student-preview-shell {
-  min-height: calc(100vh - 196px);
-}
-
-.student-preview-shell.standalone {
-  min-height: calc(100vh - 158px);
-}
-
-.student-flow-card {
-  min-height: inherit;
-  position: relative;
-  padding: 28px 34px;
-}
-
-.student-flow-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid #eef2f7;
-}
-
-.student-flow-head h2 {
-  margin: 0 0 8px;
-  color: #172033;
-  font-size: 24px;
-}
-
-.student-flow-head p {
-  margin: 0;
-  color: #64748b;
-}
-
-.share-url {
-  max-width: 360px;
-  display: grid;
-  gap: 5px;
-  padding: 10px 12px;
-  border: 1px solid #bfdbfe;
-  border-radius: 7px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  font-size: 12px;
-}
-
-.share-url strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.student-flow-list {
-  display: grid;
-  gap: 12px;
-  margin-top: 22px;
-}
-
-.student-node {
-  min-height: 78px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid #dfe6ef;
-  border-radius: 7px;
-  background: #ffffff;
-  color: #172033;
-  text-align: left;
-}
-
-.student-node.approved {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-}
-
-.student-node.pending {
-  border-color: #ddd6fe;
-  background: #faf5ff;
-}
-
-.student-node.disabled {
-  border-style: dashed;
-  opacity: 0.72;
-  cursor: not-allowed;
-}
-
-.student-node strong {
-  display: -webkit-box;
-  overflow: hidden;
-  font-size: 16px;
-  line-height: 1.35;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.student-node em {
-  color: #1d4ed8;
-  font-size: 13px;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.audit-waiting-modal {
-  width: min(360px, calc(100% - 48px));
-  position: absolute;
-  right: 36px;
-  bottom: 34px;
-  padding: 18px;
-  border: 1px solid #bfdbfe;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
-}
-
-.audit-waiting-modal strong {
-  color: #172033;
-  font-size: 18px;
-}
-
-.audit-waiting-modal p {
-  margin: 8px 0 14px;
-  color: #64748b;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.audit-waiting-modal button {
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: 5px;
-  background: #2773f6;
-  color: #ffffff;
-  font-weight: 750;
-}
-
 .avatar.small {
   width: 28px;
   height: 28px;
@@ -6945,8 +6700,7 @@ button {
     padding: 16px;
   }
 
-  .academic-topbar,
-  .student-flow-head {
+  .academic-topbar {
     display: grid;
   }
 
@@ -6991,9 +6745,6 @@ button {
     min-height: 0;
   }
 
-  .share-url {
-    max-width: none;
-  }
 }
 
 .academic-action-notice {
@@ -7328,23 +7079,6 @@ button {
   height: 16px;
 }
 
-.oa-access-page {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.1fr);
-  background: #f4f6f9;
-}
-
-.oa-access-summary {
-  display: flex;
-  min-height: 100vh;
-  flex-direction: column;
-  justify-content: center;
-  padding: 64px clamp(40px, 8vw, 120px);
-  background: #152238;
-  color: #fff;
-}
-
 .oa-brand-mark {
   display: inline-grid;
   width: 40px;
@@ -7357,89 +7091,6 @@ button {
   font-weight: 800;
 }
 
-.oa-access-summary > p {
-  margin: 24px 0 8px;
-  color: #a7c5f2;
-  font-weight: 700;
-}
-
-.oa-access-summary h1 {
-  margin: 0 0 18px;
-  font-size: 36px;
-  letter-spacing: 0;
-}
-
-.oa-access-summary div {
-  max-width: 520px;
-  color: #c8d3e3;
-  line-height: 1.8;
-}
-
-.oa-access-auth {
-  display: flex;
-  min-height: 100vh;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-}
-
-.oa-auth-form {
-  width: min(440px, 100%);
-  padding: 28px;
-  border: 1px solid #d8dee8;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 12px 32px rgb(16 24 40 / 8%);
-}
-
-.oa-auth-tabs {
-  position: absolute;
-  top: 32px;
-  display: flex;
-  padding: 3px;
-  border: 1px solid #d8dee8;
-  border-radius: 6px;
-  background: #fff;
-}
-
-.oa-auth-tabs button {
-  min-width: 88px;
-  padding: 8px 14px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-}
-
-.oa-auth-tabs button.active {
-  background: #eaf2ff;
-  color: #175cd3;
-  font-weight: 700;
-}
-
-.oa-auth-form h2 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.oa-auth-form > p {
-  margin: 8px 0 24px;
-  color: #667085;
-}
-
-.oa-auth-form label {
-  display: block;
-  margin-bottom: 15px;
-}
-
-.oa-auth-form label span {
-  display: block;
-  margin-bottom: 7px;
-  color: #344054;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.oa-auth-form input,
 .teacher-progress-panel input,
 .teacher-progress-panel select {
   width: 100%;
@@ -7448,18 +7099,6 @@ button {
   border-radius: 6px;
   background: #fff;
   color: #172033;
-}
-
-.oa-form-error {
-  min-height: 20px;
-  margin: 0 0 12px !important;
-  color: #b42318 !important;
-  font-size: 13px;
-}
-
-.oa-submit-button {
-  width: 100%;
-  min-height: 42px;
 }
 
 .student-runtime-page {
@@ -9749,24 +9388,6 @@ button {
 }
 
 @media (max-width: 760px) {
-  .oa-access-page {
-    grid-template-columns: 1fr;
-  }
-
-  .oa-access-summary {
-    min-height: auto;
-    padding: 28px 24px;
-  }
-
-  .oa-access-summary h1 {
-    font-size: 26px;
-  }
-
-  .oa-access-auth {
-    min-height: auto;
-    padding: 80px 16px 28px;
-  }
-
   .student-runtime-header,
   .runtime-flow-summary {
     align-items: flex-start;

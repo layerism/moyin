@@ -76,8 +76,6 @@ import { NodeDateTimePicker } from "./NodeDateTimePicker";
 import { NodePackageDownloadDialog } from "./NodePackageDownloadDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
-import { getAbsoluteShareUrl } from "./shareUrl";
-import { StudentLinkDialog } from "./StudentLinkDialog";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 
@@ -155,14 +153,12 @@ function createDraftWorkingProcess(process: AcademicProcess): AcademicProcess {
 
 export function AcademicFlowDesigner({
   onBack,
-  onOpenStudent,
   onPublishProcess,
   onProcessChange,
   onSaveProcess,
   process,
 }: {
   onBack: () => void;
-  onOpenStudent: (shareUrl: string) => void;
   onPublishProcess: (
     process: AcademicProcess,
     expectedDraftConfigHash?: string | null,
@@ -177,12 +173,10 @@ export function AcademicFlowDesigner({
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
   const [showRoster, setShowRoster] = useState(false);
-  const [showStudentLinks, setShowStudentLinks] = useState(false);
   const [rosterActiveCount, setRosterActiveCount] = useState<number | null>(null);
   const [actionNotice, setActionNotice] = useState("");
   const [actionError, setActionError] = useState("");
   const showActionError = (message: string) => { setActionNotice(""); setActionError(message); };
-  const [publishedShareUrl, setPublishedShareUrl] = useState("");
   const [publishIssue, setPublishIssue] = useState<AnswerSheetPublishIssue | null>(null);
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
   const [pendingPublishProcess, setPendingPublishProcess] = useState<AcademicProcess | null>(null);
@@ -324,7 +318,6 @@ export function AcademicFlowDesigner({
   ) => {
     setSaving(true);
     setActionNotice("");
-    setPublishedShareUrl("");
     try {
       const nextProcess = await onPublishProcess(
         candidate,
@@ -338,7 +331,6 @@ export function AcademicFlowDesigner({
       setRevisionImpact(null);
       setPendingPublishProcess(null);
       setActionNotice(candidate.published ? "重新发布成功" : "发布成功");
-      setPublishedShareUrl(getAbsoluteShareUrl(nextProcess.shareUrl, window.location.origin));
     } catch (reason) {
       const shouldReloadRevision =
         reason instanceof ApiError
@@ -407,7 +399,6 @@ export function AcademicFlowDesigner({
 
     setSaving(true);
     setActionNotice("");
-    setPublishedShareUrl("");
     try {
       const impact = await workflowApi.getRevisionImpact(serverFlowId, candidate);
       setPendingPublishProcess(candidate);
@@ -431,7 +422,6 @@ export function AcademicFlowDesigner({
       setRevisionDirty(false);
       setRevisionImpact(null);
       setPendingPublishProcess(null);
-      setPublishedShareUrl("");
       setActionNotice("未检测到改动，已退出编辑");
       return;
     }
@@ -724,11 +714,6 @@ export function AcademicFlowDesigner({
             <button disabled={operationLocked} onClick={() => void openPreview()} type="button">
               {previewCreating ? "正在创建预览" : "预览"}
             </button>
-            {workingProcess.published ? (
-              <button onClick={() => setShowStudentLinks(true)}>
-                学生链接
-              </button>
-            ) : null}
             {workingProcess.publishedVersionId ? (
               <button onClick={() => setShowProgress(true)}>进度</button>
             ) : null}
@@ -775,7 +760,6 @@ export function AcademicFlowDesigner({
             onOpenInspector={setInspectorNodeId}
             onSelectNode={setActiveNodeId}
             onUpdateNodePositions={updateNodePositions}
-            publishedShareUrl={publishedShareUrl}
             publishedNodeIds={protectedNodeIds}
           />
         </section>
@@ -811,18 +795,6 @@ export function AcademicFlowDesigner({
             flowId={serverFlowId}
             onClose={() => setShowRoster(false)}
             onRosterChange={(roster) => setRosterActiveCount(roster.activeCount)}
-          />
-        ) : null}
-        {showStudentLinks ? (
-          <StudentLinkDialog
-            flowName={workingProcess.name}
-            onClose={() => setShowStudentLinks(false)}
-            onOpen={() =>
-              requestNavigation("学生填写页面", () =>
-                onOpenStudent(workingProcess.shareUrl),
-              )
-            }
-            shareUrl={workingProcess.shareUrl}
           />
         ) : null}
         {actionError ? <DesignerErrorDialog message={actionError} onClose={() => setActionError("")} /> : null}
@@ -875,43 +847,6 @@ export function AcademicFlowDesigner({
             saving={draftSaving}
           />
         ) : null}
-      </section>
-    </main>
-  );
-}
-
-export function StudentFlowPage({
-  onBack,
-  process,
-}: {
-  onBack: () => void;
-  process: AcademicProcess;
-}) {
-  return (
-    <main className="academic-standalone-page">
-      <AcademicStandaloneHeader onBack={onBack} />
-      <section className="academic-workspace-main">
-        <header className="academic-topbar">
-          <div>
-            <div className="drive-breadcrumb academic-breadcrumb">
-              <span>首页</span>
-              <span>›</span>
-              <button className="breadcrumb-button" onClick={onBack}>
-                教务流程
-              </button>
-              <span>›</span>
-              <strong>学生填写</strong>
-            </div>
-            <div className="academic-title-row">
-              <h1>{process.name}</h1>
-              <span className="status-pill ok">加密链接</span>
-            </div>
-            <p>请按节点顺序完成材料提交，审核通过后开放下一节点。</p>
-          </div>
-        </header>
-        <section className="student-preview-shell standalone">
-          <StudentFlowPreview process={process} showShareUrl={false} />
-        </section>
       </section>
     </main>
   );
@@ -1039,7 +974,6 @@ function FlowNodeCanvas({
   onOpenInspector,
   onSelectNode,
   onUpdateNodePositions,
-  publishedShareUrl,
   publishedNodeIds,
 }: {
   actionNotice: string;
@@ -1070,7 +1004,6 @@ function FlowNodeCanvas({
   onOpenInspector: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onUpdateNodePositions: (positions: Record<string, CanvasPoint>) => void;
-  publishedShareUrl: string;
   publishedNodeIds: string[];
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -1753,10 +1686,6 @@ function FlowNodeCanvas({
     ),
     connectionPreviewPoint ? connectionPreviewPoint.y + canvasConnectionPadding : 0,
   );
-  const actionNoticeHasShareUrl =
-    Boolean(publishedShareUrl) &&
-    (actionNotice === "发布成功" || actionNotice === "重新发布成功");
-
   return (
     <section className="flow-panel canvas-panel">
       <div className="panel-heading canvas-panel-heading">
@@ -1765,16 +1694,6 @@ function FlowNodeCanvas({
           {actionNotice ? (
             <p className="academic-action-notice" title={actionNotice}>
               <span className="academic-action-notice-text">{actionNotice}</span>
-              {actionNoticeHasShareUrl ? (
-                <a
-                  href={publishedShareUrl}
-                  rel="noreferrer"
-                  target="_blank"
-                  title={publishedShareUrl}
-                >
-                  打开学生链接
-                </a>
-              ) : null}
               {actionNoticeTargetNodeId ? (
                 <button
                   onClick={() => {
@@ -2889,73 +2808,6 @@ function ConfirmationScanSettings({
     </section>
   );
 }
-
-function StudentFlowPreview({
-  process,
-  showShareUrl,
-}: {
-  process: AcademicProcess;
-  showShareUrl: boolean;
-}) {
-  const pendingNode = useMemo(
-    () => process.nodes.find((node) => node.status === "pending") ?? null,
-    [process.nodes],
-  );
-
-  return (
-    <section className="student-flow-card">
-      <div className="student-flow-head">
-        <div>
-          <h2>{process.name}</h2>
-          <p>多节点 OA 采集流程，需按审核顺序逐步完成。</p>
-        </div>
-        {showShareUrl && (
-          <div className="share-url">
-            <span>学生端加密链接</span>
-            <strong>{process.shareUrl}</strong>
-          </div>
-        )}
-      </div>
-      <div className="student-flow-list">
-        {process.nodes.map((node) => (
-          <StudentNode key={node.id} node={node} />
-        ))}
-      </div>
-      {pendingNode && (
-        <div className="audit-waiting-modal">
-          <strong>等待审核通过</strong>
-          <p>{pendingNode.title} 正在审核中，审核通过后才能进入下一步。</p>
-          <button type="button">我知道了</button>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function StudentNode({ node }: { node: AcademicFlowNode }) {
-  const isDisabled = node.status === "disabled";
-  const isPending = node.status === "pending";
-  return (
-    <button
-      className={`student-node ${node.status}`}
-      disabled={isDisabled}
-      type="button"
-      aria-disabled={isDisabled}
-    >
-      <span>
-        <strong>{node.title}</strong>
-      </span>
-      <em>
-        {isDisabled
-          ? "需等待上游审核通过"
-          : isPending
-            ? "强制等待审核"
-            : statusLabels[node.status]}
-      </em>
-    </button>
-  );
-}
-
 
 function getTimeWindowStatus(node: AcademicFlowNode) {
   const now = Date.now();

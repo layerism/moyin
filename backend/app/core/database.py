@@ -1,6 +1,4 @@
 import sqlite3
-import hashlib
-import secrets
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -531,7 +529,6 @@ def initialize_database() -> None:
         _apply_teacher_invitation_migration(connection)
         _apply_student_password_change_migration(connection)
         _apply_flow_owner_migration(connection)
-        _apply_share_token_value_migration(connection)
         _apply_scan_file_metadata_migration(connection)
         _apply_flow_preview_migration(connection)
         _apply_audit_hot_reload_migration(connection)
@@ -689,36 +686,6 @@ def _apply_flow_owner_migration(connection: sqlite3.Connection) -> None:
           )
         """
     )
-    connection.execute(
-        "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
-        (migration_id, datetime.now(UTC).isoformat()),
-    )
-
-
-def _apply_share_token_value_migration(connection: sqlite3.Connection) -> None:
-    migration_id = "20260714_add_recoverable_share_tokens"
-    columns = {
-        row["name"] for row in connection.execute("PRAGMA table_info(share_tokens)").fetchall()
-    }
-    if "token_value" not in columns:
-        connection.execute("ALTER TABLE share_tokens ADD COLUMN token_value TEXT")
-
-    applied = connection.execute(
-        "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)
-    ).fetchone()
-    if applied is not None:
-        return
-
-    legacy_rows = connection.execute(
-        "SELECT id FROM share_tokens WHERE status = 'active' AND token_value IS NULL"
-    ).fetchall()
-    for row in legacy_rows:
-        token = secrets.token_urlsafe(32)
-        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-        connection.execute(
-            "UPDATE share_tokens SET token_hash = ?, token_value = ? WHERE id = ?",
-            (token_hash, token, row["id"]),
-        )
     connection.execute(
         "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
         (migration_id, datetime.now(UTC).isoformat()),

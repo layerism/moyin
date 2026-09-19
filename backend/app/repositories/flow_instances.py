@@ -1,5 +1,4 @@
 from app.repositories.review_timeline import review_timeline
-import hashlib
 import json
 import math
 import uuid
@@ -150,34 +149,6 @@ def _get_or_create_version_instance(
             ),
         )
     return instance_id
-
-
-def get_or_create_instance(token: str, student_id: int) -> dict[str, object]:
-    now = utc_now_iso()
-    with get_connection() as connection:
-        connection.execute("BEGIN IMMEDIATE")
-        shared = connection.execute(
-            """
-            SELECT v.id AS version_id, v.flow_id, v.config_snapshot
-            FROM share_tokens t
-            JOIN flow_versions v ON v.id = t.flow_version_id
-            WHERE t.token_hash = ? AND t.status = 'active'
-              AND (t.expires_at IS NULL OR t.expires_at > ?)
-              AND v.status = 'published'
-            """,
-            (hashlib.sha256(token.encode("utf-8")).hexdigest(), now),
-        ).fetchone()
-        if shared is None:
-            raise KeyError(token)
-        instance_id = _get_or_create_version_instance(
-            connection,
-            str(shared["version_id"]),
-            str(shared["flow_id"]),
-            json.loads(shared["config_snapshot"]),
-            student_id,
-            now,
-        )
-    return get_instance(instance_id, student_id)
 
 
 def enter_flow(flow_id: str, student_id: int) -> dict[str, object]:

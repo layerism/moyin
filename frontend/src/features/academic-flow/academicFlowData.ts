@@ -33,14 +33,12 @@ export const fileTypeRestrictionPresets = [
 ];
 
 export function createAcademicProcess(name: string, id = `academic-${Date.now()}`): AcademicProcess {
-  const encryptedSlug = createEncryptedSlug();
   return {
     answerSheetKeys: {},
     createdAt: "刚刚",
     description: `用于“${name}”的分阶段提交与审核。`,
     draftConfig: { edges: [], nodes: [] },
     edges: [],
-    encryptedSlug,
     hasUnpublishedChanges: false,
     id,
     name,
@@ -48,12 +46,7 @@ export function createAcademicProcess(name: string, id = `academic-${Date.now()}
     published: false,
     publishedNodeIds: [],
     publishedVersionNo: undefined,
-    shareUrl: `/academic-flow/${encodeURIComponent(id)}/student/${encryptedSlug}`,
   };
-}
-
-export function createFallbackAcademicProcess(id: string): AcademicProcess {
-  return createAcademicProcess("未命名 OA 流程", id);
 }
 
 export function createBranchOptionId(): string {
@@ -132,10 +125,6 @@ export function getNodeSettingCapabilities(kind: AcademicFlowNodeKind) {
     configuresConfirmationScan: kind === "confirmation",
     configuresMaterialReview: kind === "file",
   };
-}
-
-function createEncryptedSlug() {
-  return `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function getDefaultRequirement(kind: AcademicFlowNodeKind, title: string) {

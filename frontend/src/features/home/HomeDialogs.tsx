@@ -91,7 +91,7 @@ export function FlowDeleteDialog({
         <div className="flow-delete-warning">
           <strong>删除“{name}”后，下列数据将被永久清除：</strong>
           <ul>
-            <li>流程草稿、发布版本和分享链接</li>
+            <li>流程草稿和发布版本</li>
             <li>全部学生填写进度、草稿和提交记录</li>
             <li>节点运行配置和学生截止时间特例</li>
           </ul>

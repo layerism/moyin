@@ -14,7 +14,6 @@ import type {
   RevisionImpact,
   RuntimeFlowInstance,
   RuntimeScanFile,
-  SharedFlow,
   TeacherSubmissionDetail,
   WorkflowProgress,
 } from "./runtimeTypes";
@@ -43,7 +42,6 @@ export type ServerFlow = {
   publishedNodeIds: string[];
   publishedVersionId: string | null;
   publishedVersionNo: number | null;
-  shareUrl: string;
   status: "draft" | "published";
   updatedAt: string;
 };
@@ -322,15 +320,6 @@ export const workflowApi = {
     return request<FlowRoster>(
       `/api/workflows/${encodeURIComponent(serverId)}/roster/${entryId}`,
       { method: "DELETE" },
-    );
-  },
-  getShared(token: string) {
-    return request<SharedFlow>(`/api/shared-flows/${encodeURIComponent(token)}`);
-  },
-  enterShared(token: string) {
-    return request<RuntimeFlowInstance>(
-      `/api/student/shared/${encodeURIComponent(token)}/enter`,
-      { method: "POST" },
     );
   },
   enterFlow(flowId: string) {

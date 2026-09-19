@@ -29,7 +29,6 @@ from app.repositories.flow_instances import (
     RuntimeDeadlineError,
     enter_flow,
     get_instance,
-    get_or_create_instance,
     list_student_flows,
     list_student_instances,
     save_node_draft,
@@ -367,18 +366,6 @@ def download_node_file(
         "sizeBytes": record["size_bytes"],
         "url": url,
     }
-
-
-@router.post("/shared/{token}/enter")
-def enter_shared_flow(
-    token: str, student: dict[str, object] = Depends(get_current_student)
-) -> dict[str, object]:
-    try:
-        return get_or_create_instance(token, int(student["id"]))
-    except RosterAccessError as exc:
-        raise runtime_error(exc) from exc
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="分享链接无效或已停用") from exc
 
 
 @router.get("/flows")
