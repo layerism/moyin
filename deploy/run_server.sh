@@ -35,6 +35,38 @@ if [[ "$EUID" -ne 0 ]]; then
   privileged=(sudo)
 fi
 
+frontend_dist="$project_dir/frontend/dist"
+publish_root=/var/www/moyin
+publish_link="$publish_root/$environment"
+expected_target="$(realpath -m -- "$frontend_dist")"
+
+# Let Nginx traverse the frontend directory and read an existing build.
+chmod o+x "$project_dir/frontend"
+if [[ -d "$frontend_dist" ]]; then
+  chmod -R a+rX "$frontend_dist"
+else
+  echo "提示：尚未找到 $frontend_dist；域名访问前请先执行 npm --prefix frontend run build。" >&2
+fi
+
+"${privileged[@]}" mkdir -p "$publish_root"
+if [[ -L "$publish_link" ]]; then
+  current_link="$(readlink -- "$publish_link")"
+  if [[ "$current_link" == /* ]]; then
+    current_target="$(realpath -m -- "$current_link")"
+  else
+    current_target="$(realpath -m -- "$(dirname -- "$publish_link")/$current_link")"
+  fi
+  if [[ "$current_target" != "$expected_target" ]]; then
+    echo "$publish_link 已指向 $current_target，拒绝改为 $expected_target。" >&2
+    exit 1
+  fi
+elif [[ -e "$publish_link" ]]; then
+  echo "$publish_link 已存在且不是符号链接，请先人工确认现有发布目录。" >&2
+  exit 1
+else
+  "${privileged[@]}" ln -s "$expected_target" "$publish_link"
+fi
+
 if ! command -v nginx >/dev/null 2>&1 && [[ ! -x /usr/sbin/nginx ]]; then
   "${privileged[@]}" apt-get update
   "${privileged[@]}" apt-get install -y nginx

@@ -1,7 +1,7 @@
 # 部署：Nginx 与免费 HTTPS
 
 适用：Ubuntu 22.04/24.04、域名 ainami.tech、gray.ainami.tech、test.ainami.tech，项目通过 tmux 手动运行。
-本文沿用 deploy/nginx.conf：Nginx 提供三套构建后的前端，API 分别转发至本机 8000、8001、8002。无需安装 moyin.service.template。
+本文沿用 deploy/nginx.conf：Nginx 通过稳定符号链接读取三套仓库各自的 `frontend/dist`，API 分别转发至本机 8000、8001、8002。无需安装 moyin.service.template。
 以下命令是操作教程，不代表服务器已经执行过。除安装系统软件外，项目命令均在实际仓库根目录执行。
 
 ## 1. 确认域名和端口
@@ -33,7 +33,7 @@ sudo systemctl status nginx --no-pager
 项目依赖尚未安装时，先执行 bash deploy/install.sh，并配置 backend/.env。
 若项目已在运行，不要重复启动，以免端口冲突。
 
-`run_server.sh` 只启动对应环境的 Uvicorn 后端和 Vite 开发服务器。它不会构建前端、不会创建 `/var/www/moyin/*`、不会把页面发布给 Nginx，也不会申请 HTTPS 证书。执行本节后只能说明应用进程已经启动，仍须完成第 4—6 节才能通过 HTTPS 域名访问。
+`run_server.sh` 启动对应环境的 Uvicorn 后端和 Vite 开发服务器，并在首次运行时创建 `/var/www/moyin/<环境> → 当前仓库/frontend/dist` 符号链接。它不会执行前端构建，也不会申请 HTTPS 证书。执行本节后仍须完成第 4—6 节才能通过 HTTPS 域名访问。
 
 在项目根目录创建 tmux 会话：
 
@@ -55,14 +55,13 @@ bash deploy/run_server.sh test
 
 ## 4. 构建并发布前端
 
-在需要发布的环境对应的仓库根目录构建前端。正式环境执行：
+在需要发布的环境对应的仓库根目录构建前端。产物保留在当前仓库，不复制到 `/var/www`。正式环境执行：
 
 ```bash
 export PATH="$PWD/.local/node/bin:$PATH"
 npm --prefix frontend run build
-sudo mkdir -p /var/www/moyin/prod
-sudo cp -r frontend/dist/. /var/www/moyin/prod/
-sudo chmod -R a+rX /var/www/moyin/prod
+chmod o+x frontend
+chmod -R a+rX frontend/dist
 ```
 
 灰度环境在灰度仓库根目录执行：
@@ -70,9 +69,8 @@ sudo chmod -R a+rX /var/www/moyin/prod
 ```bash
 export PATH="$PWD/.local/node/bin:$PATH"
 npm --prefix frontend run build
-sudo mkdir -p /var/www/moyin/gray
-sudo cp -r frontend/dist/. /var/www/moyin/gray/
-sudo chmod -R a+rX /var/www/moyin/gray
+chmod o+x frontend
+chmod -R a+rX frontend/dist
 ```
 
 测试环境在测试仓库根目录执行：
@@ -80,13 +78,13 @@ sudo chmod -R a+rX /var/www/moyin/gray
 ```bash
 export PATH="$PWD/.local/node/bin:$PATH"
 npm --prefix frontend run build
-sudo mkdir -p /var/www/moyin/test
-sudo cp -r frontend/dist/. /var/www/moyin/test/
-sudo chmod -R a+rX /var/www/moyin/test
+chmod o+x frontend
+chmod -R a+rX frontend/dist
 ```
 
-只在构建成功后复制。Nginx 不读取源码，也不读取 5173、5174、5175 的页面。
-因此前端修改后须重新构建、复制；Vite 的热更新只适用于开发入口。
+`run_server.sh` 会把对应的 `/var/www/moyin/<环境>` 建立为当前仓库 `frontend/dist` 的符号链接；如果该环境已经链接到另一仓库，脚本会中止，不会静默改向。`/var/www/moyin` 中不保存构建文件或 `node_modules`。
+
+Nginx 只通过链接读取 `dist`，不读取源码，也不读取 5173、5174、5175 的页面。因此前端修改后只须重新构建，无须复制文件或 reload Nginx；Vite 的热更新仍只适用于开发入口。
 
 ## 5. 安装 HTTP 站点配置
 
@@ -128,6 +126,7 @@ sudo systemctl reload nginx
 
 ```bash
 sudo test -f /var/www/moyin/prod/index.html
+readlink -f /var/www/moyin/prod
 curl -I -H 'Host: ainami.tech' http://127.0.0.1/
 curl -i -H 'Host: ainami.tech' http://127.0.0.1/api/health
 ```
@@ -218,7 +217,7 @@ CORS_ORIGINS=["https://ainami.tech"]
 | 证书申请超时 | A/AAAA 解析、安全组、防火墙及路由器的公网 80 转发 |
 | 找不到域名对应站点 | server_name 是否正确，配置是否已启用，nginx -t 是否通过 |
 | 默认欢迎页 | 是否访问正确域名、站点是否启用、是否有重复 server_name |
-| 页面 500，日志包含 internal redirection cycle | 对应 `/var/www/moyin/<环境>/index.html` 是否已经构建并发布 |
+| 页面 500，日志包含 internal redirection cycle | 对应仓库是否已生成 `frontend/dist/index.html`，以及 `/var/www/moyin/<环境>` 链接是否正确 |
 | 页面 403 | root 是否存在、是否有 index.html、Nginx 用户是否有读取和目录访问权限 |
 | API 502 | tmux 中后端是否运行，proxy_pass 的端口是否匹配 |
 | HTTPS connection refused | 是否已经申请证书，以及 Nginx 是否监听 443 |
