@@ -40,13 +40,17 @@ publish_root=/var/www/moyin
 publish_link="$publish_root/$environment"
 expected_target="$(realpath -m -- "$frontend_dist")"
 
-# Let Nginx traverse the frontend directory and read an existing build.
-chmod o+x "$project_dir/frontend"
-if [[ -d "$frontend_dist" ]]; then
-  chmod -R a+rX "$frontend_dist"
-else
-  echo "提示：尚未找到 $frontend_dist；域名访问前请先执行 npm --prefix frontend run build。" >&2
+# Build the selected checkout before changing links or starting services.
+echo "正在构建 $environment 前端……"
+npm --prefix "$project_dir/frontend" run build
+if [[ ! -f "$frontend_dist/index.html" ]]; then
+  echo "前端构建未生成 $frontend_dist/index.html。" >&2
+  exit 1
 fi
+
+# Let Nginx traverse the frontend directory and read the fresh build.
+chmod o+x "$project_dir/frontend"
+chmod -R a+rX "$frontend_dist"
 
 "${privileged[@]}" mkdir -p "$publish_root"
 if [[ -L "$publish_link" ]]; then

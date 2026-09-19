@@ -33,7 +33,7 @@ sudo systemctl status nginx --no-pager
 项目依赖尚未安装时，先执行 bash deploy/install.sh，并配置 backend/.env。
 若项目已在运行，不要重复启动，以免端口冲突。
 
-`run_server.sh` 启动对应环境的 Uvicorn 后端和 Vite 开发服务器，并在首次运行时创建 `/var/www/moyin/<环境> → 当前仓库/frontend/dist` 符号链接。它不会执行前端构建，也不会申请 HTTPS 证书。执行本节后仍须完成第 4—6 节才能通过 HTTPS 域名访问。
+`run_server.sh` 每次启动都会先构建当前仓库前端，构建成功后创建或核对 `/var/www/moyin/<环境> → 当前仓库/frontend/dist` 符号链接，再启动对应环境的 Uvicorn 后端和 Vite 开发服务器。构建失败时脚本立即退出，不启动服务。脚本不会申请 HTTPS 证书，首次部署仍须完成第 5—6 节。
 
 在项目根目录创建 tmux 会话：
 
@@ -53,32 +53,23 @@ bash deploy/run_server.sh test
 
 按 Ctrl+B，再按 D 返回普通终端，服务仍在运行。重新进入使用 tmux attach -t moyin；停止时在会话中按 Ctrl+C。
 
-## 4. 构建并发布前端
+## 4. 自动构建与发布前端
 
-在需要发布的环境对应的仓库根目录构建前端。产物保留在当前仓库，不复制到 `/var/www`。正式环境执行：
+执行以下任一启动命令时，脚本都会在对应的当前仓库自动执行一次 `npm --prefix frontend run build`：
 
 ```bash
-export PATH="$PWD/.local/node/bin:$PATH"
-npm --prefix frontend run build
-chmod o+x frontend
-chmod -R a+rX frontend/dist
+bash deploy/run_server.sh prod
+bash deploy/run_server.sh gray
+bash deploy/run_server.sh test
 ```
 
-灰度环境在灰度仓库根目录执行：
+脚本只构建当前 clone：`prod` 构建正式仓库，`gray` 构建灰度仓库，`test` 构建测试仓库；不会在一个 clone 中同时构建另外两个环境。构建产物保留在当前仓库的 `frontend/dist`，不复制到 `/var/www`。
+
+如果服务已经运行，只想更新静态前端而不重启后端，可以在该环境仓库根目录手动执行：
 
 ```bash
 export PATH="$PWD/.local/node/bin:$PATH"
 npm --prefix frontend run build
-chmod o+x frontend
-chmod -R a+rX frontend/dist
-```
-
-测试环境在测试仓库根目录执行：
-
-```bash
-export PATH="$PWD/.local/node/bin:$PATH"
-npm --prefix frontend run build
-chmod o+x frontend
 chmod -R a+rX frontend/dist
 ```
 
