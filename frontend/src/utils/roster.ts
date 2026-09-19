@@ -69,7 +69,7 @@ export function normalizeFlowRosterRows(rows: unknown[][]): FlowRosterParseResul
   };
 }
 
-async function readRosterRows(file: File): Promise<unknown[][]> {
+export async function readRosterRows(file: File): Promise<unknown[][]> {
   if (file.name.toLowerCase().endsWith(".csv")) {
     const text = await file.text();
     return text

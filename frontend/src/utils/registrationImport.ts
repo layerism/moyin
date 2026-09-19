@@ -1,3 +1,5 @@
+import { readRosterRows } from './roster';
+
 export type RegistrationEntry = { studentNo: string; name: string };
 export type RegistrationImport = {
   entries: RegistrationEntry[];
@@ -17,8 +19,16 @@ function headerMatches(value: string, field: keyof typeof aliases) {
 
 export function parseRegistrationImport(text: string): RegistrationImport {
   const source = text.replace(/^\uFEFF/, '');
-  const firstLine = source.split(/\r?\n/).find(line => line.trim()) ?? '';
-  const separator = ['\t', ',', '，', ';', '；'].find(value => firstLine.includes(value));
+  // Titles may precede the table. Prefer the delimiter that exposes a header,
+  // otherwise use the one occurring on the most physical lines.
+  const lines = source.split(/\r?\n/);
+  const separators = ['\t', ',', '，', ';', '；'];
+  const headerSeparator = separators.find(separator => lines.some(line => {
+    const cells = line.split(separator).map(value => value.trim().replace(/^"|"$/g, ''));
+    return cells.some(value => headerMatches(value, 'studentNo')) && cells.some(value => headerMatches(value, 'name'));
+  }));
+  const ranked = separators.map(value => ({ value, count: lines.filter(line => line.includes(value)).length })).sort((a, b) => b.count - a.count);
+  const separator = headerSeparator ?? (ranked[0].count ? ranked[0].value : undefined);
   const records: { line: number; cells: string[] }[] = [];
   let cells: string[] = [], field = '', quoted = false, line = 1, startLine = 1;
   const endField = () => { cells.push(field.trim()); field = ''; };
@@ -41,15 +51,34 @@ export function parseRegistrationImport(text: string): RegistrationImport {
   }
   if (quoted) return { entries: [], rows: [], errors: [`第 ${startLine} 行：CSV 引号未闭合`] };
   endRow();
-  const headers = records[0]?.cells ?? [];
-  const numberColumns = headers.flatMap((value, i) => headerMatches(value, 'studentNo') ? [i] : []);
-  const nameColumns = headers.flatMap((value, i) => headerMatches(value, 'name') ? [i] : []);
-  const hasHeader = numberColumns.length > 0 || nameColumns.length > 0;
-  if (hasHeader && (numberColumns.length !== 1 || nameColumns.length !== 1)) {
-    return { entries: [], rows: [], errors: ['表头无法唯一识别学号和姓名，请分别标注“学号”和“姓名”，并去除重复列名。'] };
+  return parseRecords(records);
+}
+
+export async function parseRegistrationFile(file: File): Promise<RegistrationImport> {
+  if (/\.csv$/i.test(file.name)) return parseRegistrationImport(await file.text());
+  if (/\.xls$/i.test(file.name)) throw new Error('旧版 .xls 文件请先另存为 .xlsx 后上传。');
+  if (!/\.xlsx$/i.test(file.name)) throw new Error('请上传 .xlsx 或 .csv 文件。');
+  const rows = await readRosterRows(file);
+  return parseRecords(rows.map((cells, i) => ({
+    line: i + 1,
+    cells: cells.map(value => typeof value === 'number' && !Number.isSafeInteger(value) ? '[数值精度异常，请将学号设为文本]' : String(value ?? '').trim()),
+  })).filter(row => row.cells.some(Boolean)));
+}
+
+function parseRecords(records: { line: number; cells: string[] }[]): RegistrationImport {
+  const candidates = records.flatMap((record, index) => {
+    const numbers = record.cells.flatMap((value, i) => headerMatches(value, 'studentNo') ? [i] : []);
+    const names = record.cells.flatMap((value, i) => headerMatches(value, 'name') ? [i] : []);
+    return numbers.length && names.length ? [{ index, line: record.line, numbers, names }] : [];
+  });
+  if (candidates.length > 1) return { entries: [], rows: [], errors: [`第 ${candidates.map(row => row.line).join('、')} 行存在多个候选表头，请仅保留一张名单表。`] };
+  const header = candidates[0];
+  if (header && (header.numbers.length !== 1 || header.names.length !== 1)) {
+    return { entries: [], rows: [], errors: [`第 ${header.line} 行表头无法唯一识别学号和姓名，请去除重复列名。`] };
   }
-  const rows = (hasHeader ? records.slice(1) : records).map(record => {
-    let numberIndex = numberColumns[0], nameIndex = nameColumns[0];
+  const hasHeader = !!header;
+  const rows = (header ? records.slice(header.index + 1) : records).map(record => {
+    let numberIndex = header?.numbers[0] ?? -1, nameIndex = header?.names[0] ?? -1;
     if (!hasHeader) {
       // Without headers, only infer unambiguous numeric IDs and Chinese names.
       const numbers = record.cells.flatMap((value, i) => /^\d{4,32}$/.test(value) ? [i] : []);
@@ -60,7 +89,7 @@ export function parseRegistrationImport(text: string): RegistrationImport {
       numberIndex = numbers[0]; nameIndex = names[0];
     }
     const studentNo = record.cells[numberIndex] ?? '', name = record.cells[nameIndex] ?? '';
-    const error = !studentNo || !name ? '学号或姓名为空。' : studentNo.length > 32 || name.length > 64 ? '学号或姓名超出长度限制。' : /^\d+(?:\.\d+)?e[+-]?\d+$/i.test(studentNo) ? '学号为科学计数法，请从原表复制完整文本学号。' : '';
+    const error = studentNo.startsWith('[数值精度异常') ? '学号数值精度异常，请将原表学号设为文本并核对完整号码。' : !studentNo || !name ? '学号或姓名为空。' : studentNo.length > 32 || name.length > 64 ? '学号或姓名超出长度限制。' : /^\d+(?:\.\d+)?e[+-]?\d+$/i.test(studentNo) ? '学号为科学计数法，请从原表复制完整文本学号。' : '';
     return { line: record.line, studentNo, name, error };
   });
   return {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { parseRegistrationImport, type RegistrationImport } from '../../utils/registrationImport';
+import { parseRegistrationImport, parseRegistrationFile, type RegistrationImport } from '../../utils/registrationImport';
 
 type User = { id: number; kind: 'student' | 'teacher'; account: string; name: string; role: string; status: string; created_at: string };
 type Entry = { studentNo: string; name: string; registered?: boolean };
@@ -30,6 +30,7 @@ export function UserAdminPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selected, setSelected] = useState<User | null>(null); const [action, setAction] = useState<'reset' | 'delete' | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null); const [confirmation, setConfirmation] = useState(''); const [remove, setRemove] = useState(false); const [password, setPassword] = useState('');
+  const [fileImport, setFileImport] = useState<{ name: string; parsed: RegistrationImport } | null>(null);
   const [text, setText] = useState(''); const [singleNo, setSingleNo] = useState(''); const [singleName, setSingleName] = useState('');
   const [importPreview, setImportPreview] = useState<{ added: number; duplicates: number; errors: string[]; parsed: RegistrationImport } | null>(null);
   const refresh = () => setRevision(v => v + 1);
@@ -61,13 +62,20 @@ export function UserAdminPage() {
     {tab === 'registration-allowlist' && <section className="user-admin-import">
       <p>此名单仅用于普通用户注册，学号与姓名须同时匹配。发布者必须受邀注册，请通过“邀请管理”发送邀请。名单为空时禁止普通用户新注册；移除名单不影响现有账号登录。</p>
       <div className="user-admin-toolbar"><input placeholder="学号" aria-label="学号" value={singleNo} onChange={e => setSingleNo(e.target.value)} /><input placeholder="姓名" aria-label="姓名" value={singleName} onChange={e => setSingleName(e.target.value)} /><button disabled={busy || !singleNo.trim() || !singleName.trim()} onClick={() => void run(async () => { await api('registration-allowlist', 'POST', { entries: [{ studentNo: singleNo, name: singleName }] }); setSingleNo(''); setSingleName(''); refresh(); })}>添加</button></div>
-      <details><summary>批量粘贴 / CSV 导入</summary>
-        <p>自动识别学号、学生编号、姓名、学生姓名等表头，支持换列和额外列。可粘贴表格或上传 UTF-8 CSV；无表头时尝试根据内容识别，请核对解析结果。</p>
-        <input type="file" accept=".csv,text/csv" aria-label="导入 CSV" disabled={busy} onChange={e => { const file = e.target.files?.[0]; if (file) void run(async () => { setImportPreview(null); if (file.size > 2_000_000) throw new Error('文件不能超过 2 MB'); setText(await file.text()); }); }} />
-        <textarea aria-label="名单内容" rows={6} disabled={busy} value={text} placeholder={'姓名,学号,班级\n张同学,20260001,一班\n李同学,20260002,二班'} onChange={e => { setText(e.target.value); setImportPreview(null); }} />
-        <button disabled={busy || !text.trim()} onClick={() => void run(async () => {
+      <details><summary>批量粘贴 / Excel、CSV 导入</summary>
+        <p>自动识别学号、学生编号、姓名、学生姓名等表头，支持换列和额外列。可上传 Excel（.xlsx，读取第一个工作表）或 UTF-8 CSV，也可粘贴表格。自动扫描非首行表头，跳过前面的标题、说明和空行；无表头时尝试根据内容识别。旧版 .xls 请另存为 .xlsx。</p>
+        <input type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" aria-label="导入 Excel 或 CSV" disabled={busy} onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void run(async () => {
+          setImportPreview(null); setFileImport(null); setText('');
+          if (file.size > 2_000_000) throw new Error('文件不能超过 2 MB');
+          if (/\.csv$/i.test(file.name)) { setText(await file.text()); return; }
+          try { setFileImport({ name: file.name, parsed: await parseRegistrationFile(file) }); }
+          catch (reason) { throw new Error(/\.xlsx$/i.test(file.name) ? '无法读取 Excel，请确认文件未损坏、未加密，且为 .xlsx 格式。' : reason instanceof Error ? reason.message : '文件读取失败'); }
+        }); }} />
+        {fileImport && <p>已读取：{fileImport.name}（第一个工作表）。如需修正，请修改原表后重新上传，或在下方粘贴替代名单。</p>}
+        <textarea aria-label="名单内容" rows={6} disabled={busy} value={text} placeholder={'姓名,学号,班级\n张同学,20260001,一班\n李同学,20260002,二班'} onChange={e => { setText(e.target.value); setFileImport(null); setImportPreview(null); }} />
+        <button disabled={busy || (!fileImport && !text.trim())} onClick={() => void run(async () => {
           setImportPreview(null);
-          const parsed = parseRegistrationImport(text);
+          const parsed = fileImport?.parsed ?? parseRegistrationImport(text);
           if (parsed.errors.length || !parsed.entries.length) {
             setImportPreview({ parsed, added: 0, duplicates: 0, errors: parsed.errors.length ? parsed.errors : ['未识别到可导入的名单。'] });
             return;
@@ -79,7 +87,7 @@ export function UserAdminPage() {
           <p>识别 {importPreview.parsed.entries.length} 条，新增 {importPreview.added} 条，重复 {importPreview.duplicates} 条。请核对学号和姓名后确认导入。</p>
           {importPreview.errors.map((v, i) => <p key={i} className="user-admin-error">{v}</p>)}
           {importPreview.parsed.rows.length > 0 && <div className="user-admin-table registration-import-preview"><table><thead><tr><th>原始行</th><th>学号</th><th>姓名</th><th>识别结果</th></tr></thead><tbody>{importPreview.parsed.rows.map(row => <tr key={row.line}><td>{row.line}</td><td>{row.studentNo || '—'}</td><td>{row.name || '—'}</td><td className={row.error ? 'user-admin-error' : undefined}>{row.error || '已识别'}</td></tr>)}</tbody></table></div>}
-          <button disabled={busy || !!importPreview.errors.length || !importPreview.added} onClick={() => void run(async () => { await api('registration-allowlist', 'POST', { entries: importPreview.parsed.entries }); setText(''); setImportPreview(null); refresh(); })}>确认导入</button>
+          <button disabled={busy || !!importPreview.errors.length || !importPreview.added} onClick={() => void run(async () => { await api('registration-allowlist', 'POST', { entries: importPreview.parsed.entries }); setText(''); setFileImport(null); setImportPreview(null); refresh(); })}>确认导入</button>
         </div>}
       </details>
     </section>}
