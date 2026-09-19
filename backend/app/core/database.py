@@ -60,6 +60,18 @@ CREATE TABLE IF NOT EXISTS teacher_accounts (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS personal_drive_files (
+    id TEXT PRIMARY KEY,
+    owner_teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    original_name TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL CHECK (size_bytes >= 0),
+    storage_key TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_personal_drive_owner
+    ON personal_drive_files(owner_teacher_id, created_at);
+
 CREATE TABLE IF NOT EXISTS teacher_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     teacher_account_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,

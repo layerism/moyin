@@ -121,7 +121,10 @@ export type MaterialLibraryFlow = {
   versionId: string;
 };
 
+export type PersonalDriveFile = Omit<MaterialLibraryFile, "submissionStatus" | "submittedAt">;
+
 export type MaterialLibrary = {
+  personalFiles: PersonalDriveFile[];
   flows: MaterialLibraryFlow[];
 };
 
@@ -462,6 +465,17 @@ export const workflowApi = {
     return request<WorkflowProgress>(
       `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/progress`,
     );
+  },
+  uploadPersonalFile(file: File) {
+    const body = new FormData();
+    body.append("file", file);
+    return request<PersonalDriveFile>("/api/workflow-admin/personal-files", { method: "POST", body });
+  },
+  downloadPersonalFile(fileId: string) {
+    return request<{ originalName: string; url: string }>(`/api/workflow-admin/personal-files/${encodeURIComponent(fileId)}/download`);
+  },
+  deletePersonalFile(fileId: string) {
+    return request<{ deleted: boolean }>(`/api/workflow-admin/personal-files/${encodeURIComponent(fileId)}`, { method: "DELETE" });
   },
   getMaterialLibrary() {
     return request<MaterialLibrary>("/api/workflow-admin/material-library");

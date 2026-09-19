@@ -1,3 +1,4 @@
+import { PersonalDriveUploadButton } from "./PersonalDriveUploadButton";
 import { DriveNavIcon } from "./DriveNavIcon";
 import { useCallback, useEffect, useState } from "react";
 
@@ -5,6 +6,7 @@ import {
   workflowApi,
   type MaterialLibrary,
   type MaterialLibraryFile,
+  type PersonalDriveFile,
 } from "../academic-flow/api";
 import type { AuthIdentity } from "../auth/authApi";
 import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
@@ -53,16 +55,19 @@ function pathExists(library: MaterialLibrary, path: MaterialLibraryPath) {
 }
 
 export function OssMaterialLibraryView({
+  onCreateFlow,
   onAcademicFlow,
   onWorkflowTemplates,
   onProfile,
   teacherIdentity,
 }: {
+  onCreateFlow: () => void;
   onAcademicFlow: () => void;
   onWorkflowTemplates: () => void;
   onProfile: () => void;
   teacherIdentity: AuthIdentity;
 }) {
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [library, setLibrary] = useState<MaterialLibrary | null>(null);
   const [path, setPath] = useState<MaterialLibraryPath>({ level: "root" });
   const [query, setQuery] = useState("");
@@ -118,11 +123,27 @@ export function OssMaterialLibraryView({
     matches(file.originalName),
   );
 
-  const downloadFile = async (file: MaterialLibraryFile) => {
+  const personalFiles = (library?.personalFiles ?? []).filter((file) => matches(file.originalName));
+
+  const deleteFile = async (file: PersonalDriveFile) => {
+    if (!window.confirm(`删除个人文件“${file.originalName}”？此操作无法撤销。`)) return;
+    setDeletingFileId(file.fileId);
+    setDownloadError(null);
+    try {
+      await workflowApi.deletePersonalFile(file.fileId);
+      setLibrary((current) => current ? { ...current, personalFiles: current.personalFiles.filter((item) => item.fileId !== file.fileId) } : current);
+    } catch (reason) {
+      setDownloadError({ fileId: file.fileId, message: reason instanceof Error ? reason.message : "删除失败，请重试" });
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
+
+  const downloadFile = async (file: PersonalDriveFile, personal = false) => {
     setDownloadingFileId(file.fileId);
     setDownloadError(null);
     try {
-      const result = await workflowApi.downloadMaterialLibraryFile(file.fileId);
+      const result = await (personal ? workflowApi.downloadPersonalFile(file.fileId) : workflowApi.downloadMaterialLibraryFile(file.fileId));
       const anchor = document.createElement("a");
       anchor.href = result.url;
       anchor.download = result.originalName;
@@ -141,7 +162,7 @@ export function OssMaterialLibraryView({
   };
 
   const hasVisibleEntries = path.level === "root"
-    ? visibleFlows.length > 0
+    ? visibleFlows.length > 0 || personalFiles.length > 0
     : path.level === "flow"
       ? visibleNodes.length > 0
       : path.level === "node"
@@ -150,7 +171,7 @@ export function OssMaterialLibraryView({
   const emptyMessage = normalizedQuery
     ? "当前目录没有匹配项"
     : path.level === "root"
-      ? "暂无已发布流程"
+      ? "暂无文件，可点击左侧上传"
       : path.level === "flow"
         ? "该流程暂无学生提交文件"
         : path.level === "node"
@@ -164,8 +185,8 @@ export function OssMaterialLibraryView({
           <span className="logo-mark">T</span>
           <strong>材料收集</strong>
         </div>
-        <button className="drive-primary" type="button">+ 新建</button>
-        <button className="drive-secondary" type="button">上传</button>
+        <button className="drive-primary" onClick={onCreateFlow} type="button">+ 新建</button>
+        <PersonalDriveUploadButton onUploaded={() => { setPath({ level: "root" }); void loadLibrary(); }} />
         <nav className="drive-nav" aria-label="主导航">
           <button onClick={onAcademicFlow}><DriveNavIcon kind="flow" />教务流程</button>
           <button onClick={onWorkflowTemplates}><DriveNavIcon kind="template" />流程模板</button>
@@ -187,7 +208,7 @@ export function OssMaterialLibraryView({
           <TeacherAccountMenu identity={teacherIdentity} onProfile={onProfile} />
         </header>
 
-        <section className="drive-panel" aria-label="OSS 学生材料库">
+        <section className="drive-panel" aria-label="OSS 云盘">
           <div className="drive-breadcrumb">
             {path.level === "root" ? (
               <strong>OSS 云盘</strong>
@@ -242,9 +263,28 @@ export function OssMaterialLibraryView({
                 <span>名称</span>
                 <span>类型 / 状态</span>
                 <span>内容</span>
-                <span>提交时间</span>
+                <span>上传 / 提交时间</span>
                 <span>操作</span>
               </div>
+
+              {path.level === "root" && personalFiles.map((file) => (
+                <div className="material-library-row" key={file.fileId} role="row">
+                  <div className="material-library-file-name">
+                    <span className="material-library-icon is-personal" title="个人上传" aria-label="个人上传">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><circle cx="9" cy="7" r="3" /><path d="M3 21v-3a6 6 0 0 1 12 0v3M19 17V7m-3 3 3-3 3 3" /></svg>
+                    </span>
+                    <span title={file.originalName}>{file.originalName}</span>
+                    {downloadError?.fileId === file.fileId ? <small className="material-library-inline-error" role="alert">{downloadError.message}</small> : null}
+                  </div>
+                  <span className="personal-file-badge">个人上传</span>
+                  <span>{formatFileSize(file.sizeBytes)}</span>
+                  <span>{formatSubmittedAt(file.createdAt)}</span>
+                  <div className="personal-file-actions">
+                    <button className="link-button" disabled={downloadingFileId === file.fileId || deletingFileId === file.fileId} onClick={() => void downloadFile(file, true)}>{downloadingFileId === file.fileId ? "下载中" : "下载"}</button>
+                    <button className="link-button danger" disabled={deletingFileId !== null} onClick={() => void deleteFile(file)}>{deletingFileId === file.fileId ? "删除中" : "删除"}</button>
+                  </div>
+                </div>
+              ))}
 
               {path.level === "root" && visibleFlows.map((flow) => (
                 <div className="material-library-row" key={flow.flowId} role="row">
@@ -255,7 +295,7 @@ export function OssMaterialLibraryView({
                     <span className="material-library-icon is-folder">夹</span>
                     <span>{flow.name}</span>
                   </button>
-                  <span>流程</span>
+                  <span title="流程材料仅支持查看和下载">流程 · 只读</span>
                   <span>{flow.nodes.length} 个节点 · {flowFileCount(flow)} 个文件</span>
                   <span>—</span>
                   <button
@@ -333,7 +373,7 @@ export function OssMaterialLibraryView({
                 ? visibleFiles.map((file) => (
                     <div className="material-library-row" key={file.fileId} role="row">
                       <div className="material-library-file-name">
-                        <span className="material-library-icon is-file">文</span>
+                        <span className="material-library-icon is-file" title="流程文件 · 只读">文</span>
                         <span>{file.originalName}</span>
                         {downloadError?.fileId === file.fileId ? (
                           <small className="material-library-inline-error" role="alert">

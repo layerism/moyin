@@ -933,11 +933,6 @@ function ComponentPalette({
           <strong>条件分支</strong>
           <small>学生选择后进入对应流程</small>
         </button>
-        <button className="node-function-colors" data-node-kind="parallel" disabled={locked} type="button">
-          <span aria-hidden="true">⇄</span>
-          <strong>并行节点</strong>
-          <small>多个分支并行进行</small>
-        </button>
       </div>
       <div className="palette-hint">
         提示：可将组件拖入画布，节点进入画布后可拖动定位，并通过上下连接点手动连线。

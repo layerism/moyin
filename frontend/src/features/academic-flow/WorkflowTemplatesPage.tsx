@@ -1,3 +1,4 @@
+import { PersonalDriveUploadButton } from "../home/PersonalDriveUploadButton";
 import { DriveNavIcon } from "../home/DriveNavIcon";
 import { useEffect, useState } from "react";
 
@@ -10,13 +11,14 @@ type TemplateDraft = { id?: string; sourceFlowId: string; name: string; descript
 
 export function WorkflowTemplatesPage({
   onProfile, processes, sourceFlowId, teacherIdentity, onAcademicFlow, onOssCloud,
-  onCreated,
+  onCreated, onCreateFlow,
 }: {
   processes: AcademicProcess[];
   sourceFlowId: string | null;
   onProfile: () => void;
   teacherIdentity: AuthIdentity;
   onAcademicFlow: () => void;
+  onCreateFlow: () => void;
   onOssCloud: () => void;
   onCreated: (flow: ServerFlow) => void;
 }) {
@@ -77,8 +79,8 @@ export function WorkflowTemplatesPage({
   return <main className="home-page">
     <aside className="drive-sidebar">
       <div className="drive-logo"><span className="logo-mark">T</span><strong>材料收集</strong></div>
-      <button className="drive-primary" type="button">+ 新建</button>
-      <button className="drive-secondary" type="button">上传</button>
+      <button className="drive-primary" onClick={onCreateFlow} type="button">+ 新建</button>
+      <PersonalDriveUploadButton onUploaded={onOssCloud} />
       <nav className="drive-nav" aria-label="主导航">
         <button onClick={onAcademicFlow}><DriveNavIcon kind="flow" />教务流程</button>
         <button className="selected" aria-current="page"><DriveNavIcon kind="template" />流程模板</button>

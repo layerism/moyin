@@ -1,3 +1,4 @@
+import { PersonalDriveUploadButton } from "./PersonalDriveUploadButton";
 import { DriveNavIcon } from "./DriveNavIcon";
 import { useEffect, useRef, useState } from "react";
 
@@ -10,6 +11,7 @@ import { FlowCloneDialog, type FlowCloneResult } from "./FlowCloneDialog";
 import { FlowDeleteDialog, NameDialog } from "./HomeDialogs";
 
 export function AcademicFlowView({
+  initiallyCreate = false,
   processes,
   onCreateProcess,
   onCloneProcess,
@@ -21,6 +23,7 @@ export function AcademicFlowView({
   onProfile,
   teacherIdentity,
 }: {
+  initiallyCreate?: boolean;
   processes: AcademicProcess[];
   onCreateProcess: (name: string) => Promise<void> | void;
   onCloneProcess: (source: AcademicProcess, name: string) => Promise<AcademicProcess>;
@@ -32,7 +35,7 @@ export function AcademicFlowView({
   onProfile: () => void;
   teacherIdentity: AuthIdentity;
 }) {
-  const [processDialogOpen, setProcessDialogOpen] = useState(false);
+  const [processDialogOpen, setProcessDialogOpen] = useState(initiallyCreate);
   const [processNameValue, setProcessNameValue] = useState("");
   const [processCreateError, setProcessCreateError] = useState("");
   const [processCreating, setProcessCreating] = useState(false);
@@ -56,6 +59,10 @@ export function AcademicFlowView({
     const timer = window.setTimeout(() => setHighlightedProcessId(null), 2000);
     return () => window.clearTimeout(timer);
   }, [highlightedProcessId]);
+
+  useEffect(() => {
+    if (initiallyCreate) window.history.replaceState(window.history.state, "", "/academic-flow");
+  }, [initiallyCreate]);
 
   const startCreateProcess = () => {
     setProcessNameValue("");
@@ -166,8 +173,8 @@ export function AcademicFlowView({
           <span className="logo-mark">T</span>
           <strong>材料收集</strong>
         </div>
-        <button className="drive-primary">+ 新建</button>
-        <button className="drive-secondary">上传</button>
+        <button className="drive-primary" type="button" onClick={startCreateProcess}>+ 新建</button>
+        <PersonalDriveUploadButton onUploaded={onOssCloud} />
         <nav className="drive-nav" aria-label="主导航">
           <button className="selected"><DriveNavIcon kind="flow" />教务流程</button>
           <button onClick={() => onWorkflowTemplates()}><DriveNavIcon kind="template" />流程模板</button>

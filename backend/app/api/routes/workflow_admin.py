@@ -6,6 +6,9 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.background import BackgroundTask
 
+from app.api.routes.personal_drive import router as personal_drive_router
+from app.repositories.personal_drive import list_files as list_personal_files
+
 from app.domain.workflow import confirmation_requires_scans
 from app.repositories.audit_jobs import (
     AuditJobConflictError,
@@ -56,6 +59,7 @@ from app.services.object_storage import (
 from app.services.security import get_current_super_admin, get_current_teacher
 
 router = APIRouter(dependencies=[Depends(get_current_teacher)])
+router.include_router(personal_drive_router)
 
 
 class DeadlineRequest(BaseModel):
@@ -204,6 +208,7 @@ def material_library(
 ) -> dict[str, object]:
     flows = list_teacher_material_library(int(teacher["id"]))
     return {
+        "personalFiles": list_personal_files(int(teacher["id"])),
         "flows": [
             {
                 "flowId": flow.flow_id,

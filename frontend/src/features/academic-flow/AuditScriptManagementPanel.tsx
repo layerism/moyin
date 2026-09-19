@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ApiError, workflowApi } from "./api";
 import { AuditScriptConfigForm } from "./AuditScriptConfigForm";
@@ -60,6 +60,7 @@ function ScriptCapabilityIcons({ script }: { script: AuditScriptManagementSummar
 }
 
 export function AuditScriptManagementPanel() {
+  const editor = useRef<HTMLDialogElement>(null);
   const [scripts, setScripts] = useState<AuditScriptManagementSummary[] | null>(null);
   const [search, setSearch] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -84,6 +85,9 @@ export function AuditScriptManagementPanel() {
   };
 
   useEffect(loadScripts, []);
+  useEffect(() => {
+    if (detail) editor.current?.showModal();
+  }, [detail]);
 
   const clearSaveMessages = () => {
     setSaveError("");
@@ -135,6 +139,7 @@ export function AuditScriptManagementPanel() {
         parameterDefaults,
         runtimeSettings,
       });
+      editor.current?.close();
       setDetail(null);
       loadScripts();
     } catch (error) {
@@ -150,6 +155,8 @@ export function AuditScriptManagementPanel() {
   };
 
   const closeDetail = () => {
+    if (saving) return;
+    editor.current?.close();
     setDetail(null);
     clearSaveMessages();
   };
@@ -161,23 +168,31 @@ export function AuditScriptManagementPanel() {
 
   return (
     <div className="audit-script-management-panel">
-      <section
-        aria-labelledby="audit-script-metadata-title"
-        className={`audit-script-metadata-dialog${detail ? " is-editor" : " is-list"}`}
-        onClick={(event) => event.stopPropagation()}
-        role="region"
-      >
+      <div className="script-cards-toolbar">
+        <label><input aria-label="搜索审核脚本" type="search" placeholder="搜索审核脚本" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <span aria-live="polite">{scripts === null ? "读取中…" : `${filteredScripts.length} 个脚本`}</span>
+        <button type="button" disabled={scripts === null || detailLoading} onClick={loadScripts}>刷新</button>
+      </div>
+      {loadError ? <p className="dialog-error" role="alert">{loadError}</p> : null}
+      {saveError && !detail ? <p className="dialog-error" role="alert">{saveError}</p> : null}
+      {detailLoading ? <p role="status">正在读取配置…</p> : null}
+      <div className="script-card-grid">
+        {filteredScripts.map((script) => <article className="script-config-card" key={script.id}>
+          <header>
+            <span className="script-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M14 3H5v18h14V8Z M14 3v5h5 M9 11l-3 3 3 3m4-6 3 3-3 3" /></svg></span>
+            <div><h3>{script.name}</h3><span>{script.language === "py" ? "Python" : "JavaScript"}</span></div>
+          </header>
+          <p className="script-card-description" title={script.description}>{script.description}</p>
+          <ScriptCapabilityIcons script={script} />
+          <footer><span>{script.status === "error" ? "配置异常" : script.status === "updating" ? "更新中" : `并发上限 ${script.maxConcurrency}`}</span><button type="button" disabled={detailLoading} onClick={() => void openEditor(script)}>编辑配置</button></footer>
+        </article>)}
+      </div>
+      {scripts && !loadError && !filteredScripts.length ? <p className="audit-script-metadata-state">{search ? "没有匹配的脚本" : "暂无审核脚本"}</p> : null}
+      {detail ? <dialog ref={editor} className="script-config-dialog is-editor" aria-labelledby="script-config-title" onCancel={(event) => { event.preventDefault(); closeDetail(); }}>
         <header>
-          <div>
-            <span>{detail ? `${detail.language === "py" ? "Python" : "JavaScript"} · 更新于 ${formatUpdatedAt(detail.updatedAt)}` : "预置脚本"}</span>
-            <h2 id="audit-script-metadata-title">
-              {detail ? detail.name : "审核脚本管理"}
-            </h2>
-          </div>
-          {detail ? <button disabled={saving} onClick={() => setDetail(null)} type="button">返回列表</button> : null}
+          <div><h2 id="script-config-title">{detail.name}</h2><span>{detail.language === "py" ? "Python" : "JavaScript"} · 更新于 {formatUpdatedAt(detail.updatedAt)}</span></div>
+          <button type="button" aria-label="关闭配置" disabled={saving} onClick={closeDetail}>×</button>
         </header>
-
-        {detail ? (
           <form className="audit-script-metadata-form audit-script-config-form" onSubmit={(event) => {
             event.preventDefault();
             void saveChanges();
@@ -196,64 +211,13 @@ export function AuditScriptManagementPanel() {
             {saveError ? <p className="dialog-error" role="alert">{saveError}</p> : null}
             <footer>
               <p>{configChanged ? "参数修改会使未完成审核失效，需重新提交。" : "模型选择对新启动的审核生效。"}</p>
-              <button disabled={saving} onClick={closeDetail} type="button">返回</button>
+              <button disabled={saving} onClick={closeDetail} type="button">取消</button>
               <button className="primary-action" disabled={!canSave} type="submit">
                 {saving ? "保存中…" : "保存修改"}
               </button>
             </footer>
           </form>
-        ) : (
-          <div className="audit-script-metadata-content">
-            <div className="audit-script-search-toolbar">
-              <input
-                aria-label="搜索脚本名称或说明"
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="搜索脚本名称或说明"
-                type="search"
-                value={search}
-              />
-              <span aria-live="polite">{scripts === null ? "读取中" : query ? `${filteredScripts.length} / ${scripts.length} 个脚本` : `共 ${scripts.length} 个脚本`}</span>
-            </div>
-            <div className="audit-script-list-scroll">
-
-            {detailLoading ? <p className="audit-script-metadata-state">正在读取脚本配置…</p> : null}
-            {!detailLoading && scripts === null ? <p className="audit-script-metadata-state">正在读取审核脚本…</p> : null}
-            {saveError && !detailLoading ? <p className="dialog-error" role="alert">{saveError}</p> : null}
-            {loadError ? <div className="audit-script-metadata-state" role="alert">
-              <p>{loadError}</p>
-              <button onClick={loadScripts} type="button">重新读取</button>
-            </div> : null}
-            {!detailLoading && scripts?.length === 0 && !loadError ? (
-              <p className="audit-script-metadata-state">暂无可用审核脚本。</p>
-            ) : null}
-            {!detailLoading && scripts && scripts.length > 0 ? <div className="audit-script-metadata-list">
-              {filteredScripts.map((script) => {
-                return <article key={script.id}>
-                  <div>
-                    <div className="audit-script-list-heading">
-                      <strong title={script.name}>{script.name}</strong>
-                      <ScriptCapabilityIcons script={script} />
-                    </div>
-                    <p title={script.description}>{script.description}</p>
-                  </div>
-                  <div className="audit-script-metadata-actions">
-                    <button onClick={() => void openEditor(script)} type="button">
-                      配置
-                    </button>
-                  </div>
-                </article>;
-              })}
-            </div> : null}
-            {!detailLoading && !loadError && scripts && scripts.length > 0 && filteredScripts.length === 0 ? (
-              <div className="audit-script-metadata-state">
-                <p>未找到匹配的脚本</p>
-                <button onClick={() => setSearch("")} type="button">清除搜索</button>
-              </div>
-            ) : null}
-            </div>
-          </div>
-        )}
-      </section>
+      </dialog> : null}
     </div>
   );
 }

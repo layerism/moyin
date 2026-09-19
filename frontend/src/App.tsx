@@ -397,6 +397,12 @@ export function App() {
     setScreen("workflowTemplates");
   };
 
+  const openCreateFlow = () => {
+    pushAppPath("/academic-flow?create=1");
+    setActiveAcademicProcessId(null);
+    setScreen("academicFlow");
+  };
+
   const openAcademicFlow = () => {
     pushAppPath("/academic-flow");
     setActiveAcademicProcessId(null);
@@ -757,6 +763,7 @@ export function App() {
   if (screen === "home") {
     return (
       <OssMaterialLibraryView
+        onCreateFlow={openCreateFlow}
         onAcademicFlow={openAcademicFlow}
         onWorkflowTemplates={() => openWorkflowTemplates()}
         onProfile={openProfile}
@@ -768,6 +775,7 @@ export function App() {
   if (screen === "workflowTemplates") {
     if (!academicFlowsLoaded) return <main className="auth-loading-page"><strong>正在读取流程…</strong></main>;
     return <WorkflowTemplatesPage
+      onCreateFlow={openCreateFlow}
       processes={academicProcesses}
       sourceFlowId={new URLSearchParams(window.location.search).get("source")}
       teacherIdentity={teacherIdentity!}
@@ -785,6 +793,7 @@ export function App() {
   if (screen === "academicFlow") {
     return (
       <AcademicFlowView
+        initiallyCreate={new URLSearchParams(window.location.search).get("create") === "1"}
         processes={academicProcesses}
         onDeleteProcess={async (process) => {
           await workflowApi.remove(process.serverId ?? process.id);
