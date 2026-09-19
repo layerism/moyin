@@ -12946,7 +12946,9 @@ td {
 .user-admin-dialog code { overflow-wrap: anywhere; display: block; padding: 12px; background: #f3f6fb; margin-bottom: 12px; }
 .profile-page { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; padding: 24px; background: #f3f6fb; color: #172033; }
 .profile-sidebar { display: flex; flex-direction: column; align-self: start; position: sticky; top: 24px; min-height: calc(100vh - 48px); padding: 24px 14px; background: #fff; border: 1px solid #e5ebf4; border-radius: 18px; }
-.profile-brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 30px; }
+.profile-sidebar button.profile-brand { gap: 12px; padding: 10px; margin-bottom: 20px; color: #172033; }
+.profile-brand .oa-brand-mark { flex-shrink: 0; }
+.profile-brand:focus-visible { outline: 2px solid #246bfd; outline-offset: 2px; }
 .profile-brand strong { display: block; font-size: 19px; }
 .profile-brand small { display: block; margin-top: 4px; color: #718096; }
 .profile-sidebar nav { display: grid; gap: 8px; }
@@ -12997,7 +12999,7 @@ td {
 @media (max-width: 600px) {
   .profile-page { display: block; padding: 12px; }
   .profile-sidebar { position: static; min-height: 0; margin-bottom: 16px; padding: 16px; }
-  .profile-brand { padding-bottom: 16px; }
+  .profile-sidebar button.profile-brand { margin-bottom: 6px; }
   .profile-sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .profile-sidebar-bottom { display: flex; padding-top: 12px; }
   .profile-sidebar-bottom::before { display: none; }
@@ -13454,7 +13456,7 @@ td {
 .script-config-dialog > header span { color: #66758c; font-size: 12px; }
 .script-config-dialog > header button { font-size: 22px; padding: 2px 10px; }
 .script-config-dialog .script-editor-scroll { max-height: 55dvh; overflow-y: auto; }
-.script-config-dialog .audit-script-config-form footer { display: flex; align-items: center; gap: 10px; padding: 16px 24px; border-top: 1px solid #e4eaf3; }
+.script-config-dialog .audit-script-config-form footer { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 16px 24px; border-top: 1px solid #e4eaf3; }
 .script-config-dialog footer p { flex: 1; color: #66758c; font-size: 12px; margin: 0; }
 .script-config-dialog button.primary-action { background: #246bfd; border-color: #246bfd; color: white; }
 .script-config-dialog button:disabled, .script-config-card button:disabled { opacity: .5; cursor: not-allowed; }

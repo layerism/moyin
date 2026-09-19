@@ -38,7 +38,7 @@ export function ProfilePage({ identity, onBack, onLogout, onPasswordChanged }: {
   const items: { id: Section; label: string }[] = [
     { id: "personal", label: "个人资料" },
     { id: "security", label: "账户安全" },
-    { id: "models", label: "我的模型配置" },
+    { id: "models", label: "大模型配置" },
     ...(admin ? [{ id: "scripts" as const, label: "审核脚本" }, { id: "invitations" as const, label: "邀请管理" }, { id: "users" as const, label: "用户管理" }, { id: "database" as const, label: "数据库管理" }] : []),
   ];
   const logout = async () => {
@@ -48,9 +48,9 @@ export function ProfilePage({ identity, onBack, onLogout, onPasswordChanged }: {
   };
   return <div className="profile-page">
     <aside className="profile-sidebar">
-      <div className="profile-brand"><span className="oa-brand-mark">T</span><div><strong>材料收集</strong><small>个人中心</small></div></div>
+      <button className="profile-brand" type="button" onClick={onBack} aria-label="材料收集，返回工作台" title="返回工作台"><span className="oa-brand-mark"><ProfileIcon name="back" /></span><span><strong>材料收集</strong><small>个人中心</small></span></button>
       <nav aria-label="个人中心导航">{items.map(item => <button type="button" key={item.id} aria-current={section === item.id ? "page" : undefined} onClick={() => setSection(item.id)}><ProfileIcon name={item.id} />{item.label}</button>)}</nav>
-      <div className="profile-sidebar-bottom"><button type="button" onClick={onBack}><ProfileIcon name="back" />返回工作台</button><button className="profile-logout" type="button" disabled={leaving} onClick={() => void logout()}><ProfileIcon name="logout" />{leaving ? "正在退出…" : "退出登录"}</button>{error && <p role="alert">{error}</p>}</div>
+      <div className="profile-sidebar-bottom"><button className="profile-logout" type="button" disabled={leaving} onClick={() => void logout()}><ProfileIcon name="logout" />{leaving ? "正在退出…" : "退出登录"}</button>{error && <p role="alert">{error}</p>}</div>
     </aside>
     <section className="profile-content" aria-label={items.find(item => item.id === section)?.label}>
       <header className="profile-banner"><div><p>账户中心</p><h1>{items.find(item => item.id === section)?.label}</h1><span>管理你的账户信息与安全设置</span></div><span className="profile-banner-badge">{roleName}</span></header>

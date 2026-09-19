@@ -175,7 +175,6 @@ export function AuditScriptManagementPanel() {
       </div>
       {loadError ? <p className="dialog-error" role="alert">{loadError}</p> : null}
       {saveError && !detail ? <p className="dialog-error" role="alert">{saveError}</p> : null}
-      {detailLoading ? <p role="status">正在读取配置…</p> : null}
       <div className="script-card-grid">
         {filteredScripts.map((script) => <article className="script-config-card" key={script.id}>
           <header>
@@ -210,7 +209,6 @@ export function AuditScriptManagementPanel() {
             </div>
             {saveError ? <p className="dialog-error" role="alert">{saveError}</p> : null}
             <footer>
-              <p>{configChanged ? "参数修改会使未完成审核失效，需重新提交。" : "模型选择对新启动的审核生效。"}</p>
               <button disabled={saving} onClick={closeDetail} type="button">取消</button>
               <button className="primary-action" disabled={!canSave} type="submit">
                 {saving ? "保存中…" : "保存修改"}
