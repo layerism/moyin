@@ -28,15 +28,22 @@ fi
 
 site_config=/etc/nginx/sites-available/moyin
 site_link=/etc/nginx/sites-enabled/moyin
+site_changed=false
 # Preserve existing site configuration, including Certbot-managed HTTPS.
 if [[ ! -e "$site_config" && ! -L "$site_config" ]]; then
   "${privileged[@]}" install -m 644 "$script_dir/nginx.conf" "$site_config"
+  site_changed=true
 fi
 if [[ ! -e "$site_link" && ! -L "$site_link" ]]; then
   "${privileged[@]}" ln -s "$site_config" "$site_link"
+  site_changed=true
 fi
-"${privileged[@]}" /usr/sbin/nginx -t
-"${privileged[@]}" systemctl reload nginx
+# Reload Nginx only when this script changes the site configuration.
+if [[ "$site_changed" == true ]]; then
+  "${privileged[@]}" /usr/sbin/nginx -t
+  "${privileged[@]}" systemctl reload nginx
+fi
+
 
 cleanup() {
   trap - EXIT INT TERM
