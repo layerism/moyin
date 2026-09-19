@@ -112,7 +112,9 @@ sudo systemctl reload nginx
 ```
 
 此处复制配置到系统目录，再用系统内部软链接启用；不将仓库文件直接链接为站点。避免其他配置在 8888 上重复声明这些域名。
-如果系统中已存在 `/etc/nginx/sites-available/moyin`，`run_server.sh` 不会覆盖它。检查差异并确认该文件可替换后执行：
+`run_server.sh` 每次启动都会用当前仓库的 `deploy/nginx.conf` 覆盖系统站点配置，然后执行 `nginx -t`，成功后 reload。修改端口、root 等应直接修改仓库配置；若使用 Certbot，须将其生成的 HTTPS 配置同步回仓库 conf（只引用证书路径，不提交私钥），否则下次启动会覆盖系统中的 HTTPS 设置。多个版本共享同一系统站点，各仓库应保持这份配置一致。
+
+如果只想手动同步 Nginx 而不启动项目，可先备份再执行：
 
 ```bash
 sudo cp /etc/nginx/sites-available/moyin /etc/nginx/sites-available/moyin.bak

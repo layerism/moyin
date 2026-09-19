@@ -76,21 +76,13 @@ fi
 
 site_config=/etc/nginx/sites-available/moyin
 site_link=/etc/nginx/sites-enabled/moyin
-site_changed=false
-# Preserve existing site configuration, including Certbot-managed HTTPS.
-if [[ ! -e "$site_config" && ! -L "$site_config" ]]; then
-  "${privileged[@]}" install -m 644 "$script_dir/nginx.conf" "$site_config"
-  site_changed=true
-fi
+# The repository config is the source of truth, including any HTTPS settings.
+"${privileged[@]}" install -m 644 "$script_dir/nginx.conf" "$site_config"
 if [[ ! -e "$site_link" && ! -L "$site_link" ]]; then
   "${privileged[@]}" ln -s "$site_config" "$site_link"
-  site_changed=true
 fi
-# Reload Nginx only when this script changes the site configuration.
-if [[ "$site_changed" == true ]]; then
-  "${privileged[@]}" /usr/sbin/nginx -t
-  "${privileged[@]}" systemctl reload nginx
-fi
+"${privileged[@]}" /usr/sbin/nginx -t
+"${privileged[@]}" systemctl reload nginx
 
 cd "$project_dir/backend"
 exec ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$backend_port"
