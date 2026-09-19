@@ -1,13 +1,22 @@
 import { readRosterRows } from './roster';
 
-export type RegistrationEntry = { studentNo: string; name: string };
+export type RegistrationEntry = { className: string; studentNo: string; name: string };
+export type RegistrationField = keyof RegistrationEntry;
+export type RegistrationColumns = Record<RegistrationField, number>;
+export type RegistrationRecord = { line: number; cells: string[] };
 export type RegistrationImport = {
-  entries: RegistrationEntry[];
-  rows: { line: number; studentNo: string; name: string; error: string }[];
+  records: RegistrationRecord[];
+  headerIndex: number;
+  columns: RegistrationColumns;
+  needsMapping: boolean;
+  rows: (RegistrationEntry & { line: number })[];
   errors: string[];
 };
-
+export const registrationFields: RegistrationField[] = ['className', 'studentNo', 'name'];
+export const registrationLabels: Record<RegistrationField, string> = { className: '班级', studentNo: '学号', name: '姓名' };
+const emptyColumns: RegistrationColumns = { className: -1, studentNo: -1, name: -1 };
 const aliases = {
+  className: ['班级', '行政班', '行政班级', '专业班级', '所在班级', '班别', 'class', 'classname'],
   studentNo: ['学号', '学生编号', '学生账号', '学籍号', 'studentno', 'studentnumber', 'studentid'],
   name: ['姓名', '学生名字', '学生名称', 'name', 'studentname', 'fullname'],
 };
@@ -25,7 +34,7 @@ export function parseRegistrationImport(text: string): RegistrationImport {
   const separators = ['\t', ',', '，', ';', '；'];
   const headerSeparator = separators.find(separator => lines.some(line => {
     const cells = line.split(separator).map(value => value.trim().replace(/^"|"$/g, ''));
-    return cells.some(value => headerMatches(value, 'studentNo')) && cells.some(value => headerMatches(value, 'name'));
+    return registrationFields.filter(field => cells.some(value => headerMatches(value, field))).length >= 2;
   }));
   const ranked = separators.map(value => ({ value, count: lines.filter(line => line.includes(value)).length })).sort((a, b) => b.count - a.count);
   const separator = headerSeparator ?? (ranked[0].count ? ranked[0].value : undefined);
@@ -49,7 +58,7 @@ export function parseRegistrationImport(text: string): RegistrationImport {
       if (separator || field) endField();
     } else { field += c; if (c === '\n') line++; }
   }
-  if (quoted) return { entries: [], rows: [], errors: [`第 ${startLine} 行：CSV 引号未闭合`] };
+  if (quoted) throw new Error(`第 ${startLine} 行：CSV 引号未闭合`);
   endRow();
   return parseRecords(records);
 }
@@ -65,36 +74,51 @@ export async function parseRegistrationFile(file: File): Promise<RegistrationImp
   })).filter(row => row.cells.some(Boolean)));
 }
 
-function parseRecords(records: { line: number; cells: string[] }[]): RegistrationImport {
+export function mapRegistrationRecords(records: RegistrationRecord[], headerIndex: number, columns: RegistrationColumns): RegistrationImport {
+  const selected = registrationFields.map(field => columns[field]).filter(index => index >= 0);
+  const errors = selected.length !== new Set(selected).size ? ['同一列不能同时对应多个字段。'] : [];
+  const rows = records.slice(headerIndex + 1).map(record => ({
+    line: record.line,
+    className: record.cells[columns.className] ?? '',
+    studentNo: record.cells[columns.studentNo] ?? '',
+    name: record.cells[columns.name] ?? '',
+  }));
+  return { records, headerIndex, columns, needsMapping: false, rows, errors };
+}
+
+function parseRecords(records: RegistrationRecord[]): RegistrationImport {
   const candidates = records.flatMap((record, index) => {
-    const numbers = record.cells.flatMap((value, i) => headerMatches(value, 'studentNo') ? [i] : []);
-    const names = record.cells.flatMap((value, i) => headerMatches(value, 'name') ? [i] : []);
-    return numbers.length && names.length ? [{ index, line: record.line, numbers, names }] : [];
+    const matches = Object.fromEntries(registrationFields.map(field => [field, record.cells.flatMap((value, i) => headerMatches(value, field) ? [i] : [])])) as Record<RegistrationField, number[]>;
+    const score = registrationFields.filter(field => matches[field].length).length;
+    return score ? [{ index, matches, score }] : [];
   });
-  if (candidates.length > 1) return { entries: [], rows: [], errors: [`第 ${candidates.map(row => row.line).join('、')} 行存在多个候选表头，请仅保留一张名单表。`] };
-  const header = candidates[0];
-  if (header && (header.numbers.length !== 1 || header.names.length !== 1)) {
-    return { entries: [], rows: [], errors: [`第 ${header.line} 行表头无法唯一识别学号和姓名，请去除重复列名。`] };
-  }
-  const hasHeader = !!header;
-  const rows = (header ? records.slice(header.index + 1) : records).map(record => {
-    let numberIndex = header?.numbers[0] ?? -1, nameIndex = header?.names[0] ?? -1;
-    if (!hasHeader) {
-      // Without headers, only infer unambiguous numeric IDs and Chinese names.
-      const numbers = record.cells.flatMap((value, i) => /^\d{4,32}$/.test(value) ? [i] : []);
-      const names = record.cells.flatMap((value, i) => /^[\u3400-\u9fff]{2,8}(?:[·•][\u3400-\u9fff]{1,8})*$/.test(value) ? [i] : []);
-      if (numbers.length !== 1 || names.length !== 1) {
-        return { line: record.line, studentNo: '', name: '', error: '无法唯一判断学号和姓名，请补充表头或修正本行。' };
-      }
-      numberIndex = numbers[0]; nameIndex = names[0];
+  const bestScore = Math.max(0, ...candidates.map(candidate => candidate.score));
+  const best = candidates.filter(candidate => candidate.score === bestScore);
+  const header = best[0];
+  const columns = { ...emptyColumns };
+  let needsMapping = best.length > 1;
+  if (header) {
+    for (const field of registrationFields) {
+      columns[field] = header.matches[field].length === 1 ? header.matches[field][0] : -1;
+      if (header.matches[field].length > 1) needsMapping = true;
     }
-    const studentNo = record.cells[numberIndex] ?? '', name = record.cells[nameIndex] ?? '';
-    const error = studentNo.startsWith('[数值精度异常') ? '学号数值精度异常，请将原表学号设为文本并核对完整号码。' : !studentNo || !name ? '学号或姓名为空。' : studentNo.length > 32 || name.length > 64 ? '学号或姓名超出长度限制。' : /^\d+(?:\.\d+)?e[+-]?\d+$/i.test(studentNo) ? '学号为科学计数法，请从原表复制完整文本学号。' : '';
-    return { line: record.line, studentNo, name, error };
-  });
-  return {
-    rows,
-    entries: rows.filter(row => !row.error).map(({ studentNo, name }) => ({ studentNo, name })),
-    errors: rows.filter(row => row.error).map(row => `第 ${row.line} 行：${row.error}`),
-  };
+  } else {
+    const width = records.reduce((max, row) => Math.max(max, row.cells.length), 0);
+    const looksLike: Record<RegistrationField, (value: string) => boolean> = {
+      className: value => /班/.test(value),
+      studentNo: value => /^\d{4,32}$/.test(value),
+      name: value => !/班/.test(value) && /^[\u3400-\u9fff]{2,8}(?:[·•][\u3400-\u9fff]{1,8})*$/.test(value),
+    };
+    for (const field of registrationFields) {
+      const candidates = Array.from({ length: width }, (_, i) => i).filter(i => {
+        const values = records.map(row => row.cells[i] ?? '').filter(Boolean);
+        return values.length > 0 && values.every(looksLike[field]);
+      });
+      columns[field] = candidates.length === 1 ? candidates[0] : -1;
+      if (candidates.length > 1) needsMapping = true;
+    }
+    if (registrationFields.every(field => columns[field] === -1)) needsMapping = true;
+  }
+  const result = mapRegistrationRecords(records, header?.index ?? -1, columns);
+  return { ...result, needsMapping: needsMapping || result.errors.length > 0 };
 }

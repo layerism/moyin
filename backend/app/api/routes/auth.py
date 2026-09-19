@@ -99,7 +99,7 @@ def register(
         with get_connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             if not connection.execute(
-                "SELECT 1 FROM registration_allowlist WHERE student_no = ? AND name = ?",
+                "SELECT 1 FROM registration_allowlist WHERE student_no <> '' AND name <> '' AND student_no = ? AND name = ?",
                 (student_no, payload.name.strip()),
             ).fetchone():
                 raise HTTPException(status_code=403, detail="学号或姓名不在允许注册名单中")

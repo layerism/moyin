@@ -13379,4 +13379,49 @@ td {
   .phone-binding-form .sms-code-row input { flex: 1 1 140px; }
 }
 
-.registration-import-preview { max-height: 320px; overflow: auto; margin: 12px 0; }
+
+.registration-manager { margin-top: 20px; }
+.registration-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border: 1px dashed #cbd7e8; border-radius: 12px; background: #f8faff; }
+.registration-actions.is-dragging { border-color: #2875e8; background: #eaf2ff; }
+.registration-action-buttons, .registration-filters, .registration-row-actions, .registration-pagination, .registration-pagination > div { display: flex; align-items: center; gap: 8px; }
+.registration-manager button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.registration-manager .primary-action { background: #2875e8; color: #fff; border-color: #2875e8; }
+.registration-hint { font-size: 12px; color: #718096; line-height: 1.6; }
+.registration-filters { margin: 14px 0; }
+.registration-filters > input { flex: 1; min-width: 120px; }
+.registration-filters > select { max-width: 250px; }
+.registration-manager input, .registration-manager select, .registration-dialog input, .registration-dialog select, .registration-dialog textarea { box-sizing: border-box; border: 1px solid #d9e2ef; border-radius: 7px; padding: 9px 10px; color: #26334d; background: white; font: inherit; }
+.registration-manager .user-admin-table td { padding-top: 10px; padding-bottom: 10px; }
+.registration-status { display: inline-block; font-size: 12px; color: #5a6f90; background: #f0f4fa; padding: 3px 8px; border-radius: 5px; white-space: nowrap; }
+.registration-status.is-incomplete { color: #91600c; background: #fff5df; }
+.registration-manager .registration-row-actions button { padding: 6px; margin: 0; }
+.registration-pagination { justify-content: space-between; margin-top: 14px; color: #718096; font-size: 13px; }
+.registration-empty { padding: 26px 0; text-align: center; color: #718096; }
+.registration-dialog { width: min(880px, calc(100vw - 40px)); max-height: calc(100dvh - 64px); box-sizing: border-box; padding: 22px; border: 1px solid #dce5f0; border-radius: 16px; color: #26334d; overflow: auto; box-shadow: 0 20px 70px #14274433; }
+.registration-dialog::backdrop { background: #18294366; }
+.registration-dialog > header, .registration-dialog > header > div, .registration-dialog > footer { display: flex; align-items: center; gap: 10px; }
+.registration-dialog > header { justify-content: space-between; margin-bottom: 16px; }
+.registration-dialog h2 { margin: 0; font-size: 18px; }
+.registration-dialog > textarea { width: 100%; resize: vertical; }
+.registration-dialog > footer { justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+.registration-dialog > footer > span { margin-right: auto; }
+.registration-dialog button { border: 1px solid #d9e2ef; background: white; padding: 8px 12px; border-radius: 7px; color: #334766; cursor: pointer; }
+.registration-dialog .danger { color: #c93535; }
+.registration-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.registration-mapping { background: #f7f9fc; padding: 10px 12px; border-radius: 8px; margin: 12px 0; font-size: 13px; }
+.registration-mapping summary { cursor: pointer; }
+.registration-mapping label { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.registration-mapping select { min-width: 0; flex: 1; max-width: 100%; }
+.registration-mapping > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.registration-editor-table { max-height: 390px; overflow: auto; margin: 12px 0; }
+.registration-editor-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.registration-editor-table th { background: #f4f7fc; text-align: left; position: sticky; top: 0; padding: 10px 8px; }
+.registration-editor-table td { padding: 5px; border-bottom: 1px solid #edf1f6; }
+.registration-editor-table td input { width: 100%; min-width: 100px; }
+.registration-editor-table th:last-child { min-width: 120px; }
+@media (max-width: 760px) {
+  .registration-actions { align-items: flex-start; flex-direction: column; }
+  .registration-action-buttons, .registration-filters { flex-wrap: wrap; }
+  .registration-mapping > div { grid-template-columns: 1fr; }
+  .registration-dialog { padding: 16px; }
+}

@@ -14,8 +14,10 @@ CREATE TABLE IF NOT EXISTS user_deletion_jobs (
     created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS registration_allowlist (
-    student_no TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    class_name TEXT NOT NULL DEFAULT '',
+    student_no TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
 
@@ -536,6 +538,7 @@ def get_connection() -> sqlite3.Connection:
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA)
+        _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema
         initialize_sms_schema(connection)
         _apply_super_admin_role_migration(connection)
@@ -560,6 +563,25 @@ def initialize_database() -> None:
     initialize_model_ownership()
     from app.services.node_models import initialize_node_models
     initialize_node_models()
+
+
+def _apply_registration_allowlist_migration(connection: sqlite3.Connection) -> None:
+    connection.execute("BEGIN IMMEDIATE")
+    columns = {row["name"] for row in connection.execute("PRAGMA table_info(registration_allowlist)")}
+    if "id" not in columns:
+        connection.execute("""CREATE TABLE registration_allowlist_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            class_name TEXT NOT NULL DEFAULT '', student_no TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)""")
+        connection.execute("""INSERT INTO registration_allowlist_new (student_no, name, created_at)
+            SELECT COALESCE(student_no, ''), name, created_at FROM registration_allowlist""")
+        connection.execute("DROP TABLE registration_allowlist")
+        connection.execute("ALTER TABLE registration_allowlist_new RENAME TO registration_allowlist")
+    connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_registration_student_no ON registration_allowlist(student_no) WHERE student_no <> ''")
+    connection.execute("CREATE INDEX IF NOT EXISTS idx_registration_class ON registration_allowlist(class_name)")
+    connection.execute("INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+                       ("20260919_class_registration_allowlist", datetime.now(UTC).isoformat()))
+    connection.commit()
 
 
 def _initialize_super_admin() -> None:
