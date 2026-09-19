@@ -21,6 +21,7 @@ from app.services.security import (
     delete_session,
     delete_teacher_session,
     get_authenticated_student,
+    get_authenticated_teacher,
     get_current_teacher,
     hash_password,
     utc_now_iso,
@@ -96,6 +97,12 @@ def register(
         raise HTTPException(status_code=422, detail="该学号为系统保留学号")
     try:
         with get_connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if not connection.execute(
+                "SELECT 1 FROM registration_allowlist WHERE student_no = ? AND name = ?",
+                (student_no, payload.name.strip()),
+            ).fetchone():
+                raise HTTPException(status_code=403, detail="学号或姓名不在允许注册名单中")
             cursor = connection.execute(
                 """
                 INSERT INTO student_accounts
@@ -174,7 +181,7 @@ def change_student_password(
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
             """
-            SELECT id, student_no, name, status, account_kind, must_change_password, phone
+            SELECT id, student_no, name, status, account_kind, must_change_password, phone, password_hash
             FROM student_accounts
             WHERE id = ?
             """,
@@ -184,6 +191,8 @@ def change_student_password(
             raise HTTPException(status_code=401, detail="登录状态已失效")
         if not bool(row["must_change_password"]):
             raise HTTPException(status_code=409, detail="当前账号不需要重置密码")
+        if verify_password(payload.newPassword, row["password_hash"]):
+            raise HTTPException(status_code=422, detail="新密码不能与初始密码相同")
         connection.execute(
             """
             UPDATE student_accounts
@@ -255,7 +264,7 @@ def login_teacher(payload: TeacherLoginCredentials, response: Response) -> dict[
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT id, employee_no, name, password_hash, role
+            SELECT id, employee_no, name, password_hash, role, must_change_password
             FROM teacher_accounts
             WHERE employee_no = ? AND status = 'active'
             """,
@@ -274,12 +283,34 @@ def login_teacher(payload: TeacherLoginCredentials, response: Response) -> dict[
         "employeeNo": row["employee_no"],
         "name": row["name"],
         "role": row["role"],
+        "mustChangePassword": bool(row["must_change_password"]),
     }
 
 
 @router.get("/teacher/me")
-def teacher_me(teacher: dict[str, object] = Depends(get_current_teacher)) -> dict[str, object]:
+def teacher_me(teacher: dict[str, object] = Depends(get_authenticated_teacher)) -> dict[str, object]:
     return teacher
+
+
+@router.post("/teacher/change-password")
+def change_teacher_password(
+    payload: StudentPasswordChangeRequest,
+    response: Response,
+    teacher: dict[str, object] = Depends(get_authenticated_teacher),
+) -> dict[str, object]:
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        row = connection.execute("SELECT * FROM teacher_accounts WHERE id = ? AND status = 'active'", (teacher["id"],)).fetchone()
+        if row is None:
+            raise HTTPException(status_code=401, detail="登录状态已失效")
+        if not row["must_change_password"]:
+            raise HTTPException(status_code=409, detail="当前账号不需要重置密码")
+        if verify_password(payload.newPassword, row["password_hash"]):
+            raise HTTPException(status_code=422, detail="新密码不能与初始密码相同")
+        connection.execute("UPDATE teacher_accounts SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?", (hash_password(payload.newPassword), utc_now_iso(), teacher["id"]))
+        connection.execute("DELETE FROM teacher_sessions WHERE teacher_account_id = ?", (teacher["id"],))
+    set_teacher_session_cookie(response, create_teacher_session(int(teacher["id"])))
+    return {**teacher, "mustChangePassword": False}
 
 
 @router.post("/teacher/logout", status_code=status.HTTP_204_NO_CONTENT)

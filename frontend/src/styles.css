@@ -12923,6 +12923,29 @@ td {
   .sms-recovery-steps li { gap: 4px; font-size: 11px; }
 }
 
+.user-admin-tabs, .user-admin-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+.user-admin button { border: 1px solid #dce4ef; background: white; color: #2464cd; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.user-admin button:disabled { opacity: .5; cursor: default; }
+.user-admin button[aria-pressed="true"] { background: #e7f0ff; border-color: #aac8fa; font-weight: 600; }
+.user-admin input:not([type="checkbox"]), .user-admin textarea, .user-admin select { border: 1px solid #dce4ef; border-radius: 8px; padding: 10px; background: white; color: #172033; max-width: 100%; }
+.user-admin-toolbar input { flex: 1; min-width: 140px; }
+.user-admin-import { padding: 16px; background: #f8fafc; border: 1px solid #e5ebf4; border-radius: 12px; margin-bottom: 20px; }
+.user-admin-import p { color: #61708a; line-height: 1.6; }
+.user-admin textarea { display: block; width: 100%; margin: 12px 0; }
+.user-admin-table { overflow-x: auto; margin-bottom: 18px; }
+.user-admin table { width: 100%; border-collapse: collapse; text-align: left; }
+.user-admin th, .user-admin td { padding: 13px 10px; border-bottom: 1px solid #edf0f6; white-space: nowrap; }
+.user-admin th { background: #f8fafc; color: #61708a; font-size: 13px; }
+.user-admin td button + button { margin-left: 8px; }
+.user-admin .danger, .user-admin .user-admin-error { color: #b42318; }
+.user-admin details { margin: 12px 0; }
+.user-admin summary { cursor: pointer; }
+.user-admin-overlay { position: fixed; inset: 0; background: #17203366; z-index: 1000; display: grid; place-items: center; padding: 24px; }
+.user-admin-dialog { width: min(540px, 100%); max-height: 85vh; overflow: auto; background: white; border-radius: 16px; padding: 26px; box-shadow: 0 18px 60px #17203333; }
+.user-admin-dialog p { line-height: 1.65; }
+.user-admin-dialog > input { width: 100%; margin-top: 14px; }
+.user-admin-dialog footer { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; }
+.user-admin-dialog code { overflow-wrap: anywhere; display: block; padding: 12px; background: #f3f6fb; margin-bottom: 12px; }
 .profile-page { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; padding: 24px; background: #f3f6fb; color: #172033; }
 .profile-sidebar { display: flex; flex-direction: column; align-self: start; position: sticky; top: 24px; min-height: calc(100vh - 48px); padding: 24px 14px; background: #fff; border: 1px solid #e5ebf4; border-radius: 18px; }
 .profile-brand { display: flex; align-items: center; gap: 12px; padding: 0 10px 30px; }

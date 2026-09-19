@@ -1,14 +1,16 @@
 import { useState } from "react";
+import { UserAdminPage } from "../admin/UserAdminPage";
 import type { AuthIdentity } from "./authApi";
 import { PasswordChangeButton, PhoneSecurityPanel } from "./SmsPasswordRecovery";
 import { ModelCardsAdminPage } from "../admin/ModelCardsAdminPage";
 import { DatabaseAdminPage } from "../admin/DatabaseAdminPage";
 import { TeacherInvitationsAdminPage } from "../admin/TeacherInvitationsAdminPage";
 
-type Section = "personal" | "security" | "models" | "invitations" | "database";
+type Section = "personal" | "security" | "models" | "invitations" | "users" | "database";
 type IconName = Section | "back" | "logout";
 function ProfileIcon({ name }: { name: IconName }) {
   const paths: Record<IconName, string> = {
+    users: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2M20 4a4 4 0 0 1 0 8",
     personal: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2Z",
     security: "M7 2h10v20H7ZM10 18h4",
     models: "M6 6h12v12H6ZM9 9h6v6H9ZM9 2v4m6-4v4M9 18v4m6-4v4M2 9h4m-4 6h4m12-6h4m-4 6h4",
@@ -35,7 +37,7 @@ export function ProfilePage({ identity, onBack, onLogout, onPasswordChanged }: {
     { id: "personal", label: "个人资料" },
     { id: "security", label: "账户安全" },
     { id: "models", label: "我的模型配置" },
-    ...(admin ? [{ id: "invitations" as const, label: "邀请管理" }, { id: "database" as const, label: "数据库管理" }] : []),
+    ...(admin ? [{ id: "invitations" as const, label: "邀请管理" }, { id: "users" as const, label: "用户管理" }, { id: "database" as const, label: "数据库管理" }] : []),
   ];
   const logout = async () => {
     setLeaving(true); setError("");
@@ -56,6 +58,7 @@ export function ProfilePage({ identity, onBack, onLogout, onPasswordChanged }: {
       </div>}
       {section === "security" && <article className="profile-card profile-security-panel"><h2>账户安全</h2><section className="profile-security-setting"><h3>安全手机号</h3><PhoneSecurityPanel role="teacher" /></section><section className="profile-security-setting"><h3>登录密码</h3><p>通过已绑定手机号验证后修改密码。修改成功后，所有登录设备都会退出。</p><PasswordChangeButton role="teacher" onChanged={onPasswordChanged} /></section></article>}
       <div className="profile-embedded">
+        {section === "users" && admin && <UserAdminPage />}
         {section === "models" && <ModelCardsAdminPage identity={identity} onBack={() => setSection("personal")} />}
         {section === "invitations" && admin && <TeacherInvitationsAdminPage identity={identity} onBack={() => setSection("personal")} />}
         {section === "database" && admin && <DatabaseAdminPage identity={identity} onBack={() => setSection("personal")} />}

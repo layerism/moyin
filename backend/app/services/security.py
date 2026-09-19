@@ -159,7 +159,7 @@ def _teacher_from_session(teacher_session: str | None) -> dict[str, object] | No
     with get_connection() as connection:
         row = connection.execute(
             """
-            SELECT a.id, a.employee_no, a.name, a.role
+            SELECT a.id, a.employee_no, a.name, a.role, a.must_change_password
             FROM teacher_sessions s
             JOIN teacher_accounts a ON a.id = s.teacher_account_id
             WHERE s.token_hash = ? AND s.expires_at > ? AND a.status = 'active'
@@ -171,15 +171,25 @@ def _teacher_from_session(teacher_session: str | None) -> dict[str, object] | No
         "employeeNo": row["employee_no"],
         "name": row["name"],
         "role": row["role"],
+        "mustChangePassword": bool(row["must_change_password"]),
     }
 
 
-def get_current_teacher(
+def get_authenticated_teacher(
     teacher_session: str | None = Cookie(default=None),
 ) -> dict[str, object]:
     teacher = _teacher_from_session(teacher_session)
     if teacher is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请先以教师身份登录")
+    return teacher
+
+
+def get_current_teacher(
+    teacher_session: str | None = Cookie(default=None),
+) -> dict[str, object]:
+    teacher = get_authenticated_teacher(teacher_session)
+    if teacher["mustChangePassword"]:
+        raise HTTPException(status_code=403, detail="请先修改初始密码")
     return teacher
 
 
@@ -190,7 +200,7 @@ def get_current_runtime_student(
 ) -> dict[str, object]:
     if not preview_token:
         return get_current_student(oa_session)
-    teacher = _teacher_from_session(teacher_session)
+    teacher = get_current_teacher(teacher_session)
     if teacher is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

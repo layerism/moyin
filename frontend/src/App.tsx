@@ -279,7 +279,7 @@ export function App() {
   }, [authReady, screen, studentIdentity]);
 
   useEffect(() => {
-    if (!teacherIdentity) {
+    if (!teacherIdentity || teacherIdentity.mustChangePassword) {
       setAcademicProcesses([]);
       setAcademicFlowsLoaded(false);
       setAcademicFlowsLoadError("");
@@ -659,6 +659,10 @@ export function App() {
         role="teacher"
       />
     );
+  }
+
+  if (TEACHER_AUTHENTICATED_SCREENS.includes(screen) && teacherIdentity?.mustChangePassword) {
+    return <main className="role-auth-page"><StudentPasswordChangeForm identity={teacherIdentity} onChanged={setTeacherIdentity} onLogout={() => logoutRole("teacher")} /></main>;
   }
 
   if (requiresStudentIdentity && !studentIdentity) {

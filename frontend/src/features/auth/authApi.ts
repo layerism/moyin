@@ -64,6 +64,9 @@ function payload(role: AuthRole, credentials: RoleCredentials) {
 const pendingLogouts = new Map<AuthRole, Promise<void>>();
 
 export const authApi = {
+  changeTeacherPassword(newPassword: string) {
+    return request<AuthIdentity>("/api/auth/teacher/change-password", { method: "POST", body: JSON.stringify({ newPassword }) });
+  },
   changeStudentPassword(newPassword: string) {
     return request<AuthIdentity>("/api/auth/student/change-password", {
       method: "POST",

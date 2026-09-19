@@ -34,7 +34,7 @@ export function StudentPasswordChangeForm({
 
     setSubmitting(true);
     try {
-      await onChanged(await authApi.changeStudentPassword(newPassword));
+      await onChanged(await (identity.employeeNo ? authApi.changeTeacherPassword(newPassword) : authApi.changeStudentPassword(newPassword)));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "修改密码失败");
     } finally {
@@ -62,7 +62,7 @@ export function StudentPasswordChangeForm({
       </header>
       <div className="student-password-change-identity">
         <strong>{identity.name}</strong>
-        <span>{identity.studentNo}</span>
+        <span>{identity.studentNo ?? identity.employeeNo}</span>
       </div>
       <p className="student-password-change-preserved">
         已填写的流程、草稿、提交、成绩和文件均已保留。

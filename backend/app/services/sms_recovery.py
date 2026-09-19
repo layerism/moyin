@@ -273,7 +273,7 @@ def reset_password(role: str, reset_token: str, new_password: str) -> None:
             raise HTTPException(400, "重置凭证无效，请重新验证手机号")
         recovery, account = recovery_account(connection, role, recovery["token_hash"], "verified")
         connection.execute("UPDATE password_recoveries SET state = 'consumed' WHERE token_hash = ?", (recovery["token_hash"],))
-        extra = ", must_change_password = 0" if role == "student" else ""
+        extra = ", must_change_password = 0"
         connection.execute(f"UPDATE {table} SET password_hash = ?, updated_at = ?{extra} WHERE id = ?",
                            (password_hash, utc_now_iso(), account["id"]))
         connection.execute(f"DELETE FROM {role}_sessions WHERE {role}_account_id = ?", (account["id"],))

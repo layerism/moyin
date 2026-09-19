@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,9 +14,14 @@ from app.services.audit_job_worker import start_audit_worker_pool, stop_audit_wo
 async def lifespan(_: FastAPI):
     initialize_database()
     worker_pool = await start_audit_worker_pool(settings.audit_worker_count)
+    from app.services.user_deletion_worker import run_cleanup
+    cleanup_stop = asyncio.Event()
+    cleanup_task = asyncio.create_task(run_cleanup(cleanup_stop))
     try:
         yield
     finally:
+        cleanup_stop.set()
+        await cleanup_task
         await stop_audit_worker_pool(worker_pool)
 
 

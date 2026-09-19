@@ -6,6 +6,19 @@ from app.core.config import settings
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS user_deletion_jobs (
+    id TEXT PRIMARY KEY,
+    status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'failed', 'completed')),
+    keys_json TEXT NOT NULL,
+    error TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS registration_allowlist (
+    student_no TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS schema_migrations (
     id TEXT PRIMARY KEY,
     applied_at TEXT NOT NULL
@@ -528,6 +541,9 @@ def initialize_database() -> None:
         _apply_super_admin_role_migration(connection)
         _apply_teacher_invitation_migration(connection)
         _apply_student_password_change_migration(connection)
+        teacher_columns = {row['name'] for row in connection.execute('PRAGMA table_info(teacher_accounts)')}
+        if 'must_change_password' not in teacher_columns:
+            connection.execute('ALTER TABLE teacher_accounts ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1))')
         _apply_flow_owner_migration(connection)
         _apply_scan_file_metadata_migration(connection)
         _apply_flow_preview_migration(connection)
