@@ -40,6 +40,14 @@ tmux new -s moyin
 bash deploy/run_server.sh
 ```
 
+可指定前端开发端口：
+
+```bash
+bash deploy/run_server.sh 5174
+```
+
+不传参数时默认 5173；端口被占用时直接报错，不自动换端口。后端仍使用 8000，因此前端不能选 8000。此参数不改变 Nginx 的监听端口或静态文件配置，也不支持同时启动多套共享 8000 的后端。
+
 按 Ctrl+B，再按 D 返回普通终端，服务仍在运行。重新进入使用 tmux attach -t moyin；停止时在会话中按 Ctrl+C。
 
 回到项目根目录，构建并发布前端：

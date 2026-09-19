@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -e
 
+frontend_port="${1:-5173}"
+if [[ "$#" -gt 1 || ! "$frontend_port" =~ ^[1-9][0-9]{0,4}$ ]] || (( frontend_port > 65535 )); then
+  echo "用法: bash deploy/run_server.sh [前端端口: 1-65535，默认 5173]" >&2
+  exit 1
+fi
+if [[ "$frontend_port" -eq 8000 ]]; then
+  echo "8000 已用于后端，请选择其他前端端口。" >&2
+  exit 1
+fi
+
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd -- "$script_dir/.." && pwd)"
 export PATH="$project_dir/.local/node/bin:$project_dir/.local/bin:$PATH"
@@ -42,7 +52,7 @@ backend_pid=$!
 
 (
   cd "$project_dir/frontend"
-  exec npm run dev
+  exec npm run dev -- --port "$frontend_port" --strictPort
 ) &
 frontend_pid=$!
 
