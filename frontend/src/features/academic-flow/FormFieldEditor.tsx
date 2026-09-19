@@ -113,8 +113,9 @@ export function FormFieldEditor({
     if (currentDrag?.list.kind === "field" && currentDrag.sourceIndex >= currentFields.length) {
       updateDragState(null);
     } else if (currentDrag?.list.kind === "option") {
+      const fieldId = currentDrag.list.fieldId;
       const draggedField = currentFields.find(
-        (field) => field.id === currentDrag.list.fieldId,
+        (field) => field.id === fieldId,
       );
       if (!draggedField || currentDrag.sourceIndex >= (draggedField.options?.length ?? 0)) {
         updateDragState(null);
@@ -290,8 +291,9 @@ export function FormFieldEditor({
       return;
     }
 
+    const fieldId = current.list.fieldId;
     const fieldIndex = displayedFields.findIndex(
-      (field) => field.id === current.list.fieldId,
+      (field) => field.id === fieldId,
     );
     if (fieldIndex < 0) return;
     const field = upgradeFormFields(fields)[fieldIndex];

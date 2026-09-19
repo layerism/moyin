@@ -34,7 +34,7 @@ export function replaceContentAssetUrls(
 ): string {
   let result = source;
   for (const [assetId, url] of assets) {
-    result = result.replaceAll(`asset://${assetId}`, url);
+    result = result.split(`asset://${assetId}`).join(url);
   }
   return result;
 }
@@ -45,7 +45,7 @@ export function restoreContentAssetReferences(
 ): string {
   let result = source;
   for (const [assetId, url] of assets) {
-    result = result.replaceAll(url, `asset://${assetId}`);
+    result = result.split(url).join(`asset://${assetId}`);
   }
   return result;
 }

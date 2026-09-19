@@ -315,9 +315,10 @@ function isQuestionAnswered(question: AnswerSheetQuestion, answer: Record<string
     return typeof answer.answerMarkdown === "string" && answer.answerMarkdown.trim().length > 0;
   }
   const values = asRecord(answer.blankValues);
-  return question.blanks.length > 0 && question.blanks.every((blank) => (
-    typeof values[blank.id] === "string" && values[blank.id].trim().length > 0
-  ));
+  return question.blanks.length > 0 && question.blanks.every((blank) => {
+    const value = values[blank.id];
+    return typeof value === "string" && value.trim().length > 0;
+  });
 }
 
 function isQuestionErrorId(questionId: string, errorId: string): boolean {

@@ -67,8 +67,7 @@ export type AnswerSheetSelectionQuestion = {
   options: AnswerSheetOption[];
   points: number;
   required: boolean;
-  type: "multiple_choice" | "single_choice";
-};
+} & ({ type: "multiple_choice" } | { type: "single_choice" });
 
 export type AnswerSheetBlank = {
   id: string;

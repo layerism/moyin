@@ -733,7 +733,7 @@ function FillBlankEditor({
                   const blanks = question.blanks.filter((item) => item.id !== blank.id);
                   const nextAnswers = { ...blankAnswers };
                   delete nextAnswers[blank.id];
-                  onQuestionChange({ ...question, blanks, content: question.content.replaceAll(`[[blank:${blank.id}]]`, "") });
+                  onQuestionChange({ ...question, blanks, content: question.content.split(`[[blank:${blank.id}]]`).join("") });
                   onAnswerChange({ type: "fill_blank", blanks: nextAnswers });
                 },
               }]}
