@@ -10,7 +10,7 @@ import { MODEL_VENDORS, modelCardsApi, modelConsoleUrl, type ModelCard, type Mod
 const vendorName = (id: ModelVendor) => MODEL_VENDORS.find((vendor) => vendor.id === id)?.name ?? "自定义";
 const emptyDraft: ModelCardDraft = { vendor: "custom", name: "", apiUrl: "", apiKey: "", billingAccessKey: "", billingSecretKey: "", billingConsoleToken: "", clearBilling: false, model: "", revision: 0, thinking: { mode: "default", effort: "default", budget: null } };
 
-export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdentity; onBack: () => void }) {
+export function ModelCardsAdminPage({ identity, onBack, embedded = false }: { identity: AuthIdentity; onBack: () => void; embedded?: boolean }) {
   const [data, setData] = useState<ModelCardsState | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -70,7 +70,7 @@ export function ModelCardsAdminPage({ identity, onBack }: { identity: AuthIdenti
   };
   if (identity.role !== "super_admin" && identity.role !== "teacher") return <main className="database-admin-denied"><h1>仅发布者可访问</h1><button onClick={onBack} type="button">返回</button></main>;
   return <main className="model-admin-page">
-    <header className="database-admin-header"><div><strong>大模型配置</strong><small>管理自己的模型连接与密钥</small></div><button disabled={busy} onClick={onBack} type="button">返回教务流程</button></header>
+    {!embedded && <header className="database-admin-header"><div><strong>大模型配置</strong><small>管理自己的模型连接与密钥</small></div><button disabled={busy} onClick={onBack} type="button">返回教务流程</button></header>}
     <div className="model-admin-content">
       <section className="model-admin-toolbar"><div><h1>模型卡</h1><p>使用你提供的 API Key，审核费用由对应厂商账户承担。仅支持 OpenAI Chat Completions 格式。</p></div><div className="model-admin-actions"><button disabled={busy || loading} onClick={load} type="button">刷新</button><button className="primary-action" disabled={busy || loading} onClick={() => openEditor(null)} type="button"><span aria-hidden="true">＋</span> 新增模型</button></div></section>
       {error ? <p className="dialog-error" role="alert">{error}</p> : null}

@@ -13378,3 +13378,5 @@ td {
   .phone-binding-form .sms-code-row { flex-wrap: wrap; }
   .phone-binding-form .sms-code-row input { flex: 1 1 140px; }
 }
+
+.registration-import-preview { max-height: 320px; overflow: auto; margin: 12px 0; }

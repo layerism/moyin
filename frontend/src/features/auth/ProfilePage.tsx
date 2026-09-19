@@ -59,7 +59,7 @@ export function ProfilePage({ identity, onBack, onLogout, onPasswordChanged }: {
       {section === "security" && <article className="profile-card profile-security-panel"><h2>账户安全</h2><section className="profile-security-setting"><h3>安全手机号</h3><PhoneSecurityPanel role="teacher" /></section><section className="profile-security-setting"><h3>登录密码</h3><p>通过已绑定手机号验证后修改密码。修改成功后，所有登录设备都会退出。</p><PasswordChangeButton role="teacher" onChanged={onPasswordChanged} /></section></article>}
       <div className="profile-embedded">
         {section === "users" && admin && <UserAdminPage />}
-        {section === "models" && <ModelCardsAdminPage identity={identity} onBack={() => setSection("personal")} />}
+        {section === "models" && <ModelCardsAdminPage embedded identity={identity} onBack={() => setSection("personal")} />}
         {section === "invitations" && admin && <TeacherInvitationsAdminPage identity={identity} onBack={() => setSection("personal")} />}
         {section === "database" && admin && <DatabaseAdminPage identity={identity} onBack={() => setSection("personal")} />}
       </div>
