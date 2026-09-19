@@ -4,7 +4,7 @@ from typing import Any
 from app.repositories.branch_state import resolve_routes
 from app.domain.workflow_runtime import node_by_key, pending_node_status
 from app.services.security import utc_now_iso
-from app.repositories.manual_review_state import sync_manual_reviews
+from app.repositories.branch_state import sync_branch_states
 
 
 def is_preview_instance(connection, instance_id: str) -> bool:
@@ -42,7 +42,7 @@ def effective_deadline(
 def advance_downstream(
     connection, instance_id: str, version_id: str, config: dict[str, Any]
 ) -> None:
-    sync_manual_reviews(connection, instance_id, config)
+    sync_branch_states(connection, instance_id, config)
     statuses = {
         row["node_key"]: row["status"]
         for row in connection.execute(
@@ -54,8 +54,6 @@ def advance_downstream(
     preview = is_preview_instance(connection, instance_id)
     incoming, _, ready = resolve_routes(connection, instance_id, config)
     for node_key, predecessors in incoming.items():
-        if node_by_key(config, node_key).get("kind") == "manual_review":
-            continue
         if statuses.get(node_key) not in {"locked", "scheduled", "expired"} or not predecessors:
             continue
         predecessors_approved = node_key in ready

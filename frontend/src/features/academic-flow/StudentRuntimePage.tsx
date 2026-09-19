@@ -108,7 +108,7 @@ export function StudentRuntimePage({
   }, [instance]);
 
   const isAwaitingReview = Boolean(
-    instance?.config.nodes.some((node) => node.kind === "manual_review") || instance?.nodeInstances.some(
+    instance?.nodeInstances.some(
       (node) => node.status === "reviewing" || node.status === "submitted",
     ),
   );
@@ -389,7 +389,7 @@ export function StudentRuntimePage({
             value,
             fieldId,
           )}
-          onPreviewReview={preview && (activeNode.kind === "manual_review" || hasFileManualReview(activeNode)) ? () => setPreviewReviewNode(activeNode.id) : undefined}
+          onPreviewReview={preview && hasFileManualReview(activeNode) ? () => setPreviewReviewNode(activeNode.id) : undefined}
           runtime={activeRuntime}
         />
       ) : null}
@@ -707,7 +707,7 @@ function RuntimeNodeDialog({
         {runtime.manualRejection ? <section className="runtime-manual-rejection" aria-label="教师审核意见">
           <header><strong>教师审核未通过</strong><small>{formatDateTime(runtime.manualRejection.reviewedAt)}</small></header>
           <p>{runtime.manualRejection.remark}</p>
-          <small>{node.kind === "manual_review" ? "请等待教师重新审核本节点。" : "请根据审核意见修改本节点内容，并重新提交。"}</small>
+          <small>请根据审核意见修改本节点内容，并重新提交。</small>
           {runtime.manualRejection.files.map((file) => <div className="manual-feedback-published-file" key={file.id}>
             <span><strong>{file.name}</strong><small>对应原件：{file.sourceName}</small></span>
             <FeedbackDownload fileId={file.id} filename={file.name} student>下载批改件</FeedbackDownload>
@@ -719,17 +719,7 @@ function RuntimeNodeDialog({
         {node.kind === "file" && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
         {node.kind === "file" && writable && node.referenceAsset ? <NodeReferenceCard node={node} nodeInstanceId={runtime.id} /> : null}
-        {node.kind === "manual_review" ? <section className="manual-review-student-state">
-          <div className={`manual-review-result${runtime.status === "approved" ? " is-approved" : ""}`}>
-            <span className="manual-review-result-icon" aria-hidden="true">{runtime.status === "approved" ? "✓" : "◷"}</span>
-            <div><h3>{runtime.status === "approved" ? "审核通过" : runtime.status === "rejected" ? "审核未通过" : runtime.status === "reviewing" ? "等待教师审核" : "等待前置节点就绪"}</h3>
-              <p>{runtime.status === "approved" ? "本节点已完成，可继续办理后续节点。" : `教师逐项确认后开放下一阶段${runtime.sourceReviews?.length ? ` · ${runtime.sourceReviews.filter((item) => item.approved).length}/${runtime.sourceReviews.length} 已确认` : ""}`}</p>
-            </div>
-          </div>
-          {runtime.manualReview && !runtime.sourceReviews?.length ? <small>审核时间：{formatDateTime(runtime.manualReview.reviewedAt)}</small> : null}
-          <ManualFeedbackList feedback={runtime.feedback ?? []} sources={runtime.sourceReviews ?? []} student />
-          {onPreviewReview ? <button onClick={onPreviewReview} type="button">教师预览：模拟审核</button> : null}
-        </section> : completedBranch ? (
+        {completedBranch ? (
           <>
             <div className="runtime-branch-result">
               <span className="runtime-branch-approved"><span aria-hidden="true">✓</span> 已通过</span>

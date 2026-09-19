@@ -12576,7 +12576,6 @@ td {
 .dag-canvas { cursor: grab; touch-action: none; }
 .dag-canvas.is-panning { cursor: grabbing; }
 
-.node-function-colors[data-node-kind="manual_review"] { --node-accent: #2563eb; --node-tint: #eff6ff; --node-border: #b9d3fc; --node-icon-bg: #dbeafe; }
 .manual-review-dialog { width: min(1080px, calc(100vw - 40px)); max-width: none; height: min(820px, calc(100dvh - 40px)); max-height: none; padding: 0; border: 1px solid #dce3ed; border-radius: 14px; color: #253044; background: white; box-shadow: 0 24px 70px #17203333; }
 .manual-review-dialog[open] { display: flex; flex-direction: column; }
 .manual-review-dialog::backdrop { background: #17203366; }
@@ -13425,3 +13424,7 @@ td {
   .registration-mapping > div { grid-template-columns: 1fr; }
   .registration-dialog { padding: 16px; }
 }
+
+.audit-script-management-panel .audit-script-metadata-dialog { width: 100%; max-width: none; max-height: none; box-shadow: none; }
+.audit-script-management-panel .audit-script-metadata-dialog.is-editor { height: auto; max-height: none; }
+.audit-script-management-panel .script-editor-scroll { max-height: 65vh; }

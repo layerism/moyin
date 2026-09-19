@@ -15,7 +15,6 @@ export const nodeTemplates: Array<{
   { kind: "answer_sheet", title: "答题卡", description: "Markdown 题目与自动判分" },
   { kind: "file", title: "文件上传", description: "上传文件，支持类型与大小限制" },
   { kind: "confirmation", title: "视觉审核", description: "上传扫描件并由 AI 进行视觉审核" },
-  { kind: "manual_review", title: "人工审核", description: "教师查看前置材料并确认通过" },
   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
 ];
 
@@ -129,7 +128,6 @@ export function getNodeSettingCapabilities(kind: AcademicFlowNodeKind) {
 
 function getDefaultRequirement(kind: AcademicFlowNodeKind, title: string) {
   if (kind === "branch") return "请选择一个分支，提交后将开放对应任务，选择不可更改。";
-  if (kind === "manual_review") return "请核对前置节点的材料与信息。教师审核通过后才能进入下一阶段。";
   if (kind === "answer_sheet") {
     return `请完成“${title}”中的题目，提交后系统将自动判分。`;
   }

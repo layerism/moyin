@@ -91,7 +91,6 @@ const statusLabels: Record<AcademicFlowNodeStatus, string> = {
 
 const kindLabels: Record<AcademicFlowNodeKind, string> = {
   branch: "条件分支",
-  manual_review: "人工审核",
   announcement: "通知公告",
   answer_sheet: "答题卡",
   confirmation: "视觉审核",
@@ -365,12 +364,6 @@ export function AcademicFlowDesigner({
     if (missingFileAudit) {
       setInspectorNodeId(missingFileAudit.id);
       showActionError(fileReviewError(missingFileAudit) ?? "请完善审核配置");
-      return;
-    }
-    const missingReviewSource = candidate.nodes.find((node) => node.kind === "manual_review" && !candidate.edges.some((edge) => edge.target === node.id));
-    if (missingReviewSource) {
-      setInspectorNodeId(missingReviewSource.id);
-      showActionError("人工审核节点必须连接至少一个前置节点");
       return;
     }
     const invalidFormNode = candidate.nodes.find(
@@ -765,7 +758,6 @@ export function AcademicFlowDesigner({
         </section>
         {inspectorNode && (
           <NodeInspector
-            sourceNodes={workingProcess.nodes.filter((node) => workingProcess.edges.some((edge) => edge.source === node.id && edge.target === inspectorNodeId))}
             editingLocked={editorLocked}
             flowId={serverFlowId}
             nodeCoreLocked={!canEditRevisionNodeCore(inspectorNode.id, protectedNodeIds)}
@@ -2010,7 +2002,7 @@ function FlowNodeCanvas({
             role="menu"
             style={{ left: nodeContextMenu.left, top: nodeContextMenu.top }}
           >
-            {(nodeById.get(nodeContextMenu.nodeId)?.kind === "manual_review" || hasFileManualReview(nodeById.get(nodeContextMenu.nodeId))) ? <button
+            {hasFileManualReview(nodeById.get(nodeContextMenu.nodeId)) ? <button
               disabled={!publishedNodeIdSet.has(nodeContextMenu.nodeId)} role="menuitem" type="button"
               onClick={() => { onManualReview(nodeContextMenu.nodeId); setNodeContextMenu(null); }}>
               <span aria-hidden="true">✓</span><strong>审核</strong>
@@ -2053,7 +2045,7 @@ function FlowNodeCanvas({
                 <small>已发布节点不可删除</small>
               ) : locked ? <small>当前不可删除</small> : null}
             </button>
-            {nodeById.get(nodeContextMenu.nodeId)?.kind !== "manual_review" ? <button
+            <button
               disabled={!publishedNodeIdSet.has(nodeContextMenu.nodeId)}
               onClick={() => {
                 if (!publishedNodeIdSet.has(nodeContextMenu.nodeId)) return;
@@ -2066,7 +2058,7 @@ function FlowNodeCanvas({
             >
               <span aria-hidden="true">↓</span><strong>下载</strong>
               {!publishedNodeIdSet.has(nodeContextMenu.nodeId) ? <small>发布后可下载</small> : null}
-            </button> : null}
+            </button>
           </div>
         ) : null}
       </div>
@@ -2075,7 +2067,6 @@ function FlowNodeCanvas({
 }
 
 function NodeInspector({
-  sourceNodes,
   answerSheetKey,
   editingLocked,
   flowId,
@@ -2092,7 +2083,6 @@ function NodeInspector({
   publishedAuditPolicy,
   publishedRevision,
 }: {
-  sourceNodes: AcademicFlowNode[];
   answerSheetKey?: AcademicProcess["answerSheetKeys"][string];
   editingLocked: boolean;
   flowId: string;
@@ -2363,10 +2353,6 @@ function NodeInspector({
         ) : null}
         {node.kind === "branch" ? <BranchOptionsEditor branches={node.branches ?? []} disabled={coreSettingsDisabled}
           onChange={(branches) => onUpdateNode(node.id, { branches })} /> : null}
-        {node.kind === "manual_review" ? <section className="inspector-section">
-          <h3>材料来源</h3><p>读取有效前置节点的正式提交，未选分支不参与审核；有效前置节点通过后等待教师审核。</p>
-          {sourceNodes.length ? <ul>{sourceNodes.map((source) => <li key={source.id}>{source.title}</li>)}</ul> : <p>请在画布连接至少一个前置节点。</p>}
-        </section> : null}
         {settingCapabilities.collectsInformation ? (
           <section className="inspector-section" aria-disabled={coreSettingsDisabled}>
             <FormFieldEditor
@@ -2635,7 +2621,6 @@ function NodeTimeSettingsDialog({
                 <button onClick={() => setStartAt(null)} type="button">清除</button>
               ) : null}
             </div>
-            {node.kind !== "manual_review" ? <>
             <i aria-hidden="true" />
             <div className="node-time-window-field">
               <span>截止时间</span>
@@ -2647,7 +2632,7 @@ function NodeTimeSettingsDialog({
               {deadlineAt ? (
                 <button onClick={() => setDeadlineAt(null)} type="button">清除</button>
               ) : null}
-            </div></> : null}
+            </div>
           </div>
           <p className={invalid ? "node-time-dialog-error" : "node-time-dialog-summary"}>
             {getTimeWindowSummary(draftNode)}

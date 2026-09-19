@@ -23,7 +23,8 @@ from app.domain.workflow_runtime import (
 )
 from app.repositories.audit_jobs import create_audit_job
 from app.domain.file_review_steps import structured_steps, step_kind
-from app.repositories.manual_review_state import sync_manual_reviews, latest_review, review_evidence, source_reviews, current_rejection
+from app.repositories.manual_review_state import review_evidence, current_rejection
+from app.repositories.branch_state import sync_branch_states
 from app.repositories.audit_policies import (
     AuditPolicyConflictError,
     resolve_effective_audit_policy,
@@ -205,7 +206,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
         if student_id is not None:
             assert_student_roster_access(connection, instance["flow_id"], student_id)
         config = json.loads(instance["config_snapshot"])
-        sync_manual_reviews(connection, instance_id, config)
+        sync_branch_states(connection, instance_id, config)
         instance_status = connection.execute("SELECT status FROM flow_instances WHERE id = ?", (instance_id,)).fetchone()["status"]
         preview = is_preview_instance(connection, instance_id)
         node_rows = connection.execute(
@@ -235,7 +236,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             config_node = node_by_key(config, row["node_key"])
             if config_node.get("kind") == "branch":
                 deadline = None
-            if config_node.get("kind") != "manual_review" and status in {"available", "draft", "rejected", "locked", "scheduled", "expired"}:
+            if status in {"available", "draft", "rejected", "locked", "scheduled", "expired"}:
                 base_status = pending_node_status(
                     row["node_key"] in ready_nodes,
                     None if preview else config_node.get("startAt"),
@@ -291,7 +292,6 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 answer_key = get_version_answer_key(
                     connection, str(instance["flow_version_id"]), str(row["node_key"])
                 )["gradingKey"]
-            manual_review = latest_review(connection, row["id"]) if config_node.get("kind") == "manual_review" else None
             rejection = current_rejection(connection, row["id"])
             rejection_files = []
             if rejection and rejection["feedback_id"]:
@@ -301,10 +301,9 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     rejection_files = [file for file in file_items(connection, json.loads(saved_feedback["files_json"])) if file["sourceNodeKey"] == row["node_key"]]
             feedback = []
             reviews = []
-            if config_node.get("kind") == "manual_review" or (config_node.get("kind") == "file" and any(step_kind(step) == "manual" for step in config_node.get("fileReviewSteps", []))):
+            if (config_node.get("kind") == "file" and any(step_kind(step) == "manual" for step in config_node.get("fileReviewSteps", []))):
                 from app.repositories.manual_feedback import published_feedback
                 evidence, evidence_hash = review_evidence(connection, instance_id, config, row["node_key"])
-                reviews = source_reviews(connection, row["id"], evidence, evidence_hash) if config_node.get("kind") == "manual_review" else []
                 feedback = published_feedback(connection, instance_id, row["node_key"], evidence_hash)
             from app.repositories.file_reviews import review_stage
             current_review_stage = review_stage(connection, row["submission_id"]) if status == "reviewing" else None
@@ -339,7 +338,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "templateDownloaded": bool(template and template["downloaded_at"]),
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
-                    "manualReview": {"remark": manual_review["remark"], "reviewedAt": manual_review["created_at"]} if manual_review and status == "approved" else None,
+                    "manualReview": None,
                     "audit": (_file_step_audit(connection, row, status) if structured_steps(config_node) else
                         None if rejection or manual_file_rejection or current_review_stage == "manual" else _audit_summary(row, status, config_node)),
                     "grade": (
@@ -489,10 +488,8 @@ def save_node_draft(
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
         current_config = version_config(connection, row["flow_version_id"])
-        sync_manual_reviews(connection, row["flow_instance_id"], current_config)
+        sync_branch_states(connection, row["flow_instance_id"], current_config)
         row = {**dict(row), **dict(connection.execute("SELECT status, attempt_reset_no FROM node_instances WHERE id = ?", (node_instance_id,)).fetchone())}
-        if node_by_key(current_config, row["node_key"]).get("kind") == "manual_review":
-            raise RuntimeConflictError("人工审核节点仅允许教师审核")
 
         config = json.loads(row["config_snapshot"])
         preview = is_preview_instance(connection, row["flow_instance_id"])
@@ -563,10 +560,8 @@ def submit_node(
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
         current_config = version_config(connection, row["flow_version_id"])
-        sync_manual_reviews(connection, row["flow_instance_id"], current_config)
+        sync_branch_states(connection, row["flow_instance_id"], current_config)
         row = {**dict(row), **dict(connection.execute("SELECT status, attempt_reset_no FROM node_instances WHERE id = ?", (node_instance_id,)).fetchone())}
-        if node_by_key(current_config, row["node_key"]).get("kind") == "manual_review":
-            raise RuntimeConflictError("人工审核节点仅允许教师审核")
 
         duplicate = connection.execute(
             "SELECT id FROM submissions WHERE node_instance_id = ? AND idempotency_key = ?",

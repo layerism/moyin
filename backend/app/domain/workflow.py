@@ -34,6 +34,8 @@ def validate_flow_config(
         raise FlowValidationError("节点标识不能重复")
 
     for node in nodes:
+        if node.get("kind") not in {"branch", "announcement", "answer_sheet", "confirmation", "file", "form"}:
+            raise FlowValidationError("不支持的节点类型，请使用文件上传节点配置人工审核")
         if "fileReviewSteps" in node:
             from app.domain.file_review_steps import validate_steps
             try:
@@ -96,15 +98,6 @@ def validate_flow_config(
             raise FlowValidationError("分支输出点不能作为输入点")
         adjacency[source].append(target)
         indegree[target] += 1
-
-    for node in nodes:
-        if node.get("kind") == "manual_review":
-            if require_publishable and indegree[node["id"]] == 0:
-                raise FlowValidationError("人工审核节点必须连接至少一个前置节点")
-            if node.get("deadlineAt"):
-                raise FlowValidationError("人工审核节点不设置学生提交截止时间")
-            if node.get("auditScriptId") or node.get("scanAuditEnabled"):
-                raise FlowValidationError("人工审核节点不能绑定自动审核脚本")
 
     if require_publishable:
         for key, ports in branch_options.items():

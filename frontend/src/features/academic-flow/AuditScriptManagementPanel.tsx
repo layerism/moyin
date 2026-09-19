@@ -59,7 +59,7 @@ function ScriptCapabilityIcons({ script }: { script: AuditScriptManagementSummar
   </span>;
 }
 
-export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) {
+export function AuditScriptManagementPanel() {
   const [scripts, setScripts] = useState<AuditScriptManagementSummary[] | null>(null);
   const [search, setSearch] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -135,7 +135,8 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
         parameterDefaults,
         runtimeSettings,
       });
-      onClose();
+      setDetail(null);
+      loadScripts();
     } catch (error) {
       const message = error instanceof ApiError && error.status === 409
         ? "审核脚本已被其他管理员修改，请重新加载"
@@ -159,13 +160,12 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
   );
 
   return (
-    <div className="modal-backdrop audit-script-metadata-backdrop">
+    <div className="audit-script-management-panel">
       <section
         aria-labelledby="audit-script-metadata-title"
-        aria-modal="true"
         className={`audit-script-metadata-dialog${detail ? " is-editor" : " is-list"}`}
         onClick={(event) => event.stopPropagation()}
-        role="dialog"
+        role="region"
       >
         <header>
           <div>
@@ -174,7 +174,7 @@ export function AuditScriptMetadataDialog({ onClose }: { onClose: () => void }) 
               {detail ? detail.name : "审核脚本管理"}
             </h2>
           </div>
-          <button aria-label="关闭审核脚本管理" disabled={saving} onClick={onClose} type="button">×</button>
+          {detail ? <button disabled={saving} onClick={() => setDetail(null)} type="button">返回列表</button> : null}
         </header>
 
         {detail ? (

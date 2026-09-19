@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import type { AcademicProcess } from "../../types";
 import type { AuthIdentity } from "../auth/authApi";
 import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
-import { AuditScriptMetadataDialog } from "../academic-flow/AuditScriptMetadataDialog";
 import { getAcademicFlowStatus } from "../academic-flow/academicFlowStatus";
 import { createFlowCloneName, getFlowCloneNameError } from "../academic-flow/flowClone";
 import { FlowCloneDialog, type FlowCloneResult } from "./FlowCloneDialog";
@@ -40,7 +39,6 @@ export function AcademicFlowView({
   const [deleteProcess, setDeleteProcess] = useState<AcademicProcess | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [scriptManagerOpen, setScriptManagerOpen] = useState(false);
   const [cloneSource, setCloneSource] = useState<AcademicProcess | null>(null);
   const [cloneName, setCloneName] = useState("");
   const [cloneError, setCloneError] = useState("");
@@ -204,9 +202,6 @@ export function AcademicFlowView({
             <button className="ai-create" onClick={startCreateProcess}>
               创建流程
             </button>
-            {teacherIdentity.role === "super_admin" ? (
-              <button onClick={() => setScriptManagerOpen(true)}>审核脚本</button>
-            ) : null}
           </div>
           <div className="academic-flow-list" role="list" aria-label="采集流程列表">
             {processes.map((process) => {
@@ -360,9 +355,6 @@ export function AcademicFlowView({
           source={cloneSource}
           submitting={cloneSubmitting}
         />
-      ) : null}
-      {scriptManagerOpen ? (
-        <AuditScriptMetadataDialog onClose={() => setScriptManagerOpen(false)} />
       ) : null}
     </main>
   );
