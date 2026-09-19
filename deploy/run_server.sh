@@ -1,15 +1,30 @@
 #!/usr/bin/env bash
 set -e
 
-frontend_port="${1:-5173}"
-if [[ "$#" -gt 1 || ! "$frontend_port" =~ ^[1-9][0-9]{0,4}$ ]] || (( frontend_port > 65535 )); then
-  echo "用法: bash deploy/run_server.sh [前端端口: 1-65535，默认 5173]" >&2
+environment="${1:-prod}"
+if [[ "$#" -gt 1 ]]; then
+  echo "用法: bash deploy/run_server.sh [prod|gray|test]" >&2
   exit 1
 fi
-if [[ "$frontend_port" -eq 8000 ]]; then
-  echo "8000 已用于后端，请选择其他前端端口。" >&2
-  exit 1
-fi
+
+case "$environment" in
+  prod)
+    backend_port=8000
+    frontend_port=5173
+    ;;
+  gray)
+    backend_port=8001
+    frontend_port=5174
+    ;;
+  test)
+    backend_port=8002
+    frontend_port=5175
+    ;;
+  *)
+    echo "用法: bash deploy/run_server.sh [prod|gray|test]" >&2
+    exit 1
+    ;;
+esac
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -53,12 +68,13 @@ cleanup() {
 
 (
   cd "$project_dir/backend"
-  exec ./.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+  exec ./.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port "$backend_port"
 ) &
 backend_pid=$!
 
 (
   cd "$project_dir/frontend"
+  export VITE_API_PROXY_TARGET="http://127.0.0.1:$backend_port"
   exec npm run dev -- --port "$frontend_port" --strictPort
 ) &
 frontend_pid=$!
