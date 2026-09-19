@@ -14,6 +14,7 @@ class SuperAdminConfig(BaseModel):
 class Settings(BaseSettings):
     app_name: str = "Document Autofill API"
     app_env: str = "development"
+    session_cookie_secure: bool | None = None
     storage_root: str = "storage"
     cors_origins: list[str] = ["http://localhost:5173", "http://localhost"]
     database_path: str = "storage/app.db"

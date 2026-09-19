@@ -56,6 +56,12 @@ class TeacherInvitationAcceptance(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+def session_cookie_secure() -> bool:
+    if settings.session_cookie_secure is not None:
+        return settings.session_cookie_secure
+    return settings.app_env == "production"
+
+
 def set_session_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         SESSION_COOKIE,
@@ -63,7 +69,7 @@ def set_session_cookie(response: Response, token: str) -> None:
         httponly=True,
         max_age=SESSION_DAYS * 24 * 60 * 60,
         samesite="lax",
-        secure=settings.app_env == "production",
+        secure=session_cookie_secure(),
     )
 
 
@@ -74,7 +80,7 @@ def set_teacher_session_cookie(response: Response, token: str) -> None:
         httponly=True,
         max_age=SESSION_DAYS * 24 * 60 * 60,
         samesite="lax",
-        secure=settings.app_env == "production",
+        secure=session_cookie_secure(),
     )
 
 
