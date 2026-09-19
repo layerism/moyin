@@ -133,15 +133,9 @@ OSS_ACCESS_KEY_SECRET=
 
 如需启用视觉审核或 DeepSeek 审核脚本，再配置相应的 API 地址、密钥和模型名称。`backend/.env` 包含本地密钥，不得提交到 Git。
 
-### 3. 启动服务
+### 3. 本地开发
 
-在项目根目录运行：
-
-```bash
-./deploy/run_server.sh
-```
-
-也可以分别启动后端和前端：
+开发时分别启动后端和 Vite 前端：
 
 ```bash
 cd backend
@@ -153,6 +147,8 @@ cd frontend
 export PATH="$PWD/../.local/node/bin:$PATH"
 npm run dev
 ```
+
+通过 Nginx 部署正式、灰度或测试环境时，使用 `bash deploy/run_server.sh <prod|gray|test>`；该脚本构建静态前端并只启动后端，完整步骤见 [`deploy/README.md`](./deploy/README.md)。
 
 ### 常用环境变量
 
@@ -210,7 +206,7 @@ npm run dev
 │   └── tests/                  # 后端测试
 ├── frontend/src/               # React 页面、功能模块和样式
 ├── deploy/
-│   ├── run_server.sh           # 本地前后端联合启动脚本
+│   ├── run_server.sh           # prod/gray/test 构建与后端启动脚本
 │   └── nginx.conf              # Nginx 配置
 ├── docs/                       # 架构、流程和节点设计文档
 ├── assets/                     # 项目业务模板资产

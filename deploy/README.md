@@ -8,7 +8,7 @@
 
 在阿里云 DNS 添加三个 A 记录：主机记录分别为 @、gray、test，记录值均为实际服务器公网 IP。
 如果存在 AAAA 记录，确保它也指向这台可访问的服务器，否则先修正。
-安全组及服务器防火墙允许 TCP 80、443；有路由器时需转发这两个端口。5173、5174、5175 是 Vite 开发端口，不能代替域名所需的 80、443。
+安全组及服务器防火墙允许 TCP 80、443；有路由器时需转发这两个端口。正式、灰度、测试环境不启动 Vite，不需要开放 5173、5174、5175。
 
 ```bash
 getent ahosts ainami.tech
@@ -33,7 +33,7 @@ sudo systemctl status nginx --no-pager
 项目依赖尚未安装时，先执行 bash deploy/install.sh，并配置 backend/.env。
 若项目已在运行，不要重复启动，以免端口冲突。
 
-`run_server.sh` 每次启动都会先构建当前仓库前端，构建成功后创建或核对 `/var/www/moyin/<环境> → 当前仓库/frontend/dist` 符号链接，再启动对应环境的 Uvicorn 后端和 Vite 开发服务器。构建失败时脚本立即退出，不启动服务。脚本不会申请 HTTPS 证书，首次部署仍须完成第 5—6 节。
+`run_server.sh` 每次启动都会先构建当前仓库前端，构建成功后创建或核对 `/var/www/moyin/<环境> → 当前仓库/frontend/dist` 符号链接，再以前台方式启动对应环境的 Uvicorn 后端。Nginx 直接提供构建后的静态前端，因此脚本不启动 Vite。构建失败时脚本立即退出，不启动后端。脚本不会申请 HTTPS 证书，首次部署仍须完成第 5—6 节。
 
 在项目根目录创建 tmux 会话：
 
@@ -49,9 +49,9 @@ bash deploy/run_server.sh gray
 bash deploy/run_server.sh test
 ```
 
-`prod` 使用后端 8000 与前端 5173，`gray` 使用 8001 与 5174，`test` 使用 8002 与 5175。不传参数时默认 `prod`。端口被占用时直接报错，不自动换端口。模式参数不改变 Nginx 的监听端口或静态文件配置。
+`prod`、`gray`、`test` 的后端分别使用 8000、8001、8002，并仅监听本机 `127.0.0.1`。不传参数时默认 `prod`。端口被占用时直接报错，不自动换端口。模式参数不改变 Nginx 的监听端口或静态文件配置。
 
-按 Ctrl+B，再按 D 返回普通终端，服务仍在运行。重新进入使用 tmux attach -t moyin；停止时在会话中按 Ctrl+C。
+按 Ctrl+B，再按 D 返回普通终端，服务仍在运行。重新进入使用 tmux attach -t moyin；停止时在会话中按 Ctrl+C，当前环境后端随即停止。
 
 ## 4. 自动构建与发布前端
 
@@ -75,7 +75,7 @@ chmod -R a+rX frontend/dist
 
 `run_server.sh` 会把对应的 `/var/www/moyin/<环境>` 建立为当前仓库 `frontend/dist` 的符号链接；如果该环境已经链接到另一仓库，脚本会中止，不会静默改向。`/var/www/moyin` 中不保存构建文件或 `node_modules`。
 
-Nginx 只通过链接读取 `dist`，不读取源码，也不读取 5173、5174、5175 的页面。因此前端修改后只须重新构建，无须复制文件或 reload Nginx；Vite 的热更新仍只适用于开发入口。
+Nginx 只通过链接读取 `dist`，不读取源码。前端修改后只须重新构建，无须复制文件或 reload Nginx。需要 Vite 热更新时，应按根 README 的本地开发方式单独启动前后端。
 
 ## 5. 安装 HTTP 站点配置
 
@@ -177,7 +177,6 @@ Nginx :443（证书）
 ```
 
 run_server.sh 不加载证书，也不需要改成 HTTPS。浏览器与 Nginx 之间由证书保护，本机转发继续使用 HTTP。
-IP:5173、5174、5175 仍是开发用 HTTP 入口，不是上述 HTTPS 入口。
 
 HTTPS 确认可用后，编辑 backend/.env：
 
@@ -190,7 +189,7 @@ CORS_ORIGINS=["https://ainami.tech"]
 
 在对应 tmux 会话中 Ctrl+C 停止项目，再执行 `bash deploy/run_server.sh <prod|gray|test>` 加载配置。此时登录 Cookie 仅通过安全连接发送，应统一使用 HTTPS 域名登录。
 域名与 IP 的登录会话不通用，切换入口后重新登录。
-可以在安全组中关闭公网 5173、5174、5175、8000、8001、8002；本机 Nginx 仍可访问后端。
+安全组只需对公网开放 80、443；5173、5174、5175、8000、8001、8002 均不应对公网开放。
 
 ## 9. 更新、迁移和多版本
 

@@ -10,15 +10,12 @@ fi
 case "$environment" in
   prod)
     backend_port=8000
-    frontend_port=5173
     ;;
   gray)
     backend_port=8001
-    frontend_port=5174
     ;;
   test)
     backend_port=8002
-    frontend_port=5175
     ;;
   *)
     echo "用法: bash deploy/run_server.sh [prod|gray|test]" >&2
@@ -95,25 +92,5 @@ if [[ "$site_changed" == true ]]; then
   "${privileged[@]}" systemctl reload nginx
 fi
 
-
-cleanup() {
-  trap - EXIT INT TERM
-  kill "$backend_pid" "$frontend_pid" 2>/dev/null || true
-  wait "$backend_pid" "$frontend_pid" 2>/dev/null || true
-}
-
-(
-  cd "$project_dir/backend"
-  exec ./.venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port "$backend_port"
-) &
-backend_pid=$!
-
-(
-  cd "$project_dir/frontend"
-  export VITE_API_PROXY_TARGET="http://127.0.0.1:$backend_port"
-  exec npm run dev -- --port "$frontend_port" --strictPort
-) &
-frontend_pid=$!
-
-trap cleanup EXIT INT TERM
-wait -n "$backend_pid" "$frontend_pid"
+cd "$project_dir/backend"
+exec ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$backend_port"
