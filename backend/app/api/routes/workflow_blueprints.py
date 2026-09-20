@@ -6,6 +6,7 @@ from app.domain.answer_sheet import AnswerSheetConfigError
 from app.repositories.flow_content_assets import ContentAssetError
 from app.repositories.workflow_blueprints import (
     BlueprintConflictError, list_blueprints, publish_blueprint, set_blueprint_active, use_blueprint,
+    open_blueprint_draft, discard_blueprint_draft,
 )
 from app.services.object_storage import ObjectStorageError
 from app.services.security import get_current_teacher
@@ -72,3 +73,20 @@ def availability(template_id: str, payload: BlueprintAvailability, teacher: dict
 @router.post("/{template_id}/use", status_code=201)
 def use(template_id: str, teacher: dict = Depends(get_current_teacher)):
     return perform(lambda: use_blueprint(template_id, int(teacher["id"])))
+
+
+@router.post("/{template_id}/edit")
+def edit(template_id: str, teacher: dict = Depends(template_admin)):
+    return perform(lambda: open_blueprint_draft(template_id, int(teacher['id'])))
+
+
+@router.put("/{template_id}/edit")
+def commit_edit(template_id: str, payload: PublishBlueprint, teacher: dict = Depends(template_admin)):
+    perform(lambda: publish_blueprint(payload.sourceFlowId, payload.name, payload.description,
+                                     int(teacher['id']), template_id, editing=True))
+    return {"id": template_id}
+
+
+@router.delete("/{template_id}/edit", status_code=204)
+def discard_edit(template_id: str, teacher: dict = Depends(template_admin)):
+    perform(lambda: discard_blueprint_draft(template_id, int(teacher['id'])))

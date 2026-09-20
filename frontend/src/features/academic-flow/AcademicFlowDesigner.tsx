@@ -154,12 +154,14 @@ function createDraftWorkingProcess(process: AcademicProcess): AcademicProcess {
 }
 
 export function AcademicFlowDesigner({
+  templateMode = false,
   onBack,
   onPublishProcess,
   onProcessChange,
   onSaveProcess,
   process,
 }: {
+  templateMode?: boolean;
   onBack: () => void;
   onPublishProcess: (
     process: AcademicProcess,
@@ -293,6 +295,7 @@ export function AcademicFlowDesigner({
   }, [revisionDirty]);
 
   useEffect(() => {
+    if (templateMode) return;
     let cancelled = false;
     workflowApi
       .getRoster(serverFlowId)
@@ -305,7 +308,7 @@ export function AcademicFlowDesigner({
     return () => {
       cancelled = true;
     };
-  }, [serverFlowId]);
+  }, [serverFlowId, templateMode]);
 
   const saveWorkingDraft = async (
     candidate: AcademicProcess,
@@ -353,7 +356,7 @@ export function AcademicFlowDesigner({
       setRevisionDirty(false);
       setRevisionImpact(null);
       setPendingPublishProcess(null);
-      setActionNotice(candidate.published ? "重新发布成功" : "发布成功");
+      setActionNotice(templateMode ? "模板已更新" : candidate.published ? "重新发布成功" : "发布成功");
     } catch (reason) {
       const shouldReloadRevision =
         reason instanceof ApiError
@@ -432,6 +435,7 @@ export function AcademicFlowDesigner({
   };
 
   const handlePublishButtonClick = () => {
+    if (templateMode) { void publishProcess(workingProcess); return; }
     if (publishButtonState.action === "begin-revision") {
       setRevisionEditingRequested(true);
       return;
@@ -740,7 +744,8 @@ export function AcademicFlowDesigner({
     <main className="academic-standalone-page designer-standalone-page">
       <AcademicStandaloneHeader
         currentLabel={workingProcess.name}
-        onBack={() => requestNavigation("教务流程列表", onBack)}
+        parentLabel={templateMode ? "流程模板" : "教务流程"}
+        onBack={() => requestNavigation(templateMode ? "模板列表" : "教务流程列表", onBack)}
       />
       <section className="academic-workspace-main designer-workspace-main">
         <header className="academic-topbar designer-topbar">
@@ -768,9 +773,9 @@ export function AcademicFlowDesigner({
             </p>
           </div>
           <div className="academic-actions">
-            <button onClick={() => setShowRoster(true)}>
+            {!templateMode ? <button onClick={() => setShowRoster(true)}>
               学生名单{rosterActiveCount === null ? "" : ` (${rosterActiveCount})`}
-            </button>
+            </button> : null}
             <button disabled={operationLocked} onClick={() => void openPreview()} type="button">
               {previewCreating ? "正在创建预览" : "预览"}
             </button>
@@ -786,11 +791,11 @@ export function AcademicFlowDesigner({
             </button>
             <button
               className="primary-action"
-              disabled={publishButtonState.disabled}
+              disabled={templateMode ? operationLocked : publishButtonState.disabled}
               onClick={handlePublishButtonClick}
-              title={publishButtonState.title}
+              title={templateMode ? "保存并更新模板库中的版本" : publishButtonState.title}
             >
-              {publishButtonState.label}
+              {templateMode ? (saving ? "正在更新…" : "更新模板") : publishButtonState.label}
             </button>
           </div>
         </header>
@@ -917,10 +922,12 @@ export function AcademicFlowDesigner({
 }
 
 function AcademicStandaloneHeader({
+  parentLabel = "教务流程",
   currentLabel,
   onBack,
 }: {
   currentLabel?: string;
+  parentLabel?: string;
   onBack: () => void;
 }) {
   return (
@@ -928,10 +935,10 @@ function AcademicStandaloneHeader({
       className={`academic-standalone-header${currentLabel ? " designer-header" : ""}`}
     >
       <button
-        aria-label="返回教务流程"
+        aria-label={`返回${parentLabel}`}
         className="academic-standalone-back"
         onClick={onBack}
-        title="返回教务流程"
+        title={`返回${parentLabel}`}
         type="button"
       >
         <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -947,7 +954,7 @@ function AcademicStandaloneHeader({
           <span>首页</span>
           <span>›</span>
           <button onClick={onBack} type="button">
-            教务流程
+            {parentLabel}
           </button>
           <span>›</span>
           <strong title={currentLabel}>{currentLabel}</strong>

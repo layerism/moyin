@@ -134,6 +134,15 @@ CREATE TABLE IF NOT EXISTS workflow_blueprints (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS workflow_blueprint_drafts (
+    blueprint_id TEXT NOT NULL REFERENCES workflow_blueprints(id),
+    teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    flow_id TEXT NOT NULL UNIQUE REFERENCES flows(id) ON DELETE CASCADE,
+    base_snapshot_flow_id TEXT NOT NULL REFERENCES flows(id),
+    base_updated_at TEXT NOT NULL,
+    PRIMARY KEY (blueprint_id, teacher_id)
+);
+
 CREATE TABLE IF NOT EXISTS workflow_blueprint_versions (
     id TEXT PRIMARY KEY,
     blueprint_id TEXT NOT NULL REFERENCES workflow_blueprints(id),

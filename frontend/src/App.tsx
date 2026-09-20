@@ -1,3 +1,4 @@
+import { mapServerFlow } from "./features/academic-flow/flowMapping";
 import { RequiredPhoneBinding } from "./features/auth/SmsPasswordRecovery";
 import { ProfilePage } from "./features/auth/ProfilePage";
 import { ModelCardsAdminPage } from "./features/admin/ModelCardsAdminPage";
@@ -166,28 +167,6 @@ const TEACHER_AUTHENTICATED_SCREENS: Screen[] = [
   "teacherInvitationsAdmin",
   "workspace",
 ];
-
-function mapServerFlow(flow: ServerFlow): AcademicProcess {
-  return {
-    answerSheetKeys: flow.answerSheetKeys ?? {},
-    createdAt: new Date(flow.createdAt).toLocaleString("zh-CN"),
-    description: flow.description,
-    draftConfig: {
-      edges: flow.draftConfig.edges ?? [],
-      nodes: flow.draftConfig.nodes ?? [],
-    },
-    edges: flow.config.edges ?? [],
-    hasUnpublishedChanges: flow.hasUnpublishedChanges,
-    id: flow.id,
-    name: flow.name,
-    nodes: flow.config.nodes ?? [],
-    published: flow.status === "published",
-    publishedNodeIds: flow.publishedNodeIds,
-    publishedVersionId: flow.publishedVersionId ?? undefined,
-    publishedVersionNo: flow.publishedVersionNo ?? undefined,
-    serverId: flow.id,
-  };
-}
 
 export function App() {
   const initialRoute = getRouteFromPathname();

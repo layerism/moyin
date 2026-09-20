@@ -12176,6 +12176,8 @@ td {
 .workflow-template-list { display: grid; gap: 12px; }
 
 .workflow-template-list article {
+  box-sizing: border-box;
+  height: 124px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -12199,7 +12201,10 @@ td {
   margin: 0;
   color: #202733;
   font-size: 15px;
-  overflow-wrap: anywhere;
+  line-height: 22px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .workflow-template-info h3 small {
@@ -12215,11 +12220,14 @@ td {
   margin: 7px 0;
   color: #475467;
   font-size: 13px;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+  line-height: 20px;
+  height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.workflow-template-meta { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 10px; color: #667085; font-size: 12px; }
+.workflow-template-meta { display: flex; white-space: nowrap; gap: 8px 16px; margin-top: 10px; color: #667085; font-size: 12px; }
 .workflow-template-meta > span { display: inline-flex; align-items: center; gap: 5px; }
 
 .workflow-template-actions {
@@ -12321,6 +12329,8 @@ td {
 
 @media (max-width: 760px) {
   .workflow-template-list article {
+    height: 168px;
+    grid-template-rows: 88px 34px;
     display: grid;
     grid-template-columns: 36px minmax(0, 1fr);
     align-items: start;

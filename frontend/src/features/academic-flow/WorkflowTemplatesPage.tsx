@@ -1,3 +1,4 @@
+import { WorkflowTemplateDesigner } from "./WorkflowTemplateDesigner";
 import { PersonalDriveUploadButton } from "../home/PersonalDriveUploadButton";
 import { DriveNavIcon } from "../home/DriveNavIcon";
 import { useEffect, useState } from "react";
@@ -7,7 +8,7 @@ import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
 import type { AuthIdentity } from "../auth/authApi";
 import { workflowApi, type ServerFlow, type WorkflowTemplate } from "./api";
 
-type TemplateDraft = { id?: string; sourceFlowId: string; name: string; description: string };
+type TemplateDraft = { sourceFlowId: string; name: string; description: string };
 
 export function WorkflowTemplatesPage({
   onProfile, processes, sourceFlowId, teacherIdentity, onAcademicFlow, onOssCloud,
@@ -23,6 +24,12 @@ export function WorkflowTemplatesPage({
   onCreated: (flow: ServerFlow) => void;
 }) {
   const admin = teacherIdentity.role === "super_admin";
+  const [editingId, setEditingId] = useState(() => new URLSearchParams(window.location.search).get("edit"));
+  useEffect(() => {
+    const sync = () => setEditingId(new URLSearchParams(window.location.search).get("edit"));
+    window.addEventListener("popstate", sync);
+    return () => window.removeEventListener("popstate", sync);
+  }, []);
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -67,7 +74,7 @@ export function WorkflowTemplatesPage({
     try {
       await workflowApi.publishWorkflowTemplate({
         sourceFlowId: draft.sourceFlowId, name: draft.name.trim(), description: draft.description.trim(),
-      }, draft.id);
+      });
       setDraft(null);
       await load();
     } catch (reason) { setFormError(reason instanceof Error ? reason.message : "发布失败，请重试"); }
@@ -75,6 +82,12 @@ export function WorkflowTemplatesPage({
   };
   const visible = templates.filter((template) =>
     `${template.name} ${template.description}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+
+  if (editingId && admin) return <WorkflowTemplateDesigner key={editingId} templateId={editingId} onBack={() => {
+    window.history.pushState(null, "", "/workflow-templates");
+    setEditingId(null);
+    void load();
+  }} />;
 
   return <main className="home-page">
     <aside className="drive-sidebar">
@@ -106,14 +119,15 @@ export function WorkflowTemplatesPage({
           : <div className="workflow-template-list">{visible.map((template) => <article key={template.id}>
             <div className="workflow-template-symbol"><DriveNavIcon kind="flow" /></div>
             <div className="workflow-template-info">
-              <h3>{template.name}{!template.active ? <small>已下架</small> : null}</h3>
-              {template.description.trim() ? <p>{template.description}</p> : null}
+              <h3 title={template.name}>{template.name}{!template.active ? <small>已下架</small> : null}</h3>
+              <p title={template.description}>{template.description.trim() || "\u00a0"}</p>
               <div className="workflow-template-meta"><span><DriveNavIcon kind="flow" />{template.nodeCount} 个节点</span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>更新于 {new Date(template.updatedAt).toLocaleDateString("zh-CN")}</span></div>
             </div>
             <div className="workflow-template-actions">
               {admin ? <>
                 <button disabled={busy !== null} onClick={() => {
-                  setFormError(""); setDraft({ id: template.id, name: template.name, description: template.description, sourceFlowId: "" });
+                  window.history.pushState(null, "", `/workflow-templates?edit=${encodeURIComponent(template.id)}`);
+                  setEditingId(template.id);
                 }}>更新</button>
                 <button disabled={busy !== null} onClick={() => void changeAvailability(template)}>{template.active ? "下架" : "上架"}</button>
               </> : null}
@@ -124,7 +138,7 @@ export function WorkflowTemplatesPage({
     </section>
     {draft ? <div className="modal-backdrop">
       <section className="workflow-template-editor" onKeyDown={(event) => { if (event.key === "Escape" && busy === null) setDraft(null); }} role="dialog" aria-modal="true" aria-labelledby="workflow-template-editor-title">
-        <header><h2 id="workflow-template-editor-title">{draft.id ? "更新流程模板" : "发布流程模板"}</h2><button aria-label="关闭" disabled={busy !== null} onClick={() => setDraft(null)}>×</button></header>
+        <header><h2 id="workflow-template-editor-title">发布流程模板</h2><button aria-label="关闭" disabled={busy !== null} onClick={() => setDraft(null)}>×</button></header>
         <form onSubmit={(event) => { event.preventDefault(); void publish(); }}>
           <label>来源流程<select autoFocus required disabled={busy !== null} value={draft.sourceFlowId} onChange={(event) => {
             const source = processes.find((process) => process.id === event.target.value);
@@ -132,9 +146,9 @@ export function WorkflowTemplatesPage({
           }}><option value="" disabled hidden>选择自己的流程</option>{processes.map((process) => <option key={process.id} value={process.serverId ?? process.id}>{process.name}</option>)}</select></label>
           <label>模板名称<input required maxLength={120} disabled={busy !== null} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
           <label>模板简介<textarea maxLength={500} rows={3} disabled={busy !== null} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-          <p>保存来源流程的当前草稿及附件；不包含学生数据，开始和截止时间会清空。更新后重新上架，已创建的流程不受影响。</p>
+          <p>保存来源流程的当前草稿及附件；不包含学生数据，开始和截止时间会清空。已创建的流程不受影响。</p>
           {formError ? <p className="dialog-error" role="alert">{formError}</p> : null}
-          <footer><button type="button" disabled={busy !== null} onClick={() => setDraft(null)}>取消</button><button className="primary-action" type="submit" disabled={busy !== null || !draft.sourceFlowId || !draft.name.trim()}>{busy === "publish" ? "正在保存…" : draft.id ? "更新并发布" : "发布模板"}</button></footer>
+          <footer><button type="button" disabled={busy !== null} onClick={() => setDraft(null)}>取消</button><button className="primary-action" type="submit" disabled={busy !== null || !draft.sourceFlowId || !draft.name.trim()}>{busy === "publish" ? "正在保存…" : "发布模板"}</button></footer>
         </form>
       </section>
     </div> : null}

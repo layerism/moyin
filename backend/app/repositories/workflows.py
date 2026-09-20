@@ -818,6 +818,7 @@ def list_flows(teacher_id: int) -> list[dict[str, object]]:
             """
             SELECT id FROM flows
             WHERE owner_id = ? AND status != 'archived'
+              AND NOT EXISTS (SELECT 1 FROM workflow_blueprint_drafts d WHERE d.flow_id = flows.id)
             ORDER BY created_at DESC
             """,
             (str(teacher_id),),
