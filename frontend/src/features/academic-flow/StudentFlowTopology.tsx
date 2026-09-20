@@ -56,7 +56,12 @@ export function StudentFlowTopology({
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(0.5);
-  const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
+  const [clock, setClock] = useState(Date.now);
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 32 });
   const [panStart, setPanStart] = useState<CanvasPanStart | null>(null);
   const runtimeByKey = useMemo(
     () => new Map(runtimeNodes.map((runtime) => [runtime.nodeKey, runtime])),
@@ -193,9 +198,10 @@ export function StudentFlowTopology({
             const runtime = runtimeByKey.get(node.id);
             if (!runtime) return null;
             const openable = openableStatuses.has(runtime.status);
+            const deadline = getDeadlineBadge(node, runtime, clock);
             return (
               <button
-                aria-label={`${node.title}，${statusLabels[runtime.status]}`}
+                aria-label={`${node.title}，${statusLabels[runtime.status]}${deadline ? `，${deadline.label}` : ""}`}
                 className={`student-topology-node ${runtime.status}`}
                 data-node-kind={node.kind}
                 disabled={!openable}
@@ -209,6 +215,15 @@ export function StudentFlowTopology({
                 }}
                 type="button"
               >
+                {deadline ? (
+                  <span className={`student-topology-deadline ${deadline.tone}`} title={deadline.title}>
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="9" />
+                      <path d="M12 7v5l3 2" />
+                    </svg>
+                    {deadline.label}
+                  </span>
+                ) : null}
                 {runtime.status === "audit_error" || runtime.status === "rejected" ? (
                   <span className="student-topology-warning-marker" aria-hidden="true" title={runtime.status === "rejected" ? "审核未通过，请点击查看" : "审核异常，请点击查看"}>!</span>
                 ) : null}
@@ -265,4 +280,26 @@ function createArrowPolygon(x: number, y: number, port: AcademicFlowPort) {
   if (port === "bottom") return `${x},${y} ${x - 6},${y + 10} ${x + 6},${y + 10}`;
   if (port === "left") return `${x},${y} ${x - 10},${y - 6} ${x - 10},${y + 6}`;
   return `${x},${y} ${x + 10},${y - 6} ${x + 10},${y + 6}`;
+}
+
+function getDeadlineBadge(node: AcademicFlowNode, runtime: RuntimeNodeInstance, now: number) {
+  if (!runtime.effectiveDeadline || runtime.status === "skipped") return null;
+  const end = new Date(runtime.effectiveDeadline).getTime();
+  if (!Number.isFinite(end)) return null;
+  const remaining = end - now;
+  // Completed forms remain editable until their effective deadline.
+  if (runtime.status === "approved" && (node.kind !== "form" || remaining <= 0)) return null;
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const expired = remaining <= 0 || runtime.status === "expired";
+  const label = expired ? "已截止"
+    : remaining >= day ? `距截止 ${Math.ceil(remaining / day)} 天`
+    : remaining >= hour ? `距截止 ${Math.ceil(remaining / hour)} 小时`
+    : `距截止 ${Math.ceil(remaining / minute)} 分钟`;
+  return {
+    label,
+    tone: expired ? "expired" : remaining <= 3 * day ? "urgent" : "normal",
+    title: `截止时间：${new Date(end).toLocaleString("zh-CN")}`,
+  };
 }

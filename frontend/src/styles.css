@@ -7418,7 +7418,7 @@ button {
   grid-template-rows: auto 1fr;
   gap: 5px 12px;
   padding: 16px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid #cfd7e5;
   border-radius: 7px;
   background: #fff;
@@ -13477,4 +13477,35 @@ td {
   .script-cards-toolbar label { flex-basis: 100%; }
   .script-config-dialog .audit-script-config-form footer { flex-wrap: wrap; }
   .script-config-dialog footer p { flex-basis: 100%; }
+}
+
+
+.student-topology-deadline {
+  position: absolute;
+  top: -26px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.student-topology-deadline.urgent {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #b45309;
+}
+
+.student-topology-deadline.expired {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
 }
