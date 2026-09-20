@@ -18,11 +18,15 @@ export function hasFileManualReview(node: AcademicFlowNode | undefined): boolean
   return node?.kind === "file" && fileReviewSteps(node).some((step) => step.kind === "manual");
 }
 
+function requiresReviewModel(step: FileReviewStep): boolean {
+  return step.kind === "score" || ["docx-markdown-completion-audit", "docx-layout-visual-audit"].includes(step.auditScriptId ?? "");
+}
+
 export function fileReviewError(node: AcademicFlowNode): string | null {
   for (const [index, step] of fileReviewSteps(node).entries()) {
     if (step.kind === "manual") continue;
     if (!step.auditScriptId) return `请为第 ${index + 1} 步选择审核规则`;
-    if ((step.kind === "score" || step.auditScriptId === "docx-markdown-completion-audit") && !step.auditModelCardId)
+    if (requiresReviewModel(step) && !step.auditModelCardId)
       return `请为第 ${index + 1} 步选择审核模型`;
   }
   return null;
@@ -110,7 +114,7 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
               const { fileExtensions: _extensions, kind: _kind, id: _id, ...selection } = patch;
               update(step.id, selection);
             }} />
-          {(step.kind === "score" || step.auditScriptId === "docx-markdown-completion-audit") ? <div className="file-review-step-model"><NodeModelSelector value={step.auditModelCardId ?? null} disabled={legacySteps ? (props.parameterDisabled ?? disabled) : disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /></div> : null}
+          {requiresReviewModel(step) ? <div className="file-review-step-model"><NodeModelSelector value={step.auditModelCardId ?? null} disabled={legacySteps ? (props.parameterDisabled ?? disabled) : disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /></div> : null}
         </> : null}
       </div>
     </li>)}</ol>

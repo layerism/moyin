@@ -1,0 +1,93 @@
+{
+  "acceptedExtensions": [
+    ".docx"
+  ],
+  "parameters": [
+    {
+      "key": "layoutReviewPrompt",
+      "label": "排版审核要求",
+      "type": "string",
+      "required": true,
+      "default": "检查文字是否重叠或裁切、表格是否超出页面、是否存在异常空白、标题是否孤立在页末、图片及图表说明是否清晰完整。正常跨页表格不应判为不通过。",
+      "description": "描述需要检查的可见排版要求；不通过时返回页码、问题和修改建议",
+      "minimumLength": 1,
+      "maximumLength": 4000
+    }
+  ],
+  "runtimeSettings": [
+    {
+      "key": "systemPrompt",
+      "label": "系统提示词",
+      "type": "string",
+      "value": "你是文档视觉排版审核员。依据教师审核标准和页面图片，找出明确可见且需要修改的排版问题。",
+      "minimumLength": 1,
+      "maximumLength": 4000,
+      "multiline": true
+    },
+    {
+      "key": "maximumPages",
+      "label": "最大总页数",
+      "type": "integer",
+      "value": 40,
+      "minimum": 1,
+      "maximum": 200,
+      "description": "本次提交的全部 DOCX 合计页数；超限报审核异常，不截断审核"
+    },
+    {
+      "key": "imageMaximumSide",
+      "label": "图片最长边",
+      "type": "integer",
+      "value": 2000,
+      "minimum": 1000,
+      "maximum": 4096,
+      "description": "按页面比例渲染，单位像素"
+    },
+    {
+      "key": "pagesPerBatch",
+      "label": "每批图片数",
+      "type": "integer",
+      "value": 4,
+      "minimum": 2,
+      "maximum": 8,
+      "description": "相邻批次重叠一页作为上下文"
+    },
+    {
+      "key": "renderTimeoutSeconds",
+      "label": "单文件转换超时",
+      "type": "integer",
+      "value": 60,
+      "minimum": 10,
+      "maximum": 300,
+      "description": "LibreOffice 转 PDF 的最长秒数"
+    },
+    {
+      "key": "requestTimeoutSeconds",
+      "label": "单批请求超时",
+      "type": "integer",
+      "value": 90,
+      "minimum": 10,
+      "maximum": 300,
+      "description": "单次视觉模型请求的最长秒数"
+    },
+    {
+      "key": "executionTimeoutSeconds",
+      "label": "整项审核超时",
+      "type": "integer",
+      "value": 1200,
+      "minimum": 60,
+      "maximum": 3600,
+      "description": "包含文件转换、全页渲染和全部模型请求的总秒数"
+    },
+    {
+      "key": "temperature",
+      "label": "模型温度",
+      "type": "number",
+      "value": 0,
+      "minimum": 0,
+      "maximum": 1
+    }
+  ],
+  "execution": {
+    "maxConcurrency": 2
+  }
+}

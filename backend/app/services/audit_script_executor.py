@@ -3,6 +3,7 @@ import json
 import os
 import re
 import selectors
+import signal
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,7 @@ from dotenv import dotenv_values
 
 from app.core.config import settings
 from app.services.audit_script_runtime import AuditScriptRuntimeDescriptor
+from app.services.audit_script_parameters import validate_script_settings
 from app.services.object_storage import get_object_storage
 
 
@@ -141,6 +143,8 @@ def _run_process(
 ) -> bytes:
     _raise_if_cancelled(cancelled)
     command = _command_for(descriptor)
+    runtime_settings = validate_script_settings(descriptor.config, payload["context"]["scriptSettings"])
+    timeout_seconds = float(runtime_settings.get("executionTimeoutSeconds", settings.audit_script_timeout_seconds))
     environment = _script_environment(descriptor, str(payload["context"].get("flowId", "")), str(payload["context"].get("nodeKey", "")), payload["context"].get("stepModelCardId"))
     if "VISION_MODEL" in environment:
         context = dict(payload["context"])
@@ -159,6 +163,7 @@ def _run_process(
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=True,
         )
     except OSError:
         raise AuditScriptExecutionError("审核脚本启动失败") from None
@@ -166,7 +171,7 @@ def _run_process(
     selector = selectors.DefaultSelector()
     stdout = bytearray()
     stderr = bytearray()
-    deadline = time.monotonic() + settings.audit_script_timeout_seconds
+    deadline = time.monotonic() + timeout_seconds
     try:
         assert process.stdin is not None
         assert process.stdout is not None
@@ -211,9 +216,12 @@ def _run_process(
         return bytes(stdout)
     finally:
         selector.close()
-        if process.poll() is None:
-            process.kill()
-            process.wait()
+        # Kill the whole task group, including LibreOffice descendants, before workspace cleanup.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.wait()
         if process.stdout:
             process.stdout.close()
         if process.stderr:

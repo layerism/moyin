@@ -1,0 +1,8 @@
+{
+  "id": "docx-layout-visual-audit",
+  "name": "DOCX 视觉排版审核",
+  "description": "按页渲染 DOCX，依据教师要求审核视觉排版，返回问题页码和修改建议",
+  "language": "py",
+  "entry": "handler.py",
+  "usesAi": true
+}

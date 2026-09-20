@@ -73,7 +73,7 @@ def signal_audit_job_cancellations(job_ids: list[str]) -> None:
 async def _worker_loop(stop_event: asyncio.Event) -> None:
     while not stop_event.is_set():
         from app.repositories.file_review_tasks import run_next_task
-        if await asyncio.to_thread(run_next_task):
+        if await asyncio.to_thread(run_next_task, stop_event.is_set):
             continue
         job = await asyncio.to_thread(claim_next_audit_job)
         if job is None:

@@ -9,7 +9,7 @@ import { AnswerSheetGradeResult, RuntimeAnswerSheet } from "./RuntimeAnswerSheet
 
 const category = (status: RuntimeNodeStatus) => status === "approved" ? "approved" : (status === "reviewing" || status === "rejected") ? "reviewing" : "locked";
 const labels = { all: "全部", locked: "未就绪", reviewing: "待审核", approved: "已通过" };
-const parameterLabels: Record<string, string> = { documentReviewPrompt: "文档审核要求", scanAuditPrompt: "审核标准", scanAuditMode: "审核模式", scanAuditThreshold: "通过阈值" };
+const parameterLabels: Record<string, string> = { layoutReviewPrompt: "排版审核要求", documentReviewPrompt: "文档审核要求", scanAuditPrompt: "审核标准", scanAuditMode: "审核模式", scanAuditThreshold: "通过阈值" };
 const date = (value: string | null) => value ? new Date(value).toLocaleString("zh-CN") : "尚未提交";
 
 export function ManualReviewDialog({ versionId, nodeKey, onClose }: {
@@ -203,7 +203,7 @@ function SourceMaterial({ source, feedbackFiles, busy, editable, onUpload, onRem
     })}
     {source.audit ? <p className="manual-review-audit-summary">自动审核：{source.audit.passed ? "通过" : "未通过"}{typeof source.audit.details?.score === "number" ? ` · ${source.audit.details.score} 分` : ""}</p> : null}
     {source.audit || Object.keys(source.auditParams).length ? <details className="manual-review-instructions"><summary>审核标准与反馈</summary>
-    {Object.entries(source.auditParams).filter(([key]) => ["documentReviewPrompt", "scanAuditPrompt", "scanAuditMode", "scanAuditThreshold"].includes(key)).map(([key, value]) => <div key={key}>
+    {Object.entries(source.auditParams).filter(([key]) => ["layoutReviewPrompt", "documentReviewPrompt", "scanAuditPrompt", "scanAuditMode", "scanAuditThreshold"].includes(key)).map(([key, value]) => <div key={key}>
       <strong>{parameterLabels[key]}</strong>
       <AnswerSheetMarkdown>{key === "scanAuditMode" ? value === "score" ? "评分" : "通过/不通过" : String(value)}</AnswerSheetMarkdown>
     </div>)}

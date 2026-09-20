@@ -1,6 +1,7 @@
 """Durable per-step AI tasks; reuse the script executor and its isolation contract."""
 import json
 import logging
+import time
 import uuid
 
 from app.core.database import get_connection
@@ -33,8 +34,8 @@ def recover_tasks():
         connection.execute("UPDATE file_review_ai_tasks SET status = 'pending' WHERE status = 'running'")
 
 
-def run_next_task():
-    from app.services.audit_script_executor import AuditMaterial, execute_audit_script
+def run_next_task(stopping=None):
+    from app.services.audit_script_executor import AuditMaterial, AuditScriptExecutionCancelled, execute_audit_script
     from app.services.audit_script_runtime import resolve_audit_script
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
@@ -63,6 +64,23 @@ def run_next_task():
         connection.execute("UPDATE file_review_ai_tasks SET status = 'running', attempt_count = attempt_count + 1 WHERE id = ?", (task['id'],))
         files = connection.execute('SELECT * FROM uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at', (task['submission_id'],)).fetchall()
         materials = [AuditMaterial(id=f['id'], name=f['original_name'], storage_key=f['storage_key'], content_type=f['content_type'], size=f['size_bytes'], sha256=f['sha256'], page_count=f['page_count']) for f in files]
+    last_cancellation_check = 0.0
+
+    def cancelled():
+        nonlocal last_cancellation_check
+        if stopping is not None and stopping():
+            return True
+        now_monotonic = time.monotonic()
+        if now_monotonic - last_cancellation_check < 1:
+            return False
+        last_cancellation_check = now_monotonic
+        with get_connection() as connection:
+            if not _task_is_active(connection, task['id'], utc_now_iso()):
+                return True
+            state = connection.execute('SELECT generation, content_hash, status FROM audit_script_runtime_states WHERE script_id = ?',
+                                       (snapshot['auditScriptId'],)).fetchone()
+            return not state or state['status'] != 'ready' or state['generation'] != snapshot['generation'] or state['content_hash'] != snapshot['hash']
+
     result = None
     try:
         descriptor = resolve_audit_script(snapshot['auditScriptId'], snapshot['generation'], snapshot['hash'])
@@ -72,19 +90,18 @@ def run_next_task():
             'nodeInstanceId': task['node_instance_id'], 'submissionId': task['submission_id'],
             'attemptNo': task['attempt_no'], 'scriptParams': snapshot['params'], 'scriptSettings': snapshot['settings'],
             'stepModelCardId': snapshot.get('auditModelCardId'),
-        })
+        }, cancelled=cancelled)
+    except AuditScriptExecutionCancelled:
+        if stopping is not None and stopping():
+            with get_connection() as connection:
+                connection.execute("UPDATE file_review_ai_tasks SET status = 'pending' WHERE id = ? AND status = 'running'", (task['id'],))
+            return True
     except Exception as exc:
         logger.warning('File review task %s failed: %s', task['id'], type(exc).__name__)
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
-        current = connection.execute('''SELECT t.id FROM file_review_ai_tasks t
-            JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
-            JOIN submissions s ON s.id = t.submission_id
-            JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
-            JOIN flow_instances i ON i.id = n.flow_instance_id JOIN flow_versions v ON v.id = i.flow_version_id
-            WHERE t.id = ? AND t.status = 'running' AND n.status = 'reviewing'
-            AND (v.status != 'preview' OR EXISTS (SELECT 1 FROM flow_preview_sessions p WHERE p.flow_instance_id = i.id AND p.status = 'active' AND p.expires_at > ?))''', (task['id'], now)).fetchone()
+        current = _task_is_active(connection, task['id'], now)
         if not current:
             connection.execute("UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ? WHERE id = ?", (now, task['id']))
             return True
@@ -105,3 +122,13 @@ def run_next_task():
             from app.repositories.file_reviews import finish_step
             finish_step(connection, task['submission_id'], 'ai', result['passed'], now)
     return True
+
+
+def _task_is_active(connection, task_id, now):
+    return connection.execute('''SELECT t.id FROM file_review_ai_tasks t
+            JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
+            JOIN submissions s ON s.id = t.submission_id
+            JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
+            JOIN flow_instances i ON i.id = n.flow_instance_id JOIN flow_versions v ON v.id = i.flow_version_id
+            WHERE t.id = ? AND t.status = 'running' AND n.status = 'reviewing'
+            AND (v.status != 'preview' OR EXISTS (SELECT 1 FROM flow_preview_sessions p WHERE p.flow_instance_id = i.id AND p.status = 'active' AND p.expires_at > ?))''', (task_id, now)).fetchone()

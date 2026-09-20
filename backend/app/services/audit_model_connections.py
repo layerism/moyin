@@ -19,11 +19,13 @@ SCRIPT_PROVIDERS = {
     "docx-markdown-completion-audit": "document",
     "document-score-audit": "document",
     "confirmation-visual-audit": "vision",
+    "docx-layout-visual-audit": "vision",
 }
 SCRIPT_NAMES = {
     "docx-markdown-completion-audit": "DOCX 完成性审核",
     "document-score-audit": "文档 AI 评分",
     "confirmation-visual-audit": "确认承诺视觉审核",
+    "docx-layout-visual-audit": "DOCX 视觉排版审核",
 }
 
 
