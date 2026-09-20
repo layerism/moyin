@@ -67,6 +67,16 @@ export function WorkflowTemplatesPage({
     } catch (reason) { setError(reason instanceof Error ? reason.message : "更新失败"); }
     finally { setBusy(null); }
   };
+  const deleteTemplate = async (template: WorkflowTemplate) => {
+    if (!window.confirm(`确定删除模板“${template.name}”？\n删除后将关闭相关编辑草稿，已使用模板创建的流程不受影响。`)) return;
+    setBusy(template.id);
+    setError("");
+    try {
+      await workflowApi.deleteWorkflowTemplate(template.id);
+      setTemplates((current) => current.filter((item) => item.id !== template.id));
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "删除模板失败，请重试"); }
+    finally { setBusy(null); }
+  };
   const publish = async () => {
     if (!draft) return;
     setBusy("publish");
@@ -130,6 +140,7 @@ export function WorkflowTemplatesPage({
                   setEditingId(template.id);
                 }}>更新</button>
                 <button disabled={busy !== null} onClick={() => void changeAvailability(template)}>{template.active ? "下架" : "上架"}</button>
+                <button className="danger" disabled={busy !== null} aria-label={`删除模板 ${template.name}`} onClick={() => void deleteTemplate(template)}>删除</button>
               </> : null}
               <button className="primary-action" disabled={busy !== null || !template.active} onClick={() => void useTemplate(template)}>{busy === template.id ? "处理中…" : "使用模板"}</button>
             </div>

@@ -182,3 +182,28 @@ def discard_blueprint_draft(blueprint_id: str, teacher_id: int) -> None:
         if draft:
             connection.execute("UPDATE flows SET status = 'archived' WHERE id = ?", (draft['flow_id'],))
             connection.execute("DELETE FROM workflow_blueprint_drafts WHERE blueprint_id = ? AND teacher_id = ?", (blueprint_id, teacher_id))
+
+
+def delete_blueprint(blueprint_id: str, actor_id: int) -> None:
+    """Remove the library entry; archive its private definitions, never users' copies."""
+    with get_connection() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        template = connection.execute("SELECT * FROM workflow_blueprints WHERE id = ?", (blueprint_id,)).fetchone()
+        if template is None:
+            raise KeyError(blueprint_id)
+        now = utc_now_iso()
+        connection.execute(
+            """UPDATE flows SET status = 'archived', updated_at = ? WHERE id IN (
+                SELECT snapshot_flow_id FROM workflow_blueprints WHERE id = ?
+                UNION SELECT snapshot_flow_id FROM workflow_blueprint_versions WHERE blueprint_id = ?
+                UNION SELECT flow_id FROM workflow_blueprint_drafts WHERE blueprint_id = ?
+            )""", (now, blueprint_id, blueprint_id, blueprint_id),
+        )
+        connection.execute("DELETE FROM workflow_blueprint_drafts WHERE blueprint_id = ?", (blueprint_id,))
+        connection.execute("DELETE FROM workflow_blueprint_versions WHERE blueprint_id = ?", (blueprint_id,))
+        connection.execute("DELETE FROM workflow_blueprints WHERE id = ?", (blueprint_id,))
+        connection.execute(
+            """INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, before_data, created_at)
+               VALUES (?, 'workflow_template_deleted', 'workflow_template', ?, ?, ?)""",
+            (str(actor_id), blueprint_id, json.dumps(dict(template), ensure_ascii=False), now),
+        )

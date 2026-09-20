@@ -12236,6 +12236,9 @@ td {
   flex-shrink: 0;
 }
 
+.workflow-template-actions button.danger { color: #b42318; border-color: #fda29b; }
+.workflow-template-actions button.danger:hover:not(:disabled) { background: #fff1f0; }
+
 .workflow-template-panel button,
 .workflow-template-editor button {
   min-height: 34px;

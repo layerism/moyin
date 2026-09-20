@@ -239,6 +239,9 @@ export const workflowApi = {
   setWorkflowTemplateActive(id: string, active: boolean) {
     return request(`/api/workflow-templates/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ active }) });
   },
+  deleteWorkflowTemplate(id: string) {
+    return request<void>(`/api/workflow-templates/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
   useWorkflowTemplate(id: string) {
     return request<ServerFlow>(`/api/workflow-templates/${encodeURIComponent(id)}/use`, { method: "POST" });
   },

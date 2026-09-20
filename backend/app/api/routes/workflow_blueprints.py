@@ -6,7 +6,7 @@ from app.domain.answer_sheet import AnswerSheetConfigError
 from app.repositories.flow_content_assets import ContentAssetError
 from app.repositories.workflow_blueprints import (
     BlueprintConflictError, list_blueprints, publish_blueprint, set_blueprint_active, use_blueprint,
-    open_blueprint_draft, discard_blueprint_draft,
+    open_blueprint_draft, discard_blueprint_draft, delete_blueprint,
 )
 from app.services.object_storage import ObjectStorageError
 from app.services.security import get_current_teacher
@@ -90,3 +90,8 @@ def commit_edit(template_id: str, payload: PublishBlueprint, teacher: dict = Dep
 @router.delete("/{template_id}/edit", status_code=204)
 def discard_edit(template_id: str, teacher: dict = Depends(template_admin)):
     perform(lambda: discard_blueprint_draft(template_id, int(teacher['id'])))
+
+
+@router.delete("/{template_id}", status_code=204)
+def delete(template_id: str, teacher: dict = Depends(template_admin)):
+    perform(lambda: delete_blueprint(template_id, int(teacher['id'])))
