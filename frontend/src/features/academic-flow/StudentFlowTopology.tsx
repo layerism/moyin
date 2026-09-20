@@ -47,11 +47,13 @@ export function StudentFlowTopology({
   edges,
   nodes,
   onOpenNode,
+  preview = false,
   runtimeNodes,
 }: {
   edges: AcademicFlowEdge[];
   nodes: AcademicFlowNode[];
   onOpenNode: (nodeKey: string) => void;
+  preview?: boolean;
   runtimeNodes: RuntimeNodeInstance[];
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -198,7 +200,7 @@ export function StudentFlowTopology({
             const runtime = runtimeByKey.get(node.id);
             if (!runtime) return null;
             const openable = openableStatuses.has(runtime.status);
-            const deadline = getDeadlineBadge(node, runtime, clock);
+            const deadline = getDeadlineBadge(node, runtime, clock, preview);
             return (
               <button
                 aria-label={`${node.title}，${statusLabels[runtime.status]}${deadline ? `，${deadline.label}` : ""}`}
@@ -282,9 +284,11 @@ function createArrowPolygon(x: number, y: number, port: AcademicFlowPort) {
   return `${x},${y} ${x + 10},${y - 6} ${x + 10},${y + 6}`;
 }
 
-function getDeadlineBadge(node: AcademicFlowNode, runtime: RuntimeNodeInstance, now: number) {
-  if (!runtime.effectiveDeadline || runtime.status === "skipped") return null;
-  const end = new Date(runtime.effectiveDeadline).getTime();
+function getDeadlineBadge(node: AcademicFlowNode, runtime: RuntimeNodeInstance, now: number, preview: boolean) {
+  // Preview bypasses runtime time limits; only its badge uses the configured deadline.
+  const deadline = preview ? node.deadlineAt : runtime.effectiveDeadline;
+  if (!deadline || node.kind === "branch" || runtime.status === "skipped") return null;
+  const end = new Date(deadline).getTime();
   if (!Number.isFinite(end)) return null;
   const remaining = end - now;
   // Completed forms remain editable until their effective deadline.

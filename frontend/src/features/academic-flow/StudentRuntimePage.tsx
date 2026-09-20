@@ -361,6 +361,7 @@ export function StudentRuntimePage({
         edges={instance.config.edges}
         nodes={instance.config.nodes}
         onOpenNode={setActiveNodeKey}
+        preview={preview}
         runtimeNodes={instance.nodeInstances}
       />
       {activeNode && activeRuntime ? (
