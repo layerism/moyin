@@ -1125,12 +1125,8 @@ function FlowNodeCanvas({
   const [zoom, setZoom] = useState(0.5);
   useEffect(() => {
     if (!timeFocus) return;
-    const node = nodes.find((item) => item.id === timeFocus.nodeId);
-    const canvas = canvasRef.current;
     const element = nodeElementsRef.current.get(timeFocus.nodeId);
-    if (!node || !canvas || !element) return;
-    setViewportOffset({ x: canvas.clientWidth / 2 - (node.x + nodeSize.width / 2) * zoom,
-      y: canvas.clientHeight / 2 - (node.y + element.offsetHeight / 2) * zoom });
+    if (!element) return;
     if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       const animation = element.animate([0, -8, 8, -6, 6, 0].map((x) => ({ transform: `translateX(${x}px)` })), { duration: 500 });
       return () => animation.cancel();
