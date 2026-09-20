@@ -5648,6 +5648,7 @@ button {
   outline: 3px solid rgb(43 116 255 / 12%);
 }
 
+.form-field-card .form-field-static-meta,
 .form-field-card .form-field-meta-toggle {
   min-height: 32px;
   display: flex;
@@ -5657,10 +5658,13 @@ button {
   border: 0;
   background: transparent;
   color: #718096;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
   white-space: nowrap;
 }
+
+.form-field-card .form-field-meta-toggle > small { font: inherit; color: inherit; }
 
 .form-field-card .form-field-meta-toggle:hover {
   background: #f8fbff;
@@ -12747,13 +12751,21 @@ td {
 .branch-static-port { position: absolute; width: 12px; height: 12px; border: 2px solid #d99a21; border-radius: 50%; background: white; margin-left: -6px; }
 .branch-static-port.top { top: -6px; left: 50%; }
 .branch-static-port.bottom { bottom: -6px; }
-.branch-option-row { display: flex; gap: 5px; align-items: center; padding: 7px; margin: 8px 0; border: 1px solid #dbe2ec; border-radius: 6px; }
-.branch-option-index { flex: 0 0 25px; border-radius: 4px; background: #eff6ff; text-align: center; color: #2563eb; padding: 4px 0; font-size: 12px; }
-.branch-option-row input { min-width: 0; flex: 1; width: 0; border: 0; padding: 6px 2px; }
-.branch-option-row button { padding: 3px; border: 0; background: transparent; color: #64748b; cursor: pointer; }
-.branch-option-row button:disabled { opacity: .35; cursor: default; }
-.branch-add-option { width: 100%; padding: 9px; border: 1px dashed #93b4f5; border-radius: 6px; background: white; color: #2563eb; margin: 4px 0 12px; cursor: pointer; }
-.branch-options-editor > small { display: block; color: #7b6a49; line-height: 1.6; }
+.branch-options-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.branch-options-heading h3 { margin: 0; }
+.branch-options-heading > span { color: #64748b; font-size: 12px; background: #edf2f8; padding: 3px 9px; border-radius: 20px; }
+.branch-option-row { display: flex; gap: 6px; align-items: center; padding: 8px 10px; margin: 10px 0; border: 1px solid #dbe2ec; border-radius: 10px; background: #fff; }
+.branch-option-row:focus-within { border-color: #86afff; box-shadow: 0 0 0 2px #246bfd12; }
+.branch-option-index { flex: 0 0 26px; border-radius: 7px; background: #eff6ff; text-align: center; color: #2563eb; line-height: 26px; font-size: 12px; font-weight: 600; }
+.branch-option-row input { min-width: 0; flex: 1; width: 0; border: 0; padding: 7px 6px; background: transparent; font: inherit; font-size: 14px; }
+.branch-option-row button { display: grid; place-items: center; flex: 0 0 28px; height: 28px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer; }
+.branch-option-row button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.branch-option-row button:hover:not(:disabled) { background: #eef4ff; color: #2563eb; }
+.branch-option-row button:last-child:hover:not(:disabled) { background: #fff0f0; color: #c43232; }
+.branch-option-row button:disabled { opacity: .3; cursor: default; }
+.branch-add-option { width: 100%; padding: 10px; margin-top: 4px; border: 1px dashed #b8ccef; border-radius: 8px; background: #fff; color: #246bfd; font-size: 13px; cursor: pointer; }
+.branch-add-option:hover:not(:disabled) { background: #eef4ff; }
+.branch-options-editor > small { display: block; margin-top: 12px; color: #718096; font-size: 12px; line-height: 1.6; }
 .runtime-branch-options { display: grid; gap: 12px; border: 0; padding: 0; margin: 0; }
 .runtime-branch-options legend { font-weight: 600; margin-bottom: 14px; }
 .runtime-branch-options label { display: flex; align-items: center; gap: 12px; border: 1px solid #dbe2ec; border-radius: 8px; padding: 16px; cursor: pointer; }

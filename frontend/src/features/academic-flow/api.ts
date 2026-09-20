@@ -1,4 +1,4 @@
-import type { AcademicFlowConfig, AcademicProcess, AnswerSheetPrivateKey } from "../../types";
+import type { AcademicFlowConfig, AcademicFlowNode, AcademicProcess, AnswerSheetPrivateKey } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
 import type { AuditScriptSummary, NodeAuditPolicy } from "./auditScripts";
 import type {
@@ -253,6 +253,9 @@ export const workflowApi = {
       method: "PATCH",
       body: JSON.stringify({ name }),
     });
+  },
+  copyNode(flowId: string, node: AcademicFlowNode) {
+    return request<AcademicFlowNode>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/copy`, { method: "POST", body: JSON.stringify({ node }) });
   },
   saveDraft(serverId: string, process: AcademicProcess) {
     return request<ServerFlow>(`/api/workflows/${encodeURIComponent(serverId)}/draft`, {

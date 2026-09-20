@@ -2,6 +2,8 @@ import hashlib
 from pathlib import PurePosixPath
 from typing import Any
 
+from app.repositories.node_copy import copy_node
+
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
@@ -74,6 +76,10 @@ router = APIRouter(dependencies=[Depends(get_current_teacher)])
 class CreateFlowRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)
+
+
+class CopyNodeRequest(BaseModel):
+    node: dict[str, Any]
 
 
 class CloneFlowRequest(BaseModel):
@@ -418,6 +424,22 @@ def post_flow(
         return create_flow(payload.name.strip(), payload.description.strip(), int(teacher["id"]))
     except DuplicateFlowNameError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/{flow_id}/nodes/copy", status_code=201)
+def post_node_copy(
+    flow_id: str,
+    payload: CopyNodeRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return copy_node(flow_id, payload.node, int(teacher["id"]))
+    except KeyError as exc:
+        raise not_found() from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=502, detail="节点文件复制失败，请重试") from exc
 
 
 @router.post("/{flow_id}/clone", status_code=status.HTTP_201_CREATED)

@@ -180,6 +180,8 @@ export function AcademicFlowDesigner({
   const [revisionImpact, setRevisionImpact] = useState<RevisionImpact | null>(null);
   const [pendingPublishProcess, setPendingPublishProcess] = useState<AcademicProcess | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation | null>(null);
+  const [copyingNode, setCopyingNode] = useState(false);
+  const copyingNodeRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false);
   const [previewCreating, setPreviewCreating] = useState(false);
@@ -192,7 +194,7 @@ export function AcademicFlowDesigner({
     revisionEditingRequested,
     workingProcess.hasUnpublishedChanges,
   );
-  const operationLocked = saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
+  const operationLocked = copyingNode || saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
   const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
   const processEdges = workingProcess.edges ?? [];
   const activeNode =
@@ -485,6 +487,40 @@ export function AcademicFlowDesigner({
     setActiveNodeId(nextNode.id);
   };
 
+  const copyNode = async (nodeId: string): Promise<string | null> => {
+    if (editorLocked || copyingNodeRef.current) return null;
+    const source = workingProcess.nodes.find((node) => node.id === nodeId);
+    if (!source) return null;
+    copyingNodeRef.current = true;
+    setCopyingNode(true);
+    setActionError("");
+    try {
+      const copied = await workflowApi.copyNode(serverFlowId, source);
+      const x = source.x + nodeSize.width + 40;
+      let y = source.y;
+      while (workingProcess.nodes.some((node) => Math.abs(node.x - x) < nodeSize.width + 20 && Math.abs(node.y - y) < nodeSize.height + 40)) {
+        y += nodeSize.height + 40;
+      }
+      const nextNode = { ...copied, x, y };
+      const key = workingProcess.answerSheetKeys[source.id];
+      setWorkingProcess((current) => ({
+        ...current,
+        nodes: [...current.nodes, nextNode],
+        answerSheetKeys: key ? { ...current.answerSheetKeys, [nextNode.id]: structuredClone(key) } : current.answerSheetKeys,
+      }));
+      setRevisionDirty(true);
+      setActiveNodeId(nextNode.id);
+      setActionNotice("节点已复制");
+      return nextNode.id;
+    } catch (reason) {
+      showActionError(reason instanceof Error ? reason.message : "节点复制失败");
+      return null;
+    } finally {
+      copyingNodeRef.current = false;
+      setCopyingNode(false);
+    }
+  };
+
   const updateNode = (nodeId: string, value: Partial<AcademicFlowNode>) => {
     if (editorLocked) return;
     let nextValue = { ...value };
@@ -745,6 +781,8 @@ export function AcademicFlowDesigner({
             nodeMovementLocked={workingProcess.published}
             nodes={workingProcess.nodes}
             onAddNode={addNode}
+            onCopyNode={copyNode}
+            copyBlocked={inspectorNodeId !== null || showRoster || showProgress || manualReviewNodeId !== null || nodePackageDialogNodeId !== null}
             onConnectNodes={connectNodes}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
@@ -953,6 +991,8 @@ function FlowNodeCanvas({
   nodeMovementLocked,
   nodes,
   onAddNode,
+  onCopyNode,
+  copyBlocked,
   onConnectNodes,
   onDeleteEdge,
   onDeleteNode,
@@ -963,6 +1003,8 @@ function FlowNodeCanvas({
   onUpdateNodePositions,
   publishedNodeIds,
 }: {
+  onCopyNode: (nodeId: string) => Promise<string | null>;
+  copyBlocked: boolean;
   actionNotice: string;
   actionNoticeTargetNodeId: string | null;
   activeNodeId: string;
@@ -1080,6 +1122,25 @@ function FlowNodeCanvas({
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
     () => new Set(activeNodeId ? [activeNodeId] : []),
   );
+  useEffect(() => {
+    const duplicateSelectedNode = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "d" || !(event.ctrlKey || event.metaKey)
+        || event.altKey || event.shiftKey || locked || copyBlocked
+        || selectedNodeIds.size !== 1 || isCanvasKeyboardEditingTarget(event.target)
+        || document.querySelector('dialog[open], [role="dialog"], [role="alertdialog"]')) return;
+      event.preventDefault();
+      if (event.repeat) return;
+      const nodeId = [...selectedNodeIds][0];
+      void onCopyNode(nodeId).then((newId) => {
+        setSelectedNodeIds(new Set([newId ?? nodeId]));
+        if (newId) requestAnimationFrame(() => {
+          nodeElementsRef.current.get(newId)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+        });
+      });
+    };
+    window.addEventListener("keydown", duplicateSelectedNode);
+    return () => window.removeEventListener("keydown", duplicateSelectedNode);
+  }, [locked, copyBlocked, selectedNodeIds, onCopyNode]);
   const [draggingNodes, setDraggingNodes] = useState<NodeGroupDrag | null>(null);
   const [nodeHeights, setNodeHeights] = useState<Record<string, number>>({});
   const nodeIdKey = nodes.map((node) => node.id).join("|");
