@@ -36,10 +36,11 @@ def publish_blueprint(source_id: str, name: str, description: str, actor_id: int
         raise FlowValidationError("模板名称需为 1–120 字，简介不能超过 500 字")
     with get_connection() as connection:
         previous = connection.execute(
-            "SELECT snapshot_flow_id, updated_at FROM workflow_blueprints WHERE id = ?", (blueprint_id,),
+            "SELECT snapshot_flow_id FROM workflow_blueprints WHERE id = ?", (blueprint_id,),
         ).fetchone() if blueprint_id else None
         if blueprint_id and previous is None:
             raise KeyError(blueprint_id)
+        # Snapshot IDs identify content revisions; availability changes only update timestamps.
         if editing:
             draft = connection.execute(
                 "SELECT * FROM workflow_blueprint_drafts WHERE blueprint_id = ? AND teacher_id = ? AND flow_id = ?",
@@ -47,7 +48,7 @@ def publish_blueprint(source_id: str, name: str, description: str, actor_id: int
             ).fetchone()
             if draft is None:
                 raise KeyError(source_id)
-            if draft['base_snapshot_flow_id'] != previous['snapshot_flow_id'] or draft['base_updated_at'] != previous['updated_at']:
+            if draft['base_snapshot_flow_id'] != previous['snapshot_flow_id']:
                 raise BlueprintConflictError("模板已被其他管理员更新，请返回模板列表重新载入；当前草稿仍保留")
 
     template_id = blueprint_id or str(uuid.uuid4())
@@ -64,8 +65,8 @@ def publish_blueprint(source_id: str, name: str, description: str, actor_id: int
         else:
             changed = connection.execute(
                 """UPDATE workflow_blueprints SET name = ?, description = ?, snapshot_flow_id = ?,
-                   active = 1, updated_at = ? WHERE id = ? AND snapshot_flow_id = ? AND updated_at = ?""",
-                (name, description, snapshot_id, now, template_id, previous["snapshot_flow_id"], previous["updated_at"]),
+                   active = 1, updated_at = ? WHERE id = ? AND snapshot_flow_id = ?""",
+                (name, description, snapshot_id, now, template_id, previous["snapshot_flow_id"]),
             )
             if changed.rowcount != 1:
                 raise BlueprintConflictError("模板已被更新，请刷新后重试")
@@ -142,14 +143,14 @@ def open_blueprint_draft(blueprint_id: str, teacher_id: int) -> dict[str, object
             "SELECT * FROM workflow_blueprint_drafts WHERE blueprint_id = ? AND teacher_id = ?",
             (blueprint_id, teacher_id),
         ).fetchone()
-        if draft and (draft['base_snapshot_flow_id'] != template['snapshot_flow_id'] or draft['base_updated_at'] != template['updated_at']):
+        if draft and draft['base_snapshot_flow_id'] != template['snapshot_flow_id']:
             raise BlueprintConflictError("模板已更新，旧编辑草稿仍保留；可放弃旧草稿后重新载入")
     if draft:
         flow_id = draft['flow_id']
     else:
         def finalize(connection, new_flow_id):
             current = connection.execute("SELECT * FROM workflow_blueprints WHERE id = ?", (blueprint_id,)).fetchone()
-            if current is None or current['snapshot_flow_id'] != template['snapshot_flow_id'] or current['updated_at'] != template['updated_at']:
+            if current is None or current['snapshot_flow_id'] != template['snapshot_flow_id']:
                 raise BlueprintConflictError("模板已更新，请重新载入")
             if connection.execute("SELECT 1 FROM workflow_blueprint_drafts WHERE blueprint_id = ? AND teacher_id = ?", (blueprint_id, teacher_id)).fetchone():
                 raise BlueprintConflictError("编辑草稿已创建，请重新载入")
@@ -165,8 +166,8 @@ def open_blueprint_draft(blueprint_id: str, teacher_id: int) -> dict[str, object
             # Concurrent opens (including a refreshed tab) share the same editable draft.
             with get_connection() as connection:
                 existing = connection.execute(
-                    "SELECT flow_id FROM workflow_blueprint_drafts WHERE blueprint_id = ? AND teacher_id = ? AND base_snapshot_flow_id = ? AND base_updated_at = ?",
-                    (blueprint_id, teacher_id, template['snapshot_flow_id'], template['updated_at']),
+                    "SELECT flow_id FROM workflow_blueprint_drafts WHERE blueprint_id = ? AND teacher_id = ? AND base_snapshot_flow_id = ?",
+                    (blueprint_id, teacher_id, template['snapshot_flow_id']),
                 ).fetchone()
             if existing is None:
                 raise
