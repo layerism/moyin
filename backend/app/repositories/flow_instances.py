@@ -50,6 +50,7 @@ from app.repositories.flow_runtime_state import (
     effective_deadline,
     is_preview_instance,
     version_config,
+    version_deadlines,
 )
 from app.repositories.workflows import canonical_json
 from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script
@@ -714,7 +715,8 @@ def submit_node(
                     connection, str(row["flow_version_id"]), str(row["node_key"])
                 )
                 grade_result = grade_answer_sheet(
-                    node, key_record["gradingKey"], submission_payload
+                    {**node, "deadlineAt": version_deadlines(connection, row["flow_version_id"]).get(node["id"])},
+                    key_record["gradingKey"], submission_payload
                 )
                 grading_hash = str(key_record["gradingHash"])
             elif node.get("kind") == "form":
@@ -967,7 +969,7 @@ def set_student_deadline(
         if exists["node_status"] == "approved" and node.get("kind") != "form":
             raise StudentDeadlineValidationError("已通过的非表单节点不能延期")
 
-        current_deadline_value = exists["override_deadline"] or exists["global_deadline"]
+        current_deadline_value = effective_deadline(connection, instance_id, exists["flow_version_id"], node_key)
         if current_deadline_value is None:
             raise StudentDeadlineValidationError("无截止时间的节点不能设置延期")
 
@@ -1073,6 +1075,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             (version_id,),
         ).fetchall()
         config = json.loads(version["config_snapshot"])
+        global_deadlines = version_deadlines(connection, version_id)
         node_titles = {
             str(node["id"]): str(node.get("title") or node["id"])
             for node in config["nodes"]
@@ -1105,9 +1108,9 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
                 "nodeKey": row["node_key"],
                 "title": node_titles.get(row["node_key"], row["node_key"]),
                 "status": row["status"],
-                "globalDeadline": None if row["node_key"] in branch_keys else row["global_deadline"],
+                "globalDeadline": None if row["node_key"] in branch_keys else global_deadlines.get(row["node_key"]),
                 "overrideDeadline": None if row["node_key"] in branch_keys else row["override_deadline"],
-                "effectiveDeadline": None if row["node_key"] in branch_keys else row["override_deadline"] or row["global_deadline"],
+                "effectiveDeadline": None if row["node_key"] in branch_keys else row["override_deadline"] or global_deadlines.get(row["node_key"]),
             }
         )
     return {

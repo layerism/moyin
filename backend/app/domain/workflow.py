@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.domain.answer_sheet import AnswerSheetConfigError, validate_public_answer_sheet
+from app.domain.flow_deadlines import resolve_deadlines
 from app.domain.form_fields import FormFieldConfigError, validate_form_config
 
 
@@ -53,12 +54,6 @@ def validate_flow_config(
         try:
             validate_form_config(node)
         except FormFieldConfigError as exc:
-            raise FlowValidationError(str(exc)) from exc
-        try:
-            validate_public_answer_sheet(
-                node, require_publishable=require_publishable
-            )
-        except AnswerSheetConfigError as exc:
             raise FlowValidationError(str(exc)) from exc
 
     branch_options = {}
@@ -116,6 +111,14 @@ def validate_flow_config(
                 queue.append(target)
     if visited != len(node_ids):
         raise FlowValidationError("流程必须是无环图")
+    deadlines = resolve_deadlines(config)
+    for node in nodes:
+        resolved_node = {**node, "deadlineAt": deadlines.get(node["id"])}
+        _validate_node_time_window(resolved_node)
+        try:
+            validate_public_answer_sheet(resolved_node, require_publishable=require_publishable)
+        except AnswerSheetConfigError as exc:
+            raise FlowValidationError(str(exc)) from exc
 
 
 def _parse_node_time(value: object, label: str) -> datetime | None:

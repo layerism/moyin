@@ -1,3 +1,4 @@
+import { resolveFlowDeadlines } from "./flowDeadlines";
 import { NodeFileRow } from "./NodeFileRow";
 import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
@@ -197,6 +198,7 @@ export function AcademicFlowDesigner({
   const operationLocked = copyingNode || saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
   const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
   const processEdges = workingProcess.edges ?? [];
+  const inheritedDeadlines = resolveFlowDeadlines(workingProcess.nodes.map((node) => node.id === inspectorNodeId ? { ...node, deadlineAt: null } : node), processEdges);
   const activeNode =
     workingProcess.nodes.find((node) => node.id === activeNodeId) ??
     workingProcess.nodes[0] ??
@@ -378,8 +380,9 @@ export function AcademicFlowDesigner({
       showActionError("请先修正表单字段配置");
       return;
     }
+    const publishDeadlines = resolveFlowDeadlines(candidate.nodes, candidate.edges ?? []);
     const answerSheetIssue = getAnswerSheetPublishIssue(
-      candidate.nodes,
+      candidate.nodes.map((node) => ({ ...node, deadlineAt: publishDeadlines.get(node.id) })),
       candidate.answerSheetKeys,
     );
     if (answerSheetIssue) {
@@ -799,6 +802,7 @@ export function AcademicFlowDesigner({
             editingLocked={editorLocked}
             flowId={serverFlowId}
             nodeCoreLocked={!canEditRevisionNodeCore(inspectorNode.id, protectedNodeIds)}
+            inheritedDeadline={inheritedDeadlines.get(inspectorNode.id) ?? null}
             node={inspectorNode}
             answerSheetKey={workingProcess.answerSheetKeys[inspectorNode.id]}
             onClose={() => setInspectorNodeId(null)}
@@ -1067,7 +1071,15 @@ function FlowNodeCanvas({
   useEffect(() => {
     const updateModifier = (event: KeyboardEvent) => {
       setControlPressed(isCanvasControlModifierActive(event));
-      if (event.key === "Escape") cancelMarquee();
+      if (event.key === "Escape" && !isCanvasKeyboardEditingTarget(event.target)
+        && !document.querySelector('[role="dialog"], dialog[open], [role="alertdialog"]')) {
+        cancelMarquee();
+        setSelectedNodeIds(new Set());
+        setSelectedEdgeId(null);
+        connectingFromRef.current = null;
+        setConnectingFrom(null);
+        setConnectionPreviewPoint(null);
+      }
     };
     const blur = () => { setControlPressed(false); cancelMarquee(); };
     window.addEventListener("keydown", updateModifier);
@@ -1629,6 +1641,10 @@ function FlowNodeCanvas({
     const blankCanvas = target instanceof Element && !target.closest(
       ".flow-node, .connection-port, .flow-edge-hitbox, .flow-edge-delete, .node-context-menu, button, input, [role='menu']",
     );
+    if (event.button === 0 && blankCanvas && !isCanvasControlModifierActive(event)) {
+      setSelectedNodeIds(new Set());
+      setSelectedEdgeId(null);
+    }
     if (event.button === 0 && blankCanvas && !locked && !connectingFromRef.current && isCanvasControlModifierActive(event)) {
       event.preventDefault();
       const start = getCanvasPoint(event.clientX, event.clientY);
@@ -1739,6 +1755,7 @@ function FlowNodeCanvas({
       <div className="panel-heading canvas-panel-heading">
         <div className="canvas-heading-summary">
           <h2>流程画布</h2>
+          {selectedNodeIds.size > 0 && <span className="canvas-selection-count" role="status">已选 {selectedNodeIds.size} 个节点 · Esc 取消</span>}
           {actionNotice ? (
             <p className="academic-action-notice" title={actionNotice}>
               <span className="academic-action-notice-text">{actionNotice}</span>
@@ -2123,6 +2140,7 @@ function FlowNodeCanvas({
 }
 
 function NodeInspector({
+  inheritedDeadline,
   answerSheetKey,
   editingLocked,
   flowId,
@@ -2139,6 +2157,7 @@ function NodeInspector({
   publishedAuditPolicy,
   publishedRevision,
 }: {
+  inheritedDeadline: string | null;
   answerSheetKey?: AcademicProcess["answerSheetKeys"][string];
   editingLocked: boolean;
   flowId: string;
@@ -2314,7 +2333,8 @@ function NodeInspector({
     });
   };
   const settingCapabilities = getNodeSettingCapabilities(node.kind);
-  const timeSettingsLabel = getTimeSettingsLabel(node);
+  const displayNode = { ...node, deadlineAt: node.deadlineAt || inheritedDeadline };
+  const timeSettingsLabel = getTimeSettingsLabel(displayNode);
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
   const stepExtensions = node.kind === "file" ? fileReviewSteps(node).filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length).map((step) => step.auditScriptAcceptedExtensions!) : [];
@@ -2390,9 +2410,10 @@ function NodeInspector({
             }}
           />
         ) : null}
-          {node.startAt || node.deadlineAt ? (
-            <small>{getTimeWindowStatus(node)}</small>
+          {displayNode.startAt || displayNode.deadlineAt ? (
+            <small>{getTimeWindowStatus(displayNode)}</small>
           ) : null}
+          {!node.deadlineAt && <small className="node-auto-deadline-note">{inheritedDeadline ? "自动截止：上游最晚日期 + 5 天" : "暂无推算依据，请设置本节点或上游截止日期。"}</small>}
         </div> : <p className="branch-activation-hint">有效上游全部通过后立即开放，无需设置时间。</p>}
         {publishedRevision ? (
           <div className="node-inspector-revision-strip" role="note">
@@ -2423,7 +2444,7 @@ function NodeInspector({
           <AnswerSheetEditor
             config={node.answerSheet}
             disabled={coreSettingsDisabled}
-            deadlineAt={node.deadlineAt}
+            deadlineAt={displayNode.deadlineAt}
             gradingKey={answerSheetKey}
             onChange={(config, gradingKey) => onUpdateAnswerSheet(node.id, config, gradingKey)}
           />
@@ -2617,6 +2638,7 @@ function NodeInspector({
       </aside>
       {timeSettingsOpen && node.kind !== "branch" ? (
         <NodeTimeSettingsDialog
+          inheritedDeadline={inheritedDeadline}
           node={node}
           onCancel={() => setTimeSettingsOpen(false)}
           onConfirm={(startAt, deadlineAt) => {
@@ -2630,22 +2652,25 @@ function NodeInspector({
 }
 
 function NodeTimeSettingsDialog({
+  inheritedDeadline,
   node,
   onCancel,
   onConfirm,
 }: {
+  inheritedDeadline: string | null;
   node: AcademicFlowNode;
   onCancel: () => void;
   onConfirm: (startAt: string | null, deadlineAt: string | null) => void;
 }) {
   const [startAt, setStartAt] = useState<string | null>(node.startAt ?? null);
   const [deadlineAt, setDeadlineAt] = useState<string | null>(node.deadlineAt ?? null);
+  const effectiveDeadline = deadlineAt || inheritedDeadline;
   const invalid = Boolean(
     startAt
-    && deadlineAt
-    && new Date(startAt).getTime() >= new Date(deadlineAt).getTime(),
+    && effectiveDeadline
+    && new Date(startAt).getTime() >= new Date(effectiveDeadline).getTime(),
   );
-  const draftNode = { ...node, deadlineAt, startAt };
+  const draftNode = { ...node, deadlineAt: effectiveDeadline, startAt };
 
   return (
     <div
@@ -2683,15 +2708,15 @@ function NodeTimeSettingsDialog({
               <NodeDateTimePicker
                 ariaLabel="截止时间"
                 onConfirm={setDeadlineAt}
-                value={deadlineAt}
+                value={effectiveDeadline}
               />
               {deadlineAt ? (
-                <button onClick={() => setDeadlineAt(null)} type="button">清除</button>
+                <button onClick={() => setDeadlineAt(null)} type="button">恢复自动</button>
               ) : null}
             </div>
           </div>
           <p className={invalid ? "node-time-dialog-error" : "node-time-dialog-summary"}>
-            {getTimeWindowSummary(draftNode)}
+            {!deadlineAt && inheritedDeadline ? "自动截止：上游最晚日期 + 5 天。" : ""}{getTimeWindowSummary(draftNode)}
           </p>
         </div>
         <footer>

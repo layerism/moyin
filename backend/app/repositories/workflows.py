@@ -9,6 +9,7 @@ from sqlite3 import Connection
 from app.core.config import settings
 from app.core.database import get_connection
 from app.domain.answer_sheet import AnswerSheetConfigError
+from app.repositories.flow_runtime_state import version_deadlines
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     analyze_revision,
@@ -975,14 +976,7 @@ def _node_invalidation_before_data(
 
 
 def _new_version_deadline(connection: Any, version_id: str, node_key: str) -> str | None:
-    row = connection.execute(
-        """
-        SELECT deadline_at FROM flow_node_runtime_configs
-        WHERE flow_version_id = ? AND node_key = ?
-        """,
-        (version_id, node_key),
-    ).fetchone()
-    return row["deadline_at"] if row is not None else None
+    return version_deadlines(connection, version_id).get(node_key)
 
 
 def _invalidation_reasons(impact: dict[str, list[str]], node_key: str) -> list[str]:

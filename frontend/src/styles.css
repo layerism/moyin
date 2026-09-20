@@ -13509,3 +13509,22 @@ td {
   background: #fef2f2;
   color: #b91c1c;
 }
+
+
+.flow-node.node-function-colors.selected {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px #2563eb26, 0 6px 18px #17203312;
+}
+
+.dag-canvas { user-select: none; }
+.dag-canvas :is(input, textarea, [contenteditable="true"]) { user-select: text; }
+.canvas-selection-count {
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.node-auto-deadline-note { color: #667085; }

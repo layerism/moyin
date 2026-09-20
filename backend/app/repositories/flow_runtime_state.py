@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+from app.domain.flow_deadlines import resolve_deadlines
 from app.repositories.branch_state import resolve_routes
 from app.domain.workflow_runtime import node_by_key, pending_node_status
 from app.services.security import utc_now_iso
@@ -29,14 +30,28 @@ def effective_deadline(
     ).fetchone()
     if override is not None:
         return override["deadline_at"]
-    runtime = connection.execute(
-        """
-        SELECT deadline_at FROM flow_node_runtime_configs
-        WHERE flow_version_id = ? AND node_key = ?
-        """,
-        (version_id, node_key),
+    return version_deadlines(connection, version_id).get(node_key)
+
+
+def version_deadlines(connection, version_id: str) -> dict[str, str | None]:
+    version = connection.execute(
+        "SELECT config_snapshot FROM flow_versions WHERE id = ?", (version_id,)
     ).fetchone()
-    return runtime["deadline_at"] if runtime else None
+    config = json.loads(version["config_snapshot"])
+    rows = connection.execute(
+        "SELECT node_key, deadline_at FROM flow_node_runtime_configs WHERE flow_version_id = ?",
+        (version_id,),
+    ).fetchall()
+    explicit = {row["node_key"]: row["deadline_at"] for row in rows}
+    for node in config["nodes"]:
+        if node["id"] in explicit:
+            node["deadlineAt"] = explicit[node["id"]]
+    deadlines = resolve_deadlines(config)
+    # Branches transmit dates for inheritance but have no submission deadline.
+    for node in config["nodes"]:
+        if node.get("kind") == "branch":
+            deadlines[node["id"]] = None
+    return deadlines
 
 
 def advance_downstream(
