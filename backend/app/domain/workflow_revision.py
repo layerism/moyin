@@ -1,6 +1,8 @@
 from collections.abc import Iterable
 from typing import Any
 
+from app.domain.node_assets import reference_assets
+
 
 class PublishedNodeDeletionError(ValueError):
     pass
@@ -55,8 +57,11 @@ def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     }
     if snapshot.get("templateAsset") is None:
         snapshot.pop("templateAsset", None)
-    if snapshot.get("referenceAsset") is None:
-        snapshot.pop("referenceAsset", None)
+    references = reference_assets(snapshot)
+    snapshot.pop("referenceAsset", None)
+    snapshot.pop("referenceAssets", None)
+    if references:
+        snapshot["referenceAssets"] = references
     return snapshot
 
 

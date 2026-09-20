@@ -404,8 +404,8 @@ export const workflowApi = {
     return request<{ referenceAsset: NonNullable<AcademicProcess["nodes"][number]["referenceAsset"]> }>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/reference`, { method: "POST", body });
   },
-  deleteNodeReference(flowId: string, nodeKey: string) {
-    return request<{ referenceAsset: null }>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/reference`, { method: "DELETE" });
+  deleteNodeReference(flowId: string, nodeKey: string, assetId: string) {
+    return request<{ referenceAsset: null }>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/reference?asset_id=${encodeURIComponent(assetId)}`, { method: "DELETE" });
   },
   downloadNodeReference(nodeInstanceId: string) {
     return request<{ url: string; originalName: string }>(`/api/student/node-instances/${encodeURIComponent(nodeInstanceId)}/reference/download`);

@@ -1,3 +1,5 @@
+import { nodeReferences } from "./nodeReferences";
+import type { NodeTemplateAsset } from "../../types";
 import { saveStudentFile } from "./saveStudentFile";
 import { FileReviewDialog } from "./FileReviewDialog";
 import { hasFileManualReview } from "./FileReviewStepsEditor";
@@ -719,7 +721,7 @@ function RuntimeNodeDialog({
         {node.kind === "file" && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {node.kind === "file" && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
-        {node.kind === "file" && writable && node.referenceAsset ? <NodeReferenceCard node={node} nodeInstanceId={runtime.id} /> : null}
+        {node.kind === "file" && writable ? nodeReferences(node).map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} />) : null}
         {completedBranch ? (
           <>
             <div className="runtime-branch-result">
@@ -1294,18 +1296,18 @@ function getDraftFileName(file: unknown): string {
 }
 
 
-function NodeReferenceCard({ node, nodeInstanceId }: { node: AcademicFlowNode; nodeInstanceId: string }) {
+function NodeReferenceCard({ asset, nodeInstanceId }: { asset: NodeTemplateAsset; nodeInstanceId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const download = async () => {
     setBusy(true); setError("");
     try {
-      await saveStudentFile("reference", nodeInstanceId, node.referenceAsset?.originalName || "填写参考");
+      await saveStudentFile("reference", nodeInstanceId, asset.originalName || "填写参考", asset.assetId);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "参考文件下载失败"); }
     finally { setBusy(false); }
   };
   return <section className="runtime-node-reference" aria-label="填写参考">
-    <div><strong>填写参考</strong><p>{node.referenceAsset?.originalName}</p><small>可选参考资料，不影响材料提交。</small></div>
+    <div><strong>填写参考</strong><p>{asset.originalName}</p><small>可选参考资料，不影响材料提交。</small></div>
     <button type="button" disabled={busy} onClick={() => void download()}>{busy ? "正在下载…" : "下载参考"}</button>
     {error ? <p role="alert" className="dialog-error">{error}</p> : null}
   </section>;

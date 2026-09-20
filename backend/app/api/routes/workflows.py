@@ -164,8 +164,8 @@ def delete_node_template(flow_id: str, node_key: str, teacher=Depends(get_curren
 
 
 @router.delete("/{flow_id}/nodes/{node_key}/reference")
-def delete_node_reference(flow_id: str, node_key: str, teacher=Depends(get_current_teacher)):
-    return _delete_node_asset(flow_id, node_key, teacher, reference=True)
+def delete_node_reference(flow_id: str, node_key: str, asset_id: str | None = None, teacher=Depends(get_current_teacher)):
+    return _delete_node_asset(flow_id, node_key, teacher, reference=True, reference_id=asset_id)
 
 
 def _validate_reference_content(file: UploadFile, filename: str) -> None:
@@ -272,9 +272,10 @@ def _delete_node_asset(
     node_key: str,
     teacher: dict[str, object] = Depends(get_current_teacher),
     reference: bool = False,
+    reference_id: str | None = None,
 ) -> dict[str, object]:
     try:
-        asset = remove_template_asset(flow_id, node_key, int(teacher["id"]), reference)
+        asset = remove_template_asset(flow_id, node_key, int(teacher["id"]), reference, reference_id)
     except KeyError as exc:
         raise not_found() from exc
     except TemplateMutationError as exc:

@@ -6,6 +6,7 @@ from collections import deque
 from typing import Any, Callable
 from sqlite3 import Connection
 
+from app.domain.node_assets import asset_entries
 from app.core.config import settings
 from app.core.database import get_connection
 from app.domain.answer_sheet import AnswerSheetConfigError
@@ -542,10 +543,9 @@ def copy_flow_definition(
             for node in config.get("nodes", []):
                 node.pop("startAt", None)
                 node.pop("deadlineAt", None)
-        source_assets: list[tuple[dict[str, Any], dict[str, Any], str]] = []
+        source_assets: list[tuple[dict[str, Any], dict[str, Any], dict[str, Any]]] = []
         for node in config.get("nodes", []):
-            for asset_field in ("templateAsset", "referenceAsset"):
-                template = node.get(asset_field)
+            for _, template in asset_entries(node):
                 if not template:
                     continue
                 asset = connection.execute(
@@ -563,7 +563,7 @@ def copy_flow_definition(
                 }
                 if template != expected:
                     raise FlowValidationError("流程模板资产无效，无法复制")
-                source_assets.append((node, dict(asset), asset_field))
+                source_assets.append((node, dict(asset), template))
         source_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
         content_references = validate_content_assets(connection, flow_id, config)
         source_content_assets: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -596,7 +596,7 @@ def copy_flow_definition(
                 logger.exception("清理流程副本模板失败: %s", copied_key)
 
     try:
-        for node, asset, asset_field in source_assets:
+        for node, asset, metadata in source_assets:
             new_asset_id = str(uuid.uuid4())
             target_key = object_key(
                 settings.oss_prefix,
@@ -606,13 +606,13 @@ def copy_flow_definition(
             )
             uploaded = storage.copy_object(asset["storage_key"], target_key)  # type: ignore[union-attr]
             copied_keys.append(target_key)
-            node[asset_field] = {
+            metadata.update({
                 "assetId": new_asset_id,
                 "contentType": asset["content_type"],
                 "originalName": asset["original_name"],
                 "sha256": asset["sha256"],
                 "sizeBytes": asset["size_bytes"],
-            }
+            })
             new_assets.append(
                 {
                     **asset,

@@ -3,6 +3,8 @@ import hashlib
 import json
 import uuid
 
+from app.domain.node_assets import asset_entries
+
 from app.domain.workflow_runtime import node_by_key
 from app.domain.file_review_steps import step_kind, structured_steps
 from app.services.security import utc_now_iso
@@ -93,8 +95,9 @@ def file_review_detail(connection, row, config, node, status):
         LEFT JOIN teacher_accounts a ON a.id = m.teacher_id WHERE m.flow_instance_id = ? AND m.node_key = ?
         ORDER BY m.created_at DESC, m.id DESC''', (row['flow_instance_id'], row['node_key'])).fetchall()
     reference_files = []
-    for key, label in (('templateAsset', '填写模板'), ('referenceAsset', '填写参考')):
-        asset_id = (node.get(key) or {}).get('assetId')
+    for key, metadata in asset_entries(node):
+        label = '填写模板' if key == 'templateAsset' else '填写参考'
+        asset_id = metadata.get('assetId')
         if not asset_id:
             continue
         asset = connection.execute('''SELECT a.id, a.original_name, a.storage_key FROM flow_template_assets a

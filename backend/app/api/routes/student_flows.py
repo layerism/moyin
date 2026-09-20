@@ -95,9 +95,9 @@ def runtime_error(exc: Exception) -> HTTPException:
 
 
 @router.get("/node-instances/{node_instance_id}/reference/download")
-def download_node_reference(node_instance_id: str, student=Depends(get_current_runtime_student)):
+def download_node_reference(node_instance_id: str, asset_id: str | None = None, student=Depends(get_current_runtime_student)):
     try:
-        record = get_student_reference(node_instance_id, int(student['id']))
+        record = get_student_reference(node_instance_id, int(student['id']), asset_id)
         url = get_object_storage().signed_download_url(str(record['storage_key']), str(record['original_name']))
         return {'url': url, 'originalName': record['original_name']}
     except KeyError as exc:
@@ -460,7 +460,7 @@ def post_audit_retry(
 
 
 @router.get('/downloads/{kind}/{resource_id}')
-def save_student_file(kind: str, resource_id: str, student=Depends(get_current_runtime_student)):
+def save_student_file(kind: str, resource_id: str, asset_id: str | None = None, student=Depends(get_current_runtime_student)):
     """Authenticated same-origin transfer for the browser's Save As picker."""
     import tempfile
     from pathlib import Path
@@ -475,7 +475,7 @@ def save_student_file(kind: str, resource_id: str, student=Depends(get_current_r
         elif kind == 'template':
             record = get_student_template(resource_id, student_id)
         elif kind == 'reference':
-            record = get_student_reference(resource_id, student_id)
+            record = get_student_reference(resource_id, student_id, asset_id)
         elif kind == 'feedback':
             record = feedback_download(resource_id, student_id=student_id)
         else:

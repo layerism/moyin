@@ -13527,7 +13527,7 @@ td {
   font-size: 12px;
   white-space: nowrap;
 }
-.node-auto-deadline-note { color: #667085; }
+.node-reference-files { display: grid; gap: 6px; min-width: 0; }
 
 
 .node-date-time-days button:disabled,

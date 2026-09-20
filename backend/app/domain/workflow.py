@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.domain.answer_sheet import AnswerSheetConfigError, validate_public_answer_sheet
+from app.domain.node_assets import reference_assets
 from app.domain.flow_deadlines import resolve_deadlines
 from app.domain.form_fields import FormFieldConfigError, validate_form_config
 
@@ -46,8 +47,12 @@ def validate_flow_config(
         _validate_node_time_window(node)
         _validate_confirmation_scan(node, require_publishable=require_publishable)
         _validate_node_template(node)
-        reference = node.get("referenceAsset")
-        if reference is not None:
+        if "referenceAssets" in node and (
+            not isinstance(node["referenceAssets"], list)
+            or any(not isinstance(asset, dict) for asset in node["referenceAssets"])
+        ):
+            raise FlowValidationError("填写参考必须为文件列表")
+        for reference in reference_assets(node):
             if node.get("kind") != "file":
                 raise FlowValidationError("只有文件节点可以配置填写参考")
             _validate_node_template({**node, "templateAsset": reference})

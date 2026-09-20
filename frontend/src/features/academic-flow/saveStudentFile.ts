@@ -4,10 +4,10 @@ type SaveHandle = { createWritable(): Promise<WritableStream<Uint8Array>> };
 type SaveWindow = Window & { showSaveFilePicker?: (options: { suggestedName: string }) => Promise<SaveHandle> };
 
 /** Must be called directly from the click handler, before any network await. */
-export async function saveStudentFile(kind: "file" | "template" | "reference" | "feedback", id: string, filename: string): Promise<boolean> {
+export async function saveStudentFile(kind: "file" | "template" | "reference" | "feedback", id: string, filename: string, assetId?: string): Promise<boolean> {
   const headers = new Headers();
   applyPreviewHeaders(headers);
-  return saveDownloadFile(`/api/student/downloads/${kind}/${encodeURIComponent(id)}`, filename, headers);
+  return saveDownloadFile(`/api/student/downloads/${kind}/${encodeURIComponent(id)}${assetId ? `?asset_id=${encodeURIComponent(assetId)}` : ""}`, filename, headers);
 }
 
 export async function saveDownloadFile(endpoint: string, filename: string, headers?: Headers): Promise<boolean> {

@@ -3,6 +3,7 @@ import json
 import uuid
 from typing import Any
 
+from app.domain.node_assets import reference_assets, asset_entries
 from app.repositories.branch_state import node_is_ready
 from app.core.database import get_connection
 from app.domain.workflow_runtime import (
@@ -96,7 +97,7 @@ def save_template_asset(
             validate_reference_metadata(original_name, size_bytes)
         else:
             _validate_template_name(node, original_name)
-        old_id = (node.get("referenceAsset" if reference else "templateAsset") or {}).get("assetId")
+        old_id = None if reference else (node.get("templateAsset") or {}).get("assetId")
         connection.execute(
             """
             INSERT INTO flow_template_assets
@@ -114,7 +115,11 @@ def save_template_asset(
             "sha256": sha256,
             "sizeBytes": size_bytes,
         }
-        node["referenceAsset" if reference else "templateAsset"] = metadata
+        if reference:
+            node["referenceAssets"] = [*reference_assets(node), metadata]
+            node.pop("referenceAsset", None)
+        else:
+            node["templateAsset"] = metadata
         serialized = _canonical_json(config)
         connection.execute(
             "UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?",
@@ -133,7 +138,7 @@ def save_template_asset(
     return metadata, str(old_id) if old_id else None, hashlib.sha256(serialized.encode()).hexdigest()
 
 
-def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, reference: bool = False) -> dict[str, object] | None:
+def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, reference: bool = False, reference_id: str | None = None) -> dict[str, object] | None:
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
@@ -147,7 +152,16 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
         node = node_by_key(config, node_key)
         if not supports_template(node, reference) or node_key in _published_node_ids(connection, flow_id):
             raise TemplateMutationError("已发布节点的模板不可修改")
-        asset_id = (node.get("referenceAsset" if reference else "templateAsset") or {}).get("assetId")
+        references = reference_assets(node) if reference else []
+        if reference:
+            if reference_id is None and len(references) > 1:
+                raise TemplateMutationError("请选择要移除的参考文件")
+            selected = next((item for item in references if reference_id is None or item["assetId"] == reference_id), None)
+            asset_id = selected["assetId"] if selected else None
+            if reference_id and asset_id is None:
+                raise KeyError(reference_id)
+        else:
+            asset_id = (node.get("templateAsset") or {}).get("assetId")
         if not asset_id:
             return None
         asset = connection.execute(
@@ -156,7 +170,11 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
         ).fetchone()
         if asset is None:
             raise KeyError(asset_id)
-        node["referenceAsset" if reference else "templateAsset"] = None
+        if reference:
+            node["referenceAssets"] = [item for item in references if item["assetId"] != asset_id]
+            node.pop("referenceAsset", None)
+        else:
+            node["templateAsset"] = None
         connection.execute(
             "UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?",
             (_canonical_json(config), now, flow_id),
@@ -179,12 +197,12 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
             "SELECT 1 FROM flow_version_templates WHERE template_asset_id = ? LIMIT 1", (asset_id,)
         ).fetchone()
         reference = connection.execute(
-            "SELECT 1 FROM flow_versions v, json_each(v.config_snapshot, '$.nodes') n WHERE json_extract(n.value, '$.referenceAsset.assetId') = ? LIMIT 1", (asset_id,),
+            "SELECT 1 FROM flow_versions v, json_each(v.config_snapshot, '$.nodes') n WHERE json_extract(n.value, '$.referenceAsset.assetId') = ? OR EXISTS (SELECT 1 FROM json_each(n.value, '$.referenceAssets') a WHERE json_extract(a.value, '$.assetId') = ?) LIMIT 1", (asset_id, asset_id),
         ).fetchone()
         draft_reference = connection.execute(
             """SELECT 1 FROM flows f, json_each(f.draft_config, '$.nodes') n
                WHERE json_extract(n.value, '$.referenceAsset.assetId') = ?
-                  OR json_extract(n.value, '$.templateAsset.assetId') = ? LIMIT 1""", (asset_id, asset_id),
+                  OR json_extract(n.value, '$.templateAsset.assetId') = ? OR EXISTS (SELECT 1 FROM json_each(n.value, '$.referenceAssets') a WHERE json_extract(a.value, '$.assetId') = ?) LIMIT 1""", (asset_id, asset_id, asset_id),
         ).fetchone()
         if referenced is not None or reference is not None or draft_reference is not None:
             return None
@@ -199,8 +217,7 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
 def validate_version_templates(connection: Any, flow_id: str, config: dict[str, Any]) -> dict[str, str]:
     result: dict[str, str] = {}
     for node in config["nodes"]:
-        for field in ("templateAsset", "referenceAsset"):
-            template = node.get(field)
+        for field, template in asset_entries(node):
             if not template:
                 continue
             row = connection.execute(
@@ -323,7 +340,7 @@ def validate_reference_metadata(filename: str, size_bytes: int) -> None:
         raise TemplateMutationError('填写参考须为非空文件，且不超过 50 MB')
 
 
-def get_student_reference(node_instance_id: str, student_id: int) -> dict[str, object]:
+def get_student_reference(node_instance_id: str, student_id: int, asset_id: str | None = None) -> dict[str, object]:
     with get_connection() as connection:
         row = connection.execute("""SELECT n.node_key, v.flow_id, v.config_snapshot
             FROM node_instances n JOIN flow_instances i ON i.id = n.flow_instance_id
@@ -334,7 +351,7 @@ def get_student_reference(node_instance_id: str, student_id: int) -> dict[str, o
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row['flow_id'], student_id)
         node = node_by_key(json.loads(row['config_snapshot']), row['node_key'])
-        asset = node.get('referenceAsset')
+        asset = next((item for item in reference_assets(node) if asset_id is None or item['assetId'] == asset_id), None)
         if node.get('kind') != 'file' or not asset:
             raise KeyError(node_instance_id)
         record = connection.execute('SELECT * FROM flow_template_assets WHERE id = ? AND flow_id = ? AND node_key = ?',

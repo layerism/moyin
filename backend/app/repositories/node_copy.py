@@ -3,6 +3,7 @@ import copy
 import logging
 import uuid
 
+from app.domain.node_assets import asset_entries
 from app.core.config import settings
 from app.core.database import get_connection
 from app.domain.workflow import validate_flow_config
@@ -33,10 +34,9 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
             references = validate_content_assets(db, flow_id, config)
             validate_flow_models(db, flow_id, config)
             assets = []
-            for field in ("templateAsset", "referenceAsset"):
-                if node.get(field):
-                    row = db.execute("SELECT * FROM flow_template_assets WHERE id = ?", (node[field]["assetId"],)).fetchone()
-                    assets.append(("flow_template_assets", field, dict(row)))
+            for _, metadata in asset_entries(node):
+                row = db.execute("SELECT * FROM flow_template_assets WHERE id = ?", (metadata["assetId"],)).fetchone()
+                assets.append(("flow_template_assets", metadata, dict(row)))
             for asset_id in references.get(node["id"], set()):
                 row = db.execute("SELECT * FROM flow_content_assets WHERE id = ?", (asset_id,)).fetchone()
                 assets.append(("flow_content_assets", None, dict(row)))
@@ -51,7 +51,7 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
                 if isinstance(step, dict):
                     step["id"] = str(uuid.uuid4())
             storage = get_object_storage() if assets else None
-            for table, field, asset in assets:
+            for table, metadata, asset in assets:
                 new_id = str(uuid.uuid4())
                 key = object_key(settings.oss_prefix, "node-copies", flow_id, node["id"], new_id, asset["original_name"])
                 uploaded = storage.copy_object(asset["storage_key"], key)
@@ -64,8 +64,8 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
                     (new_id, flow_id, node["id"], key, asset["original_name"], asset["content_type"],
                      asset["size_bytes"], asset["sha256"], uploaded.etag, teacher_id, utc_now_iso()),
                 )
-                if field:
-                    node[field]["assetId"] = new_id
+                if metadata is not None:
+                    metadata["assetId"] = new_id
                 else:
                     for question in node.get("answerSheet", {}).get("questions", []):
                         for item in [question, *question.get("options", [])]:

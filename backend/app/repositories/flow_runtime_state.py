@@ -47,7 +47,7 @@ def version_deadlines(connection, version_id: str) -> dict[str, str | None]:
         if node["id"] in explicit:
             node["deadlineAt"] = explicit[node["id"]]
     deadlines = resolve_deadlines(config)
-    # Branches transmit dates for inheritance but have no submission deadline.
+    # Branches transmit calendar constraints but have no submission deadline.
     for node in config["nodes"]:
         if node.get("kind") == "branch":
             deadlines[node["id"]] = None

@@ -1,9 +1,9 @@
 from collections import defaultdict, deque
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 
 def resolve_deadlines(config: dict) -> dict[str, str | None]:
-    """Derive deadlines without turning inherited values into explicit settings."""
+    """Read explicit deadlines; branches only transmit upstream date constraints."""
     nodes = {node['id']: node for node in config['nodes']}
     parents = defaultdict(list)
     children = defaultdict(list)
@@ -25,7 +25,7 @@ def resolve_deadlines(config: dict) -> dict[str, str | None]:
             value = datetime.fromisoformat(node['deadlineAt'].replace('Z', '+00:00'))
             resolved[key] = value.replace(tzinfo=UTC) if value.tzinfo is None else value
         else:
-            resolved[key] = inherited + timedelta(days=5) if inherited else None
+            resolved[key] = None
         for child in children[key]:
             indegree[child] -= 1
             if not indegree[child]:

@@ -1,6 +1,6 @@
 import type { AcademicFlowEdge, AcademicFlowNode } from "../../types";
 
-// Derived dates never overwrite the teacher's explicit settings.
+// Unset deadlines stay empty; branches transmit upstream calendar constraints.
 export function resolveFlowSchedule(nodes: AcademicFlowNode[], edges: AcademicFlowEdge[]) {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const parents = new Map(nodes.map((node) => [node.id, [] as string[]]));
@@ -22,7 +22,7 @@ export function resolveFlowSchedule(nodes: AcademicFlowNode[], edges: AcademicFl
     const latest = upstream.length ? Math.max(...upstream) : NaN;
     minimumDeadlines.set(key, Number.isFinite(latest) ? new Date(latest).toISOString() : null);
     const value = node.kind === "branch" ? latest : node.deadlineAt
-      ? new Date(node.deadlineAt).getTime() : latest + 5 * 24 * 60 * 60 * 1000;
+      ? new Date(node.deadlineAt).getTime() : NaN;
     if (Number.isFinite(value)) dates.set(key, value);
     result.set(key, node.kind !== "branch" && Number.isFinite(value) ? new Date(value).toISOString() : null);
     for (const child of children.get(key)!) {

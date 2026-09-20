@@ -1,4 +1,6 @@
-import { resolveFlowDeadlines, resolveFlowSchedule, getFlowTimeIssues } from "./flowDeadlines";
+import { nodeReferences } from "./nodeReferences";
+import { NodeReferenceFiles } from "./NodeReferenceFiles";
+import { resolveFlowSchedule, getFlowTimeIssues } from "./flowDeadlines";
 import { NodeFileRow } from "./NodeFileRow";
 import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
@@ -215,7 +217,6 @@ export function AcademicFlowDesigner({
     setInspectorNodeId(null);
     return false;
   };
-  const inheritedDeadlines = resolveFlowDeadlines(workingProcess.nodes.map((node) => node.id === inspectorNodeId ? { ...node, deadlineAt: null } : node), processEdges);
   const activeNode =
     workingProcess.nodes.find((node) => node.id === activeNodeId) ??
     workingProcess.nodes[0] ??
@@ -649,8 +650,8 @@ export function AcademicFlowDesigner({
     commitDesignChange({ ...workingProcess, edges: nextEdges });
   };
 
-  const uploadNodeTemplate = async (nodeId: string, file: File, reference = false) => {
-    if (reference && (!/\.(docx|pdf|png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.name) || file.size === 0 || file.size > 50 * 1024 * 1024)) {
+  const uploadNodeTemplate = async (nodeId: string, files: File[], reference = false) => {
+    if (reference && files.some((file) => !/\.(docx|pdf|png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.name) || file.size === 0 || file.size > 50 * 1024 * 1024)) {
       showActionError("填写参考仅支持 DOCX、PDF 或图片，文件须非空且不超过 50 MB");
       return;
     }
@@ -663,18 +664,20 @@ export function AcademicFlowDesigner({
     setSaving(true);
     setActionNotice("");
     try {
-      const asset = reference
-        ? (await workflowApi.uploadNodeReference(serverFlowId, nodeId, file)).referenceAsset
-        : (await workflowApi.uploadNodeTemplate(serverFlowId, nodeId, file)).templateAsset;
-      const nextProcess = {
-        ...candidate,
-        nodes: candidate.nodes.map((node) =>
-          node.id === nodeId ? { ...node, [reference ? "referenceAsset" : "templateAsset"]: asset } : node
-        ),
-      };
-      setWorkingProcess(nextProcess);
-      setRevisionDirty(true);
-      await saveWorkingDraft(nextProcess, reference ? "填写参考已上传，发布后供学生下载" : "模板已上传，重新发布后供学生下载");
+      for (const file of files) {
+        const asset = reference
+          ? (await workflowApi.uploadNodeReference(serverFlowId, nodeId, file)).referenceAsset
+          : (await workflowApi.uploadNodeTemplate(serverFlowId, nodeId, file)).templateAsset;
+        candidate = {
+          ...candidate,
+          nodes: candidate.nodes.map((node) => node.id !== nodeId ? node : reference
+            ? { ...node, referenceAsset: null, referenceAssets: [...nodeReferences(node), asset] }
+            : { ...node, templateAsset: asset }),
+        };
+        setWorkingProcess(candidate);
+        setRevisionDirty(true);
+      }
+      await saveWorkingDraft(candidate, reference ? "填写参考已上传，发布后供学生下载" : "模板已上传，重新发布后供学生下载");
     } catch (reason) {
       showActionError(reason instanceof Error ? reason.message : "模板上传失败");
     } finally {
@@ -682,16 +685,19 @@ export function AcademicFlowDesigner({
     }
   };
 
-  const deleteNodeTemplate = async (nodeId: string, reference = false) => {
+  const deleteNodeTemplate = async (nodeId: string, assetId?: string) => {
+    const reference = assetId !== undefined;
     setSaving(true);
     setActionNotice("");
     try {
-      if (reference) await workflowApi.deleteNodeReference(serverFlowId, nodeId);
+      if (assetId !== undefined) await workflowApi.deleteNodeReference(serverFlowId, nodeId, assetId);
       else await workflowApi.deleteNodeTemplate(serverFlowId, nodeId);
       const nextProcess = {
         ...workingProcess,
         nodes: workingProcess.nodes.map((node) =>
-          node.id === nodeId ? { ...node, [reference ? "referenceAsset" : "templateAsset"]: null } : node
+          node.id !== nodeId ? node : reference
+            ? { ...node, referenceAsset: null, referenceAssets: nodeReferences(node).filter((asset) => asset.assetId !== assetId) }
+            : { ...node, templateAsset: null }
         ),
       };
       setWorkingProcess(nextProcess);
@@ -827,14 +833,13 @@ export function AcademicFlowDesigner({
             flowId={serverFlowId}
             nodeCoreLocked={!canEditRevisionNodeCore(inspectorNode.id, protectedNodeIds)}
             minimumDeadline={schedule.minimumDeadlines.get(inspectorNode.id) ?? null}
-            inheritedDeadline={inheritedDeadlines.get(inspectorNode.id) ?? null}
             node={inspectorNode}
             answerSheetKey={workingProcess.answerSheetKeys[inspectorNode.id]}
             onClose={() => setInspectorNodeId(null)}
             onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
-            onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, file)}
-            onUploadReference={(file) => void uploadNodeTemplate(inspectorNode.id, file, true)}
-            onDeleteReference={() => void deleteNodeTemplate(inspectorNode.id, true)}
+            onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, [file])}
+            onUploadReference={(files) => void uploadNodeTemplate(inspectorNode.id, files, true)}
+            onDeleteReference={(assetId) => void deleteNodeTemplate(inspectorNode.id, assetId)}
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(policy) => applyPublishedAuditPolicy(inspectorNode.id, policy)}
@@ -2181,7 +2186,6 @@ function FlowNodeCanvas({
 
 function NodeInspector({
   minimumDeadline,
-  inheritedDeadline,
   answerSheetKey,
   editingLocked,
   flowId,
@@ -2199,7 +2203,6 @@ function NodeInspector({
   publishedRevision,
 }: {
   minimumDeadline: string | null;
-  inheritedDeadline: string | null;
   answerSheetKey?: AcademicProcess["answerSheetKeys"][string];
   editingLocked: boolean;
   flowId: string;
@@ -2208,8 +2211,8 @@ function NodeInspector({
   onClose: () => void;
   onDeleteTemplate: () => void;
   onUploadTemplate: (file: File) => void;
-  onUploadReference: (file: File) => void;
-  onDeleteReference: () => void;
+  onUploadReference: (files: File[]) => void;
+  onDeleteReference: (assetId: string) => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   onUpdateAnswerSheet: (
     nodeId: string,
@@ -2375,8 +2378,7 @@ function NodeInspector({
     });
   };
   const settingCapabilities = getNodeSettingCapabilities(node.kind);
-  const displayNode = { ...node, deadlineAt: node.deadlineAt || inheritedDeadline };
-  const timeSettingsLabel = getTimeSettingsLabel(displayNode);
+  const timeSettingsLabel = getTimeSettingsLabel(node);
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
   const stepExtensions = node.kind === "file" ? fileReviewSteps(node).filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length).map((step) => step.auditScriptAcceptedExtensions!) : [];
@@ -2452,10 +2454,9 @@ function NodeInspector({
             }}
           />
         ) : null}
-          {displayNode.startAt || displayNode.deadlineAt ? (
-            <small>{getTimeWindowStatus(displayNode)}</small>
+          {node.startAt || node.deadlineAt ? (
+            <small>{getTimeWindowStatus(node)}</small>
           ) : null}
-          {!node.deadlineAt && <small className="node-auto-deadline-note">{inheritedDeadline ? "自动截止：上游最晚日期 + 5 天" : "暂无推算依据，请设置本节点或上游截止日期。"}</small>}
         </div> : <p className="branch-activation-hint">有效上游全部通过后立即开放，无需设置时间。</p>}
         {publishedRevision ? (
           <div className="node-inspector-revision-strip" role="note">
@@ -2619,9 +2620,7 @@ function NodeInspector({
                 accept={node.fileExtensions.split(",").filter((value) => value.trim()).map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
                 hint="可选；须符合上传限制" disabled={coreSettingsDisabled}
                 onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
-              <NodeFileRow label="填写参考" asset={node.referenceAsset}
-                accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff"
-                hint="可选；DOCX、PDF 或图片，≤50 MB" disabled={coreSettingsDisabled}
+              <NodeReferenceFiles assets={nodeReferences(node)} disabled={coreSettingsDisabled}
                 onUpload={onUploadReference} onRemove={onDeleteReference} />
 
               <FileReviewStepsEditor
@@ -2681,7 +2680,6 @@ function NodeInspector({
       {timeSettingsOpen && node.kind !== "branch" ? (
         <NodeTimeSettingsDialog
           minimumDeadline={minimumDeadline}
-          inheritedDeadline={inheritedDeadline}
           node={node}
           onCancel={() => setTimeSettingsOpen(false)}
           onConfirm={(startAt, deadlineAt) => {
@@ -2696,28 +2694,25 @@ function NodeInspector({
 
 function NodeTimeSettingsDialog({
   minimumDeadline,
-  inheritedDeadline,
   node,
   onCancel,
   onConfirm,
 }: {
   minimumDeadline: string | null;
-  inheritedDeadline: string | null;
   node: AcademicFlowNode;
   onCancel: () => void;
   onConfirm: (startAt: string | null, deadlineAt: string | null) => void;
 }) {
   const [startAt, setStartAt] = useState<string | null>(node.startAt ?? null);
   const [deadlineAt, setDeadlineAt] = useState<string | null>(node.deadlineAt ?? null);
-  const effectiveDeadline = deadlineAt || inheritedDeadline;
-  const upstreamConflict = Boolean(effectiveDeadline && minimumDeadline
-    && new Date(effectiveDeadline).getTime() < new Date(minimumDeadline).getTime());
+  const upstreamConflict = Boolean(deadlineAt && minimumDeadline
+    && new Date(deadlineAt).getTime() < new Date(minimumDeadline).getTime());
   const invalid = upstreamConflict || Boolean(
     startAt
-    && effectiveDeadline
-    && new Date(startAt).getTime() >= new Date(effectiveDeadline).getTime(),
+    && deadlineAt
+    && new Date(startAt).getTime() >= new Date(deadlineAt).getTime(),
   );
-  const draftNode = { ...node, deadlineAt: effectiveDeadline, startAt };
+  const draftNode = { ...node, deadlineAt, startAt };
 
   return (
     <div
@@ -2756,16 +2751,15 @@ function NodeTimeSettingsDialog({
                 ariaLabel="截止时间"
                 minValue={minimumDeadline}
                 onConfirm={setDeadlineAt}
-                value={effectiveDeadline}
+                value={deadlineAt}
               />
               {deadlineAt ? (
-                <button onClick={() => setDeadlineAt(null)} type="button">恢复自动</button>
+                <button onClick={() => setDeadlineAt(null)} type="button">清除</button>
               ) : null}
             </div>
           </div>
           <p className={invalid ? "node-time-dialog-error" : "node-time-dialog-summary"}>
-            {upstreamConflict ? `截止时间不得早于上游：${formatNodeScheduleDateTime(minimumDeadline)}。` : ""}
-            {!deadlineAt && inheritedDeadline ? "自动截止：上游最晚日期 + 5 天。" : ""}{getTimeWindowSummary(draftNode)}
+            {upstreamConflict ? `截止时间不得早于上游：${formatNodeScheduleDateTime(minimumDeadline)}。` : getTimeWindowSummary(draftNode)}
           </p>
         </div>
         <footer>

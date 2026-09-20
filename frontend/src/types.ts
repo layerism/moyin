@@ -218,6 +218,7 @@ export type AcademicFlowNode = {
   status: AcademicFlowNodeStatus;
   templateAsset?: NodeTemplateAsset | null;
   referenceAsset?: NodeTemplateAsset | null;
+  referenceAssets?: NodeTemplateAsset[];
   title: string;
   x: number;
   y: number;
