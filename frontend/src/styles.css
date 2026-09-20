@@ -13537,20 +13537,28 @@ td {
   cursor: not-allowed;
   opacity: 0.6;
 }
-.node-deadline-conflicts {
-  flex: 0 0 auto;
-  max-height: 100px;
-  overflow: auto;
-  margin-bottom: 10px;
-  padding: 10px 14px;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #fff5f5;
-  color: #b42318;
-  font-size: 13px;
+
+
+.flow-node.node-function-colors.has-time-error {
+  overflow: visible;
+  border-color: #d92d20;
+  outline: 2px solid #d92d20;
+  outline-offset: 2px;
 }
-.node-deadline-conflicts button {
-  margin: 0 4px;
-  color: inherit;
-  text-decoration: underline;
+.flow-node-time-warning {
+  position: absolute;
+  top: -12px;
+  right: -10px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #d92d20;
+  color: white;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  z-index: 5;
 }

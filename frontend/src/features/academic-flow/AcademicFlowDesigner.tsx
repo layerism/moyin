@@ -1,4 +1,4 @@
-import { resolveFlowDeadlines, resolveFlowSchedule } from "./flowDeadlines";
+import { resolveFlowDeadlines, resolveFlowSchedule, getFlowTimeIssues } from "./flowDeadlines";
 import { NodeFileRow } from "./NodeFileRow";
 import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
@@ -199,8 +199,27 @@ export function AcademicFlowDesigner({
   const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
   const processEdges = workingProcess.edges ?? [];
   const schedule = resolveFlowSchedule(workingProcess.nodes, processEdges);
-  const deadlineConflicts = workingProcess.nodes.filter((node) => node.kind !== "branch" && node.deadlineAt && schedule.minimumDeadlines.get(node.id)
-    && new Date(node.deadlineAt).getTime() < new Date(schedule.minimumDeadlines.get(node.id)!).getTime());
+  const timeIssues = getFlowTimeIssues(workingProcess.nodes, processEdges);
+  const [timeWarning, setTimeWarning] = useState<{ nodeId: string; message: string } | null>(null);
+  const [timeFocus, setTimeFocus] = useState<{ nodeId: string; attempt: number } | null>(null);
+  const [timeSettingsRequest, setTimeSettingsRequest] = useState<{ nodeId: string; attempt: number } | null>(null);
+  const validateTimeSettings = (candidate: AcademicProcess) => {
+    const issues = getFlowTimeIssues(candidate.nodes, candidate.edges ?? []);
+    const issue = issues.entries().next().value;
+    if (!issue) return true;
+    const [nodeId, reason] = issue;
+    const node = candidate.nodes.find((item) => item.id === nodeId)!;
+    setActionError("");
+    setActionNotice("");
+    setRevisionImpact(null);
+    setPendingNavigation(null);
+    setActiveNodeId(nodeId);
+    setTimeFocus((current) => ({ nodeId, attempt: (current?.attempt ?? 0) + 1 }));
+    setInspectorNodeId(null);
+    setTimeSettingsRequest(null);
+    setTimeWarning({ nodeId, message: `时间设置不正确：“${node.title}”${reason}。共 ${issues.size} 个节点需要修改。` });
+    return false;
+  };
   const inheritedDeadlines = resolveFlowDeadlines(workingProcess.nodes.map((node) => node.id === inspectorNodeId ? { ...node, deadlineAt: null } : node), processEdges);
   const activeNode =
     workingProcess.nodes.find((node) => node.id === activeNodeId) ??
@@ -296,6 +315,7 @@ export function AcademicFlowDesigner({
     candidate: AcademicProcess,
     successMessage = "流程已暂存",
   ) => {
+    if (!validateTimeSettings(candidate)) return null;
     setSaving(true);
     setDraftSaving(true);
     setActionNotice("");
@@ -322,6 +342,7 @@ export function AcademicFlowDesigner({
     expectedDraftConfigHash?: string | null,
     expectedCurrentVersionId?: string | null,
   ) => {
+    if (!validateTimeSettings(candidate)) return;
     setSaving(true);
     setActionNotice("");
     try {
@@ -356,6 +377,7 @@ export function AcademicFlowDesigner({
 
   const preparePublish = async () => {
     const candidate = structuredClone(workingProcess);
+    if (!validateTimeSettings(candidate)) return;
     setPublishIssue(null);
     const invalidBranch = candidate.nodes.find((node) => node.kind === "branch" && (
       (node.branches?.length ?? 0) < 2 || node.branches?.some((option) => !option.label.trim()
@@ -384,13 +406,6 @@ export function AcademicFlowDesigner({
       return;
     }
     const publishSchedule = resolveFlowSchedule(candidate.nodes, candidate.edges ?? []);
-    const conflict = candidate.nodes.find((node) => node.kind !== "branch" && node.deadlineAt && publishSchedule.minimumDeadlines.get(node.id)
-      && new Date(node.deadlineAt).getTime() < new Date(publishSchedule.minimumDeadlines.get(node.id)!).getTime());
-    if (conflict) {
-      setInspectorNodeId(conflict.id);
-      showActionError(`“${conflict.title}”的截止时间早于上游，请调整后发布。`);
-      return;
-    }
     const publishDeadlines = publishSchedule.deadlines;
     const answerSheetIssue = getAnswerSheetPublishIssue(
       candidate.nodes.map((node) => ({ ...node, deadlineAt: publishDeadlines.get(node.id) })),
@@ -438,6 +453,7 @@ export function AcademicFlowDesigner({
   };
 
   const openPreview = async () => {
+    if (!validateTimeSettings(workingProcess)) return;
     const auditIssue = workingProcess.nodes
       .map((node) => ({ message: getScanAuditConfigError(node), node }))
       .find((issue) => issue.message);
@@ -777,12 +793,11 @@ export function AcademicFlowDesigner({
             </button>
           </div>
         </header>
-        {deadlineConflicts.length > 0 && <div className="node-deadline-conflicts" role="alert">
-          截止时间早于上游：{deadlineConflicts.map((node) => <button key={node.id} type="button" onClick={() => setInspectorNodeId(node.id)}>{node.title}</button>)}。请调整后发布。
-        </div>}
         <section className="flow-designer-grid">
           <ComponentPalette locked={editorLocked} onAddNode={addNode} />
           <FlowNodeCanvas
+            timeIssues={timeIssues}
+            timeFocus={timeFocus}
             actionNotice={actionNotice}
             actionNoticeTargetNodeId={
               publishIssue?.message === actionNotice ? publishIssue.nodeId : null
@@ -813,6 +828,7 @@ export function AcademicFlowDesigner({
         </section>
         {inspectorNode && (
           <NodeInspector
+            timeSettingsRequest={timeSettingsRequest?.nodeId === inspectorNode.id ? timeSettingsRequest.attempt : 0}
             editingLocked={editorLocked}
             flowId={serverFlowId}
             nodeCoreLocked={!canEditRevisionNodeCore(inspectorNode.id, protectedNodeIds)}
@@ -820,7 +836,7 @@ export function AcademicFlowDesigner({
             inheritedDeadline={inheritedDeadlines.get(inspectorNode.id) ?? null}
             node={inspectorNode}
             answerSheetKey={workingProcess.answerSheetKeys[inspectorNode.id]}
-            onClose={() => setInspectorNodeId(null)}
+            onClose={() => { setInspectorNodeId(null); setTimeSettingsRequest(null); }}
             onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
             onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, file)}
             onUploadReference={(file) => void uploadNodeTemplate(inspectorNode.id, file, true)}
@@ -846,6 +862,13 @@ export function AcademicFlowDesigner({
             onRosterChange={(roster) => setRosterActiveCount(roster.activeCount)}
           />
         ) : null}
+        {timeWarning ? <DesignerErrorDialog message={timeWarning.message} onClose={() => setTimeWarning(null)} onFix={() => {
+          const nodeId = timeWarning.nodeId;
+          setTimeWarning(null);
+          if (workingProcess.published) setRevisionEditingRequested(true);
+          setInspectorNodeId(nodeId);
+          setTimeSettingsRequest((current) => ({ nodeId, attempt: (current?.attempt ?? 0) + 1 }));
+        }} /> : null}
         {actionError ? <DesignerErrorDialog message={actionError} onClose={() => setActionError("")} /> : null}
         {manualReviewNodeId && workingProcess.publishedVersionId ? (hasFileManualReview(workingProcess.nodes.find((node) => node.id === manualReviewNodeId))
           ? <FileReviewDialog nodeKey={manualReviewNodeId} versionId={workingProcess.publishedVersionId} onClose={() => setManualReviewNodeId(null)} />
@@ -999,6 +1022,8 @@ function ComponentPalette({
 }
 
 function FlowNodeCanvas({
+  timeIssues,
+  timeFocus,
   actionNotice,
   actionNoticeTargetNodeId,
   activeNodeId,
@@ -1022,6 +1047,8 @@ function FlowNodeCanvas({
   onUpdateNodePositions,
   publishedNodeIds,
 }: {
+  timeIssues: Map<string, string>;
+  timeFocus: { nodeId: string; attempt: number } | null;
   onCopyNode: (nodeId: string) => Promise<string | null>;
   copyBlocked: boolean;
   actionNotice: string;
@@ -1109,6 +1136,20 @@ function FlowNodeCanvas({
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.5);
+  useEffect(() => {
+    if (!timeFocus) return;
+    const node = nodes.find((item) => item.id === timeFocus.nodeId);
+    const canvas = canvasRef.current;
+    const element = nodeElementsRef.current.get(timeFocus.nodeId);
+    if (!node || !canvas || !element) return;
+    setViewportOffset({ x: canvas.clientWidth / 2 - (node.x + nodeSize.width / 2) * zoom,
+      y: canvas.clientHeight / 2 - (node.y + element.offsetHeight / 2) * zoom });
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const animation = element.animate([0, -8, 8, -6, 6, 0].map((x) => ({ transform: `translateX(${x}px)` })), { duration: 500 });
+      return () => animation.cancel();
+    }
+  }, [timeFocus]);
+
   const [zoomDraft, setZoomDraft] = useState<string | null>(null);
   const cancelZoomEditRef = useRef(false);
 
@@ -1955,7 +1996,7 @@ function FlowNodeCanvas({
             <button
               className={`flow-node node-function-colors ${node.status} ${
                 canMoveNode(node.id) ? "movable" : "protected"
-              } ${selectedNodeIds.has(node.id) ? "selected" : ""}`}
+              } ${selectedNodeIds.has(node.id) ? "selected" : ""} ${timeIssues.has(node.id) ? "has-time-error" : ""}`}
               data-node-kind={node.kind}
               data-flow-node-id={node.id}
               onClick={(event) => {
@@ -1985,6 +2026,7 @@ function FlowNodeCanvas({
               ref={(element) => registerNodeElement(node.id, element)}
               style={{ width: nodeSize.width }}
             >
+              {timeIssues.has(node.id) && <span className="flow-node-time-warning" role="img" aria-label={timeIssues.get(node.id)} title={timeIssues.get(node.id)}>!</span>}
               {!locked && nodePorts(node).map((port) => (
                 <span
                   className={`connection-port ${port.startsWith("branch:") ? "bottom branch-port" : port} ${
@@ -2155,6 +2197,7 @@ function FlowNodeCanvas({
 }
 
 function NodeInspector({
+  timeSettingsRequest,
   minimumDeadline,
   inheritedDeadline,
   answerSheetKey,
@@ -2173,6 +2216,7 @@ function NodeInspector({
   publishedAuditPolicy,
   publishedRevision,
 }: {
+  timeSettingsRequest: number;
   minimumDeadline: string | null;
   inheritedDeadline: string | null;
   answerSheetKey?: AcademicProcess["answerSheetKeys"][string];
@@ -2196,6 +2240,7 @@ function NodeInspector({
   publishedRevision: boolean;
 }) {
   const [timeSettingsOpen, setTimeSettingsOpen] = useState(false);
+  useEffect(() => { if (timeSettingsRequest) setTimeSettingsOpen(true); }, [timeSettingsRequest]);
   const [auditPolicy, setAuditPolicy] = useState<NodeAuditPolicy | null>(null);
   const [auditPolicyParams, setAuditPolicyParams] = useState<Record<string, string | number | boolean>>({});
   const [auditModelCardId, setAuditModelCardId] = useState<string | null>(null);
@@ -3026,7 +3071,7 @@ function hasCycle(nodeIds: string[], edges: AcademicFlowEdge[]) {
 }
 
 
-function DesignerErrorDialog({ message, onClose }: { message: string; onClose: () => void }) {
+function DesignerErrorDialog({ message, onClose, onFix }: { message: string; onClose: () => void; onFix?: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     ref.current?.showModal();
@@ -3038,6 +3083,6 @@ function DesignerErrorDialog({ message, onClose }: { message: string; onClose: (
     onCancel={(event) => { event.preventDefault(); onClose(); }} onKeyDown={(event) => event.stopPropagation()}>
     <header><span aria-hidden="true">!</span><h2 id="designer-error-title">操作未完成</h2></header>
     <p id="designer-error-message">{message}</p>
-    <footer><button type="button" autoFocus onClick={onClose}>返回修改</button></footer>
+    <footer>{onFix && <button type="button" onClick={onClose}>关闭</button>}<button type="button" autoFocus onClick={onFix ?? onClose}>{onFix ? "去修改" : "返回修改"}</button></footer>
   </dialog>;
 }

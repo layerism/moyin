@@ -36,3 +36,22 @@ export function resolveFlowSchedule(nodes: AcademicFlowNode[], edges: AcademicFl
 export function resolveFlowDeadlines(nodes: AcademicFlowNode[], edges: AcademicFlowEdge[]) {
   return resolveFlowSchedule(nodes, edges).deadlines;
 }
+
+export function getFlowTimeIssues(nodes: AcademicFlowNode[], edges: AcademicFlowEdge[]) {
+  const schedule = resolveFlowSchedule(nodes, edges);
+  const issues = new Map<string, string>();
+  for (const node of nodes) {
+    if (node.kind === "branch") continue;
+    const deadline = schedule.deadlines.get(node.id);
+    const upstream = schedule.minimumDeadlines.get(node.id);
+    if ((node.startAt && !Number.isFinite(new Date(node.startAt).getTime()))
+      || (node.deadlineAt && !Number.isFinite(new Date(node.deadlineAt).getTime()))) {
+      issues.set(node.id, "时间格式不正确");
+    } else if (deadline && node.startAt && new Date(node.startAt) >= new Date(deadline)) {
+      issues.set(node.id, "起始时间必须早于截止时间");
+    } else if (deadline && upstream && new Date(deadline) < new Date(upstream)) {
+      issues.set(node.id, "截止时间不得早于上游最晚截止时间");
+    }
+  }
+  return issues;
+}
