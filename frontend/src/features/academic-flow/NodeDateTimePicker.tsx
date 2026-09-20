@@ -11,6 +11,7 @@ import { createPortal } from "react-dom";
 export type NodeDateTimePickerProps = {
   ariaLabel: string;
   disabled?: boolean;
+  minValue?: string | null;
   onConfirm: (value: string) => void;
   value: string | null;
 };
@@ -133,6 +134,7 @@ function replaceLocalTime(
 export function NodeDateTimePicker({
   ariaLabel,
   disabled = false,
+  minValue,
   onConfirm,
   value,
 }: NodeDateTimePickerProps) {
@@ -149,11 +151,16 @@ export function NodeDateTimePicker({
     visible: false,
   });
 
+  // Round upward so a minute-resolution picker never permits an earlier second.
+  const minimum = minValue ? Math.ceil(new Date(minValue).getTime() / 60_000) * 60_000 : -Infinity;
+  const clampDate = (date: Date) => new Date(Math.max(date.getTime(), minimum));
+  const dayUnavailable = (day: Date) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59).getTime() < minimum;
+  const selectionInvalid = selected.getTime() < minimum;
   const calendarDays = useMemo(() => buildCalendar(selected), [selected]);
   const today = normalizeToLocalMinute(new Date());
 
   const openPicker = () => {
-    setSelected(getInitialDate(value));
+    setSelected(clampDate(getInitialDate(value)));
     setPosition((current) => ({ ...current, visible: false }));
     setOpen(true);
   };
@@ -164,6 +171,7 @@ export function NodeDateTimePicker({
   };
 
   const confirmSelection = () => {
+    if (selectionInvalid) return;
     onConfirm(normalizeToLocalMinute(selected).toISOString());
     closePicker();
   };
@@ -297,14 +305,15 @@ export function NodeDateTimePicker({
                   <div>
                     <button
                       aria-label="上一个月"
-                      onClick={() => setSelected((current) => shiftMonth(current, -1))}
+                      disabled={new Date(selected.getFullYear(), selected.getMonth(), 0, 23, 59).getTime() < minimum}
+                      onClick={() => setSelected((current) => clampDate(shiftMonth(current, -1)))}
                       type="button"
                     >
                       ‹
                     </button>
                     <button
                       aria-label="下一个月"
-                      onClick={() => setSelected((current) => shiftMonth(current, 1))}
+                      onClick={() => setSelected((current) => clampDate(shiftMonth(current, 1)))}
                       type="button"
                     >
                       ›
@@ -323,13 +332,14 @@ export function NodeDateTimePicker({
                       <button
                         aria-label={`${day.getFullYear()}年${day.getMonth() + 1}月${day.getDate()}日`}
                         aria-pressed={selectedDay}
+                        disabled={dayUnavailable(day)}
                         className={[
                           selectedDay ? "is-selected" : "",
                           currentMonth ? "" : "is-adjacent",
                           isToday ? "is-today" : "",
                         ].filter(Boolean).join(" ")}
                         key={`${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`}
-                        onClick={() => setSelected((current) => replaceLocalDate(current, day))}
+                        onClick={() => setSelected((current) => clampDate(replaceLocalDate(current, day)))}
                         ref={selectedDay ? selectedDayRef : undefined}
                         type="button"
                       >
@@ -349,8 +359,9 @@ export function NodeDateTimePicker({
                         <button
                           aria-selected={active}
                           className={active ? "is-selected" : ""}
+                          disabled={replaceLocalTime(selected, { hour, minute: 59 }).getTime() < minimum}
                           key={hour}
-                          onClick={() => setSelected((current) => replaceLocalTime(current, { hour }))}
+                          onClick={() => setSelected((current) => clampDate(replaceLocalTime(current, { hour })))}
                           ref={active ? selectedHourRef : undefined}
                           role="option"
                           type="button"
@@ -370,6 +381,7 @@ export function NodeDateTimePicker({
                         <button
                           aria-selected={active}
                           className={active ? "is-selected" : ""}
+                          disabled={replaceLocalTime(selected, { minute }).getTime() < minimum}
                           key={minute}
                           onClick={() => setSelected((current) => replaceLocalTime(current, { minute }))}
                           ref={active ? selectedMinuteRef : undefined}
@@ -392,7 +404,7 @@ export function NodeDateTimePicker({
               </span>
               <div className="node-date-time-picker-actions">
                 <button onClick={closePicker} type="button">取消</button>
-                <button onClick={confirmSelection} type="button">确认</button>
+                <button disabled={selectionInvalid} onClick={confirmSelection} type="button">确认</button>
               </div>
             </footer>
           </section>

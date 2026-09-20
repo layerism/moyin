@@ -1,4 +1,4 @@
-import { resolveFlowDeadlines } from "./flowDeadlines";
+import { resolveFlowDeadlines, resolveFlowSchedule } from "./flowDeadlines";
 import { NodeFileRow } from "./NodeFileRow";
 import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
@@ -198,6 +198,9 @@ export function AcademicFlowDesigner({
   const operationLocked = copyingNode || saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
   const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
   const processEdges = workingProcess.edges ?? [];
+  const schedule = resolveFlowSchedule(workingProcess.nodes, processEdges);
+  const deadlineConflicts = workingProcess.nodes.filter((node) => node.kind !== "branch" && node.deadlineAt && schedule.minimumDeadlines.get(node.id)
+    && new Date(node.deadlineAt).getTime() < new Date(schedule.minimumDeadlines.get(node.id)!).getTime());
   const inheritedDeadlines = resolveFlowDeadlines(workingProcess.nodes.map((node) => node.id === inspectorNodeId ? { ...node, deadlineAt: null } : node), processEdges);
   const activeNode =
     workingProcess.nodes.find((node) => node.id === activeNodeId) ??
@@ -380,7 +383,15 @@ export function AcademicFlowDesigner({
       showActionError("请先修正表单字段配置");
       return;
     }
-    const publishDeadlines = resolveFlowDeadlines(candidate.nodes, candidate.edges ?? []);
+    const publishSchedule = resolveFlowSchedule(candidate.nodes, candidate.edges ?? []);
+    const conflict = candidate.nodes.find((node) => node.kind !== "branch" && node.deadlineAt && publishSchedule.minimumDeadlines.get(node.id)
+      && new Date(node.deadlineAt).getTime() < new Date(publishSchedule.minimumDeadlines.get(node.id)!).getTime());
+    if (conflict) {
+      setInspectorNodeId(conflict.id);
+      showActionError(`“${conflict.title}”的截止时间早于上游，请调整后发布。`);
+      return;
+    }
+    const publishDeadlines = publishSchedule.deadlines;
     const answerSheetIssue = getAnswerSheetPublishIssue(
       candidate.nodes.map((node) => ({ ...node, deadlineAt: publishDeadlines.get(node.id) })),
       candidate.answerSheetKeys,
@@ -766,6 +777,9 @@ export function AcademicFlowDesigner({
             </button>
           </div>
         </header>
+        {deadlineConflicts.length > 0 && <div className="node-deadline-conflicts" role="alert">
+          截止时间早于上游：{deadlineConflicts.map((node) => <button key={node.id} type="button" onClick={() => setInspectorNodeId(node.id)}>{node.title}</button>)}。请调整后发布。
+        </div>}
         <section className="flow-designer-grid">
           <ComponentPalette locked={editorLocked} onAddNode={addNode} />
           <FlowNodeCanvas
@@ -802,6 +816,7 @@ export function AcademicFlowDesigner({
             editingLocked={editorLocked}
             flowId={serverFlowId}
             nodeCoreLocked={!canEditRevisionNodeCore(inspectorNode.id, protectedNodeIds)}
+            minimumDeadline={schedule.minimumDeadlines.get(inspectorNode.id) ?? null}
             inheritedDeadline={inheritedDeadlines.get(inspectorNode.id) ?? null}
             node={inspectorNode}
             answerSheetKey={workingProcess.answerSheetKeys[inspectorNode.id]}
@@ -2140,6 +2155,7 @@ function FlowNodeCanvas({
 }
 
 function NodeInspector({
+  minimumDeadline,
   inheritedDeadline,
   answerSheetKey,
   editingLocked,
@@ -2157,6 +2173,7 @@ function NodeInspector({
   publishedAuditPolicy,
   publishedRevision,
 }: {
+  minimumDeadline: string | null;
   inheritedDeadline: string | null;
   answerSheetKey?: AcademicProcess["answerSheetKeys"][string];
   editingLocked: boolean;
@@ -2638,6 +2655,7 @@ function NodeInspector({
       </aside>
       {timeSettingsOpen && node.kind !== "branch" ? (
         <NodeTimeSettingsDialog
+          minimumDeadline={minimumDeadline}
           inheritedDeadline={inheritedDeadline}
           node={node}
           onCancel={() => setTimeSettingsOpen(false)}
@@ -2652,11 +2670,13 @@ function NodeInspector({
 }
 
 function NodeTimeSettingsDialog({
+  minimumDeadline,
   inheritedDeadline,
   node,
   onCancel,
   onConfirm,
 }: {
+  minimumDeadline: string | null;
   inheritedDeadline: string | null;
   node: AcademicFlowNode;
   onCancel: () => void;
@@ -2665,7 +2685,9 @@ function NodeTimeSettingsDialog({
   const [startAt, setStartAt] = useState<string | null>(node.startAt ?? null);
   const [deadlineAt, setDeadlineAt] = useState<string | null>(node.deadlineAt ?? null);
   const effectiveDeadline = deadlineAt || inheritedDeadline;
-  const invalid = Boolean(
+  const upstreamConflict = Boolean(effectiveDeadline && minimumDeadline
+    && new Date(effectiveDeadline).getTime() < new Date(minimumDeadline).getTime());
+  const invalid = upstreamConflict || Boolean(
     startAt
     && effectiveDeadline
     && new Date(startAt).getTime() >= new Date(effectiveDeadline).getTime(),
@@ -2707,6 +2729,7 @@ function NodeTimeSettingsDialog({
               <span>截止时间</span>
               <NodeDateTimePicker
                 ariaLabel="截止时间"
+                minValue={minimumDeadline}
                 onConfirm={setDeadlineAt}
                 value={effectiveDeadline}
               />
@@ -2716,6 +2739,7 @@ function NodeTimeSettingsDialog({
             </div>
           </div>
           <p className={invalid ? "node-time-dialog-error" : "node-time-dialog-summary"}>
+            {upstreamConflict ? `截止时间不得早于上游：${formatNodeScheduleDateTime(minimumDeadline)}。` : ""}
             {!deadlineAt && inheritedDeadline ? "自动截止：上游最晚日期 + 5 天。" : ""}{getTimeWindowSummary(draftNode)}
           </p>
         </div>

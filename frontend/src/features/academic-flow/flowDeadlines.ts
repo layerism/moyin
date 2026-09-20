@@ -1,7 +1,7 @@
 import type { AcademicFlowEdge, AcademicFlowNode } from "../../types";
 
 // Derived dates never overwrite the teacher's explicit settings.
-export function resolveFlowDeadlines(nodes: AcademicFlowNode[], edges: AcademicFlowEdge[]) {
+export function resolveFlowSchedule(nodes: AcademicFlowNode[], edges: AcademicFlowEdge[]) {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const parents = new Map(nodes.map((node) => [node.id, [] as string[]]));
   const children = new Map(nodes.map((node) => [node.id, [] as string[]]));
@@ -14,11 +14,13 @@ export function resolveFlowDeadlines(nodes: AcademicFlowNode[], edges: AcademicF
   const queue = nodes.filter((node) => !degree.get(node.id)).map((node) => node.id);
   const dates = new Map<string, number>();
   const result = new Map<string, string | null>();
+  const minimumDeadlines = new Map<string, string | null>();
   for (let index = 0; index < queue.length; index++) {
     const key = queue[index];
     const node = byId.get(key)!;
     const upstream = parents.get(key)!.flatMap((id) => dates.has(id) ? [dates.get(id)!] : []);
     const latest = upstream.length ? Math.max(...upstream) : NaN;
+    minimumDeadlines.set(key, Number.isFinite(latest) ? new Date(latest).toISOString() : null);
     const value = node.kind === "branch" ? latest : node.deadlineAt
       ? new Date(node.deadlineAt).getTime() : latest + 5 * 24 * 60 * 60 * 1000;
     if (Number.isFinite(value)) dates.set(key, value);
@@ -28,5 +30,9 @@ export function resolveFlowDeadlines(nodes: AcademicFlowNode[], edges: AcademicF
       if (!degree.get(child)) queue.push(child);
     }
   }
-  return result;
+  return { deadlines: result, minimumDeadlines };
+}
+
+export function resolveFlowDeadlines(nodes: AcademicFlowNode[], edges: AcademicFlowEdge[]) {
+  return resolveFlowSchedule(nodes, edges).deadlines;
 }

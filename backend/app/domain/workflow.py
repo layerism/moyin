@@ -112,6 +112,16 @@ def validate_flow_config(
     if visited != len(node_ids):
         raise FlowValidationError("流程必须是无环图")
     deadlines = resolve_deadlines(config)
+    if require_publishable:
+        by_id = {node["id"]: node for node in nodes}
+        for edge in edges:
+            target = by_id[edge["target"]]
+            if target.get("kind") == "branch":
+                continue
+            upstream = _parse_node_time(deadlines.get(edge["source"]), "上游截止时间")
+            downstream = _parse_node_time(deadlines.get(edge["target"]), "截止时间")
+            if upstream is not None and downstream is not None and downstream < upstream:
+                raise FlowValidationError(f"节点“{target.get('title', target['id'])}”的截止时间不得早于上游截止时间")
     for node in nodes:
         resolved_node = {**node, "deadlineAt": deadlines.get(node["id"])}
         _validate_node_time_window(resolved_node)

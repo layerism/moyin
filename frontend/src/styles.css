@@ -13528,3 +13528,29 @@ td {
   white-space: nowrap;
 }
 .node-auto-deadline-note { color: #667085; }
+
+
+.node-date-time-days button:disabled,
+.node-date-time-options button:disabled {
+  color: #a0a8b5;
+  background: #f2f4f7;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.node-deadline-conflicts {
+  flex: 0 0 auto;
+  max-height: 100px;
+  overflow: auto;
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff5f5;
+  color: #b42318;
+  font-size: 13px;
+}
+.node-deadline-conflicts button {
+  margin: 0 4px;
+  color: inherit;
+  text-decoration: underline;
+}
