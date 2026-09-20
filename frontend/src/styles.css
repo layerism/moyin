@@ -13575,3 +13575,34 @@ td {
   line-height: 1;
   z-index: 5;
 }
+
+.template-delete-dialog {
+  width: min(460px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid #d8dee8;
+  border-radius: 14px;
+  background: #fff;
+  color: #172033;
+  box-shadow: 0 24px 64px rgb(15 23 42 / 20%);
+}
+
+.template-delete-dialog::backdrop { background: rgb(15 23 42 / 38%); }
+.template-delete-dialog > header { display: flex; align-items: center; gap: 12px; padding: 24px 24px 0; }
+.template-delete-dialog h2 { margin: 0; font-size: 20px; }
+.template-delete-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: #fef3f2; color: #d92d20; flex-shrink: 0; }
+.template-delete-dialog .template-delete-close { margin-left: auto; width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: #667085; font-size: 24px; }
+.template-delete-body { padding: 20px 24px; }
+.template-delete-target { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid #eaecf0; border-radius: 8px; background: #f8fafc; }
+.template-delete-target svg { flex-shrink: 0; width: 20px; height: 20px; color: #667085; }
+.template-delete-target strong { font-size: 15px; overflow-wrap: anywhere; }
+.template-delete-body p { margin: 14px 0 0; color: #667085; font-size: 14px; line-height: 1.7; }
+.template-delete-body .dialog-error { color: #b42318; }
+.template-delete-dialog > footer { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #eaecf0; }
+.template-delete-dialog > footer button { min-height: 38px; padding: 0 16px; border: 1px solid #cfd7e5; border-radius: 7px; background: #fff; color: #344054; font: inherit; font-size: 14px; }
+.template-delete-dialog > footer .template-delete-confirm { border-color: #d92d20; background: #d92d20; color: #fff; }
+.template-delete-dialog > footer .template-delete-confirm:hover:not(:disabled) { background: #b42318; border-color: #b42318; }
+.template-delete-dialog button:disabled { opacity: .55; cursor: not-allowed; }
+.template-delete-dialog button:focus-visible { outline: 2px solid #2970ff; outline-offset: 3px; }

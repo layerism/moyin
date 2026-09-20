@@ -1,7 +1,7 @@
 import { WorkflowTemplateDesigner } from "./WorkflowTemplateDesigner";
 import { PersonalDriveUploadButton } from "../home/PersonalDriveUploadButton";
 import { DriveNavIcon } from "../home/DriveNavIcon";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { AcademicProcess } from "../../types";
 import { TeacherAccountMenu } from "../auth/TeacherAccountMenu";
@@ -40,6 +40,8 @@ export function WorkflowTemplatesPage({
     const source = processes.find((flow) => flow.id === sourceFlowId);
     return admin && sourceFlowId ? { sourceFlowId, name: source?.name ?? "", description: "" } : null;
   });
+  const [deleteTarget, setDeleteTarget] = useState<WorkflowTemplate | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const [formError, setFormError] = useState("");
 
   const load = async () => {
@@ -68,13 +70,15 @@ export function WorkflowTemplatesPage({
     finally { setBusy(null); }
   };
   const deleteTemplate = async (template: WorkflowTemplate) => {
-    if (!window.confirm(`确定删除模板“${template.name}”？\n删除后将关闭相关编辑草稿，已使用模板创建的流程不受影响。`)) return;
+    if (busy !== null) return;
+    setDeleteError("");
     setBusy(template.id);
     setError("");
     try {
       await workflowApi.deleteWorkflowTemplate(template.id);
       setTemplates((current) => current.filter((item) => item.id !== template.id));
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "删除模板失败，请重试"); }
+      setDeleteTarget(null);
+    } catch (reason) { setDeleteError(reason instanceof Error ? reason.message : "删除模板失败，请重试"); }
     finally { setBusy(null); }
   };
   const publish = async () => {
@@ -140,13 +144,15 @@ export function WorkflowTemplatesPage({
                   setEditingId(template.id);
                 }}>更新</button>
                 <button disabled={busy !== null} onClick={() => void changeAvailability(template)}>{template.active ? "下架" : "上架"}</button>
-                <button className="danger" disabled={busy !== null} aria-label={`删除模板 ${template.name}`} onClick={() => void deleteTemplate(template)}>删除</button>
+                <button className="danger" disabled={busy !== null} aria-label={`删除模板 ${template.name}`} onClick={() => { setDeleteError(""); setDeleteTarget(template); }}>删除</button>
               </> : null}
               <button className="primary-action" disabled={busy !== null || !template.active} onClick={() => void useTemplate(template)}>{busy === template.id ? "处理中…" : "使用模板"}</button>
             </div>
           </article>)}</div>}
       </section>
     </section>
+    {deleteTarget ? <TemplateDeleteDialog template={deleteTarget} busy={busy !== null} error={deleteError}
+      onCancel={() => setDeleteTarget(null)} onConfirm={() => void deleteTemplate(deleteTarget)} /> : null}
     {draft ? <div className="modal-backdrop">
       <section className="workflow-template-editor" onKeyDown={(event) => { if (event.key === "Escape" && busy === null) setDraft(null); }} role="dialog" aria-modal="true" aria-labelledby="workflow-template-editor-title">
         <header><h2 id="workflow-template-editor-title">发布流程模板</h2><button aria-label="关闭" disabled={busy !== null} onClick={() => setDraft(null)}>×</button></header>
@@ -164,4 +170,42 @@ export function WorkflowTemplatesPage({
       </section>
     </div> : null}
   </main>;
+}
+
+function TemplateDeleteDialog({ template, busy, error, onCancel, onConfirm }: {
+  template: WorkflowTemplate;
+  busy: boolean;
+  error: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const dialog = dialogRef.current;
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
+
+  return <dialog ref={dialogRef} className="template-delete-dialog" aria-labelledby="template-delete-title"
+    aria-describedby="template-delete-description" aria-busy={busy}
+    onCancel={(event) => { event.preventDefault(); if (!busy) onCancel(); }}>
+    <header>
+      <span className="template-delete-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg></span>
+      <h2 id="template-delete-title">删除模板</h2>
+      <button className="template-delete-close" aria-label="关闭" disabled={busy} onClick={onCancel}>×</button>
+    </header>
+    <div className="template-delete-body">
+      <div className="template-delete-target"><DriveNavIcon kind="template" /><strong>{template.name}</strong></div>
+      <p id="template-delete-description">删除后将关闭关联编辑草稿，已创建的流程不受影响。</p>
+      {error ? <p className="dialog-error" role="alert">{error}</p> : null}
+    </div>
+    <footer>
+      <button autoFocus disabled={busy} onClick={onCancel}>取消</button>
+      <button className="template-delete-confirm" disabled={busy} onClick={onConfirm}>{busy ? "正在删除…" : "删除模板"}</button>
+    </footer>
+  </dialog>;
 }
