@@ -2494,7 +2494,7 @@ function NodeInspector({
           <AnswerSheetEditor
             config={node.answerSheet}
             disabled={coreSettingsDisabled}
-            deadlineAt={displayNode.deadlineAt}
+            deadlineAt={node.deadlineAt}
             gradingKey={answerSheetKey}
             onChange={(config, gradingKey) => onUpdateAnswerSheet(node.id, config, gradingKey)}
           />
