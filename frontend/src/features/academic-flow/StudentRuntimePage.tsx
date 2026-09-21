@@ -467,7 +467,7 @@ function RuntimeNodeDialog({
   const [clock, setClock] = useState(Date.now());
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const gradeDialogRef = useRef<HTMLDialogElement>(null);
-  const branchConfirmationRef = useRef<HTMLDialogElement>(null);
+  const submitConfirmationRef = useRef<HTMLDialogElement>(null);
   const [confirmationAttempted, setConfirmationAttempted] = useState(false);
   const [templateDownloadAttention, setTemplateDownloadAttention] = useState(false);
   const confirmationInputRef = useRef<HTMLInputElement>(null);
@@ -654,11 +654,7 @@ function RuntimeNodeDialog({
   };
 
   const handleSubmit = () => {
-    if (node.kind === "branch") {
-      if (submitDisabled || !effectivelyWritable) return;
-      branchConfirmationRef.current?.showModal();
-      return;
-    }
+    if (submitDisabled || !effectivelyWritable) return;
     if ((node.kind === "form" || node.kind === "answer_sheet") && Object.keys(clientFieldErrors).length > 0) {
       setSubmitAttempted(true);
       const firstFieldId = Object.keys(clientFieldErrors)[0];
@@ -678,7 +674,7 @@ function RuntimeNodeDialog({
       setFileWarning({ message: scanFilenameError, title: "文件提交未通过" });
       return;
     }
-    onSubmit();
+    submitConfirmationRef.current?.showModal();
   };
   return (
     <div className="runtime-node-dialog-backdrop" onMouseDown={onClose}>
@@ -974,36 +970,39 @@ function RuntimeNodeDialog({
           </div>
         ) : <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>}
       </section>
-      {node.kind === "branch" ? (
-        <dialog
-          aria-labelledby="runtime-branch-confirm-title"
-          aria-describedby="runtime-branch-confirm-message"
-          className="runtime-branch-confirm-dialog"
-          onKeyDown={(event) => event.stopPropagation()}
-          onMouseDown={(event) => event.stopPropagation()}
-          ref={branchConfirmationRef}
-        >
-          <h3 id="runtime-branch-confirm-title">确认选择此分支？</h3>
-          <div id="runtime-branch-confirm-message">
-            <p className="runtime-branch-confirm-choice">你选择的是：<strong>{node.branches?.find((option) => option.id === draft.branchId)?.label}</strong></p>
-            <p>提交后不可更改，请确认选择无误。</p>
-          </div>
-          <footer>
-            <button autoFocus onClick={() => branchConfirmationRef.current?.close()} type="button">返回修改</button>
-            <button
-              className="primary-action"
-              disabled={submitDisabled || !effectivelyWritable}
-              onClick={() => {
-                const dialog = branchConfirmationRef.current;
-                if (!dialog?.open || submitDisabled || !effectivelyWritable) return;
-                dialog.close();
-                onSubmit();
-              }}
-              type="button"
-            >确认提交</button>
-          </footer>
-        </dialog>
-      ) : null}
+      <dialog
+        aria-labelledby="runtime-submit-confirm-title"
+        aria-describedby="runtime-submit-confirm-message"
+        className="runtime-submit-confirm-dialog"
+        onKeyDown={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
+        ref={submitConfirmationRef}
+      >
+        <h3 id="runtime-submit-confirm-title">确认提交此节点？</h3>
+        <div id="runtime-submit-confirm-message">
+          <p className="runtime-submit-confirm-target">提交节点：<strong>{node.title}</strong></p>
+          <SubmitConfirmationMessage
+            amendingApprovedForm={amendingApprovedForm}
+            draft={draft}
+            node={node}
+            runtime={runtime}
+          />
+        </div>
+        <footer>
+          <button autoFocus onClick={() => submitConfirmationRef.current?.close()} type="button">返回检查</button>
+          <button
+            className="primary-action"
+            disabled={submitDisabled || !effectivelyWritable}
+            onClick={() => {
+              const dialog = submitConfirmationRef.current;
+              if (!dialog?.open || submitDisabled || !effectivelyWritable) return;
+              dialog.close();
+              onSubmit();
+            }}
+            type="button"
+          >确认提交</button>
+        </footer>
+      </dialog>
       {node.kind === "answer_sheet" && runtime.grade ? (
         <dialog
           aria-label="节点分数"
@@ -1033,6 +1032,41 @@ function RuntimeNodeDialog({
       ) : null}
     </div>
   );
+}
+
+function SubmitConfirmationMessage({
+  amendingApprovedForm,
+  draft,
+  node,
+  runtime,
+}: {
+  amendingApprovedForm: boolean;
+  draft: Record<string, unknown>;
+  node: AcademicFlowNode;
+  runtime: RuntimeNodeInstance;
+}) {
+  if (node.kind === "branch") {
+    return (
+      <>
+        <p className="runtime-submit-confirm-detail">
+          选择分支：<strong>{node.branches?.find((option) => option.id === draft.branchId)?.label}</strong>
+        </p>
+        <p>分支提交后不可更改，请确认选择无误。</p>
+      </>
+    );
+  }
+  if (node.kind === "answer_sheet") {
+    return <p>{runtime.attemptsRemaining === null
+      ? "系统将记录本次作答并立即判分，请确认答案无误。"
+      : `本次提交将消耗 1 次作答机会，提交后剩余 ${Math.max(0, runtime.attemptsRemaining - 1)} 次。`}</p>;
+  }
+  if (node.auditScriptId || node.scanAuditEnabled || node.fileReviewSteps?.length) {
+    return <p>提交后材料将进入审核流程，审核期间不能修改。</p>;
+  }
+  if (amendingApprovedForm) {
+    return <p>重新提交后将更新当前通过内容，请确认修改无误。</p>;
+  }
+  return <p>提交后系统将保存当前内容并处理后续节点，请确认内容无误。</p>;
 }
 
 function ReviewingSubmission({
