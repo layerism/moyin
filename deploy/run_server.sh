@@ -50,23 +50,11 @@ chmod o+x "$project_dir/frontend"
 chmod -R a+rX "$frontend_dist"
 
 "${privileged[@]}" mkdir -p "$publish_root"
-if [[ -L "$publish_link" ]]; then
-  current_link="$(readlink -- "$publish_link")"
-  if [[ "$current_link" == /* ]]; then
-    current_target="$(realpath -m -- "$current_link")"
-  else
-    current_target="$(realpath -m -- "$(dirname -- "$publish_link")/$current_link")"
-  fi
-  if [[ "$current_target" != "$expected_target" ]]; then
-    echo "$publish_link 已指向 $current_target，拒绝改为 $expected_target。" >&2
-    exit 1
-  fi
-elif [[ -e "$publish_link" ]]; then
+if [[ -e "$publish_link" && ! -L "$publish_link" ]]; then
   echo "$publish_link 已存在且不是符号链接，请先人工确认现有发布目录。" >&2
   exit 1
-else
-  "${privileged[@]}" ln -s "$expected_target" "$publish_link"
 fi
+"${privileged[@]}" ln -sfnT -- "$expected_target" "$publish_link"
 
 if ! command -v nginx >/dev/null 2>&1 && [[ ! -x /usr/sbin/nginx ]]; then
   "${privileged[@]}" apt-get update

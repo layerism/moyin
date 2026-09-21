@@ -34,7 +34,7 @@ sudo systemctl status nginx --no-pager
 项目依赖尚未安装时，先执行 bash deploy/install.sh，并配置 backend/.env。
 若项目已在运行，不要重复启动，以免端口冲突。
 
-`run_server.sh` 每次启动都会先构建当前仓库前端，构建成功后创建或核对 `/var/www/moyin/<环境> → 当前仓库/frontend/dist` 符号链接，再以前台方式启动对应环境的 Uvicorn 后端。Nginx 直接提供构建后的静态前端，因此脚本不启动 Vite。构建失败时脚本立即退出，不启动后端。首次部署还须完成第 5—6 节。
+`run_server.sh` 每次启动都会先构建当前仓库前端，构建成功后创建或更新 `/var/www/moyin/<环境> → 当前仓库/frontend/dist` 符号链接，再以前台方式启动对应环境的 Uvicorn 后端。Nginx 直接提供构建后的静态前端，因此脚本不启动 Vite。构建失败时脚本立即退出，不启动后端。首次部署还须完成第 5—6 节。
 
 在项目根目录创建 tmux 会话：
 
@@ -74,7 +74,7 @@ npm --prefix frontend run build
 chmod -R a+rX frontend/dist
 ```
 
-`run_server.sh` 会把对应的 `/var/www/moyin/<环境>` 建立为当前仓库 `frontend/dist` 的符号链接；如果该环境已经链接到另一仓库，脚本会中止，不会静默改向。`/var/www/moyin` 中不保存构建文件或 `node_modules`。
+`run_server.sh` 每次启动都会把对应的 `/var/www/moyin/<环境>` 符号链接更新为当前仓库的 `frontend/dist`；将项目拷贝到新位置后，从新位置运行脚本即可更新该环境的发布路径。若发布路径已存在且是实际目录或普通文件，脚本会中止并保留原内容。构建失败不会更新链接。`/var/www/moyin` 中不保存构建文件或 `node_modules`。
 
 Nginx 只通过链接读取 `dist`，不读取源码。前端修改后只须重新构建，无须复制文件或 reload Nginx。需要 Vite 热更新时，应按根 README 的本地开发方式单独启动前后端。
 
