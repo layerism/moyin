@@ -26,7 +26,6 @@ import { MarkdownBlurEditor } from "./MarkdownBlurEditor";
 import { reorderItem } from "./reorder";
 
 type AnswerSheetMenuTarget =
-  | { kind: "question"; questionId: string }
   | { kind: "option"; optionId: string; questionId: string }
   | { blankId: string; kind: "blank"; questionId: string };
 
@@ -274,8 +273,6 @@ export function AnswerSheetEditor({
       <div className="answer-sheet-question-list">
         {activeConfig.questions.map((question, index) => {
           const questionErrors = errors[question.id] ?? [];
-          const questionMenuOpen = openMenu?.kind === "question"
-            && openMenu.questionId === question.id;
           return (
             <article
               className={`answer-sheet-question-editor${questionErrors.length ? " has-errors" : ""}${
@@ -333,19 +330,15 @@ export function AnswerSheetEditor({
                     </span>
                   </span>
                 </div>
-                <CompactActionMenu
-                  ariaLabel={`第 ${index + 1} 题操作`}
+                <button
+                  aria-label={`删除第 ${index + 1} 题`}
+                  className="answer-sheet-question-delete"
                   disabled={disabled}
-                  items={[
-                    { disabled: index === 0, label: "上移", onSelect: () => moveQuestion(question.id, -1) },
-                    { disabled: index === activeConfig.questions.length - 1, label: "下移", onSelect: () => moveQuestion(question.id, 1) },
-                    { danger: true, label: "删除题目", onSelect: () => removeQuestion(question.id) },
-                  ]}
-                  onOpenChange={(open) => setOpenMenu(open
-                    ? { kind: "question", questionId: question.id }
-                    : null)}
-                  open={questionMenuOpen}
-                />
+                  onClick={() => removeQuestion(question.id)}
+                  type="button"
+                >
+                  删除
+                </button>
               </div>
             </article>
           );

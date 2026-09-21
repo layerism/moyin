@@ -95,8 +95,8 @@ def _json_object(value: object) -> dict[str, object]:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def _is_approved_form_amendment(status: str, node: dict[str, Any]) -> bool:
-    return status == "approved" and node.get("kind") == "form"
+def _is_approved_resubmission(status: str, node: dict[str, Any]) -> bool:
+    return status == "approved" and node.get("kind") in {"form", "answer_sheet"}
 
 
 def _get_or_create_version_instance(
@@ -495,7 +495,7 @@ def save_node_draft(
         config = json.loads(row["config_snapshot"])
         preview = is_preview_instance(connection, row["flow_instance_id"])
         node = node_by_key(config, row["node_key"])
-        approved_form_amendment = _is_approved_form_amendment(row["status"], node)
+        approved_resubmission = _is_approved_resubmission(row["status"], node)
         base_status = pending_node_status(
             node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),
             None if preview else node.get("startAt"),
@@ -508,7 +508,7 @@ def save_node_draft(
             row["status"] not in {
                 "available", "draft", "rejected", "scheduled", "locked", "expired"
             }
-            and not approved_form_amendment
+            and not approved_resubmission
         ):
             raise RuntimeConflictError("当前节点不可暂存")
         if node.get("kind") == "answer_sheet":
@@ -529,7 +529,7 @@ def save_node_draft(
             """,
             (node_instance_id, canonical_json(draft_payload), now),
         )
-        if not approved_form_amendment:
+        if not approved_resubmission:
             connection.execute(
                 "UPDATE node_instances SET status = ? WHERE id = ?",
                 ('rejected' if current_rejection(connection, node_instance_id) else 'draft', node_instance_id),
@@ -585,7 +585,7 @@ def submit_node(
             )
             if max_attempts is not None and (int(row["attempt_no"]) - int(row["attempt_reset_no"])) >= int(max_attempts):
                 raise RuntimeConflictError("已达到最大作答次数")
-            approved_form_amendment = _is_approved_form_amendment(row["status"], node)
+            approved_resubmission = _is_approved_resubmission(row["status"], node)
             base_status = pending_node_status(
                 node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),
                 None if preview else node.get("startAt"),
@@ -600,7 +600,7 @@ def submit_node(
                     row["status"] not in {
                         "available", "draft", "rejected", "scheduled", "locked", "expired"
                     }
-                    and not approved_form_amendment
+                    and not approved_resubmission
                 )
             ):
                 raise RuntimeConflictError("当前节点不可提交")
@@ -741,7 +741,7 @@ def submit_node(
             attempt_no = int(row["attempt_no"]) + 1
             if grade_result is not None:
                 submission_status = "approved"
-            elif approved_form_amendment:
+            elif approved_resubmission:
                 submission_status = "approved"
             elif has_audit_script or node.get("fileReviewSteps"):
                 submission_status = "reviewing"

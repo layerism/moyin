@@ -242,6 +242,13 @@ export function StudentRuntimePage({
       setInstance(next);
       setFieldErrorsByNode((current) => ({ ...current, [runtime.id]: {} }));
       const submittedNode = next.nodeInstances.find((node) => node.id === runtime.id);
+      const submittedConfigNode = next.config.nodes.find((node) => node.id === runtime.nodeKey);
+      if (submittedConfigNode?.kind === "answer_sheet") {
+        setDrafts((current) => ({
+          ...current,
+          [runtime.id]: { answers: {} },
+        }));
+      }
       if (submittedNode?.status === "approved") {
         setAmendingNodeId(null);
       }
@@ -477,9 +484,13 @@ function RuntimeNodeDialog({
       && new Date(runtime.effectiveDeadline).getTime() <= clock,
   );
   const canAmendApprovedForm = approvedForm && !deadlinePassed;
+  const canRetryApprovedAnswerSheet = runtime.status === "approved"
+    && node.kind === "answer_sheet"
+    && runtime.attemptsRemaining !== 0
+    && !deadlinePassed;
   const writable = writableStatuses.has(runtime.status) || (
     approvedForm && amendingApprovedForm && !deadlinePassed
-  );
+  ) || canRetryApprovedAnswerSheet;
   const answerSheetAttemptsExhausted = node.kind === "answer_sheet"
     && runtime.attemptsRemaining === 0;
   const effectivelyWritable = writable && !answerSheetAttemptsExhausted;
@@ -567,6 +578,11 @@ function RuntimeNodeDialog({
     const timer = window.setInterval(() => setClock(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, [approvedForm, runtime.effectiveDeadline, runtime.status]);
+
+  useEffect(() => {
+    setSubmitAttempted(false);
+    setTouchedFieldIds(new Set());
+  }, [runtime.attemptNo]);
 
   useEffect(() => {
     if (!runtime.templateDownloaded) return;

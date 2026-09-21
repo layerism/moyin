@@ -140,7 +140,7 @@
 .answer-sheet-question-summary {
   min-height: 44px;
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 30px;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: 6px 8px;
@@ -250,6 +250,28 @@
   width: 16px;
   height: 16px;
   fill: currentColor;
+}
+
+.answer-sheet-question-delete {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.answer-sheet-question-delete:hover:not(:disabled),
+.answer-sheet-question-delete:focus-visible {
+  border-color: #f4b8b2;
+  background: #fff5f4;
+}
+
+.answer-sheet-question-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .answer-sheet-action-menu-wrap {
@@ -1313,7 +1335,7 @@
   }
 
   .answer-sheet-question-summary {
-    grid-template-columns: 28px minmax(0, 1fr) 30px;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
   }
 
   .answer-sheet-question-settings {
@@ -3187,14 +3209,6 @@ button {
   min-height: 24px;
   padding: 0 8px;
   font-size: 12px;
-}
-
-.designer-topbar .designer-flow-summary p {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .designer-topbar .academic-actions {
@@ -6729,10 +6743,6 @@ button {
 
   .designer-flow-summary .academic-title-row h1 {
     max-width: calc(100vw - 150px);
-  }
-
-  .designer-topbar .designer-flow-summary p {
-    max-width: 100%;
   }
 
   .flow-designer-grid {

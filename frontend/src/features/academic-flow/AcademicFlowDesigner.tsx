@@ -768,9 +768,6 @@ export function AcademicFlowDesigner({
                   : "草稿"}
               </span>
             </div>
-            <p title={`流程说明：${workingProcess.description}`}>
-              流程说明：{workingProcess.description}
-            </p>
           </div>
           <div className="academic-actions">
             {!templateMode ? <button onClick={() => setShowRoster(true)}>
@@ -974,7 +971,6 @@ function ComponentPalette({
   return (
     <aside aria-disabled={locked} className="flow-panel palette-panel">
       <h2>组件库</h2>
-      <p>拖拽组件到画布，构建流程节点</p>
       <h3>流程节点</h3>
       <div className="node-template-list">
         {nodeTemplates.map((template) => (
