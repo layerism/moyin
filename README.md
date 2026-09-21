@@ -88,9 +88,9 @@
 
 适合开发、调试和单机使用。前端与后端分别运行，默认监听：
 
-- Web 前端：<http://localhost:5173>
-- FastAPI：<http://localhost:8000>
-- 健康检查：<http://localhost:8000/api/health>
+- Web 前端：<http://localhost:6173>
+- FastAPI：<http://localhost:9000>
+- 健康检查：<http://localhost:9000/api/health>
 
 ### Docker Compose
 
@@ -135,18 +135,13 @@ OSS_ACCESS_KEY_SECRET=
 
 ### 3. 本地开发
 
-开发时分别启动后端和 Vite 前端：
+开发时在项目根目录统一启动后端和 Vite 前端：
 
 ```bash
-cd backend
-./.venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+bash deploy/run_dev.sh
 ```
 
-```bash
-cd frontend
-export PATH="$PWD/../.local/node/bin:$PATH"
-npm run dev
-```
+脚本使用项目内 Node.js，前端固定监听 6173，后端监听 9000，并通过 `VITE_API_PROXY_TARGET` 将 `/api` 请求代理到开发后端。端口被占用时启动失败，不自动切换端口。
 
 通过 Nginx 部署正式、灰度或测试环境时，使用 `bash deploy/run_server.sh <prod|gray|test>`；该脚本构建静态前端并只启动后端，完整步骤见 [`deploy/README.md`](./deploy/README.md)。
 

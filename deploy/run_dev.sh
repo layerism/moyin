@@ -13,13 +13,14 @@ cleanup() {
 
 (
   cd "$project_dir/backend"
-  exec ./.venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+  exec ./.venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 9000
 ) &
 backend_pid=$!
 
 (
   cd "$project_dir/frontend"
-  exec npm run dev -- --port 5173
+  export VITE_API_PROXY_TARGET=http://127.0.0.1:9000
+  exec npm run dev -- --port 6173 --strictPort
 ) &
 frontend_pid=$!
 

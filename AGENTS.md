@@ -29,4 +29,4 @@
 ## 开发环境启动
 
 - 开发阶段统一在项目根目录执行 `bash deploy/run_dev.sh` 启动前后端，不使用 `deploy/run_server.sh`，也不手工分别启动 Uvicorn 和 Vite。
-- `deploy/run_dev.sh` 负责使用项目内 Node.js，在 `backend/` 启动后端 `127.0.0.1:8000`，并在 `frontend/` 启动前端 `5173`。
+- `deploy/run_dev.sh` 负责使用项目内 Node.js，在 `backend/` 启动后端 `127.0.0.1:9000`，并在 `frontend/` 启动前端 `6173`；通过 `VITE_API_PROXY_TARGET` 将前端 `/api` 请求代理到开发后端。
