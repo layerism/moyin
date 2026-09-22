@@ -11,6 +11,7 @@ import { FlowCloneDialog, type FlowCloneResult } from "./FlowCloneDialog";
 import { FlowDeleteDialog, NameDialog } from "./HomeDialogs";
 import { PersonalDriveUploadButton } from "./PersonalDriveUploadButton";
 import { WorkflowGroupDialog } from "./WorkflowGroupDialog";
+import { WorkflowIcon } from "./WorkflowIcon";
 import {
   WorkflowGroupSection,
   type WorkflowGroupView,
@@ -320,7 +321,7 @@ export function AcademicFlowView({
         <section className="drive-panel academic-flow-panel" aria-label="教务流程">
           <div className="drive-breadcrumb"><span>首页</span><span>›</span><strong>教务流程</strong></div>
           <div className="drive-tools workflow-page-tools">
-            <button className="workflow-new-group" onClick={() => { setGroupDialog({ mode: "create", groupId: null }); setGroupNameValue(""); setGroupError(""); }} type="button">▱＋ 新建组</button>
+            <button className="workflow-new-group" onClick={() => { setGroupDialog({ mode: "create", groupId: null }); setGroupNameValue(""); setGroupError(""); }} type="button"><WorkflowIcon name="folderPlus" />新建组</button>
             <button className="ai-create" onClick={() => startCreateProcess(null)} type="button">创建流程</button>
           </div>
           {pageError ? <p className="workflow-page-error" role="alert">{pageError}</p> : null}

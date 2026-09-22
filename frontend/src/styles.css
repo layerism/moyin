@@ -2004,6 +2004,10 @@ button {
 }
 
 .workflow-new-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid #cbd5e1;
@@ -2080,7 +2084,30 @@ button {
   font-size: 20px;
 }
 
+.workflow-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.workflow-group-collapse .workflow-icon {
+  width: 14px;
+  height: 14px;
+  transition: transform 160ms ease;
+}
+
+.workflow-group-collapse[aria-expanded="true"] .workflow-icon {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-group-collapse .workflow-icon { transition: none; }
+}
+
 .workflow-group-folder {
+  display: grid;
+  place-items: center;
   color: #2b74ff;
   font-size: 19px;
 }
@@ -2234,7 +2261,7 @@ button {
 }
 
 .academic-flow-item.compact .academic-flow-actions {
-  gap: 2px;
+  gap: 4px;
 }
 
 .workflow-row-action {

@@ -4,6 +4,7 @@ import type { AcademicProcess } from "../../types";
 import type { AuthIdentity } from "../auth/authApi";
 import { getAcademicFlowStatus } from "../academic-flow/academicFlowStatus";
 import { MoveWorkflowMenu, type WorkflowGroupOption } from "./MoveWorkflowMenu";
+import { WorkflowIcon } from "./WorkflowIcon";
 
 export function CompactWorkflowRow({
   groups,
@@ -80,10 +81,10 @@ export function CompactWorkflowRow({
         title="拖动流程；按 Enter 可选择分组"
         type="button"
       >
-        <span aria-hidden="true">⠿</span>
+        <WorkflowIcon name="grip" />
       </button>
       <button className="academic-flow-open compact" disabled={moving} onClick={onOpen} type="button">
-        <span className="academic-flow-icon">流</span>
+        <span className="academic-flow-icon"><WorkflowIcon name="flow" /></span>
         <span className="academic-flow-copy">
           <span className="academic-flow-title">
             <strong>{process.name}</strong>
@@ -94,16 +95,16 @@ export function CompactWorkflowRow({
         </span>
       </button>
       <div className="academic-flow-actions">
-        {iconButton("进入流程", <span aria-hidden="true">↗</span>, onOpen)}
+        {iconButton("进入流程", <WorkflowIcon name="open" />, onOpen)}
         {teacherIdentity.role === "super_admin"
-          ? iconButton("发布为模板", <span aria-hidden="true">☆</span>, onPublishTemplate)
+          ? iconButton("发布为模板", <WorkflowIcon name="template" />, onPublishTemplate)
           : null}
-        {iconButton("复制流程", <span aria-hidden="true">⧉</span>, () => {
+        {iconButton("复制流程", <WorkflowIcon name="copy" />, () => {
           const trigger = document.activeElement;
           if (trigger instanceof HTMLButtonElement) onClone(trigger);
         })}
-        {iconButton("重命名流程", <span aria-hidden="true">✎</span>, onRename)}
-        {iconButton("删除流程", <span aria-hidden="true">×</span>, onDelete)}
+        {iconButton("重命名流程", <WorkflowIcon name="edit" />, onRename)}
+        {iconButton("删除流程", <WorkflowIcon name="trash" />, onDelete)}
       </div>
       {moveMenuOpen ? (
         <MoveWorkflowMenu

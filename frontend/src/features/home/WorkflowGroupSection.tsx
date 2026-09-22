@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { WorkflowIcon } from "./WorkflowIcon";
 
 export type WorkflowGroupView = {
   id: string | null;
@@ -91,15 +92,15 @@ export function WorkflowGroupSection({
           title={collapsed ? "展开分组" : "折叠分组"}
           type="button"
         >
-          <span aria-hidden="true">{collapsed ? "›" : "⌄"}</span>
+          <WorkflowIcon name="chevron" />
         </button>
-        <span aria-hidden="true" className="workflow-group-folder">▱</span>
+        <span aria-hidden="true" className="workflow-group-folder"><WorkflowIcon name="folder" /></span>
         <strong>{group.name}</strong>
         <span className="workflow-group-count">{count}</span>
         {group.system ? <span className="workflow-system-badge">系统分组</span> : null}
         <div className="workflow-group-actions">
-          <button aria-label={`在 ${group.name} 中创建流程`} onClick={onCreateProcess} title="在组内创建流程" type="button">＋</button>
-          {!group.system ? <button aria-label={`重命名 ${group.name}`} onClick={onRename} title="重命名分组" type="button">✎</button> : null}
+          <button aria-label={`在 ${group.name} 中创建流程`} onClick={onCreateProcess} title="在组内创建流程" type="button"><WorkflowIcon name="plus" /></button>
+          {!group.system ? <button aria-label={`重命名 ${group.name}`} onClick={onRename} title="重命名分组" type="button"><WorkflowIcon name="edit" /></button> : null}
           {!group.system ? (
             <button
               aria-label={`删除 ${group.name}`}
@@ -107,7 +108,7 @@ export function WorkflowGroupSection({
               onClick={onDelete}
               title={count > 0 ? "组内有流程，不能删除" : "删除分组"}
               type="button"
-            >×</button>
+            ><WorkflowIcon name="trash" /></button>
           ) : null}
         </div>
       </header>

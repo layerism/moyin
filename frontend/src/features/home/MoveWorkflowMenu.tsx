@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { WorkflowIcon } from "./WorkflowIcon";
 
 export type WorkflowGroupOption = {
   id: string | null;
@@ -57,7 +58,7 @@ export function MoveWorkflowMenu({
           role="menuitem"
           type="button"
         >
-          <span aria-hidden="true">▱</span>{group.name}
+          <WorkflowIcon name="folder" />{group.name}
         </button>
       ))}
     </div>
