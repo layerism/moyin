@@ -15,6 +15,7 @@ from app.api.routes import (
     teacher_invitations,
     templates,
     workflow_admin,
+    workflow_groups,
     workflows,
     workflow_blueprints,
 )
@@ -36,6 +37,11 @@ api_router.include_router(templates.router, prefix="/templates", tags=["template
 api_router.include_router(submissions.router, prefix="/submissions", tags=["submissions"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
 api_router.include_router(workflows.router, prefix="/workflows", tags=["workflows"])
+api_router.include_router(
+    workflow_groups.router,
+    prefix="/workflow-groups",
+    tags=["workflow-groups"],
+)
 api_router.include_router(flow_roster.router, prefix="/workflows", tags=["flow-roster"])
 api_router.include_router(student_flows.router, prefix="/student", tags=["student-flows"])
 api_router.include_router(workflow_admin.router, prefix="/workflow-admin", tags=["workflow-admin"])

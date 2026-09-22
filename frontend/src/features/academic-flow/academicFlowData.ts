@@ -39,6 +39,7 @@ export function createAcademicProcess(name: string, id = `academic-${Date.now()}
     draftConfig: { edges: [], nodes: [] },
     edges: [],
     hasUnpublishedChanges: false,
+    groupId: null,
     id,
     name,
     nodes: [],

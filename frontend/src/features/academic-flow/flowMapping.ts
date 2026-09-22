@@ -12,6 +12,7 @@ export function mapServerFlow(flow: ServerFlow): AcademicProcess {
     },
     edges: flow.config.edges ?? [],
     hasUnpublishedChanges: flow.hasUnpublishedChanges,
+    groupId: flow.groupId ?? null,
     id: flow.id,
     name: flow.name,
     nodes: flow.config.nodes ?? [],

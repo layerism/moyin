@@ -40,6 +40,7 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
         frozenset({"name", "description", "owner_id", "status", "draft_config"}),
         deletable=True,
     ),
+    "workflow_groups": TablePolicy(deletable=True),
     "node_drafts": TablePolicy(frozenset({"payload"}), deletable=True),
     "node_instances": TablePolicy(
         frozenset({"status", "opened_at", "submitted_at", "approved_at", "attempt_no"}),

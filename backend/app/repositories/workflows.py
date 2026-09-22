@@ -36,6 +36,7 @@ from app.repositories.flow_content_assets import (
     freeze_content_asset_refs,
     validate_content_assets,
 )
+from app.repositories.workflow_groups import require_owned_workflow_group
 from app.services.audit_script_catalog import (
     CONFIRMATION_VISUAL_AUDIT_ID,
     AuditScriptCatalogError,
@@ -420,7 +421,12 @@ def _assert_valid_published_revision(
     _assert_no_published_structure_deletions(connection, flow_id, config)
 
 
-def create_flow(name: str, description: str, teacher_id: int) -> dict[str, object]:
+def create_flow(
+    name: str,
+    description: str,
+    teacher_id: int,
+    group_id: str | None = None,
+) -> dict[str, object]:
     flow_id = str(uuid.uuid4())
     owner_id = str(teacher_id)
     now = utc_now_iso()
@@ -436,12 +442,15 @@ def create_flow(name: str, description: str, teacher_id: int) -> dict[str, objec
         ).fetchone()
         if existing is not None:
             raise DuplicateFlowNameError("已存在同名流程")
+        if group_id is not None:
+            require_owned_workflow_group(connection, group_id, teacher_id)
         connection.execute(
             """
-            INSERT INTO flows (id, name, description, owner_id, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO flows
+                (id, name, description, owner_id, group_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (flow_id, name, description, owner_id, now, now),
+            (flow_id, name, description, owner_id, group_id, now, now),
         )
     return get_flow(flow_id, teacher_id)
 
@@ -679,8 +688,9 @@ def copy_flow_definition(
             connection.execute(
                 """
                 INSERT INTO flows
-                    (id, name, description, owner_id, status, draft_config, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'draft', ?, ?, ?)
+                    (id, name, description, owner_id, status, draft_config,
+                     group_id, created_at, updated_at)
+                VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?)
                 """,
                 (
                     new_flow_id,
@@ -688,6 +698,7 @@ def copy_flow_definition(
                     source_data["description"],
                     owner_id,
                     canonical_json(config),
+                    source_data["group_id"] if source_owner == target_owner else None,
                     now,
                     now,
                 ),
@@ -803,6 +814,7 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         "publishedVersionNo": published["version_no"] if published else None,
         "hasUnpublishedChanges": has_unpublished_changes,
         "description": row["description"],
+        "groupId": row["group_id"],
         "status": row["status"],
         "config": visible_config,
         "draftConfig": draft_config,

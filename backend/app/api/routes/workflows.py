@@ -29,6 +29,7 @@ from app.repositories.workflows import (
     rename_flow,
     save_draft,
 )
+from app.repositories.workflow_groups import move_flow_to_group
 from app.repositories.audit_policies import (
     AuditPolicyConflictError,
     get_node_audit_policy,
@@ -81,6 +82,11 @@ router = APIRouter(dependencies=[Depends(get_current_teacher)])
 class CreateFlowRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     description: str = Field(default="", max_length=500)
+    groupId: str | None = None
+
+
+class MoveFlowGroupRequest(BaseModel):
+    groupId: str | None = None
 
 
 class CopyNodeRequest(BaseModel):
@@ -467,7 +473,14 @@ def post_flow(
     teacher: dict[str, object] = Depends(get_current_teacher),
 ) -> dict[str, object]:
     try:
-        return create_flow(payload.name.strip(), payload.description.strip(), int(teacher["id"]))
+        return create_flow(
+            payload.name.strip(),
+            payload.description.strip(),
+            int(teacher["id"]),
+            payload.groupId,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程分组不存在") from exc
     except DuplicateFlowNameError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -486,6 +499,18 @@ def post_node_copy(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ObjectStorageError as exc:
         raise HTTPException(status_code=502, detail="节点文件复制失败，请重试") from exc
+
+
+@router.put("/{flow_id}/group")
+def put_flow_group(
+    flow_id: str,
+    payload: MoveFlowGroupRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return move_flow_to_group(flow_id, payload.groupId, int(teacher["id"]))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程或目标分组不存在") from exc
 
 
 @router.post("/{flow_id}/clone", status_code=status.HTTP_201_CREATED)

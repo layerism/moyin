@@ -112,6 +112,17 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS workflow_groups (
+    id TEXT PRIMARY KEY,
+    owner_teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,
+    name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 60),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(owner_teacher_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_workflow_groups_owner_created
+    ON workflow_groups(owner_teacher_id, created_at, id);
+
 CREATE TABLE IF NOT EXISTS flows (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -119,6 +130,7 @@ CREATE TABLE IF NOT EXISTS flows (
     owner_id TEXT NOT NULL DEFAULT 'teacher-local',
     status TEXT NOT NULL DEFAULT 'draft',
     draft_config TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
+    group_id TEXT REFERENCES workflow_groups(id) ON DELETE RESTRICT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -599,6 +611,7 @@ def initialize_database() -> None:
         if 'must_change_password' not in teacher_columns:
             connection.execute('ALTER TABLE teacher_accounts ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1))')
         _apply_flow_owner_migration(connection)
+        _apply_workflow_groups_migration(connection)
         _apply_scan_file_metadata_migration(connection)
         _apply_flow_preview_migration(connection)
         _apply_audit_hot_reload_migration(connection)
@@ -778,6 +791,43 @@ def _apply_flow_owner_migration(connection: sqlite3.Connection) -> None:
     )
     connection.execute(
         "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )
+
+
+def _apply_workflow_groups_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260922_workflow_groups"
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS workflow_groups (
+            id TEXT PRIMARY KEY,
+            owner_teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,
+            name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 60),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(owner_teacher_id, name)
+        )
+        """
+    )
+    columns = {
+        row["name"] for row in connection.execute("PRAGMA table_info(flows)").fetchall()
+    }
+    if "group_id" not in columns:
+        connection.execute(
+            "ALTER TABLE flows ADD COLUMN group_id TEXT "
+            "REFERENCES workflow_groups(id) ON DELETE RESTRICT"
+        )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_workflow_groups_owner_created
+        ON workflow_groups(owner_teacher_id, created_at, id)
+        """
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_flows_group_id ON flows(group_id)"
+    )
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
         (migration_id, datetime.now(UTC).isoformat()),
     )
 

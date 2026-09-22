@@ -20,6 +20,7 @@ ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_sourc
          'workflow_blueprints', 'flow_versions', 'answer_sheet_drafts',
          'answer_sheet_key_revisions', 'node_audit_policies',
          'flow_template_assets', 'flow_content_assets', 'flow_roster_entries', 'flows',
+         'workflow_groups',
          'personal_drive_files', 'audit_model_bindings', 'audit_model_cards', 'teacher_invitations',
          'sms_challenges', 'password_recoveries', 'audit_logs', 'student_sessions',
          'teacher_sessions', 'student_accounts', 'teacher_accounts']
@@ -47,6 +48,7 @@ def scope(db, kind, account_id):
     if kind == 'teacher':
         select('personal_drive_files', 'owner_teacher_id = ?', (account_id,))
         select('flows', 'owner_id = ?', (str(account_id),))
+        select('workflow_groups', 'owner_teacher_id = ?', (account_id,))
         select('student_accounts', 'preview_owner_teacher_id = ?', (account_id,))
         select('workflow_blueprints', 'created_by = ?', (account_id,))
         children('workflow_blueprint_versions', 'blueprint_id', 'workflow_blueprints')

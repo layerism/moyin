@@ -244,6 +244,7 @@ export type AcademicProcess = {
   draftConfig: AcademicFlowConfig;
   edges: AcademicFlowEdge[];
   hasUnpublishedChanges: boolean;
+  groupId: string | null;
   id: string;
   name: string;
   nodes: AcademicFlowNode[];

@@ -37,12 +37,21 @@ export type ServerFlow = {
   description: string;
   draftConfig: AcademicFlowConfig;
   hasUnpublishedChanges: boolean;
+  groupId: string | null;
   id: string;
   name: string;
   publishedNodeIds: string[];
   publishedVersionId: string | null;
   publishedVersionNo: number | null;
   status: "draft" | "published";
+  updatedAt: string;
+};
+
+export type WorkflowGroup = {
+  id: string;
+  name: string;
+  flowCount: number;
+  createdAt: string;
   updatedAt: string;
 };
 
@@ -258,10 +267,40 @@ export const workflowApi = {
   listFlows() {
     return request<ServerFlow[]>("/api/workflows");
   },
-  createFlow(process: AcademicProcess) {
-    return request<{ id: string }>("/api/workflows", {
+  listWorkflowGroups() {
+    return request<WorkflowGroup[]>("/api/workflow-groups");
+  },
+  createWorkflowGroup(name: string) {
+    return request<WorkflowGroup>("/api/workflow-groups", {
       method: "POST",
-      body: JSON.stringify({ name: process.name, description: process.description }),
+      body: JSON.stringify({ name }),
+    });
+  },
+  renameWorkflowGroup(groupId: string, name: string) {
+    return request<WorkflowGroup>(`/api/workflow-groups/${encodeURIComponent(groupId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    });
+  },
+  deleteWorkflowGroup(groupId: string) {
+    return request<void>(`/api/workflow-groups/${encodeURIComponent(groupId)}`, {
+      method: "DELETE",
+    });
+  },
+  moveFlowToGroup(serverId: string, groupId: string | null) {
+    return request<ServerFlow>(`/api/workflows/${encodeURIComponent(serverId)}/group`, {
+      method: "PUT",
+      body: JSON.stringify({ groupId }),
+    });
+  },
+  createFlow(process: AcademicProcess) {
+    return request<ServerFlow>("/api/workflows", {
+      method: "POST",
+      body: JSON.stringify({
+        name: process.name,
+        description: process.description,
+        groupId: process.groupId,
+      }),
     });
   },
   cloneFlow(serverId: string, name: string) {

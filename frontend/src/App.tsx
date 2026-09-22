@@ -6,7 +6,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AcademicFlowDesigner } from "./features/academic-flow/AcademicFlowDesigner";
 import { createAcademicProcess } from "./features/academic-flow/academicFlowData";
-import { workflowApi, type ServerFlow } from "./features/academic-flow/api";
+import {
+  ApiError,
+  workflowApi,
+  type ServerFlow,
+  type WorkflowGroup,
+} from "./features/academic-flow/api";
 import { WorkflowTemplatesPage } from "./features/academic-flow/WorkflowTemplatesPage";
 import { StudentRuntimePage } from "./features/academic-flow/StudentRuntimePage";
 import type { RuntimeFlowInstance } from "./features/academic-flow/runtimeTypes";
@@ -180,6 +185,7 @@ export function App() {
   const [accounts, setAccounts] = useState<StudentAccount[]>(initialAccounts);
   const [activeUser, setActiveUser] = useState<StudentAccount | null>(null);
   const [academicProcesses, setAcademicProcesses] = useState<AcademicProcess[]>([]);
+  const [workflowGroups, setWorkflowGroups] = useState<WorkflowGroup[]>([]);
   const [academicFlowsLoaded, setAcademicFlowsLoaded] = useState(false);
   const [academicFlowsLoadError, setAcademicFlowsLoadError] = useState("");
   const [activeAcademicProcessId, setActiveAcademicProcessId] = useState<string | null>(
@@ -260,6 +266,7 @@ export function App() {
   useEffect(() => {
     if (!teacherIdentity || teacherIdentity.mustChangePassword) {
       setAcademicProcesses([]);
+      setWorkflowGroups([]);
       setAcademicFlowsLoaded(false);
       setAcademicFlowsLoadError("");
       return;
@@ -268,9 +275,12 @@ export function App() {
     setAcademicProcesses([]);
     setAcademicFlowsLoaded(false);
     setAcademicFlowsLoadError("");
-    workflowApi.listFlows()
-      .then((flows) => {
-        if (!cancelled) setAcademicProcesses(flows.map(mapServerFlow));
+    Promise.all([workflowApi.listFlows(), workflowApi.listWorkflowGroups()])
+      .then(([flows, groups]) => {
+        if (!cancelled) {
+          setAcademicProcesses(flows.map(mapServerFlow));
+          setWorkflowGroups(groups);
+        }
       })
       .catch((reason: Error) => {
         if (!cancelled) setAcademicFlowsLoadError(reason.message || "流程加载失败");
@@ -774,15 +784,60 @@ export function App() {
       <AcademicFlowView
         initiallyCreate={new URLSearchParams(window.location.search).get("create") === "1"}
         processes={academicProcesses}
+        workflowGroups={workflowGroups}
         onDeleteProcess={async (process) => {
           await workflowApi.remove(process.serverId ?? process.id);
           setAcademicProcesses((current) => current.filter((item) => item.id !== process.id));
         }}
-        onCreateProcess={async (name) => {
-          const draft = createAcademicProcess(name);
+        onCreateProcess={async (name, groupId) => {
+          const draft = { ...createAcademicProcess(name), groupId };
           const created = await workflowApi.createFlow(draft);
-          const process = { ...draft, id: created.id, serverId: created.id };
+          const process = mapServerFlow(created);
           setAcademicProcesses((current) => [process, ...current]);
+        }}
+        onCreateGroup={async (name) => {
+          const group = await workflowApi.createWorkflowGroup(name);
+          setWorkflowGroups((current) => [...current, group]);
+          return group;
+        }}
+        onRenameGroup={async (groupId, name) => {
+          const group = await workflowApi.renameWorkflowGroup(groupId, name);
+          setWorkflowGroups((current) =>
+            current.map((item) => (item.id === groupId ? group : item)),
+          );
+        }}
+        onDeleteGroup={async (groupId) => {
+          await workflowApi.deleteWorkflowGroup(groupId);
+          setWorkflowGroups((current) => current.filter((group) => group.id !== groupId));
+        }}
+        onMoveProcess={async (processId, groupId) => {
+          const process = academicProcesses.find((item) => item.id === processId);
+          if (!process || process.groupId === groupId) return;
+          const previousGroupId = process.groupId;
+          setAcademicProcesses((current) => current.map((item) =>
+            item.id === processId ? { ...item, groupId } : item
+          ));
+          try {
+            const moved = mapServerFlow(
+              await workflowApi.moveFlowToGroup(process.serverId ?? process.id, groupId),
+            );
+            setAcademicProcesses((current) => current.map((item) =>
+              item.id === processId ? moved : item
+            ));
+          } catch (error) {
+            setAcademicProcesses((current) => current.map((item) =>
+              item.id === processId ? { ...item, groupId: previousGroupId } : item
+            ));
+            if (error instanceof ApiError && error.status === 404) {
+              const [flows, groups] = await Promise.all([
+                workflowApi.listFlows(),
+                workflowApi.listWorkflowGroups(),
+              ]);
+              setAcademicProcesses(flows.map(mapServerFlow));
+              setWorkflowGroups(groups);
+            }
+            throw error;
+          }
         }}
         onCloneProcess={async (source, name) => {
           const cloned = mapServerFlow(
