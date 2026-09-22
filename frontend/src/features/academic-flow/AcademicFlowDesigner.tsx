@@ -26,7 +26,7 @@ import {
   getFileTypeRestrictionPreset,
   nodeTemplates,
 } from "./academicFlowData";
-import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
+import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy } from "./api";
 import {
   getAuditScriptParameterError,
   type NodeAuditPolicy,
@@ -604,6 +604,22 @@ export function AcademicFlowDesigner({
     }));
   };
 
+  const applyPublishedAnswerKeyPolicy = (
+    nodeId: string,
+    policy: AnswerKeyPolicy,
+  ) => {
+    setWorkingProcess((current) => ({
+      ...current,
+      answerSheetKeys: {
+        ...current.answerSheetKeys,
+        [nodeId]: policy.gradingKey,
+      },
+    }));
+    setActionNotice(
+      `标准答案已更新，已重新判定 ${policy.regradedSubmissionCount ?? 0} 份答卷`,
+    );
+  };
+
   const updateNodePositions = (positions: Record<string, CanvasPoint>) => {
     if (editorLocked) return;
     let changed = false;
@@ -845,6 +861,7 @@ export function AcademicFlowDesigner({
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(policy) => applyPublishedAuditPolicy(inspectorNode.id, policy)}
+            onAnswerKeyPolicySaved={(policy) => applyPublishedAnswerKeyPolicy(inspectorNode.id, policy)}
             publishedAuditPolicy={workingProcess.published && protectedNodeIds.includes(inspectorNode.id)}
             publishedRevision={workingProcess.published && revisionEditing}
           />
@@ -2201,6 +2218,7 @@ function NodeInspector({
   onDeleteReference,
   onUpdateNode,
   onUpdateAnswerSheet,
+  onAnswerKeyPolicySaved,
   onAuditPolicySaved,
   publishedAuditPolicy,
   publishedRevision,
@@ -2222,6 +2240,7 @@ function NodeInspector({
     config: NonNullable<AcademicFlowNode["answerSheet"]>,
     gradingKey: AcademicProcess["answerSheetKeys"][string],
   ) => void;
+  onAnswerKeyPolicySaved: (policy: AnswerKeyPolicy) => void;
   onAuditPolicySaved: (policy: NodeAuditPolicy) => void;
   publishedAuditPolicy: boolean;
   publishedRevision: boolean;
@@ -2233,9 +2252,17 @@ function NodeInspector({
   const [modelValidationAttempt, setModelValidationAttempt] = useState(0);
   const [auditPolicyError, setAuditPolicyError] = useState("");
   const [auditPolicySaving, setAuditPolicySaving] = useState(false);
+  const [answerKeyPolicy, setAnswerKeyPolicy] = useState<AnswerKeyPolicy | null>(null);
+  const [answerKeyDraft, setAnswerKeyDraft] = useState<AcademicProcess["answerSheetKeys"][string] | null>(null);
+  const [answerKeyError, setAnswerKeyError] = useState("");
+  const [answerKeySaving, setAnswerKeySaving] = useState(false);
+  const [answerKeyConfirmOpen, setAnswerKeyConfirmOpen] = useState(false);
   const nodeKey = node?.id ?? "";
   const hasPublishedAuditPolicy = Boolean(
     publishedAuditPolicy && node && (node.auditScriptId || node.scanAuditEnabled),
+  );
+  const hasPublishedAnswerKeyPolicy = Boolean(
+    publishedAuditPolicy && node?.kind === "answer_sheet",
   );
 
   useEffect(() => {
@@ -2262,6 +2289,28 @@ function NodeInspector({
     };
   }, [flowId, hasPublishedAuditPolicy, nodeKey]);
 
+  useEffect(() => {
+    setAnswerKeyPolicy(null);
+    setAnswerKeyDraft(null);
+    setAnswerKeyError("");
+    setAnswerKeySaving(false);
+    setAnswerKeyConfirmOpen(false);
+    if (!hasPublishedAnswerKeyPolicy) return;
+    let cancelled = false;
+    workflowApi.getNodeAnswerKeyPolicy(flowId, nodeKey).then((value) => {
+      if (cancelled) return;
+      setAnswerKeyPolicy(value);
+      setAnswerKeyDraft(value.gradingKey);
+    }).catch((reason) => {
+      if (!cancelled) {
+        setAnswerKeyError(reason instanceof Error ? reason.message : "读取标准答案失败");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [flowId, hasPublishedAnswerKeyPolicy, nodeKey]);
+
   const auditPolicyFieldErrors = auditPolicy ? Object.fromEntries(
     auditPolicy.parameters.filter((parameter) => (
       parameter.key !== "scanAuditThreshold" || auditPolicyParams.scanAuditMode === "score"
@@ -2275,12 +2324,70 @@ function NodeInspector({
       (parameter) => auditPolicyParams[parameter.key] !== auditPolicy.params[parameter.key],
     )
   ));
+  const answerKeyChanged = Boolean(
+    answerKeyPolicy
+    && answerKeyDraft
+    && JSON.stringify(answerKeyDraft) !== JSON.stringify(answerKeyPolicy.gradingKey)
+  );
 
   const requiresAuditModel = Boolean(node?.kind === "confirmation" && node.scanAuditEnabled);
   const missingAuditModel = requiresAuditModel && !(hasPublishedAuditPolicy ? auditModelCardId : node?.auditModelCardId);
 
+  const persistPoliciesAndClose = useCallback(async (saveAnswerKey: boolean) => {
+    setAuditPolicySaving(auditPolicyChanged);
+    setAnswerKeySaving(saveAnswerKey && answerKeyChanged);
+    setAuditPolicyError("");
+    setAnswerKeyError("");
+    let answerKeySaved = false;
+    try {
+      if (saveAnswerKey && answerKeyChanged && answerKeyPolicy && answerKeyDraft) {
+        const updatedAnswerKey = await workflowApi.updateNodeAnswerKeyPolicy(flowId, nodeKey, {
+          expectedGeneration: answerKeyPolicy.generation,
+          gradingKey: answerKeyDraft,
+        });
+        setAnswerKeyPolicy(updatedAnswerKey);
+        setAnswerKeyDraft(updatedAnswerKey.gradingKey);
+        onAnswerKeyPolicySaved(updatedAnswerKey);
+        answerKeySaved = true;
+      }
+      if (hasPublishedAuditPolicy && auditPolicy && auditPolicyChanged) {
+        const updatedAuditPolicy = await workflowApi.updateNodeAuditPolicy(flowId, nodeKey, {
+          modelCardId: auditModelCardId,
+          expectedGeneration: auditPolicy.generation,
+          params: auditPolicyParams,
+        });
+        setAuditPolicy(updatedAuditPolicy);
+        onAuditPolicySaved(updatedAuditPolicy);
+      }
+      onClose();
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "保存节点配置失败";
+      if (saveAnswerKey && answerKeyChanged && !answerKeySaved) setAnswerKeyError(message);
+      else setAuditPolicyError(message);
+    } finally {
+      setAuditPolicySaving(false);
+      setAnswerKeySaving(false);
+      setAnswerKeyConfirmOpen(false);
+    }
+  }, [
+    answerKeyChanged,
+    answerKeyDraft,
+    answerKeyPolicy,
+    auditModelCardId,
+    auditPolicy,
+    auditPolicyChanged,
+    auditPolicyParams,
+    flowId,
+    hasPublishedAuditPolicy,
+    nodeKey,
+    onAnswerKeyPolicySaved,
+    onAuditPolicySaved,
+    onClose,
+  ]);
+
   const closeInspector = useCallback(async (requireModel = false) => {
-    if (auditPolicySaving) return;
+    if (auditPolicySaving || answerKeySaving) return;
+    if (requireModel && hasPublishedAnswerKeyPolicy && !answerKeyPolicy) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
     if (requireModel && node?.kind === "file") {
       const error = fileReviewError(hasPublishedAuditPolicy ? { ...node, auditModelCardId: auditModelCardId ?? undefined } : node);
@@ -2293,31 +2400,22 @@ function NodeInspector({
       setModelValidationAttempt((current) => current + 1);
       return;
     }
-    if (!hasPublishedAuditPolicy || !auditPolicy || !auditPolicyChanged) {
-      onClose();
+    if (hasPublishedAuditPolicy && auditPolicy && auditPolicyChanged) {
+      const validationError = Object.values(auditPolicyFieldErrors)[0];
+      if (validationError) {
+        setAuditPolicyError(`请先修正审核规则：${validationError}`);
+        return;
+      }
+    }
+    if (answerKeyChanged) {
+      setAnswerKeyConfirmOpen(true);
       return;
     }
-    const validationError = Object.values(auditPolicyFieldErrors)[0];
-    if (validationError) {
-      setAuditPolicyError(`请先修正审核规则：${validationError}`);
-      return;
-    }
-    setAuditPolicySaving(true);
-    setAuditPolicyError("");
-    try {
-      const updated = await workflowApi.updateNodeAuditPolicy(flowId, nodeKey, {
-        modelCardId: auditModelCardId,
-        expectedGeneration: auditPolicy.generation,
-        params: auditPolicyParams,
-      });
-      onAuditPolicySaved(updated);
-      onClose();
-    } catch (reason) {
-      setAuditPolicyError(reason instanceof Error ? reason.message : "保存审核规则失败");
-    } finally {
-      setAuditPolicySaving(false);
-    }
+    await persistPoliciesAndClose(false);
   }, [
+    answerKeyChanged,
+    answerKeyPolicy,
+    answerKeySaving,
     auditPolicy,
     auditPolicyChanged,
     node,
@@ -2326,17 +2424,19 @@ function NodeInspector({
     auditPolicyParams,
     auditModelCardId,
     auditPolicySaving,
-    flowId,
+    hasPublishedAnswerKeyPolicy,
     hasPublishedAuditPolicy,
-    nodeKey,
-    onAuditPolicySaved,
-    onClose,
+    persistPoliciesAndClose,
   ]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      if (answerKeyConfirmOpen) {
+        if (!answerKeySaving) setAnswerKeyConfirmOpen(false);
+        return;
+      }
       if (timeSettingsOpen) {
         setTimeSettingsOpen(false);
         return;
@@ -2349,7 +2449,7 @@ function NodeInspector({
       window.removeEventListener("keydown", closeOnEscape);
       document.body.style.overflow = previousOverflow;
     };
-  }, [closeInspector, timeSettingsOpen]);
+  }, [answerKeyConfirmOpen, answerKeySaving, closeInspector, timeSettingsOpen]);
 
   if (!node) {
     return null;
@@ -2488,11 +2588,23 @@ function NodeInspector({
 
         {node.kind === "answer_sheet" && node.answerSheet && answerSheetKey ? (
           <AnswerSheetEditor
+            answerDisabled={hasPublishedAnswerKeyPolicy
+              ? editingLocked || !answerKeyPolicy || answerKeySaving
+              : coreSettingsDisabled}
             config={node.answerSheet}
-            disabled={coreSettingsDisabled}
             deadlineAt={node.deadlineAt}
-            gradingKey={answerSheetKey}
-            onChange={(config, gradingKey) => onUpdateAnswerSheet(node.id, config, gradingKey)}
+            gradingKey={hasPublishedAnswerKeyPolicy
+              ? answerKeyDraft ?? answerSheetKey
+              : answerSheetKey}
+            onChange={(config, gradingKey) => {
+              if (hasPublishedAnswerKeyPolicy) {
+                setAnswerKeyError("");
+                setAnswerKeyDraft(gradingKey);
+                return;
+              }
+              onUpdateAnswerSheet(node.id, config, gradingKey);
+            }}
+            structureDisabled={coreSettingsDisabled}
           />
         ) : null}
 
@@ -2653,30 +2765,42 @@ function NodeInspector({
         </div>
         <footer className="node-inspector-footer">
           <span
-            className={auditPolicyError ? "node-inspector-footer-error" : undefined}
-            role={auditPolicyError ? "alert" : undefined}
+            className={answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
+            role={answerKeyError || auditPolicyError ? "alert" : undefined}
           >
-            {auditPolicyError
+            {answerKeyError
+              ? answerKeyError
+              : auditPolicyError
               ? auditPolicyError
+              : hasPublishedAnswerKeyPolicy && !answerKeyPolicy
+                ? "正在读取已发布标准答案…"
               : hasPublishedAuditPolicy && !auditPolicy
                 ? "正在读取已发布审核规则…"
-                : auditPolicySaving
-                  ? "正在保存审核规则…"
+                : answerKeySaving || auditPolicySaving
+                  ? "正在保存并更新相关结果…"
+                  : answerKeyChanged
+                    ? "点击完成后，标准答案立即更新并重新判定全部历史答卷。"
                   : hasPublishedAuditPolicy && auditPolicyChanged
                     ? "点击完成后，审核规则立即更新未完成审核。"
-                    : publishedRevision
-                      ? "标题、说明和时间重新发布后生效；审核规则在完成时立即保存。"
+                    : publishedRevision && hasPublishedAnswerKeyPolicy
+                      ? "标题、说明和时间重新发布后生效；标准答案在完成时立即保存并重新判分。"
+                      : publishedRevision
+                        ? "标题、说明和时间重新发布后生效；审核规则在完成时立即保存。"
                       : hasPublishedAuditPolicy
                         ? "审核提示词和脚本参数可在原位置修改，完成时立即保存。"
+                        : hasPublishedAnswerKeyPolicy
+                          ? "正确答案可修改；题目结构保持发布锁定。"
                         : "修改仅保存在当前页面，提交发布后写入流程版本。"}
           </span>
           <button
             className="primary-action"
-            disabled={auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
+            disabled={answerKeySaving || auditPolicySaving
+              || (hasPublishedAnswerKeyPolicy && !answerKeyPolicy)
+              || (hasPublishedAuditPolicy && !auditPolicy)}
             onClick={() => void closeInspector(true)}
             type="button"
           >
-            {auditPolicySaving ? "保存中…" : "完成"}
+            {answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
           </button>
         </footer>
       </aside>
@@ -2690,6 +2814,46 @@ function NodeInspector({
             setTimeSettingsOpen(false);
           }}
         />
+      ) : null}
+      {answerKeyConfirmOpen ? (
+        <div
+          className="node-time-dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !answerKeySaving) {
+              setAnswerKeyConfirmOpen(false);
+            }
+          }}
+        >
+          <section
+            aria-labelledby="answer-key-confirm-title"
+            aria-modal="true"
+            className="node-time-dialog answer-key-confirm-dialog"
+            role="dialog"
+          >
+            <header>
+              <h2 id="answer-key-confirm-title">确认修改标准答案</h2>
+              <button
+                aria-label="取消修改标准答案"
+                disabled={answerKeySaving}
+                onClick={() => setAnswerKeyConfirmOpen(false)}
+                type="button"
+              >×</button>
+            </header>
+            <div className="node-time-dialog-body">
+              <p>保存后，系统会立即使用新答案重新判定该节点的全部历史答卷，学生看到的成绩也会随之更新。</p>
+              <p>学生的作答次数、提交记录、节点状态和后续流程不会改变；旧成绩将保留用于审计。</p>
+            </div>
+            <footer>
+              <button disabled={answerKeySaving} onClick={() => setAnswerKeyConfirmOpen(false)} type="button">取消</button>
+              <button
+                className="primary-action"
+                disabled={answerKeySaving}
+                onClick={() => void persistPoliciesAndClose(true)}
+                type="button"
+              >{answerKeySaving ? "重新判分中…" : "确认保存并重新判分"}</button>
+            </footer>
+          </section>
+        </div>
       ) : null}
     </div>
   );

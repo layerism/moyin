@@ -19,7 +19,9 @@ class TablePolicy:
 
 TABLE_POLICIES: dict[str, TablePolicy] = {
     "answer_sheet_drafts": TablePolicy(),
+    "answer_sheet_grade_history": TablePolicy(),
     "answer_sheet_grades": TablePolicy(),
+    "answer_sheet_key_revisions": TablePolicy(),
     "audit_logs": TablePolicy(deletable=True),
     "flow_instances": TablePolicy(
         frozenset({"status", "completed_at", "last_active_at"}), deletable=True

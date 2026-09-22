@@ -193,6 +193,19 @@ CREATE TABLE IF NOT EXISTS flow_version_answer_keys (
     PRIMARY KEY(flow_version_id, node_key)
 );
 
+CREATE TABLE IF NOT EXISTS answer_sheet_key_revisions (
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    generation INTEGER NOT NULL CHECK (generation > 1),
+    grading_snapshot TEXT NOT NULL,
+    grading_hash TEXT NOT NULL,
+    updated_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(flow_id, node_key, generation)
+);
+CREATE INDEX IF NOT EXISTS idx_answer_sheet_key_revisions_latest
+    ON answer_sheet_key_revisions(flow_id, node_key, generation DESC);
+
 CREATE TABLE IF NOT EXISTS flow_node_runtime_configs (
     flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
@@ -402,6 +415,23 @@ CREATE TABLE IF NOT EXISTS answer_sheet_grades (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS answer_sheet_grade_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL CHECK (score >= 0),
+    max_score INTEGER NOT NULL CHECK (max_score >= 0),
+    passing_score INTEGER NOT NULL CHECK (passing_score >= 0),
+    passed INTEGER NOT NULL CHECK (passed IN (0, 1)),
+    grader_version TEXT NOT NULL,
+    grading_hash TEXT NOT NULL,
+    result_snapshot TEXT NOT NULL,
+    original_created_at TEXT NOT NULL,
+    superseded_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    superseded_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_answer_sheet_grade_history_submission
+    ON answer_sheet_grade_history(submission_id, id);
+
 CREATE TABLE IF NOT EXISTS uploaded_files (
     id TEXT PRIMARY KEY,
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
@@ -572,6 +602,7 @@ def initialize_database() -> None:
         _apply_scan_file_metadata_migration(connection)
         _apply_flow_preview_migration(connection)
         _apply_audit_hot_reload_migration(connection)
+        _apply_answer_sheet_key_revision_migration(connection)
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(node_instances)")}
         if "attempt_reset_no" not in columns:
             connection.execute("ALTER TABLE node_instances ADD COLUMN attempt_reset_no INTEGER NOT NULL DEFAULT 0")
@@ -897,6 +928,46 @@ def _apply_audit_hot_reload_migration(connection: sqlite3.Connection) -> None:
     )
     connection.execute(
         "CREATE INDEX IF NOT EXISTS idx_audit_jobs_policy_status ON audit_jobs(flow_id, node_key, status)"
+    )
+    connection.execute(
+        "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )
+
+
+def _apply_answer_sheet_key_revision_migration(connection: sqlite3.Connection) -> None:
+    migration_id = "20260922_answer_sheet_key_revisions"
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS answer_sheet_key_revisions (
+            flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+            node_key TEXT NOT NULL,
+            generation INTEGER NOT NULL CHECK (generation > 1),
+            grading_snapshot TEXT NOT NULL,
+            grading_hash TEXT NOT NULL,
+            updated_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(flow_id, node_key, generation)
+        );
+        CREATE INDEX IF NOT EXISTS idx_answer_sheet_key_revisions_latest
+            ON answer_sheet_key_revisions(flow_id, node_key, generation DESC);
+        CREATE TABLE IF NOT EXISTS answer_sheet_grade_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+            score INTEGER NOT NULL CHECK (score >= 0),
+            max_score INTEGER NOT NULL CHECK (max_score >= 0),
+            passing_score INTEGER NOT NULL CHECK (passing_score >= 0),
+            passed INTEGER NOT NULL CHECK (passed IN (0, 1)),
+            grader_version TEXT NOT NULL,
+            grading_hash TEXT NOT NULL,
+            result_snapshot TEXT NOT NULL,
+            original_created_at TEXT NOT NULL,
+            superseded_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+            superseded_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_answer_sheet_grade_history_submission
+            ON answer_sheet_grade_history(submission_id, id);
+        """
     )
     connection.execute(
         "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",

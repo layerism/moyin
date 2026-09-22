@@ -52,19 +52,21 @@ const questionTypeLabels: Record<AnswerSheetQuestionType, string> = {
 };
 
 export function AnswerSheetEditor({
+  answerDisabled,
   config,
   deadlineAt,
-  disabled,
   gradingKey,
   onChange,
+  structureDisabled,
 }: {
+  answerDisabled: boolean;
   config: AnswerSheetConfig;
   deadlineAt?: string | null;
-  disabled: boolean;
   gradingKey: AnswerSheetPrivateKey;
   onChange: (config: AnswerSheetConfig, gradingKey: AnswerSheetPrivateKey) => void;
+  structureDisabled: boolean;
 }) {
-  const authoring = disabled
+  const authoring = structureDisabled
     ? { config, key: gradingKey }
     : upgradeAnswerSheetAuthoring(config, gradingKey);
   const activeConfig = authoring.config;
@@ -97,9 +99,9 @@ export function AnswerSheetEditor({
     : [];
 
   useEffect(() => {
-    if (disabled || (activeConfig === config && activeKey === gradingKey)) return;
+    if (structureDisabled || (activeConfig === config && activeKey === gradingKey)) return;
     onChange(activeConfig, activeKey);
-  }, [activeConfig, activeKey, config, disabled, gradingKey, onChange]);
+  }, [activeConfig, activeKey, config, gradingKey, onChange, structureDisabled]);
 
   useEffect(() => {
     const questionIds = new Set(questionIdKey ? questionIdKey.split("|") : []);
@@ -130,11 +132,11 @@ export function AnswerSheetEditor({
   }, [openMenu]);
 
   useEffect(() => {
-    if (!disabled) return;
+    if (!structureDisabled) return;
     setDragOverQuestionId(null);
     setDragQuestionId(null);
     setOpenMenu(null);
-  }, [disabled]);
+  }, [structureDisabled]);
 
   const addQuestion = (type: AnswerSheetQuestionType) => {
     const question = createAnswerSheetQuestion(type);
@@ -147,7 +149,7 @@ export function AnswerSheetEditor({
   };
 
   const openQuestion = (question: AnswerSheetQuestion) => {
-    const draftQuestion = !disabled
+    const draftQuestion = !structureDisabled
       && question.type !== "fill_blank"
       && question.options.length === 2
       && question.options.every((option) => !option.content.trim())
@@ -169,7 +171,9 @@ export function AnswerSheetEditor({
   const confirmQuestionDraft = () => {
     if (!questionDraft) return;
     const { answer, isNew, question: draftQuestion } = questionDraft;
-    const questions = isNew
+    const questions = structureDisabled
+      ? activeConfig.questions
+      : isNew
       ? [...activeConfig.questions, draftQuestion]
       : activeConfig.questions.map((question) => (
         question.id === draftQuestion.id ? draftQuestion : question
@@ -222,9 +226,9 @@ export function AnswerSheetEditor({
           <span>总分 {maximum}</span>
         </div>
         <div className="answer-sheet-add-actions">
-          <button disabled={disabled} onClick={() => addQuestion("single_choice")} type="button">添加单选题</button>
-          <button disabled={disabled} onClick={() => addQuestion("multiple_choice")} type="button">添加多选题</button>
-          <button disabled={disabled} onClick={() => addQuestion("fill_blank")} type="button">添加填空题</button>
+          <button disabled={structureDisabled} onClick={() => addQuestion("single_choice")} type="button">添加单选题</button>
+          <button disabled={structureDisabled} onClick={() => addQuestion("multiple_choice")} type="button">添加多选题</button>
+          <button disabled={structureDisabled} onClick={() => addQuestion("fill_blank")} type="button">添加填空题</button>
         </div>
       </header>
 
@@ -232,7 +236,7 @@ export function AnswerSheetEditor({
         <label>
           <span>作答次数</span>
           <select
-            disabled={disabled}
+            disabled={structureDisabled}
             value={activeConfig.gradingPolicy.maxAttempts ?? "unlimited"}
             onChange={(event) => onChange({
               ...activeConfig,
@@ -249,7 +253,7 @@ export function AnswerSheetEditor({
         <label>
           <span>反馈</span>
           <select
-            disabled={disabled}
+            disabled={structureDisabled}
             value={activeConfig.gradingPolicy.feedback}
             onChange={(event) => onChange({
               ...activeConfig,
@@ -280,7 +284,7 @@ export function AnswerSheetEditor({
               }`}
               key={question.id}
               onDragOver={(event) => {
-                if (!dragQuestionId || disabled) return;
+                if (!dragQuestionId || structureDisabled) return;
                 event.preventDefault();
                 setDragOverQuestionId(question.id);
               }}
@@ -288,7 +292,7 @@ export function AnswerSheetEditor({
             >
               <div className="answer-sheet-question-summary">
                 <QuestionReorderHandle
-                  disabled={disabled}
+                  disabled={structureDisabled}
                   dragging={dragQuestionId === question.id}
                   index={index}
                   onDragEnd={() => {
@@ -333,7 +337,7 @@ export function AnswerSheetEditor({
                 <button
                   aria-label={`删除第 ${index + 1} 题`}
                   className="answer-sheet-question-delete"
-                  disabled={disabled}
+                  disabled={structureDisabled}
                   onClick={() => removeQuestion(question.id)}
                   type="button"
                 >
@@ -350,7 +354,7 @@ export function AnswerSheetEditor({
         <AnswerSheetQuestionDialog
           key={questionDraft.question.id}
           answer={questionDraft.answer}
-          disabled={disabled}
+          answerDisabled={answerDisabled}
           errors={draftErrors}
           index={questionDraft.isNew
             ? activeConfig.questions.length
@@ -362,6 +366,7 @@ export function AnswerSheetEditor({
           onQuestionChange={(question) => setQuestionDraft((current) => current ? { ...current, question } : current)}
           openMenu={openMenu}
           question={questionDraft.question}
+          structureDisabled={structureDisabled}
         />
       ) : null}
     </section>
@@ -370,7 +375,7 @@ export function AnswerSheetEditor({
 
 function AnswerSheetQuestionDialog({
   answer,
-  disabled,
+  answerDisabled,
   errors,
   index,
   onAnswerChange,
@@ -380,9 +385,10 @@ function AnswerSheetQuestionDialog({
   onQuestionChange,
   openMenu,
   question,
+  structureDisabled,
 }: {
   answer: AnswerSheetPrivateAnswer;
-  disabled: boolean;
+  answerDisabled: boolean;
   errors: string[];
   index: number;
   onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
@@ -392,6 +398,7 @@ function AnswerSheetQuestionDialog({
   onQuestionChange: (question: AnswerSheetQuestion) => void;
   openMenu: AnswerSheetMenuTarget | null;
   question: AnswerSheetQuestion;
+  structureDisabled: boolean;
 }) {
   const singleMarkdownFill = isSingleMarkdownFillBlankQuestion(question);
   return (
@@ -405,14 +412,14 @@ function AnswerSheetQuestionDialog({
         <header>
           <div className="answer-sheet-question-dialog-heading">
             <h2 id="answer-sheet-question-dialog-title">
-              {disabled ? "查看" : "编辑"}第 {index + 1} 题
+              {structureDisabled && !answerDisabled ? "编辑" : structureDisabled ? "查看" : "编辑"}第 {index + 1} 题{structureDisabled && !answerDisabled ? "答案" : ""}
             </h2>
             <span className="answer-sheet-question-dialog-type">{questionTypeLabels[question.type]}</span>
             <div className="answer-sheet-question-dialog-settings">
               <label className="answer-sheet-required">
                 <input
                   checked={question.required}
-                  disabled={disabled}
+                  disabled={structureDisabled}
                   type="checkbox"
                   onChange={(event) => onQuestionChange({
                     ...question,
@@ -429,7 +436,7 @@ function AnswerSheetQuestionDialog({
           <div className="answer-sheet-question-markdown">
             <MarkdownBlurEditor
               clearOnEditValues={question.type === "fill_blank" ? [] : LEGACY_QUESTION_PLACEHOLDERS}
-              disabled={disabled}
+              disabled={structureDisabled}
               onChange={(content) => onQuestionChange({ ...question, content })}
               placeholder={singleMarkdownFill
                 ? "请输入题干"
@@ -441,29 +448,31 @@ function AnswerSheetQuestionDialog({
             singleMarkdownFill ? (
               <SingleMarkdownFillBlankEditor
                 answer={answer}
-                disabled={disabled}
+                disabled={answerDisabled}
                 onAnswerChange={onAnswerChange}
               />
             ) : (
               <FillBlankEditor
                 answer={answer}
-                disabled={disabled}
+                answerDisabled={answerDisabled}
                 onAnswerChange={onAnswerChange}
                 onMenuChange={onMenuChange}
                 onQuestionChange={onQuestionChange}
                 openMenu={openMenu}
                 question={question}
+                structureDisabled={structureDisabled}
               />
             )
           ) : (
             <SelectionEditor
               answer={answer}
-              disabled={disabled}
+              answerDisabled={answerDisabled}
               onAnswerChange={onAnswerChange}
               onMenuChange={onMenuChange}
               onQuestionChange={onQuestionChange}
               openMenu={openMenu}
               question={question}
+              structureDisabled={structureDisabled}
             />
           )}
           {errors.map((message) => (
@@ -472,7 +481,7 @@ function AnswerSheetQuestionDialog({
         </div>
         <footer>
           <button className="answer-sheet-question-dialog-cancel" onClick={onCancel} type="button">退出</button>
-          {!disabled ? (
+          {!answerDisabled ? (
             <button className="answer-sheet-question-dialog-confirm" onClick={onConfirm} type="button">确认</button>
           ) : null}
         </footer>
@@ -567,20 +576,22 @@ function SingleMarkdownFillBlankEditor({
 
 function SelectionEditor({
   answer,
-  disabled,
+  answerDisabled,
   onAnswerChange,
   onMenuChange,
   onQuestionChange,
   openMenu,
   question,
+  structureDisabled,
 }: {
   answer: AnswerSheetPrivateAnswer;
-  disabled: boolean;
+  answerDisabled: boolean;
   onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
   onMenuChange: (target: AnswerSheetMenuTarget | null) => void;
   onQuestionChange: (question: Extract<AnswerSheetQuestion, { type: "single_choice" | "multiple_choice" }>) => void;
   openMenu: AnswerSheetMenuTarget | null;
   question: Extract<AnswerSheetQuestion, { type: "single_choice" | "multiple_choice" }>;
+  structureDisabled: boolean;
 }) {
   const addOption = () => {
     onQuestionChange({ ...question, options: [...question.options, createAnswerSheetOption()] });
@@ -603,7 +614,7 @@ function SelectionEditor({
             <input
               aria-label={`选项 ${index + 1} 为正确答案`}
               checked={checked}
-              disabled={disabled}
+              disabled={answerDisabled}
               name={`answer-${question.id}`}
               type={question.type === "single_choice" ? "radio" : "checkbox"}
               onChange={(event) => {
@@ -624,7 +635,7 @@ function SelectionEditor({
             <MarkdownBlurEditor
               clearOnEditValues={LEGACY_OPTION_PLACEHOLDERS}
               compact
-              disabled={disabled}
+              disabled={structureDisabled}
               placeholder={`选项 ${index + 1}`}
               value={option.content}
               onChange={(content) => onQuestionChange({
@@ -634,7 +645,7 @@ function SelectionEditor({
             />
             <CompactActionMenu
               ariaLabel={`选项 ${index + 1} 操作`}
-              disabled={disabled || question.options.length <= 2}
+              disabled={structureDisabled || question.options.length <= 2}
               items={[{
                 danger: true,
                 label: "删除选项",
@@ -653,7 +664,7 @@ function SelectionEditor({
         );
       })}
       <div className="answer-sheet-selection-footer">
-        <button disabled={disabled} onClick={addOption} type="button">添加选项</button>
+        <button disabled={structureDisabled} onClick={addOption} type="button">添加选项</button>
       </div>
     </div>
   );
@@ -661,20 +672,22 @@ function SelectionEditor({
 
 function FillBlankEditor({
   answer,
-  disabled,
+  answerDisabled,
   onAnswerChange,
   onMenuChange,
   onQuestionChange,
   openMenu,
   question,
+  structureDisabled,
 }: {
   answer: AnswerSheetPrivateAnswer;
-  disabled: boolean;
+  answerDisabled: boolean;
   onAnswerChange: (answer: AnswerSheetPrivateAnswer) => void;
   onMenuChange: (target: AnswerSheetMenuTarget | null) => void;
   onQuestionChange: (question: AnswerSheetLegacyFillBlankQuestion) => void;
   openMenu: AnswerSheetMenuTarget | null;
   question: AnswerSheetLegacyFillBlankQuestion;
+  structureDisabled: boolean;
 }) {
   const blankAnswers = answer.type === "fill_blank" && "blanks" in answer ? answer.blanks : {};
   const updateBlankAnswer = (
@@ -701,7 +714,7 @@ function FillBlankEditor({
             <label className="answer-sheet-accepted-answers">
               可接受答案（每行一个）
               <textarea
-                disabled={disabled}
+                disabled={answerDisabled}
                 placeholder={ANSWER_SHEET_BLANK_ANSWER_PLACEHOLDER}
                 value={hasLegacyPlaceholder ? "" : privateBlank.acceptedAnswers.join("\n")}
                 onFocus={() => {
@@ -715,10 +728,10 @@ function FillBlankEditor({
                 })}
               />
             </label>
-            <label className="answer-sheet-case-sensitive"><input checked={privateBlank.caseSensitive} disabled={disabled} type="checkbox" onChange={(event) => updateBlankAnswer(blank.id, { ...privateBlank, caseSensitive: event.target.checked })} /> 区分大小写</label>
+            <label className="answer-sheet-case-sensitive"><input checked={privateBlank.caseSensitive} disabled={answerDisabled} type="checkbox" onChange={(event) => updateBlankAnswer(blank.id, { ...privateBlank, caseSensitive: event.target.checked })} /> 区分大小写</label>
             <CompactActionMenu
               ariaLabel={`第 ${index + 1} 空操作`}
-              disabled={disabled || question.blanks.length <= 1}
+              disabled={structureDisabled || question.blanks.length <= 1}
               items={[{
                 danger: true,
                 label: "删除此空",
@@ -738,7 +751,7 @@ function FillBlankEditor({
           </div>
         );
       })}
-      <button className="answer-sheet-add-blank" disabled={disabled} onClick={() => {
+      <button className="answer-sheet-add-blank" disabled={structureDisabled} onClick={() => {
         const id = createId("blank");
         onQuestionChange({ ...question, blanks: [...question.blanks, { id, points: 1 }], content: `${question.content} [[blank:${id}]]` });
         onAnswerChange({ type: "fill_blank", blanks: { ...blankAnswers, [id]: { acceptedAnswers: [""], caseSensitive: false } } });

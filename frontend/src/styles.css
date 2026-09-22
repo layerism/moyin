@@ -4946,6 +4946,48 @@ button {
   padding: 20px;
 }
 
+.answer-key-confirm-dialog {
+  width: min(560px, calc(100vw - 32px));
+}
+
+.answer-key-confirm-dialog .node-time-dialog-body {
+  display: grid;
+  gap: 12px;
+}
+
+.answer-key-confirm-dialog .node-time-dialog-body p {
+  margin: 0;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.answer-key-confirm-dialog .node-time-dialog-body p:first-child {
+  color: #172033;
+  font-weight: 650;
+}
+
+.answer-key-confirm-dialog > footer {
+  justify-content: flex-end;
+  border-top: 1px solid #e7ecf3;
+}
+
+.answer-key-confirm-dialog > footer button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid #d7e1ee;
+  border-radius: 8px;
+  background: #fff;
+  color: #344054;
+  font-weight: 700;
+}
+
+.answer-key-confirm-dialog > footer .primary-action {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+
 .node-time-dialog .node-time-window-fields {
   padding: 0;
 }

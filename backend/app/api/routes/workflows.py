@@ -35,6 +35,11 @@ from app.repositories.audit_policies import (
     update_node_audit_policy,
 )
 from app.repositories.answer_sheet_keys import validate_answer_sheet_key_map
+from app.repositories.answer_sheet_policies import (
+    AnswerSheetPolicyConflictError,
+    get_node_answer_key_policy,
+    update_node_answer_key_policy,
+)
 from app.repositories.flow_previews import (
     PreviewConflictError,
     create_preview,
@@ -108,6 +113,11 @@ class AuditPolicyRequest(BaseModel):
     params: dict[str, str | int | float | bool]
 
 
+class AnswerKeyPolicyRequest(BaseModel):
+    expectedGeneration: int = Field(ge=1)
+    gradingKey: dict[str, Any]
+
+
 def not_found() -> HTTPException:
     return HTTPException(status_code=404, detail="流程不存在")
 
@@ -145,6 +155,41 @@ def put_audit_policy_route(
     except AuditPolicyConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/{flow_id}/nodes/{node_key}/answer-key-policy")
+def get_answer_key_policy_route(
+    flow_id: str,
+    node_key: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return get_node_answer_key_policy(flow_id, node_key, int(teacher["id"]))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布答题卡不存在") from exc
+
+
+@router.put("/{flow_id}/nodes/{node_key}/answer-key-policy")
+def put_answer_key_policy_route(
+    flow_id: str,
+    node_key: str,
+    payload: AnswerKeyPolicyRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return update_node_answer_key_policy(
+            flow_id,
+            node_key,
+            int(teacher["id"]),
+            payload.expectedGeneration,
+            dict(payload.gradingKey),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布答题卡不存在") from exc
+    except AnswerSheetPolicyConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AnswerSheetConfigError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 

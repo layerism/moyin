@@ -46,6 +46,16 @@ export type ServerFlow = {
   updatedAt: string;
 };
 
+export type AnswerKeyPolicy = {
+  flowId: string;
+  nodeKey: string;
+  gradingKey: AnswerSheetPrivateKey;
+  gradingHash: string;
+  generation: number;
+  updatedAt: string;
+  regradedSubmissionCount?: number;
+};
+
 export type FlowRosterEntry = {
   createdAt: string;
   id: number;
@@ -457,6 +467,21 @@ export const workflowApi = {
   ) {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
+      { method: "PUT", body: JSON.stringify(payload) },
+    );
+  },
+  getNodeAnswerKeyPolicy(flowId: string, nodeKey: string) {
+    return request<AnswerKeyPolicy>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/answer-key-policy`,
+    );
+  },
+  updateNodeAnswerKeyPolicy(
+    flowId: string,
+    nodeKey: string,
+    payload: { expectedGeneration: number; gradingKey: AnswerSheetPrivateKey },
+  ) {
+    return request<AnswerKeyPolicy>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/answer-key-policy`,
       { method: "PUT", body: JSON.stringify(payload) },
     );
   },

@@ -34,6 +34,64 @@ def insert_answer_sheet_grade(
     )
 
 
+def replace_answer_sheet_grade(
+    connection: Any,
+    submission_id: str,
+    grade: dict[str, Any],
+    grading_hash: str,
+    teacher_id: int,
+    replaced_at: str,
+) -> None:
+    current = connection.execute(
+        "SELECT * FROM answer_sheet_grades WHERE submission_id = ?",
+        (submission_id,),
+    ).fetchone()
+    if current is None:
+        insert_answer_sheet_grade(
+            connection, submission_id, grade, grading_hash, replaced_at
+        )
+        return
+    connection.execute(
+        """
+        INSERT INTO answer_sheet_grade_history
+            (submission_id, score, max_score, passing_score, passed,
+             grader_version, grading_hash, result_snapshot, original_created_at,
+             superseded_by, superseded_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            submission_id,
+            current["score"],
+            current["max_score"],
+            current["passing_score"],
+            current["passed"],
+            current["grader_version"],
+            current["grading_hash"],
+            current["result_snapshot"],
+            current["created_at"],
+            teacher_id,
+            replaced_at,
+        ),
+    )
+    connection.execute(
+        """
+        UPDATE answer_sheet_grades
+        SET score = ?, max_score = ?, passing_score = 0, passed = ?,
+            grader_version = ?, grading_hash = ?, result_snapshot = ?
+        WHERE submission_id = ?
+        """,
+        (
+            grade["score"],
+            int(grade["maxScore"]),
+            int(bool(grade["passed"])),
+            str(grade["graderVersion"]),
+            grading_hash,
+            _canonical_json(grade),
+            submission_id,
+        ),
+    )
+
+
 def get_answer_sheet_grade(connection: Any, submission_id: str | None) -> dict[str, Any] | None:
     if not submission_id:
         return None

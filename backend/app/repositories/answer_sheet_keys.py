@@ -108,13 +108,15 @@ def freeze_answer_sheet_keys(
         )
 
 
-def get_version_answer_key(
+def get_frozen_version_answer_key(
     connection: Any, flow_version_id: str, node_key: str
 ) -> dict[str, Any]:
     row = connection.execute(
         """
-        SELECT grading_snapshot, grading_hash FROM flow_version_answer_keys
-        WHERE flow_version_id = ? AND node_key = ?
+        SELECT k.grading_snapshot, k.grading_hash, v.published_at
+        FROM flow_version_answer_keys k
+        JOIN flow_versions v ON v.id = k.flow_version_id
+        WHERE k.flow_version_id = ? AND k.node_key = ?
         """,
         (flow_version_id, node_key),
     ).fetchone()
@@ -123,6 +125,31 @@ def get_version_answer_key(
     return {
         "gradingKey": json.loads(row["grading_snapshot"]),
         "gradingHash": str(row["grading_hash"]),
+        "generation": 1,
+        "updatedAt": str(row["published_at"]),
+    }
+
+
+def get_version_answer_key(
+    connection: Any, flow_version_id: str, node_key: str
+) -> dict[str, Any]:
+    revision = connection.execute(
+        """
+        SELECT r.grading_snapshot, r.grading_hash, r.generation, r.updated_at
+        FROM answer_sheet_key_revisions r
+        JOIN flow_versions v ON v.flow_id = r.flow_id
+        WHERE v.id = ? AND r.node_key = ?
+        ORDER BY r.generation DESC LIMIT 1
+        """,
+        (flow_version_id, node_key),
+    ).fetchone()
+    if revision is None:
+        return get_frozen_version_answer_key(connection, flow_version_id, node_key)
+    return {
+        "gradingKey": json.loads(revision["grading_snapshot"]),
+        "gradingHash": str(revision["grading_hash"]),
+        "generation": int(revision["generation"]),
+        "updatedAt": str(revision["updated_at"]),
     }
 
 
