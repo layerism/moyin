@@ -12,6 +12,7 @@ import { FlowDeleteDialog, NameDialog } from "./HomeDialogs";
 import { PersonalDriveUploadButton } from "./PersonalDriveUploadButton";
 import { WorkflowGroupDialog } from "./WorkflowGroupDialog";
 import { WorkflowIcon } from "./WorkflowIcon";
+import { PublishWorkflowDialog } from "./PublishWorkflowDialog";
 import {
   WorkflowGroupSection,
   type WorkflowGroupView,
@@ -92,6 +93,8 @@ export function AcademicFlowView({
   const [draggingProcessId, setDraggingProcessId] = useState<string | null>(null);
   const [movingProcessIds, setMovingProcessIds] = useState<Set<string>>(new Set());
   const [pageError, setPageError] = useState("");
+  const [publishSource, setPublishSource] = useState<AcademicProcess | null>(null);
+  const [publishNotice, setPublishNotice] = useState("");
   const cloneTriggerRef = useRef<HTMLButtonElement | null>(null);
   const movingProcessIdsRef = useRef<Set<string>>(new Set());
 
@@ -325,6 +328,7 @@ export function AcademicFlowView({
             <button className="ai-create" onClick={() => startCreateProcess(null)} type="button">创建流程</button>
           </div>
           {pageError ? <p className="workflow-page-error" role="alert">{pageError}</p> : null}
+          {publishNotice ? <p className="workflow-publish-notice" role="status">{publishNotice}</p> : null}
           <div className="academic-flow-groups" aria-label="采集流程分组">
             {groupViews.map((group) => {
               const allGroupProcesses = processes.filter((process) => process.groupId === group.id);
@@ -355,7 +359,7 @@ export function AcademicFlowView({
                       onDragStart={setDraggingProcessId}
                       onMove={(groupId) => moveProcess(process.id, groupId)}
                       onOpen={() => onOpenProcess(process.id)}
-                      onPublishTemplate={() => onWorkflowTemplates(process.serverId ?? process.id)}
+                      onPublishTemplate={() => { setPublishNotice(""); setPublishSource(process); }}
                       onRename={() => { setRenameProcess(process); setRenameName(process.name); setRenameError(""); }}
                       process={process}
                       teacherIdentity={teacherIdentity}
@@ -370,6 +374,10 @@ export function AcademicFlowView({
 
       {processDialogOpen ? <NameDialog error={processCreateError} title="创建流程" value={processNameValue} placeholder="请输入采集流程名称" onCancel={() => setProcessDialogOpen(false)} onConfirm={() => void confirmCreateProcess()} onValueChange={(value) => { setProcessNameValue(value); setProcessCreateError(""); }} submitting={processCreating} /> : null}
       {groupDialog ? <WorkflowGroupDialog error={groupError} mode={groupDialog.mode} onCancel={() => setGroupDialog(null)} onConfirm={() => void confirmGroup()} onValueChange={(value) => { setGroupNameValue(value); setGroupError(""); }} submitting={groupSubmitting} value={groupNameValue} /> : null}
+      {publishSource ? <PublishWorkflowDialog process={publishSource} onClose={() => setPublishSource(null)} onPublished={(name) => {
+        setPublishSource(null);
+        setPublishNotice(`模板“${name}”已发布，可从左侧“流程模板”查看。`);
+      }} /> : null}
       {deleteGroup ? (
         <div className="modal-backdrop" onClick={() => { if (!deleteGroupSubmitting) setDeleteGroup(null); }}>
           <section aria-labelledby="workflow-group-delete-title" className="rename-dialog workflow-group-delete-dialog" onClick={(event) => event.stopPropagation()} role="alertdialog">

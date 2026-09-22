@@ -12674,6 +12674,24 @@ td {
   box-shadow: 0 24px 64px rgb(16 24 40 / 18%);
 }
 
+.workflow-inline-publish {
+  margin: auto;
+}
+
+.workflow-inline-publish::backdrop {
+  background: rgb(16 24 40 / 40%);
+}
+
+.workflow-publish-notice {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid #abefc6;
+  border-radius: 7px;
+  background: #ecfdf3;
+  color: #067647;
+  font-size: 13px;
+}
+
 .workflow-template-editor > header,
 .workflow-template-editor footer {
   display: flex;
