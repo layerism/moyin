@@ -96,7 +96,7 @@ def file_review_detail(connection, row, config, node, status):
         ORDER BY m.created_at DESC, m.id DESC''', (row['flow_instance_id'], row['node_key'])).fetchall()
     reference_files = []
     for key, metadata in asset_entries(node):
-        label = '填写模板' if key == 'templateAsset' else '填写参考'
+        label = '填写模板' if key == 'templateAsset' else '参考示例' if node['kind'] == 'confirmation' else '填写参考'
         asset_id = metadata.get('assetId')
         if not asset_id:
             continue

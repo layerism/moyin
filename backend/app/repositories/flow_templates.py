@@ -25,8 +25,6 @@ class TemplateDownloadError(ValueError):
 
 
 def supports_template(node: dict[str, Any], reference: bool = False) -> bool:
-    if reference:
-        return node.get("kind") == "file"
     return node.get("kind") in {"file", "confirmation"}
 
 
@@ -237,8 +235,8 @@ def validate_version_templates(connection: Any, flow_id: str, config: dict[str, 
             if template != expected:
                 raise TemplateMutationError("模板资产元数据已变更，请重新加载")
             if field == "referenceAsset":
-                if node.get("kind") != "file":
-                    raise TemplateMutationError("只有文件节点可以配置填写参考")
+                if node.get("kind") not in {"file", "confirmation"}:
+                    raise TemplateMutationError("只有文件或视觉审核节点可以配置参考材料")
                 validate_reference_metadata(row["original_name"], row["size_bytes"])
             elif node.get("kind") == "confirmation":
                 _validate_template_name(node, row["original_name"])
@@ -352,7 +350,7 @@ def get_student_reference(node_instance_id: str, student_id: int, asset_id: str 
         assert_student_roster_access(connection, row['flow_id'], student_id)
         node = node_by_key(json.loads(row['config_snapshot']), row['node_key'])
         asset = next((item for item in reference_assets(node) if asset_id is None or item['assetId'] == asset_id), None)
-        if node.get('kind') != 'file' or not asset:
+        if node.get('kind') not in {'file', 'confirmation'} or not asset:
             raise KeyError(node_instance_id)
         record = connection.execute('SELECT * FROM flow_template_assets WHERE id = ? AND flow_id = ? AND node_key = ?',
             (asset['assetId'], row['flow_id'], row['node_key'])).fetchone()

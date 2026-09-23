@@ -734,7 +734,7 @@ function RuntimeNodeDialog({
         {(node.kind === "file" || (node.kind === "confirmation" && Boolean(node.fileReviewSteps?.length))) && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {["file", "confirmation"].includes(node.kind) && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {["file", "confirmation"].includes(node.kind) && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
-        {node.kind === "file" && writable ? nodeReferences(node).map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} />) : null}
+        {["file", "confirmation"].includes(node.kind) && writable ? nodeReferences(node).map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label={node.kind === "confirmation" ? "参考示例" : "填写参考"} />) : null}
         {node.kind === "announcement" ? (
           <section aria-label="公告正文" className="runtime-announcement-body">
             <AnnouncementMarkdown instanceId={instanceId}>{node.requirement}</AnnouncementMarkdown>
@@ -1352,18 +1352,18 @@ function getDraftFileName(file: unknown): string {
 }
 
 
-function NodeReferenceCard({ asset, nodeInstanceId }: { asset: NodeTemplateAsset; nodeInstanceId: string }) {
+function NodeReferenceCard({ asset, nodeInstanceId, label }: { asset: NodeTemplateAsset; nodeInstanceId: string; label: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const download = async () => {
     setBusy(true); setError("");
     try {
-      await saveStudentFile("reference", nodeInstanceId, asset.originalName || "填写参考", asset.assetId);
+      await saveStudentFile("reference", nodeInstanceId, asset.originalName || label, asset.assetId);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "参考文件下载失败"); }
     finally { setBusy(false); }
   };
-  return <section className="runtime-node-reference" aria-label="填写参考">
-    <div><strong>填写参考</strong><p>{asset.originalName}</p><small>可选参考资料，不影响材料提交。</small></div>
+  return <section className="runtime-node-reference" aria-label={label}>
+    <div><strong>{label}</strong><p>{asset.originalName}</p><small>可选参考资料，不影响材料提交。</small></div>
     <button type="button" disabled={busy} onClick={() => void download()}>{busy ? "正在下载…" : "下载参考"}</button>
     {error ? <p role="alert" className="dialog-error">{error}</p> : null}
   </section>;

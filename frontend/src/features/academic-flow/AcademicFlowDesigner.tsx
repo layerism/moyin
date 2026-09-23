@@ -2687,6 +2687,8 @@ function NodeInspector({
             disabled={coreSettingsDisabled}
             node={auditControlsNode}
             onDeleteTemplate={onDeleteTemplate}
+            onDeleteReference={onDeleteReference}
+            onUploadReference={onUploadReference}
             onUpdate={(patch) => {
               if (
                 hasPublishedAuditPolicy &&
@@ -3016,14 +3018,18 @@ function ConfirmationScanSettings({
   disabled,
   node,
   onDeleteTemplate,
+  onDeleteReference,
   onUpdate,
   onUploadTemplate,
+  onUploadReference,
 }: {
   disabled: boolean;
   node: AcademicFlowNode;
   onDeleteTemplate: () => void;
+  onDeleteReference: (assetId: string) => void;
   onUpdate: (patch: Partial<AcademicFlowNode>) => void;
   onUploadTemplate: (file: File) => void;
+  onUploadReference: (files: File[]) => void;
 }) {
   return (
     <section className="inspector-section confirmation-scan-settings">
@@ -3037,6 +3043,8 @@ function ConfirmationScanSettings({
       <NodeFileRow label="文件模板" asset={node.templateAsset} accept=".docx"
         hint="可选；DOCX，不提供时直接上传图片" disabled={disabled}
         onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
+      <NodeReferenceFiles label="参考示例" assets={nodeReferences(node)} disabled={disabled}
+        onUpload={onUploadReference} onRemove={onDeleteReference} />
       <div className="confirmation-audit-row"><span
           className="confirmation-upload-limits"
           title="学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB；支持 JPG、JPEG、PNG"

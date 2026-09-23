@@ -54,9 +54,9 @@ def validate_flow_config(
         ):
             raise FlowValidationError("填写参考必须为文件列表")
         for reference in reference_assets(node):
-            if node.get("kind") != "file":
-                raise FlowValidationError("只有文件节点可以配置填写参考")
-            _validate_node_template({**node, "templateAsset": reference})
+            if node.get("kind") not in {"file", "confirmation"}:
+                raise FlowValidationError("只有文件或视觉审核节点可以配置参考材料")
+            _validate_node_template({**node, "templateAsset": reference}, reference=True)
         try:
             validate_form_config(node)
         except FormFieldConfigError as exc:
@@ -159,7 +159,7 @@ def _validate_node_time_window(node: dict[str, Any]) -> None:
         raise FlowValidationError("起始时间必须早于截止时间")
 
 
-def _validate_node_template(node: dict[str, Any]) -> None:
+def _validate_node_template(node: dict[str, Any], *, reference: bool = False) -> None:
     template = node.get("templateAsset")
     if template is None:
         return
@@ -174,7 +174,7 @@ def _validate_node_template(node: dict[str, Any]) -> None:
         raise FlowValidationError("模板元数据不完整")
     if not isinstance(template["sizeBytes"], int) or template["sizeBytes"] < 0:
         raise FlowValidationError("模板大小信息无效")
-    if is_scan_confirmation and not str(template["originalName"]).lower().endswith(".docx"):
+    if is_scan_confirmation and not reference and not str(template["originalName"]).lower().endswith(".docx"):
         raise FlowValidationError("确认承诺模板必须为 DOCX 文件")
 
 
