@@ -78,7 +78,7 @@ export function CompactWorkflowRow({
           }
         }}
         ref={dragHandleRef}
-        title="拖动流程；按 Enter 可选择分组"
+        title="拖动流程；按 Enter 可选择目标位置"
         type="button"
       >
         <WorkflowIcon name="grip" />

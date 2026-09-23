@@ -18,8 +18,6 @@ import {
   type WorkflowGroupView,
 } from "./WorkflowGroupSection";
 
-const UNGROUPED_KEY = "__ungrouped__";
-
 export function AcademicFlowView({
   initiallyCreate = false,
   onCloneProcess,
@@ -91,6 +89,7 @@ export function AcademicFlowView({
   const [deleteGroupError, setDeleteGroupError] = useState("");
   const [deleteGroupSubmitting, setDeleteGroupSubmitting] = useState(false);
   const [draggingProcessId, setDraggingProcessId] = useState<string | null>(null);
+  const [rootDropActive, setRootDropActive] = useState(false);
   const [movingProcessIds, setMovingProcessIds] = useState<Set<string>>(new Set());
   const [pageError, setPageError] = useState("");
   const [publishSource, setPublishSource] = useState<AcademicProcess | null>(null);
@@ -98,17 +97,18 @@ export function AcademicFlowView({
   const cloneTriggerRef = useRef<HTMLButtonElement | null>(null);
   const movingProcessIdsRef = useRef<Set<string>>(new Set());
 
-  const groupViews = useMemo<WorkflowGroupView[]>(() => [
-    ...[...workflowGroups]
+  const groupViews = useMemo<WorkflowGroupView[]>(() =>
+    [...workflowGroups]
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id))
-      .map((group) => ({ id: group.id, name: group.name, system: false })),
-    { id: null, name: "未分组", system: true },
-  ], [workflowGroups]);
+      .map((group) => ({ id: group.id, name: group.name })), [workflowGroups]);
   const groupOptions = groupViews.map(({ id, name }) => ({ id, name }));
   const visibleProcesses = useMemo(() => {
     const query = searchValue.trim().toLocaleLowerCase();
     return query ? processes.filter((process) => process.name.toLocaleLowerCase().includes(query)) : processes;
   }, [processes, searchValue]);
+  const rootProcesses = visibleProcesses.filter((process) => process.groupId === null);
+  const draggingGroupedProcess = processes.some((process) =>
+    process.id === draggingProcessId && process.groupId !== null);
 
   useEffect(() => {
     localStorage.setItem(storageKey, JSON.stringify([...collapsedGroupKeys]));
@@ -117,7 +117,7 @@ export function AcademicFlowView({
   useEffect(() => {
     const existing = new Set(workflowGroups.map((group) => group.id));
     setCollapsedGroupKeys((current) => {
-      const next = new Set([...current].filter((key) => key === UNGROUPED_KEY || existing.has(key)));
+      const next = new Set([...current].filter((key) => existing.has(key)));
       return next.size === current.size ? current : next;
     });
   }, [workflowGroups]);
@@ -132,12 +132,11 @@ export function AcademicFlowView({
     if (initiallyCreate) window.history.replaceState(window.history.state, "", "/academic-flow");
   }, [initiallyCreate]);
 
-  const groupKey = (groupId: string | null) => groupId ?? UNGROUPED_KEY;
-  const setGroupCollapsed = (groupId: string | null, collapsed: boolean) => {
+  const setGroupCollapsed = (groupId: string, collapsed: boolean) => {
     setCollapsedGroupKeys((current) => {
       const next = new Set(current);
-      if (collapsed) next.add(groupKey(groupId));
-      else next.delete(groupKey(groupId));
+      if (collapsed) next.add(groupId);
+      else next.delete(groupId);
       return next;
     });
   };
@@ -160,7 +159,7 @@ export function AcademicFlowView({
     setProcessCreateError("");
     try {
       await onCreateProcess(nextName, createTargetGroupId);
-      setGroupCollapsed(createTargetGroupId, false);
+      if (createTargetGroupId) setGroupCollapsed(createTargetGroupId, false);
       setProcessDialogOpen(false);
       setProcessNameValue("");
     } catch (error) {
@@ -178,7 +177,7 @@ export function AcademicFlowView({
     setPageError("");
     try {
       await onMoveProcess(processId, targetGroupId);
-      setGroupCollapsed(targetGroupId, false);
+      if (targetGroupId) setGroupCollapsed(targetGroupId, false);
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "移动流程失败，请稍后重试");
     } finally {
@@ -189,6 +188,7 @@ export function AcademicFlowView({
         return next;
       });
       setDraggingProcessId(null);
+      setRootDropActive(false);
     }
   };
 
@@ -268,7 +268,7 @@ export function AcademicFlowView({
     try {
       const cloned = await onCloneProcess(cloneSource, cloneName.trim());
       setCloneResult({ id: cloned.id, name: cloned.name });
-      setGroupCollapsed(cloned.groupId, false);
+      if (cloned.groupId) setGroupCollapsed(cloned.groupId, false);
     } catch (error) {
       setCloneError(error instanceof Error ? error.message : "复制失败，请稍后重试");
     } finally {
@@ -303,6 +303,25 @@ export function AcademicFlowView({
     }
   };
 
+  const renderProcessRow = (process: AcademicProcess) => (
+    <CompactWorkflowRow
+      groups={groupOptions}
+      highlighted={highlightedProcessId === process.id}
+      key={process.id}
+      moving={movingProcessIds.has(process.id)}
+      onClone={(trigger) => { cloneTriggerRef.current = trigger; setCloneSource(process); setCloneName(createFlowCloneName(process.name)); setCloneError(""); setCloneResult(null); }}
+      onDelete={() => { setDeleteError(""); setDeleteProcess(process); }}
+      onDragEnd={() => { setDraggingProcessId(null); setRootDropActive(false); }}
+      onDragStart={setDraggingProcessId}
+      onMove={(groupId) => moveProcess(process.id, groupId)}
+      onOpen={() => onOpenProcess(process.id)}
+      onPublishTemplate={() => { setPublishNotice(""); setPublishSource(process); }}
+      onRename={() => { setRenameProcess(process); setRenameName(process.name); setRenameError(""); }}
+      process={process}
+      teacherIdentity={teacherIdentity}
+    />
+  );
+
   return (
     <main className="home-page">
       <aside className="drive-sidebar">
@@ -329,17 +348,17 @@ export function AcademicFlowView({
           </div>
           {pageError ? <p className="workflow-page-error" role="alert">{pageError}</p> : null}
           {publishNotice ? <p className="workflow-publish-notice" role="status">{publishNotice}</p> : null}
-          <div className="academic-flow-groups" aria-label="采集流程分组">
+          <div className="academic-flow-groups" aria-label="采集流程与分组">
             {groupViews.map((group) => {
               const allGroupProcesses = processes.filter((process) => process.groupId === group.id);
               const groupProcesses = visibleProcesses.filter((process) => process.groupId === group.id);
               return (
                 <WorkflowGroupSection
-                  collapsed={collapsedGroupKeys.has(groupKey(group.id))}
+                  collapsed={collapsedGroupKeys.has(group.id)}
                   count={allGroupProcesses.length}
                   draggingProcessId={draggingProcessId}
                   group={group}
-                  key={groupKey(group.id)}
+                  key={group.id}
                   onCollapsedChange={(collapsed) => setGroupCollapsed(group.id, collapsed)}
                   onCreateProcess={() => startCreateProcess(group.id)}
                   onDelete={() => { setDeleteGroup(group); setDeleteGroupError(""); }}
@@ -347,27 +366,30 @@ export function AcademicFlowView({
                   onRename={() => { setGroupDialog({ mode: "rename", groupId: group.id }); setGroupNameValue(group.name); setGroupError(""); }}
                   visibleCount={groupProcesses.length}
                 >
-                  {groupProcesses.map((process) => (
-                    <CompactWorkflowRow
-                      groups={groupOptions}
-                      highlighted={highlightedProcessId === process.id}
-                      key={process.id}
-                      moving={movingProcessIds.has(process.id)}
-                      onClone={(trigger) => { cloneTriggerRef.current = trigger; setCloneSource(process); setCloneName(createFlowCloneName(process.name)); setCloneError(""); setCloneResult(null); }}
-                      onDelete={() => { setDeleteError(""); setDeleteProcess(process); }}
-                      onDragEnd={() => setDraggingProcessId(null)}
-                      onDragStart={setDraggingProcessId}
-                      onMove={(groupId) => moveProcess(process.id, groupId)}
-                      onOpen={() => onOpenProcess(process.id)}
-                      onPublishTemplate={() => { setPublishNotice(""); setPublishSource(process); }}
-                      onRename={() => { setRenameProcess(process); setRenameName(process.name); setRenameError(""); }}
-                      process={process}
-                      teacherIdentity={teacherIdentity}
-                    />
-                  ))}
+                  {groupProcesses.map(renderProcessRow)}
                 </WorkflowGroupSection>
               );
             })}
+            {draggingGroupedProcess ? (
+              <div
+                className={`workflow-root-dropzone${rootDropActive ? " is-drop-target" : ""}`}
+                onDragLeave={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setRootDropActive(false);
+                }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  setRootDropActive(true);
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  setRootDropActive(false);
+                  const processId = event.dataTransfer.getData("text/plain");
+                  if (processId) void moveProcess(processId, null);
+                }}
+              >松开后移到顶层</div>
+            ) : null}
+            {rootProcesses.map(renderProcessRow)}
           </div>
         </section>
       </section>

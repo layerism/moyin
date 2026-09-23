@@ -30,7 +30,7 @@ export function MoveWorkflowMenu({
 
   return (
     <div
-      aria-label="移动到组"
+      aria-label="移动流程"
       className="workflow-move-menu"
       onKeyDown={(event) => {
         const items = Array.from(
@@ -49,11 +49,16 @@ export function MoveWorkflowMenu({
       ref={menuRef}
       role="menu"
     >
-      <strong>移动到组</strong>
+      <strong>移动流程</strong>
+      {currentGroupId !== null ? (
+        <button onClick={() => onMove(null)} role="menuitem" type="button">
+          <WorkflowIcon name="open" />移到顶层
+        </button>
+      ) : null}
       {groups.map((group) => (
         <button
           disabled={group.id === currentGroupId}
-          key={group.id ?? "__ungrouped__"}
+          key={group.id}
           onClick={() => onMove(group.id)}
           role="menuitem"
           type="button"

@@ -2122,7 +2122,6 @@ button {
 }
 
 .workflow-group-count,
-.workflow-system-badge,
 .workflow-version {
   border-radius: 999px;
   background: #f2f4f7;
@@ -2136,10 +2135,6 @@ button {
   min-width: 22px;
   padding: 0 7px;
   text-align: center;
-}
-
-.workflow-system-badge {
-  padding: 0 8px;
 }
 
 .workflow-group-actions {
@@ -2192,6 +2187,29 @@ button {
   gap: 6px;
   padding: 0 2px;
   border-bottom: 1px solid #edf0f5;
+}
+
+.academic-flow-groups > .academic-flow-item.compact {
+  padding: 0 10px;
+  border: 1px solid #dbe3ef;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.workflow-root-dropzone {
+  min-height: 50px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #8ab4ff;
+  border-radius: 9px;
+  background: #f8fbff;
+  color: #3971cb;
+  font-size: 12px;
+}
+
+.workflow-root-dropzone.is-drop-target {
+  border-color: #2b74ff;
+  background: #eef4ff;
 }
 
 .workflow-group-content .academic-flow-item.compact:last-child {
@@ -11016,7 +11034,6 @@ button {
   .academic-flow-item.compact { grid-template-columns: 28px minmax(0, 1fr); padding: 4px 2px 6px; }
   .academic-flow-open.compact { min-height: 44px; }
   .academic-flow-item.compact .academic-flow-actions { grid-column: 2; justify-content: flex-end; }
-  .workflow-system-badge { display: none; }
   .workflow-page-tools { flex-wrap: wrap; }
   .flow-clone-dialog { padding: 22px 18px; }
   .flow-clone-boundaries { grid-template-columns: 1fr; }

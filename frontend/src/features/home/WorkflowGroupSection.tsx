@@ -2,9 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { WorkflowIcon } from "./WorkflowIcon";
 
 export type WorkflowGroupView = {
-  id: string | null;
+  id: string;
   name: string;
-  system: boolean;
 };
 
 export function WorkflowGroupSection({
@@ -53,7 +52,7 @@ export function WorkflowGroupSection({
   return (
     <section
       className={`workflow-group${dropActive ? " is-drop-target" : ""}`}
-      data-workflow-group-key={group.id ?? "__ungrouped__"}
+      data-workflow-group-key={group.id}
       onDragEnter={(event) => {
         if (!draggingProcessId) return;
         event.preventDefault();
@@ -97,19 +96,16 @@ export function WorkflowGroupSection({
         <span aria-hidden="true" className="workflow-group-folder"><WorkflowIcon name="folder" /></span>
         <strong>{group.name}</strong>
         <span className="workflow-group-count">{count}</span>
-        {group.system ? <span className="workflow-system-badge">系统分组</span> : null}
         <div className="workflow-group-actions">
           <button aria-label={`在 ${group.name} 中创建流程`} onClick={onCreateProcess} title="在组内创建流程" type="button"><WorkflowIcon name="plus" /></button>
-          {!group.system ? <button aria-label={`重命名 ${group.name}`} onClick={onRename} title="重命名分组" type="button"><WorkflowIcon name="edit" /></button> : null}
-          {!group.system ? (
-            <button
-              aria-label={`删除 ${group.name}`}
-              disabled={count > 0}
-              onClick={onDelete}
-              title={count > 0 ? "组内有流程，不能删除" : "删除分组"}
-              type="button"
-            ><WorkflowIcon name="trash" /></button>
-          ) : null}
+          <button aria-label={`重命名 ${group.name}`} onClick={onRename} title="重命名分组" type="button"><WorkflowIcon name="edit" /></button>
+          <button
+            aria-label={`删除 ${group.name}`}
+            disabled={count > 0}
+            onClick={onDelete}
+            title={count > 0 ? "组内有流程，不能删除" : "删除分组"}
+            type="button"
+          ><WorkflowIcon name="trash" /></button>
         </div>
       </header>
       {!collapsed ? (
