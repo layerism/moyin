@@ -13783,6 +13783,11 @@ td {
 .file-manual-review-dialog .manual-review-student-heading { padding: 16px 22px; }
 .file-manual-review-dialog .manual-review-content { padding: 8px 22px 20px; }
 .file-manual-review-dialog .file-review-original, .file-review-attachment-row { display: flex; align-items: center; gap: 10px; padding: 12px; margin-top: 10px; background: #f8fafc; border: 1px solid #e5ebf3; border-radius: 8px; }
+.file-review-image-preview { display: block; width: auto; max-width: min(100%, 620px); max-height: 520px; height: auto; object-fit: contain; margin: 8px 0 16px; border: 1px solid #e5ebf3; border-radius: 8px; }
+.file-review-prior-ai { margin: 16px 0; padding: 12px; border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff; }
+.file-review-prior-ai h4 { margin: 0 0 8px; }
+.file-review-prior-ai article { margin-top: 8px; font-size: 13px; }
+.file-review-prior-ai p { white-space: pre-wrap; margin: 4px 0 0; color: #475569; }
 .file-manual-review-dialog .file-review-filename { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; }
 .file-review-filename small { display: block; color: #78849a; font-size: 11px; margin-top: 3px; }
 .file-manual-review-dialog .file-format-icon { flex: 0 0 32px; }

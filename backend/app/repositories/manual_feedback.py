@@ -40,7 +40,7 @@ def published_feedback(connection, instance_id, node_key, evidence_hash):
 def checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision):
     row, config, node, status = _context(connection, node_instance_id, teacher_id)
     evidence, current_hash = review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
-    if node.get('kind') == 'file':
+    if node.get('kind') in {'file', 'confirmation'}:
         from app.repositories.file_reviews import review_stage, can_amend_review
         submission_id = evidence['sources'][0]['submissionId']
         if not can_amend_review(connection, submission_id, status) and (status != 'reviewing' or review_stage(connection, submission_id) != 'manual'):

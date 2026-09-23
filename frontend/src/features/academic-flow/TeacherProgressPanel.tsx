@@ -1,5 +1,5 @@
 import { FileReviewDialog } from "./FileReviewDialog";
-import { hasFileManualReview } from "./FileReviewStepsEditor";
+import { hasSequentialManualReview } from "./FileReviewStepsEditor";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import type { AcademicFlowNode } from "../../types";
@@ -563,7 +563,7 @@ export function TeacherProgressPanel({
                               </button>
                               {availableMaterialNodes.map((node) => {
                                 const loading = loadingDetailId === node.nodeInstanceId;
-                                const embeddedReview = hasFileManualReview(nodes.find((item) => item.id === node.nodeKey));
+                                const embeddedReview = hasSequentialManualReview(nodes.find((item) => item.id === node.nodeKey));
                                 const label = `${embeddedReview ? "人工审核" : "查看材料"} · ${node.title}`;
                                 return (
                                   <button

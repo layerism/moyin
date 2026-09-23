@@ -1,0 +1,8 @@
+{
+  "id": "image-visual-audit",
+  "name": "图片视觉审核",
+  "description": "依据教师要求审核整组扫描图片，返回通过与否及原因",
+  "language": "py",
+  "entry": "handler.py",
+  "usesAi": true
+}

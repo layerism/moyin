@@ -1,7 +1,7 @@
 import logging
 import uuid
 from pathlib import PurePosixPath
-from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile, Query
 from app.core.config import settings
 from app.services.object_storage import object_key
 from app.repositories.manual_feedback import check_upload, add_feedback_file, remove_feedback_file, save_feedback, feedback_download
@@ -169,7 +169,7 @@ def student_download(file_id: str, student=Depends(get_current_runtime_student))
 
 
 @router.get('/node-instances/{node_instance_id}/manual-review/files/{file_id}/download')
-def download_review_original(node_instance_id: str, file_id: str, teacher=Depends(get_current_teacher)):
+def download_review_original(node_instance_id: str, file_id: str, preview: bool = Query(False), teacher=Depends(get_current_teacher)):
     import tempfile
     from pathlib import Path
     from fastapi.responses import FileResponse
@@ -185,6 +185,9 @@ def download_review_original(node_instance_id: str, file_id: str, teacher=Depend
                    if file['id'] == file_id), None)
     if record is None:
         raise HTTPException(404, '原件不存在或已不属于本次审核，请刷新后重试')
+    image_type = str(record.get('content_type') or '')
+    if preview and image_type not in {'image/jpeg', 'image/png'}:
+        raise HTTPException(415, '此原件不支持图片预览')
     with tempfile.NamedTemporaryFile(prefix='moyin-review-download-', delete=False) as temporary:
         path = Path(temporary.name)
     try:
@@ -192,5 +195,6 @@ def download_review_original(node_instance_id: str, file_id: str, teacher=Depend
     except Exception as exc:
         path.unlink(missing_ok=True)
         raise HTTPException(502, '原件下载失败，请稍后重试') from exc
-    return FileResponse(path, filename=str(record['original_name']), media_type='application/octet-stream',
+    return FileResponse(path, filename=None if preview else str(record['original_name']),
+                        media_type=image_type if preview else 'application/octet-stream',
                         headers={'Cache-Control': 'no-store'}, background=BackgroundTask(path.unlink, missing_ok=True))

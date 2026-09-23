@@ -14,7 +14,7 @@ export const nodeTemplates: Array<{
   { kind: "form", title: "表单填写", description: "自定义文本输入，支持单选与多选题" },
   { kind: "answer_sheet", title: "答题卡", description: "Markdown 题目与自动判分" },
   { kind: "file", title: "文件上传", description: "上传文件，支持类型与大小限制" },
-  { kind: "confirmation", title: "视觉审核", description: "上传扫描件并由 AI 进行视觉审核" },
+  { kind: "confirmation", title: "视觉审核", description: "上传扫描件，可配置 AI 与人工审核" },
   { kind: "announcement", title: "通知公告", description: "展示说明、提醒或公告内容" },
 ];
 
@@ -65,7 +65,7 @@ export function createNode(
     branches: kind === "branch" ? [{ id: createBranchOptionId(), label: "分支 1" }, { id: createBranchOptionId(), label: "分支 2" }] : undefined,
     auditScriptName: "",
     auditScriptType: "none",
-    fileReviewSteps: kind === "file" ? [] : undefined,
+    fileReviewSteps: kind === "file" || kind === "confirmation" ? [] : undefined,
     deadlineAt: null,
     fileExtensions: kind === "file" ? "pdf, docx, zip" : "",
     fileLimitMb: kind === "file" ? "50" : "",

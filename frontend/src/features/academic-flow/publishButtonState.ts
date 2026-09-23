@@ -1,4 +1,5 @@
 import type { AcademicFlowNode } from "../../types";
+import { fileReviewError } from "./FileReviewStepsEditor";
 
 export type PublishButtonAction =
   | "publish"
@@ -72,6 +73,10 @@ export function getPublishButtonState(input: {
 
 export function getScanAuditConfigError(node: AcademicFlowNode): string | undefined {
   if (node.kind !== "confirmation") return undefined;
+  if (node.fileReviewSteps) {
+    const error = fileReviewError(node);
+    return error ? `节点“${node.title}”：${error}` : undefined;
+  }
   if (!node.scanAuditEnabled) return undefined;
   if (!node.scanAuditMode) return `节点“${node.title}”需要选择审核模式`;
   if (

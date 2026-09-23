@@ -37,11 +37,7 @@ from app.repositories.flow_content_assets import (
     validate_content_assets,
 )
 from app.repositories.workflow_groups import require_owned_workflow_group
-from app.services.audit_script_catalog import (
-    CONFIRMATION_VISUAL_AUDIT_ID,
-    AuditScriptCatalogError,
-    find_audit_script,
-)
+from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script
 from app.services.audit_script_parameters import (
     AuditScriptParameterError,
     validate_script_params,
@@ -67,42 +63,37 @@ def _strip_legacy_audit_script_snapshot(node: dict[str, Any]) -> None:
 
 
 def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
+    from app.domain.file_review_steps import IMAGE_SCRIPTS
     for node in config.get("nodes", []):
         if node.get("kind") != "confirmation":
             continue
         _strip_legacy_audit_script_snapshot(node)
-        if node.get("scanAuditEnabled") is not True:
-            for key in (
-                "auditScriptId", "auditScriptAcceptedExtensions", "auditScriptParams", "auditModelCardId",
-            ):
-                node.pop(key, None)
-            continue
-        try:
-            record = find_audit_script(CONFIRMATION_VISUAL_AUDIT_ID)
-            params = {
-                str(definition["key"]): definition["default"]
-                for definition in record.parameters
-            }
-            params.update({
-                "scanAuditMode": node.get("scanAuditMode"),
-                "scanAuditPrompt": str(node.get("scanAuditPrompt", "")).strip(),
-            })
-            params.pop("scanAuditThreshold", None)
-            if (
-                node.get("scanAuditMode") == "score"
-                and node.get("scanAuditThreshold") is not None
-            ):
-                params["scanAuditThreshold"] = node["scanAuditThreshold"]
-            validate_script_params(record.config, params)
-        except (AuditScriptCatalogError, AuditScriptParameterError) as exc:
-            raise FlowValidationError(str(exc)) from exc
-        node.update({
-            "auditScriptId": record.id,
-            "auditScriptAcceptedExtensions": list(record.accepted_extensions),
-            "auditScriptParams": params,
-            "auditScriptType": record.language,
-            "auditScriptName": record.name,
-        })
+        if "fileReviewSteps" not in node:
+            steps = []
+            if node.get("scanAuditEnabled") is True:
+                kind = "score" if node.get("scanAuditMode") == "score" else "ai"
+                script_id = IMAGE_SCRIPTS[kind]
+                try:
+                    record = find_audit_script(script_id)
+                except AuditScriptCatalogError as exc:
+                    raise FlowValidationError(str(exc)) from exc
+                params = {str(item["key"]): item["default"] for item in record.parameters}
+                params["scoringPrompt" if kind == "score" else "reviewPrompt"] = str(node.get("scanAuditPrompt") or "")
+                if kind == "score" and node.get("scanAuditThreshold") is not None:
+                    params["passThreshold"] = node["scanAuditThreshold"]
+                steps.append({
+                    "id": f"legacy-image-{node['id']}", "kind": kind,
+                    "auditScriptId": script_id, "auditScriptName": record.name,
+                    "auditScriptType": "py", "auditScriptParams": params,
+                    "auditScriptAcceptedExtensions": list(record.accepted_extensions),
+                    "auditModelCardId": node.get("auditModelCardId"),
+                })
+            node["fileReviewSteps"] = steps
+        for key in (
+            "scanAuditEnabled", "scanAuditMode", "scanAuditPrompt", "scanAuditThreshold",
+            "auditScriptId", "auditScriptAcceptedExtensions", "auditScriptParams", "auditModelCardId",
+        ):
+            node.pop(key, None)
 
 
 def _refresh_file_audit_script_configs(config: dict[str, Any]) -> None:
@@ -113,15 +104,20 @@ def _refresh_file_audit_script_configs(config: dict[str, Any]) -> None:
             for step in node["fileReviewSteps"]:
                 if step["kind"] == "manual" or not step.get("auditScriptId"):
                     continue
-                child = {**node, **step, "kind": "file"}
-                child.pop("fileReviewSteps", None)
-                _refresh_file_audit_script_configs({"nodes": [child]})
-                for key in ("auditScriptParams", "auditScriptAcceptedExtensions"):
-                    if key in child:
-                        step[key] = child[key]
-                accepted = child.get("auditScriptAcceptedExtensions")
-                if accepted:
-                    extensions = set(accepted) if extensions is None else extensions.intersection(accepted)
+                try:
+                    record = find_audit_script(step["auditScriptId"])
+                except AuditScriptCatalogError:
+                    continue
+                step["auditScriptAcceptedExtensions"] = list(record.accepted_extensions)
+                step["auditScriptType"] = record.language
+                step["auditScriptName"] = record.name
+                params = dict(step.get("auditScriptParams") or {})
+                for definition in record.parameters:
+                    params.setdefault(str(definition["key"]), definition["default"])
+                step["auditScriptParams"] = params
+                if node.get("kind") == "file" and record.accepted_extensions:
+                    accepted = set(record.accepted_extensions)
+                    extensions = accepted if extensions is None else extensions.intersection(accepted)
             if extensions is not None:
                 if not extensions:
                     raise FlowValidationError("审核步骤支持的文件格式没有交集")
@@ -856,6 +852,7 @@ def save_draft(
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
+        _bind_confirmation_visual_audits(config)
         validate_flow_config(config)
         supplied_keys = (
             answer_sheet_keys
@@ -881,7 +878,6 @@ def save_draft(
             raise PublishedNodeMutationError(str(exc)) from exc
         except ContentAssetError as exc:
             raise FlowValidationError(str(exc)) from exc
-        _bind_confirmation_visual_audits(config)
         _refresh_file_audit_script_configs(config)
         _validate_audit_script_nodes(config)
         validate_flow_models(connection, flow_id, config)

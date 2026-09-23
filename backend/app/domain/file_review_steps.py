@@ -1,4 +1,7 @@
-"""Versioned, independently configured file review steps."""
+"""Ordered review steps for file and scanned-image nodes."""
+
+
+IMAGE_SCRIPTS = {"ai": "image-visual-audit", "score": "image-visual-score-audit"}
 
 
 def structured_steps(node):
@@ -11,13 +14,15 @@ def step_kind(step):
 
 
 def audit_step_node(node, step):
-    return {**node, **step, 'id': node['id'], 'kind': 'file', 'fileReviewSteps': None, '_fileReviewStep': True}
+    return {**node, **step, 'id': node['id'], 'kind': node['kind'], 'fileReviewSteps': None, '_fileReviewStep': True}
 
 
 def validate_steps(node, publishable):
     steps = node.get('fileReviewSteps')
-    if not isinstance(steps, list) or node.get('kind') != 'file':
-        raise ValueError('文件审核步骤配置无效')
+    if not isinstance(steps, list) or node.get('kind') not in {'file', 'confirmation'}:
+        raise ValueError('审核步骤配置无效')
+    if node['kind'] == 'confirmation' and steps and not structured_steps(node):
+        raise ValueError('视觉审核步骤配置无效')
     if not structured_steps(node):
         if any(step not in ('ai', 'manual') for step in steps) or len(steps) != len(set(steps)):
             raise ValueError('旧版审核步骤配置无效')
@@ -40,6 +45,17 @@ def validate_steps(node, publishable):
             continue
         if publishable and not step.get('auditScriptId'):
             raise ValueError('请为每个 AI 审核步骤选择审核规则')
+        if node['kind'] == 'confirmation':
+            if step.get('auditScriptId') != IMAGE_SCRIPTS[step['kind']]:
+                raise ValueError('视觉审核步骤必须使用对应的图片审核脚本')
+            params = step.get('auditScriptParams') or {}
+            if step['kind'] == 'score':
+                threshold = params.get('passThreshold')
+                if isinstance(threshold, bool) or not isinstance(threshold, int) or not 0 <= threshold <= 100:
+                    raise ValueError('视觉评分通过阈值必须是 0–100 的整数')
+            continue
+        if step.get('auditScriptId') in IMAGE_SCRIPTS.values():
+            raise ValueError('图片视觉脚本仅用于视觉审核节点')
         if step['kind'] == 'ai' and step.get('auditScriptId') == 'document-score-audit':
             raise ValueError('请通过 AI 评分类型添加评分步骤')
         if step['kind'] == 'score':

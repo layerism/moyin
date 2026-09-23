@@ -199,6 +199,7 @@ export type ManualReviewDetail = {
   student: { name: string; studentNo: string };
   status: RuntimeNodeStatus;
   evidenceHash: string;
+  priorAiResults?: Array<{ step: number; scriptName: string; passed: boolean; reason: string }>;
   sources: Array<{
     nodeKey: string;
     title: string;

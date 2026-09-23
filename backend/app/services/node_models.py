@@ -8,6 +8,8 @@ from app.services.audit_model_connections import SCRIPT_PROVIDERS
 
 
 def node_model_script(node: dict) -> str | None:
+    if node.get("_fileReviewStep"):
+        return node.get("auditScriptId")
     if node.get("kind") == "confirmation":
         return "confirmation-visual-audit" if node.get("scanAuditEnabled") else None
     return node.get("auditScriptId")

@@ -28,7 +28,7 @@ def _version(connection, version_id, node_key, teacher_id):
     node = node_by_key(config, node_key)
     if not has_manual_review(node):
         raise ValueError('该节点不是人工审核节点')
-    if node.get('kind') == 'file' and str(version['published_by']) != str(teacher_id):
+    if node.get('kind') in {'file', 'confirmation'} and str(version['published_by']) != str(teacher_id):
         raise KeyError(version_id)
     return version, config, node
 

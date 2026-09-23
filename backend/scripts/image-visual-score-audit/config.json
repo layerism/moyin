@@ -1,0 +1,39 @@
+{
+  "acceptedExtensions": [".jpg", ".jpeg", ".png"],
+  "parameters": [
+    {
+      "key": "scoringPrompt",
+      "label": "视觉评分标准",
+      "type": "string",
+      "required": true,
+      "default": "请依据材料完整性、清晰度和任务要求给扫描图片评分，并说明扣分依据。",
+      "minimumLength": 1,
+      "maximumLength": 4000
+    },
+    {
+      "key": "passThreshold",
+      "label": "通过阈值（0–100）",
+      "type": "integer",
+      "required": true,
+      "default": 60,
+      "minimum": 0,
+      "maximum": 100
+    }
+  ],
+  "runtimeSettings": [
+    {
+      "key": "systemPrompt",
+      "label": "系统提示词",
+      "type": "string",
+      "value": "你是材料视觉评分员，依据教师评分标准评价整组扫描图片。",
+      "minimumLength": 1,
+      "maximumLength": 4000,
+      "multiline": true
+    },
+    {"key": "temperature", "label": "模型温度", "type": "number", "value": 0, "minimum": 0, "maximum": 1},
+    {"key": "imageMaximumSide", "label": "图片最长边", "type": "integer", "value": 2000, "minimum": 512, "maximum": 4096},
+    {"key": "jpegQuality", "label": "JPEG 质量", "type": "integer", "value": 85, "minimum": 40, "maximum": 100},
+    {"key": "requestTimeoutSeconds", "label": "请求超时", "type": "integer", "value": 60, "minimum": 5, "maximum": 300}
+  ],
+  "execution": {"maxConcurrency": 4}
+}

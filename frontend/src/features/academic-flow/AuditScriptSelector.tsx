@@ -19,6 +19,7 @@ export function AuditScriptSelector({
   parameters,
   selectionRequired = false,
   scoreOnly = false,
+  allowedScriptIds,
 }: {
   disabled?: boolean;
   node: AcademicFlowNode;
@@ -27,6 +28,7 @@ export function AuditScriptSelector({
   parameters?: AuditScriptParameter[];
   selectionRequired?: boolean;
   scoreOnly?: boolean;
+  allowedScriptIds?: string[];
 }) {
   const [scripts, setScripts] = useState<AuditScriptSummary[]>([]);
   const [error, setError] = useState("");
@@ -50,9 +52,12 @@ export function AuditScriptSelector({
     };
   }, []);
 
-  const options = getAuditScriptOptions(scripts, node).filter((option) => scoreOnly ? option.value === "uploaded:document-score-audit" : option.value !== "uploaded:document-score-audit");
+  const eligibleScripts = scripts.filter((script) => allowedScriptIds
+    ? allowedScriptIds.includes(script.id)
+    : !script.id.startsWith("image-"));
+  const options = getAuditScriptOptions(eligibleScripts, node).filter((option) => scoreOnly ? option.value === "uploaded:document-score-audit" : option.value !== "uploaded:document-score-audit");
   const selectedValue = getSelectedAuditScriptValue(node);
-  const selectedScript = scripts.find(
+  const selectedScript = eligibleScripts.find(
     (script) => `uploaded:${script.id}` === selectedValue,
   );
   const parameterDefinitions = parameters ?? selectedScript?.parameters ?? [];
@@ -73,7 +78,7 @@ export function AuditScriptSelector({
           aria-label="材料审核脚本"
           disabled={disabled}
           value={selectedValue}
-          onChange={(event) => onChange(resolveAuditScriptSelection(event.target.value, scripts))}
+          onChange={(event) => onChange(resolveAuditScriptSelection(event.target.value, eligibleScripts))}
         >
           {options.map((option) => (
             <option key={option.value || "none"} value={option.value}>

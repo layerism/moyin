@@ -1,0 +1,30 @@
+{
+  "acceptedExtensions": [".jpg", ".jpeg", ".png"],
+  "parameters": [
+    {
+      "key": "reviewPrompt",
+      "label": "视觉审核标准",
+      "type": "string",
+      "required": true,
+      "default": "请检查扫描图片是否完整、清晰，并符合材料要求。",
+      "minimumLength": 1,
+      "maximumLength": 4000
+    }
+  ],
+  "runtimeSettings": [
+    {
+      "key": "systemPrompt",
+      "label": "系统提示词",
+      "type": "string",
+      "value": "你是材料视觉审核员，只依据教师要求与扫描图片判断材料是否合格。",
+      "minimumLength": 1,
+      "maximumLength": 4000,
+      "multiline": true
+    },
+    {"key": "temperature", "label": "模型温度", "type": "number", "value": 0, "minimum": 0, "maximum": 1},
+    {"key": "imageMaximumSide", "label": "图片最长边", "type": "integer", "value": 2000, "minimum": 512, "maximum": 4096},
+    {"key": "jpegQuality", "label": "JPEG 质量", "type": "integer", "value": 85, "minimum": 40, "maximum": 100},
+    {"key": "requestTimeoutSeconds", "label": "请求超时", "type": "integer", "value": 60, "minimum": 5, "maximum": 300}
+  ],
+  "execution": {"maxConcurrency": 4}
+}

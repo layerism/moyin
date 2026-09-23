@@ -302,7 +302,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     rejection_files = [file for file in file_items(connection, json.loads(saved_feedback["files_json"])) if file["sourceNodeKey"] == row["node_key"]]
             feedback = []
             reviews = []
-            if (config_node.get("kind") == "file" and any(step_kind(step) == "manual" for step in config_node.get("fileReviewSteps", []))):
+            if (config_node.get("kind") in {"file", "confirmation"} and any(step_kind(step) == "manual" for step in config_node.get("fileReviewSteps", []))):
                 from app.repositories.manual_feedback import published_feedback
                 evidence, evidence_hash = review_evidence(connection, instance_id, config, row["node_key"])
                 feedback = published_feedback(connection, instance_id, row["node_key"], evidence_hash)
@@ -322,8 +322,8 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "feedback": feedback,
                     "sourceReviews": reviews,
                     "reviewStage": current_review_stage,
-                    "auditHistory": _audit_history(connection, row, config_node) if config_node.get("kind") == "file" else [],
-                    "reviewTimeline": review_timeline(connection, row["id"], _audit_history(connection, row, config_node)) if config_node.get("kind") == "file" else [],
+                    "auditHistory": _audit_history(connection, row, config_node) if config_node.get("kind") in {"file", "confirmation"} else [],
+                    "reviewTimeline": review_timeline(connection, row["id"], _audit_history(connection, row, config_node)) if config_node.get("kind") in {"file", "confirmation"} else [],
                     "manualRejection": {"id": rejection["id"], "remark": rejection["remark"], "reviewedAt": rejection["created_at"], "files": rejection_files} if rejection else None,
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
@@ -783,7 +783,7 @@ def submit_node(
                     )
                 except FileContextError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
-            if node.get("kind") == "file" and node.get("fileReviewSteps"):
+            if node.get("kind") in {"file", "confirmation"} and node.get("fileReviewSteps"):
                 connection.execute("INSERT INTO file_review_runs (submission_id, steps_json, status) VALUES (?, ?, 'active')",
                                    (submission_id, canonical_json(node["fileReviewSteps"])))
                 if structured_steps(node):
@@ -823,7 +823,7 @@ def submit_node(
                     node_instance_id,
                 ),
             )
-            if node.get("kind") == "file":
+            if node.get("kind") == "file" or (node.get("kind") == "confirmation" and node.get("fileReviewSteps")):
                 from app.repositories.file_reviews import discard_previous_rounds
                 discard_previous_rounds(connection, node_instance_id, submission_id)
             if submission_status == "approved":
@@ -880,7 +880,7 @@ def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[di
         history.append({"id": task["id"], "attemptNo": task["attempt_no"],
                         "stepIndex": task["step_index"],
                         "scriptName": f"第 {task['step_index'] + 1} 步 · {snapshot['scriptName']}",
-                        "passed": result["passed"], "reason": "" if snapshot.get("kind") == "score" or snapshot.get("auditScriptId") == "document-score-audit" else result["reason"],
+                        "passed": result["passed"], "reason": "" if snapshot.get("auditScriptId") == "document-score-audit" else result["reason"],
                         "reviewedAt": task["finished_at"]})
     return sorted(history, key=lambda item: (-item["attemptNo"], item.get("stepIndex", 0)))
 

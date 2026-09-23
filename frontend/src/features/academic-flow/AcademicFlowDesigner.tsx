@@ -2,7 +2,7 @@ import { nodeReferences } from "./nodeReferences";
 import { NodeReferenceFiles } from "./NodeReferenceFiles";
 import { resolveFlowSchedule, getFlowTimeIssues } from "./flowDeadlines";
 import { NodeFileRow } from "./NodeFileRow";
-import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasFileManualReview } from "./FileReviewStepsEditor";
+import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasSequentialManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
 import { NodeModelSelector } from "./NodeModelSelector";
 import { ManualReviewDialog } from "./ManualReviewDialog";
@@ -400,7 +400,7 @@ export function AcademicFlowDesigner({
       showActionError("条件分支至少需要两个选项，请填写名称并为每个选项连接下游节点");
       return;
     }
-    const missingFileAudit = candidate.nodes.find((node) => node.kind === "file" && fileReviewError(node));
+    const missingFileAudit = candidate.nodes.find((node) => ["file", "confirmation"].includes(node.kind) && fileReviewError(node));
     if (missingFileAudit) {
       setInspectorNodeId(missingFileAudit.id);
       showActionError(fileReviewError(missingFileAudit) ?? "请完善审核配置");
@@ -934,7 +934,7 @@ export function AcademicFlowDesigner({
           />
         ) : null}
         {actionError ? <DesignerErrorDialog message={actionError} onClose={() => setActionError("")} /> : null}
-        {manualReviewNodeId && workingProcess.publishedVersionId ? (hasFileManualReview(workingProcess.nodes.find((node) => node.id === manualReviewNodeId))
+        {manualReviewNodeId && workingProcess.publishedVersionId ? (hasSequentialManualReview(workingProcess.nodes.find((node) => node.id === manualReviewNodeId))
           ? <FileReviewDialog nodeKey={manualReviewNodeId} versionId={workingProcess.publishedVersionId} onClose={() => setManualReviewNodeId(null)} />
           : <ManualReviewDialog nodeKey={manualReviewNodeId} versionId={workingProcess.publishedVersionId} onClose={() => setManualReviewNodeId(null)} />) : null}
         {nodePackageDialogNode && workingProcess.publishedVersionId ? (
@@ -2193,7 +2193,7 @@ function FlowNodeCanvas({
             role="menu"
             style={{ left: nodeContextMenu.left, top: nodeContextMenu.top }}
           >
-            {hasFileManualReview(nodeById.get(nodeContextMenu.nodeId)) ? <button
+            {hasSequentialManualReview(nodeById.get(nodeContextMenu.nodeId)) ? <button
               disabled={!publishedNodeIdSet.has(nodeContextMenu.nodeId)} role="menuitem" type="button"
               onClick={() => { onManualReview(nodeContextMenu.nodeId); setNodeContextMenu(null); }}>
               <span aria-hidden="true">✓</span><strong>审核</strong>
@@ -2451,7 +2451,7 @@ function NodeInspector({
     if (auditPolicySaving || answerKeySaving) return;
     if (requireModel && hasPublishedAnswerKeyPolicy && !answerKeyPolicy) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
-    if (requireModel && node?.kind === "file") {
+    if (requireModel && node && ["file", "confirmation"].includes(node.kind)) {
       const error = fileReviewError(hasPublishedAuditPolicy ? { ...node, auditModelCardId: auditModelCardId ?? undefined } : node);
       if (error) {
         setAuditPolicyError(error);
@@ -2703,11 +2703,6 @@ function NodeInspector({
               onUpdateNode(node.id, patch);
             }}
             onUploadTemplate={onUploadTemplate}
-            promptDisabled={hasPublishedAuditPolicy
-              ? !auditPolicy || auditPolicySaving
-              : coreSettingsDisabled}
-            promptError={auditPolicyFieldErrors.scanAuditPrompt}
-            thresholdError={auditPolicyFieldErrors.scanAuditThreshold}
           />
         ) : null}
 
@@ -3023,28 +3018,13 @@ function ConfirmationScanSettings({
   onDeleteTemplate,
   onUpdate,
   onUploadTemplate,
-  promptDisabled,
-  promptError,
-  thresholdError,
 }: {
   disabled: boolean;
   node: AcademicFlowNode;
   onDeleteTemplate: () => void;
   onUpdate: (patch: Partial<AcademicFlowNode>) => void;
   onUploadTemplate: (file: File) => void;
-  promptDisabled: boolean;
-  promptError?: string;
-  thresholdError?: string;
 }) {
-  const enabled = Boolean(node.scanAuditEnabled);
-  const scoreThresholdError = thresholdError || (
-    node.scanAuditMode === "score"
-    && (!Number.isInteger(node.scanAuditThreshold)
-      || node.scanAuditThreshold! < 0
-      || node.scanAuditThreshold! > 100)
-      ? "请输入 0–100 的整数"
-      : ""
-  );
   return (
     <section className="inspector-section confirmation-scan-settings">
       <header className="confirmation-scan-heading">
@@ -3057,104 +3037,14 @@ function ConfirmationScanSettings({
       <NodeFileRow label="文件模板" asset={node.templateAsset} accept=".docx"
         hint="可选；DOCX，不提供时直接上传图片" disabled={disabled}
         onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
-      <div className="confirmation-audit-row">
-        <strong className="confirmation-audit-label">审核</strong>
-        <fieldset aria-label="审核方式" className="scan-audit-mode" disabled={disabled}>
-          <label className={!enabled ? "is-selected" : ""}>
-            <input
-              checked={!enabled}
-              name={`scan-mode-${node.id}`}
-              onChange={() => onUpdate({
-                scanAuditEnabled: false,
-                auditModelCardId: undefined,
-                scanAuditMode: undefined,
-                scanAuditPrompt: "",
-                scanAuditThreshold: undefined,
-              })}
-              type="radio"
-            />
-            直接通过
-          </label>
-          <label className={enabled && node.scanAuditMode === "pass_fail" ? "is-selected" : ""}>
-            <input
-              checked={enabled && node.scanAuditMode === "pass_fail"}
-              name={`scan-mode-${node.id}`}
-              onChange={() => onUpdate({
-                scanAuditEnabled: true,
-                scanAuditMode: "pass_fail",
-                scanAuditThreshold: undefined,
-              })}
-              type="radio"
-            />
-            AI 通过/不通过
-          </label>
-          <label className={enabled && node.scanAuditMode === "score" ? "is-selected" : ""}>
-            <input
-              checked={enabled && node.scanAuditMode === "score"}
-              name={`scan-mode-${node.id}`}
-              onChange={() => onUpdate({ scanAuditEnabled: true, scanAuditMode: "score" })}
-              type="radio"
-            />
-            AI 评分 0–100
-          </label>
-        </fieldset>
-        <span
+      <div className="confirmation-audit-row"><span
           className="confirmation-upload-limits"
           title="学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB；支持 JPG、JPEG、PNG"
         >
           <i aria-hidden="true">⇧</i>
           10 文件 · 20 页 · 10 MB/文件 · 30 MB/组 · JPG/JPEG/PNG
-        </span>
-      </div>
-      {enabled ? (
-        <div className="confirmation-audit-fields">
-          {node.scanAuditMode === "score" ? (
-            <label className="confirmation-threshold-field">
-              <span>通过阈值</span>
-              <span className="confirmation-threshold-input">
-                <input
-                  aria-invalid={scoreThresholdError ? true : undefined}
-                  disabled={promptDisabled}
-                  inputMode="numeric"
-                  max={100}
-                  min={0}
-                  placeholder="请输入 0–100 的整数"
-                  step={1}
-                  type="number"
-                  value={node.scanAuditThreshold ?? ""}
-                  onChange={(event) => onUpdate({
-                    scanAuditThreshold: event.currentTarget.value === ""
-                      ? undefined
-                      : event.currentTarget.valueAsNumber,
-                  })}
-                />
-                <small className={scoreThresholdError ? "is-error" : ""}>
-                  {scoreThresholdError || "达到或超过该分数时通过"}
-                </small>
-              </span>
-            </label>
-          ) : null}
-          <label className="confirmation-prompt-field">
-            <span>{node.scanAuditMode === "score" ? "评分标准" : "形式审核标准"}</span>
-            <span className="confirmation-prompt-input">
-              <textarea
-                disabled={promptDisabled}
-                maxLength={2000}
-                placeholder="请说明 AI 应检查的项目和判定标准"
-                value={node.scanAuditPrompt ?? ""}
-                onChange={(event) => onUpdate({ scanAuditPrompt: event.target.value })}
-              />
-              <small
-                className={promptError
-                  ? "audit-script-error confirmation-prompt-feedback is-error"
-                  : "confirmation-prompt-feedback"}
-              >
-                {promptError || `${(node.scanAuditPrompt ?? "").length}/2000`}
-              </small>
-            </span>
-          </label>
-        </div>
-      ) : null}
+        </span></div>
+      <FileReviewStepsEditor node={node} disabled={disabled} onChange={onUpdate} />
     </section>
   );
 }

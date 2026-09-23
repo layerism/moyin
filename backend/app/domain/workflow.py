@@ -16,6 +16,7 @@ def confirmation_requires_scans(node: dict[str, Any]) -> bool:
     return node.get("kind") == "confirmation" and (
         node.get("templateAsset") is not None
         or node.get("scanAuditEnabled") is True
+        or bool(node.get("fileReviewSteps"))
     )
 
 
@@ -185,6 +186,10 @@ def _validate_confirmation_scan(
         raise FlowValidationError("扫描审核开关格式无效")
     if enabled and node.get("kind") != "confirmation":
         raise FlowValidationError("只有确认承诺节点可以启用扫描审核")
+    if node.get("kind") == "confirmation" and "fileReviewSteps" in node:
+        if enabled:
+            raise FlowValidationError("旧版扫描审核和审核步骤不能同时启用")
+        return
     if not enabled:
         return
     mode = node.get("scanAuditMode")

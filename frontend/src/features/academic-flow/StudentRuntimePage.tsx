@@ -2,7 +2,7 @@ import { nodeReferences } from "./nodeReferences";
 import type { NodeTemplateAsset } from "../../types";
 import { saveStudentFile } from "./saveStudentFile";
 import { FileReviewDialog } from "./FileReviewDialog";
-import { hasFileManualReview } from "./FileReviewStepsEditor";
+import { hasSequentialManualReview } from "./FileReviewStepsEditor";
 import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
@@ -400,12 +400,12 @@ export function StudentRuntimePage({
             value,
             fieldId,
           )}
-          onPreviewReview={preview && hasFileManualReview(activeNode) ? () => setPreviewReviewNode(activeNode.id) : undefined}
+          onPreviewReview={preview && hasSequentialManualReview(activeNode) ? () => setPreviewReviewNode(activeNode.id) : undefined}
           runtime={activeRuntime}
         />
       ) : null}
       {previewReviewNode ? (() => {
-        const ReviewDialog = hasFileManualReview(instance.config.nodes.find((node) => node.id === previewReviewNode)) ? FileReviewDialog : ManualReviewDialog;
+        const ReviewDialog = hasSequentialManualReview(instance.config.nodes.find((node) => node.id === previewReviewNode)) ? FileReviewDialog : ManualReviewDialog;
         return <ReviewDialog nodeKey={previewReviewNode} versionId={instance.flowVersionId} onClose={() => { setPreviewReviewNode(null); void workflowApi.getInstance(instanceId).then(setInstance).catch((reason: Error) => setNotice(reason.message)); }} />;
       })() : null}
       {actionWarning ? (
@@ -534,7 +534,7 @@ function RuntimeNodeDialog({
   const confirmationMissing = confirmationRequired && draft.confirmed !== true;
   const confirmationInvalid = confirmationAttempted && confirmationMissing;
   const scanRequired = node.kind === "confirmation" && (
-    Boolean(runtime.template) || node.scanAuditEnabled === true
+    Boolean(runtime.template) || node.scanAuditEnabled === true || Boolean(node.fileReviewSteps?.length)
   );
   const scanBlocker = getScanSubmitBlocker({
     confirmed: draft.confirmed === true,
@@ -730,10 +730,10 @@ function RuntimeNodeDialog({
           </div>)}
         </section> : null}
         {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
-        {runtime.audit && !awaitingReview && !(node.kind === "file" && runtime.reviewTimeline?.length && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
-        {node.kind === "file" && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
-        {node.kind === "file" && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
-        {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
+        {runtime.audit && !awaitingReview && !(["file", "confirmation"].includes(node.kind) && runtime.reviewTimeline?.length && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
+        {(node.kind === "file" || (node.kind === "confirmation" && Boolean(node.fileReviewSteps?.length))) && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
+        {["file", "confirmation"].includes(node.kind) && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
+        {["file", "confirmation"].includes(node.kind) && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
         {node.kind === "file" && writable ? nodeReferences(node).map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} />) : null}
         {node.kind === "announcement" ? (
           <section aria-label="公告正文" className="runtime-announcement-body">
@@ -1096,7 +1096,7 @@ function ReviewingSubmission({
     : `提交于 ${submittedAt}`;
   return (
     <div className="runtime-reviewing-content">
-      {node.kind !== "file" ? <section aria-live="polite" className="runtime-reviewing-card">
+      {node.kind !== "file" && !(node.kind === "confirmation" && runtime.reviewTimeline?.length) ? <section aria-live="polite" className="runtime-reviewing-card">
         <span aria-hidden="true" className="runtime-reviewing-spinner" />
         <div className="runtime-reviewing-copy">
           <span>{manual ? "等待教师审核" : "审核处理中"}</span>
@@ -1105,7 +1105,7 @@ function ReviewingSubmission({
           <small>审核结果会自动刷新，你可以先关闭此窗口处理其他事项。</small>
         </div>
       </section> : null}
-      {node.kind === "file" ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
+      {node.kind === "file" || (node.kind === "confirmation" && Boolean(node.fileReviewSteps?.length)) ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
       <h3 className="runtime-reviewing-submission-title">本次提交内容</h3>
       <ReadonlySubmission
         instanceId={instanceId}

@@ -30,8 +30,8 @@ function Steps({ attempt, onPreviewReview }: { attempt: Attempt; onPreviewReview
         onPreviewReview();
       }}>{step.status === "active" ? "模拟审核" : "修改审核结果"}</button> : null}</summary>
       <div className="review-step-detail">
-        {step.kind === "score" ? <span>{labels[step.status] ?? "待开始"}</span> : null}
-        {step.audit && step.kind !== "score" ? <AuditDetail audit={step.audit} /> : null}
+        {step.kind === "score" && !step.audit?.reason ? <span>{labels[step.status] ?? "待开始"}</span> : null}
+        {step.audit?.reason ? <AuditDetail audit={step.audit} /> : null}
         {step.annotations.map((item, index) => <details className="review-annotation" key={item.id}>
           <summary><strong>{item.passed === undefined ? `批注 ${index + 1}` : item.corrected ? "教师已更正" : "最终结论"}</strong><time>{date(item.publishedAt)}</time><span>{item.passed === undefined ? "补充意见" : item.passed ? "通过" : "退回修改"}</span></summary>
           <Report value={item.remark} />

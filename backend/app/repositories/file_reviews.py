@@ -11,7 +11,7 @@ from app.services.security import utc_now_iso
 
 
 def has_manual_review(node):
-    return node.get('kind') == 'file' and any(step_kind(step) == 'manual' for step in node.get('fileReviewSteps', []))
+    return node.get('kind') in {'file', 'confirmation'} and any(step_kind(step) == 'manual' for step in node.get('fileReviewSteps', []))
 
 
 def review_stage(connection, submission_id):
@@ -73,7 +73,7 @@ def file_review_evidence(connection, instance_id, config, node_key):
     files = connection.execute('''SELECT id, original_name, content_type, size_bytes, storage_key
         FROM uploaded_files WHERE submission_id = ? ORDER BY created_at, id''', (submission_id,)).fetchall()
     # Neither AI results nor mutable node status belong in the teacher's evidence.
-    source = {'nodeKey': node_key, 'title': node['title'], 'kind': 'file',
+    source = {'nodeKey': node_key, 'title': node['title'], 'kind': node['kind'],
               'requirement': node.get('requirement', ''), 'infoFields': [], 'answerSheet': None,
               'status': 'submitted' if submission_id else 'locked', 'submissionId': submission_id,
               'submittedAt': row['submitted_at'] if submission_id else None,
@@ -106,11 +106,19 @@ def file_review_detail(connection, row, config, node, status):
             (row['flow_version_id'], asset_id, row['node_key'])).fetchone()
         if asset:
             reference_files.append({**dict(asset), 'label': label})
+    prior_ai = []
+    if submission_id:
+        for task in connection.execute('''SELECT step_index, snapshot_json, result_json FROM file_review_ai_tasks
+            WHERE submission_id = ? AND status = 'succeeded' ORDER BY step_index''', (submission_id,)):
+            result = json.loads(task['result_json'])
+            snapshot = json.loads(task['snapshot_json'])
+            prior_ai.append({'step': task['step_index'] + 1, 'scriptName': snapshot.get('scriptName', 'AI 审核'),
+                             'passed': result['passed'], 'reason': result.get('reason', '')})
     return {'referenceFiles': reference_files, 'nodeInstanceId': row['id'], 'title': node['title'], 'requirement': node.get('requirement', ''),
             'student': {'name': row['name'], 'studentNo': row['student_no']}, 'status': status,
             'canAmend': can_amend_review(connection, submission_id, status),
             'canReview': status == 'reviewing' and review_stage(connection, submission_id) == 'manual',
-            'evidenceHash': fingerprint, 'sources': evidence['sources'], 'sourceReviews': [],
+            'evidenceHash': fingerprint, 'sources': evidence['sources'], 'sourceReviews': [], 'priorAiResults': prior_ai,
             'feedbackDraft': draft_feedback(connection, row['id'], fingerprint),
             'feedback': published_feedback(connection, row['flow_instance_id'], row['node_key'], fingerprint),
             'history': [{'id': item['id'], 'remark': item['remark'], 'reviewedAt': item['created_at'],

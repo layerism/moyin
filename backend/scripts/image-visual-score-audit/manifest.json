@@ -1,0 +1,8 @@
+{
+  "id": "image-visual-score-audit",
+  "name": "图片视觉打分",
+  "description": "依据教师评分标准对整组扫描图片打分，达到阈值后通过",
+  "language": "py",
+  "entry": "handler.py",
+  "usesAi": true
+}

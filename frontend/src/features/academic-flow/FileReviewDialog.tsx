@@ -105,13 +105,13 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
       }
     });
   };
-  return <dialog ref={dialog} className="manual-review-dialog file-manual-review-dialog" aria-label="文件人工审核" onKeyDown={(event) => event.stopPropagation()}
+  return <dialog ref={dialog} className="manual-review-dialog file-manual-review-dialog" aria-label="材料人工审核" onKeyDown={(event) => event.stopPropagation()}
     onCancel={(event) => {
       if (event.target !== event.currentTarget) return;
       event.preventDefault();
       if (!actionInFlight.current) onClose();
     }}>
-    <header><div><h2>{queue?.title ?? "文件节点"} · 人工审核</h2></div><button type="button" disabled={busy} aria-label="关闭人工审核" onClick={onClose}>×</button></header>
+    <header><div><h2>{queue?.title ?? "材料节点"} · 人工审核</h2></div><button type="button" disabled={busy} aria-label="关闭人工审核" onClick={onClose}>×</button></header>
     {error ? <p className="dialog-error" role="alert">{error}</p> : null}
     <div className="manual-review-layout">
       <aside className="file-review-sidebar">
@@ -130,8 +130,13 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
           <div className="manual-review-student-heading"><h3>{current.student.name}<small>{current.student.studentNo}</small></h3><span>{active ? labels[category(active)] : ""}</span></div>
           <div className="manual-review-content">
             <section className="manual-review-source"><header><h4>本次提交</h4><small>{current.sources[0]?.submittedAt ? new Date(current.sources[0].submittedAt).toLocaleString("zh-CN") : "尚未提交"}</small></header>
-              {current.sources.flatMap((source) => source.files).map((file) => <div className="file-review-original" key={file.id}><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span><OriginalDownload nodeId={current.nodeInstanceId} fileId={file.id} filename={file.original_name} /></div>)}
+              {current.sources.flatMap((source) => source.files).map((file) => <div key={file.id}>
+                <div className="file-review-original"><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span><OriginalDownload nodeId={current.nodeInstanceId} fileId={file.id} filename={file.original_name} /></div>
+                {current.sources.some((source) => source.kind === "confirmation") && /\.(jpe?g|png)$/i.test(file.original_name)
+                  ? <img className="file-review-image-preview" loading="lazy" alt={file.original_name} src={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download?preview=true`} /> : null}
+              </div>)}
             </section>
+            {current.priorAiResults?.length ? <section className="file-review-prior-ai" aria-label="前序 AI 结论"><h4>前序 AI 结论</h4>{current.priorAiResults.map((result) => <article key={result.step}><strong>第 {result.step} 步 · {result.scriptName}：{result.passed ? "通过" : "未通过"}</strong><p>{result.reason}</p></article>)}</section> : null}
             {current.canReview || current.canAmend ? <section className="file-review-workspace" aria-label="填写审核意见">
               <label className="file-review-remark">审核评语 *<textarea disabled={busy} maxLength={1000} value={remark} onChange={(event) => setRemark(event.target.value)} placeholder="填写评阅意见或需要修改的内容…" /></label>
               <section className="file-review-attachments" aria-label="评阅附件">
