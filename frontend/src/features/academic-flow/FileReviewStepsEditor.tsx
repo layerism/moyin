@@ -112,7 +112,7 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
           const image = node.kind === "confirmation";
           const scriptId = image ? (type === "score" ? "image-visual-score-audit" : "image-visual-audit") : "document-score-audit";
           save([...steps, { id, kind: type, ...(type !== "manual" && (image || type === "score") ? {
-            auditScriptId: scriptId, auditScriptName: image ? (type === "score" ? "图片视觉打分" : "图片视觉审核") : "文档 AI 评分",
+            auditScriptId: scriptId, auditScriptName: image ? (type === "score" ? "图片视觉打分" : "图片视觉审核") : "DOCX/PDF AI 评分",
             auditScriptType: "py" as const, auditScriptAcceptedExtensions: image ? [".jpg", ".jpeg", ".png"] : [".docx", ".pdf"],
             auditScriptParams: image ? (type === "score" ? { passThreshold: 60, scoringPrompt: "请依据材料完整性和任务要求评分。" } : { reviewPrompt: "请检查扫描图片是否完整、清晰，并符合材料要求。" }) : { passThreshold: 60, scoringPrompt: "# 评分标准\n\n请从内容完整性、逻辑和表达规范三个方面评分，并说明扣分原因。" },
           } : {}) }]); setAdding(false); toggleRef.current?.focus();

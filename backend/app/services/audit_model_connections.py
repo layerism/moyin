@@ -25,7 +25,7 @@ SCRIPT_PROVIDERS = {
 }
 SCRIPT_NAMES = {
     "docx-markdown-completion-audit": "DOCX 完成性审核",
-    "document-score-audit": "文档 AI 评分",
+    "document-score-audit": "DOCX/PDF AI 评分",
     "confirmation-visual-audit": "确认承诺视觉审核",
     "image-visual-audit": "图片视觉审核",
     "image-visual-score-audit": "图片视觉打分",
