@@ -1,6 +1,7 @@
 import { WorkflowTemplateDesigner } from "./WorkflowTemplateDesigner";
 import { PersonalDriveUploadButton } from "../home/PersonalDriveUploadButton";
 import { DriveNavIcon } from "../home/DriveNavIcon";
+import { WorkflowIcon } from "../home/WorkflowIcon";
 import { useEffect, useRef, useState } from "react";
 
 import type { AcademicProcess } from "../../types";
@@ -134,19 +135,21 @@ export function WorkflowTemplatesPage({
             <div className="workflow-template-symbol"><DriveNavIcon kind="flow" /></div>
             <div className="workflow-template-info">
               <h3 title={template.name}>{template.name}{!template.active ? <small>已下架</small> : null}</h3>
-              <p title={template.description}>{template.description.trim() || "\u00a0"}</p>
-              <div className="workflow-template-meta"><span><DriveNavIcon kind="flow" />{template.nodeCount} 个节点</span><span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>更新于 {new Date(template.updatedAt).toLocaleDateString("zh-CN")}</span></div>
+              <div className="workflow-template-subline">
+                {template.description.trim() ? <p title={template.description}>{template.description.trim()}</p> : null}
+                <div className="workflow-template-meta"><span><DriveNavIcon kind="flow" />{template.nodeCount} 个节点</span><span>更新于 {new Date(template.updatedAt).toLocaleDateString("zh-CN")}</span></div>
+              </div>
             </div>
             <div className="workflow-template-actions">
               {admin ? <>
-                <button disabled={busy !== null} onClick={() => {
+                <button aria-label={`更新模板 ${template.name}`} className="workflow-template-icon-action" disabled={busy !== null} title="更新模板" type="button" onClick={() => {
                   window.history.pushState(null, "", `/workflow-templates?edit=${encodeURIComponent(template.id)}`);
                   setEditingId(template.id);
-                }}>更新</button>
-                <button disabled={busy !== null} onClick={() => void changeAvailability(template)}>{template.active ? "下架" : "上架"}</button>
-                <button className="danger" disabled={busy !== null} aria-label={`删除模板 ${template.name}`} onClick={() => { setDeleteError(""); setDeleteTarget(template); }}>删除</button>
+                }}><WorkflowIcon name="edit" /></button>
+                <button aria-label={`${template.active ? "下架" : "上架"}模板 ${template.name}`} className="workflow-template-icon-action" disabled={busy !== null} title={template.active ? "下架模板" : "上架模板"} type="button" onClick={() => void changeAvailability(template)}><WorkflowIcon name={template.active ? "eyeOff" : "eye"} /></button>
+                <button aria-label={`删除模板 ${template.name}`} className="workflow-template-icon-action danger" disabled={busy !== null} title="删除模板" type="button" onClick={() => { setDeleteError(""); setDeleteTarget(template); }}><WorkflowIcon name="trash" /></button>
               </> : null}
-              <button className="primary-action" disabled={busy !== null || !template.active} onClick={() => void useTemplate(template)}>{busy === template.id ? "处理中…" : "使用模板"}</button>
+              <button className="primary-action" disabled={busy !== null || !template.active} onClick={() => void useTemplate(template)} type="button">{busy === template.id ? "处理中…" : "使用模板"}</button>
             </div>
           </article>)}</div>}
       </section>

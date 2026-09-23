@@ -12582,35 +12582,34 @@ td {
   font-size: 13px;
 }
 
-.workflow-template-list { display: grid; gap: 12px; }
+.workflow-template-list { display: grid; gap: 8px; }
 
 .workflow-template-list article {
   box-sizing: border-box;
-  height: 124px;
-  display: flex;
+  min-height: 60px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 18px;
+  gap: 9px;
+  padding: 6px 10px;
   border: 1px solid #e3e8f0;
-  border-radius: 10px;
+  border-radius: 9px;
   background: #fff;
   transition: border-color .15s, box-shadow .15s;
 }
 
 .workflow-template-list article:hover { border-color: #bfd3f5; box-shadow: 0 3px 12px #14284408; }
-.workflow-template-symbol { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; background: #eff5ff; color: #2878f0; }
-.workflow-template-symbol svg { width: 24px; height: 24px; }
+.workflow-template-symbol { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; background: #eff5ff; color: #2878f0; }
+.workflow-template-symbol svg { width: 16px; height: 16px; }
 .workflow-template-info {
-  flex: 1;
   min-width: 0;
 }
 
 .workflow-template-info h3 {
   margin: 0;
   color: #202733;
-  font-size: 15px;
-  line-height: 22px;
+  font-size: 14px;
+  line-height: 19px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -12625,28 +12624,35 @@ td {
   font-size: 11px;
 }
 
+.workflow-template-subline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
 .workflow-template-info p {
-  margin: 7px 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
   color: #475467;
-  font-size: 13px;
-  line-height: 20px;
-  height: 20px;
+  font-size: 11px;
+  line-height: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.workflow-template-meta { display: flex; white-space: nowrap; gap: 8px 16px; margin-top: 10px; color: #667085; font-size: 12px; }
+.workflow-template-meta { display: flex; flex-shrink: 0; white-space: nowrap; gap: 8px; color: #667085; font-size: 11px; }
 .workflow-template-meta > span { display: inline-flex; align-items: center; gap: 5px; }
+.workflow-template-meta svg { width: 13px; height: 13px; }
 
 .workflow-template-actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
 }
-
-.workflow-template-actions button.danger { color: #b42318; border-color: #fda29b; }
-.workflow-template-actions button.danger:hover:not(:disabled) { background: #fff1f0; }
 
 .workflow-template-panel button,
 .workflow-template-editor button {
@@ -12666,6 +12672,33 @@ td {
   color: #fff;
   background: #1d6feb;
   border-color: #1d6feb;
+}
+
+.workflow-template-panel .workflow-template-actions button {
+  min-height: 30px;
+  font-size: 12px;
+}
+
+.workflow-template-panel .workflow-template-actions .workflow-template-icon-action {
+  width: 30px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-color: transparent;
+  background: transparent;
+  color: #667085;
+}
+
+.workflow-template-panel .workflow-template-actions .workflow-template-icon-action:hover:not(:disabled) {
+  border-color: #c9d9f5;
+  background: #eef4ff;
+  color: #1d4ed8;
+}
+
+.workflow-template-panel .workflow-template-actions .workflow-template-icon-action.danger:hover:not(:disabled) {
+  border-color: #f4c7c3;
+  background: #fff1f0;
+  color: #b42318;
 }
 
 .workflow-template-panel button:disabled,
@@ -12759,17 +12792,14 @@ td {
 
 @media (max-width: 760px) {
   .workflow-template-list article {
-    height: 168px;
-    grid-template-rows: 88px 34px;
-    display: grid;
-    grid-template-columns: 36px minmax(0, 1fr);
-    align-items: start;
-    gap: 12px;
-    padding: 14px;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 5px 9px;
+    padding: 7px 10px;
   }
-  .workflow-template-symbol { width: 36px; height: 36px; }
+  .workflow-template-subline { flex-wrap: wrap; gap: 0 8px; }
+  .workflow-template-info p { flex-basis: 100%; }
   .workflow-template-actions {
-    grid-column: 1 / -1;
+    grid-column: 2;
     justify-content: flex-end;
     flex-wrap: wrap;
   }

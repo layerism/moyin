@@ -9,6 +9,8 @@ const paths = {
   template: "M14 3H5v18h14V8l-5-5Zm0 0v5h5M8 12h8m-8 4h5",
   copy: "M8 8h13v13H8V8ZM16 8V3H3v13h5",
   flow: "M8 3h8v5H8V3Zm0 13h8v5H8v-5Zm4-8v8M3 12h18",
+  eye: "M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
+  eyeOff: "M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Zm10-3a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM3 3l18 18",
 };
 
 export function WorkflowIcon({ name }: { name: keyof typeof paths | "grip" }) {
