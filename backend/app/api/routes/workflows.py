@@ -481,9 +481,7 @@ def get_answer_sheet_asset(
 ) -> dict[str, object]:
     try:
         asset = get_teacher_content_asset(flow_id, asset_id, int(teacher["id"]))
-        url = get_object_storage().signed_inline_url(
-            str(asset["storage_key"]), str(asset["content_type"])
-        )
+        url = get_object_storage().signed_inline_url(str(asset["storage_key"]))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="图片不存在") from exc
     except ObjectStorageNotConfigured as exc:
