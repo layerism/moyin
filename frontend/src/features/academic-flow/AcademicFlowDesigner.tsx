@@ -190,6 +190,9 @@ export function AcademicFlowDesigner({
   const copyingNodeRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [draftSaving, setDraftSaving] = useState(false);
+  const [announcementUploads, setAnnouncementUploads] = useState(0);
+  const persistedNodeIds = useRef(new Set(process.draftConfig.nodes.map((node) => node.id)));
+  const pendingAnnouncementNodeSave = useRef<Promise<void> | null>(null);
   const [previewCreating, setPreviewCreating] = useState(false);
   const [manualReviewNodeId, setManualReviewNodeId] = useState<string | null>(null);
   const [nodePackageDialogNodeId, setNodePackageDialogNodeId] = useState<string | null>(null);
@@ -200,7 +203,9 @@ export function AcademicFlowDesigner({
     revisionEditingRequested,
     workingProcess.hasUnpublishedChanges,
   );
-  const operationLocked = copyingNode || saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
+  const baseOperationLocked = copyingNode || saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
+  const announcementEditingLocked = baseOperationLocked || (workingProcess.published && !revisionEditing);
+  const operationLocked = baseOperationLocked || announcementUploads > 0;
   const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
   const processEdges = workingProcess.edges ?? [];
   const schedule = resolveFlowSchedule(workingProcess.nodes, processEdges);
@@ -258,6 +263,10 @@ export function AcademicFlowDesigner({
   };
 
   const requestNavigation = (destination: string, navigate: () => void) => {
+    if (announcementUploads > 0) {
+      showActionError("请等待公告图片上传完成后再离开");
+      return;
+    }
     if (!revisionDirty) {
       navigate();
       return;
@@ -267,6 +276,8 @@ export function AcademicFlowDesigner({
 
   useEffect(() => {
     setWorkingProcess(createDraftWorkingProcess(process));
+    persistedNodeIds.current = new Set(process.draftConfig.nodes.map((node) => node.id));
+    pendingAnnouncementNodeSave.current = null;
     setActiveNodeId(process.draftConfig.nodes[0]?.id ?? "");
     setRevisionEditingRequested(false);
     setRevisionDirty(false);
@@ -571,6 +582,20 @@ export function AcademicFlowDesigner({
     });
   };
 
+  const updateAnnouncementRequirement = (
+    nodeId: string,
+    value: string | ((current: string) => string),
+  ) => {
+    if (announcementEditingLocked) return;
+    setWorkingProcess((current) => ({
+      ...current,
+      nodes: current.nodes.map((node) => node.id === nodeId
+        ? { ...node, requirement: typeof value === "function" ? value(node.requirement) : value }
+        : node),
+    }));
+    setRevisionDirty(true);
+  };
+
   const updateAnswerSheet = (
     nodeId: string,
     answerSheet: NonNullable<AcademicFlowNode["answerSheet"]>,
@@ -707,14 +732,26 @@ export function AcademicFlowDesigner({
   };
 
   const uploadAnnouncementImage = async (nodeId: string, file: File) => {
-    if (revisionDirty && !await saveWorkingDraft(workingProcess, "")) {
-      throw new Error("请先暂存流程，再上传公告图片");
-    }
-    setSaving(true);
+    setAnnouncementUploads((count) => count + 1);
     try {
+      if (!persistedNodeIds.current.has(nodeId)) {
+        if (!pendingAnnouncementNodeSave.current) {
+          pendingAnnouncementNodeSave.current = onSaveProcess(workingProcess).then((saved) => {
+            onProcessChange(saved);
+            setWorkingProcess((current) => ({
+              ...current,
+              draftConfig: saved.draftConfig,
+              hasUnpublishedChanges: saved.hasUnpublishedChanges,
+              serverId: saved.serverId,
+            }));
+            persistedNodeIds.current = new Set(saved.draftConfig.nodes.map((node) => node.id));
+          }).finally(() => { pendingAnnouncementNodeSave.current = null; });
+        }
+        await pendingAnnouncementNodeSave.current;
+      }
       return await workflowApi.uploadAnnouncementImage(serverFlowId, nodeId, file);
     } finally {
-      setSaving(false);
+      setAnnouncementUploads((count) => count - 1);
     }
   };
 
@@ -861,16 +898,18 @@ export function AcademicFlowDesigner({
         {inspectorNode && (
           <NodeInspector
             editingLocked={editorLocked}
+            announcementEditingLocked={announcementEditingLocked}
             flowId={serverFlowId}
             nodeCoreLocked={!canEditRevisionNodeCore(inspectorNode.id, protectedNodeIds)}
             minimumDeadline={schedule.minimumDeadlines.get(inspectorNode.id) ?? null}
             node={inspectorNode}
             answerSheetKey={workingProcess.answerSheetKeys[inspectorNode.id]}
-            onClose={() => setInspectorNodeId(null)}
+            onClose={() => { if (announcementUploads === 0) setInspectorNodeId(null); }}
             onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
             onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, [file])}
             onUploadReference={(files) => void uploadNodeTemplate(inspectorNode.id, files, true)}
             onUploadAnnouncementImage={uploadAnnouncementImage}
+            onUpdateAnnouncementRequirement={updateAnnouncementRequirement}
             onDeleteReference={(assetId) => void deleteNodeTemplate(inspectorNode.id, assetId)}
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
@@ -2222,6 +2261,7 @@ function NodeInspector({
   minimumDeadline,
   answerSheetKey,
   editingLocked,
+  announcementEditingLocked,
   flowId,
   nodeCoreLocked,
   node,
@@ -2230,6 +2270,7 @@ function NodeInspector({
   onUploadTemplate,
   onUploadReference,
   onUploadAnnouncementImage,
+  onUpdateAnnouncementRequirement,
   onDeleteReference,
   onUpdateNode,
   onUpdateAnswerSheet,
@@ -2241,6 +2282,7 @@ function NodeInspector({
   minimumDeadline: string | null;
   answerSheetKey?: AcademicProcess["answerSheetKeys"][string];
   editingLocked: boolean;
+  announcementEditingLocked: boolean;
   flowId: string;
   nodeCoreLocked: boolean;
   node: AcademicFlowNode | null;
@@ -2249,6 +2291,10 @@ function NodeInspector({
   onUploadTemplate: (file: File) => void;
   onUploadReference: (files: File[]) => void;
   onUploadAnnouncementImage: (nodeId: string, file: File) => Promise<{ assetId: string }>;
+  onUpdateAnnouncementRequirement: (
+    nodeId: string,
+    value: string | ((current: string) => string),
+  ) => void;
   onDeleteReference: (assetId: string) => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   onUpdateAnswerSheet: (
@@ -2537,11 +2583,11 @@ function NodeInspector({
         </header>
         {node.kind === "announcement" ? (
           <AnnouncementEditor
-            disabled={editingLocked}
+            disabled={announcementEditingLocked}
             flowId={flowId}
             key={node.id}
             nodeId={node.id}
-            onChange={(requirement) => onUpdateNode(node.id, { requirement })}
+            onChange={(requirement) => onUpdateAnnouncementRequirement(node.id, requirement)}
             onUpload={onUploadAnnouncementImage}
             value={node.requirement}
           />
