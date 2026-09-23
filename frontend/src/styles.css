@@ -14129,10 +14129,10 @@ td {
 .announcement-markdown ul, .announcement-markdown ol { padding-left: 24px; }
 .announcement-markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
 .announcement-markdown th, .announcement-markdown td { padding: 6px 10px; border: 1px solid #d8e2f0; }
-.announcement-image-button { display: block; max-width: 100%; margin: 10px auto; padding: 0; border: 1px solid #d8e2f0; border-radius: 8px; background: #fff; overflow: hidden; }
-.announcement-image-button img { display: block; max-width: min(100%, 520px); max-height: 320px; width: auto; height: auto; object-fit: contain; }
+.announcement-image-button { display: block; width: fit-content; max-width: 100%; margin: 10px auto; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+.announcement-image-button img { display: block; max-width: min(100%, 520px); max-height: 320px; width: auto; height: auto; border-radius: 8px; object-fit: contain; }
 .announcement-editor-preview .announcement-image-button img { max-width: min(100%, 360px); max-height: 220px; }
-.announcement-image-button:hover { border-color: #8fb5f6; }
+.announcement-image-button:focus-visible { outline: 2px solid #2970ff; outline-offset: 3px; }
 .announcement-image-message { display: inline-block; padding: 8px 10px; color: #667085; background: #f8faff; border-radius: 6px; }
 .announcement-image-dialog { width: min(1000px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); padding: 42px 14px 14px; border: 0; border-radius: 10px; background: #fff; text-align: center; }
 .announcement-image-dialog::backdrop { background: rgb(15 23 42 / 82%); }
