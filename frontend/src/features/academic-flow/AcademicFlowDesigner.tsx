@@ -69,6 +69,7 @@ import {
   type AnswerSheetPublishIssue,
 } from "./answerSheetPublishPreflight";
 import { AnswerSheetEditor } from "./AnswerSheetEditor";
+import { AnnouncementEditor } from "./AnnouncementEditor";
 import {
   createCurveGeometry,
   createCurvedEdgeGeometries,
@@ -705,6 +706,18 @@ export function AcademicFlowDesigner({
     }
   };
 
+  const uploadAnnouncementImage = async (nodeId: string, file: File) => {
+    if (revisionDirty && !await saveWorkingDraft(workingProcess, "")) {
+      throw new Error("请先暂存流程，再上传公告图片");
+    }
+    setSaving(true);
+    try {
+      return await workflowApi.uploadAnnouncementImage(serverFlowId, nodeId, file);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const deleteNodeTemplate = async (nodeId: string, assetId?: string) => {
     const reference = assetId !== undefined;
     setSaving(true);
@@ -857,6 +870,7 @@ export function AcademicFlowDesigner({
             onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
             onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, [file])}
             onUploadReference={(files) => void uploadNodeTemplate(inspectorNode.id, files, true)}
+            onUploadAnnouncementImage={uploadAnnouncementImage}
             onDeleteReference={(assetId) => void deleteNodeTemplate(inspectorNode.id, assetId)}
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
@@ -2215,6 +2229,7 @@ function NodeInspector({
   onDeleteTemplate,
   onUploadTemplate,
   onUploadReference,
+  onUploadAnnouncementImage,
   onDeleteReference,
   onUpdateNode,
   onUpdateAnswerSheet,
@@ -2233,6 +2248,7 @@ function NodeInspector({
   onDeleteTemplate: () => void;
   onUploadTemplate: (file: File) => void;
   onUploadReference: (files: File[]) => void;
+  onUploadAnnouncementImage: (nodeId: string, file: File) => Promise<{ assetId: string }>;
   onDeleteReference: (assetId: string) => void;
   onUpdateNode: (nodeId: string, value: Partial<AcademicFlowNode>) => void;
   onUpdateAnswerSheet: (
@@ -2519,16 +2535,28 @@ function NodeInspector({
             ×
           </button>
         </header>
-        <label className="node-basic-description-field" title={editingLocked ? undefined : "点击修改节点说明"}>
-          <textarea
-            aria-label="节点说明"
-            rows={2}
+        {node.kind === "announcement" ? (
+          <AnnouncementEditor
             disabled={editingLocked}
-            placeholder="添加描述"
+            flowId={flowId}
+            key={node.id}
+            nodeId={node.id}
+            onChange={(requirement) => onUpdateNode(node.id, { requirement })}
+            onUpload={onUploadAnnouncementImage}
             value={node.requirement}
-            onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
           />
-        </label>
+        ) : (
+          <label className="node-basic-description-field" title={editingLocked ? undefined : "点击修改节点说明"}>
+            <textarea
+              aria-label="节点说明"
+              rows={2}
+              disabled={editingLocked}
+              placeholder="添加描述"
+              value={node.requirement}
+              onChange={(event) => onUpdateNode(node.id, { requirement: event.target.value })}
+            />
+          </label>
+        )}
         {node.kind !== "branch" ? <div className="node-basic-actions">
           <button
             aria-haspopup="dialog"

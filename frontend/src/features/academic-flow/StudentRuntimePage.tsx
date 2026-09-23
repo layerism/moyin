@@ -8,6 +8,7 @@ import { ManualReviewDialog } from "./ManualReviewDialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import Markdown from "react-markdown";
 import { CompletedReviewFeedback, ReviewProgress } from "./ReviewProgress";
+import { AnnouncementMarkdown } from "./AnnouncementMarkdown";
 
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
@@ -688,7 +689,7 @@ function RuntimeNodeDialog({
           <div>
             {completedBranch ? null : <span>{statusLabels[runtime.status]}</span>}
             <h2>{node.title}</h2>
-            <p>{completedBranch ? "分支选择已完成，可返回流程查看对应任务。" : node.requirement}</p>
+            {node.kind === "announcement" ? null : <p>{completedBranch ? "分支选择已完成，可返回流程查看对应任务。" : node.requirement}</p>}
             {completedBranch && node.requirement && node.requirement !== "请选择一个分支，提交后将开放对应任务，选择不可更改。" ? <p className="runtime-branch-requirement">{node.requirement}</p> : null}
             {node.kind === "answer_sheet" ? (
               <div className="runtime-answer-sheet-header-meta">
@@ -734,6 +735,11 @@ function RuntimeNodeDialog({
         {node.kind === "file" && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {node.kind === "file" && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
         {node.kind === "file" && writable ? nodeReferences(node).map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} />) : null}
+        {node.kind === "announcement" ? (
+          <section aria-label="公告正文" className="runtime-announcement-body">
+            <AnnouncementMarkdown instanceId={instanceId}>{node.requirement}</AnnouncementMarkdown>
+          </section>
+        ) : null}
         {completedBranch ? (
           <>
             <div className="runtime-branch-result">

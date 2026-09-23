@@ -348,9 +348,29 @@ def upload_answer_sheet_asset(
     file: UploadFile = File(...),
     teacher: dict[str, object] = Depends(get_current_teacher),
 ) -> dict[str, object]:
+    return _upload_content_image(flow_id, node_key, file, teacher, "answer_sheet")
+
+
+@router.post("/{flow_id}/nodes/{node_key}/announcement-assets")
+def upload_announcement_asset(
+    flow_id: str,
+    node_key: str,
+    file: UploadFile = File(...),
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    return _upload_content_image(flow_id, node_key, file, teacher, "announcement")
+
+
+def _upload_content_image(
+    flow_id: str,
+    node_key: str,
+    file: UploadFile,
+    teacher: dict[str, object],
+    kind: str,
+) -> dict[str, object]:
     teacher_id = int(teacher["id"])
     try:
-        get_editable_content_node(flow_id, node_key, teacher_id)
+        get_editable_content_node(flow_id, node_key, teacher_id, kind)
     except KeyError as exc:
         raise not_found() from exc
     except ContentAssetError as exc:
@@ -365,9 +385,9 @@ def upload_answer_sheet_asset(
     }.get(suffix)
     content_type = file.content_type or ""
     if not filename or expected_content_type is None or content_type not in CONTENT_ASSET_TYPES:
-        raise HTTPException(status_code=422, detail="题图仅支持 PNG、JPEG 和 WebP")
+        raise HTTPException(status_code=422, detail="图片仅支持 PNG、JPEG 和 WebP")
     if content_type != expected_content_type:
-        raise HTTPException(status_code=422, detail="题图扩展名与文件类型不一致")
+        raise HTTPException(status_code=422, detail="图片扩展名与文件类型不一致")
     digest = hashlib.sha256()
     size_bytes = 0
     file.file.seek(0)
@@ -376,7 +396,18 @@ def upload_answer_sheet_asset(
         digest.update(chunk)
     file.file.seek(0)
     if not 0 < size_bytes <= CONTENT_ASSET_LIMIT_BYTES:
-        raise HTTPException(status_code=422, detail="题图大小不能超过 5 MB")
+        raise HTTPException(status_code=422, detail="图片大小不能超过 5 MB")
+    from PIL import Image, UnidentifiedImageError
+    try:
+        with Image.open(file.file) as image:
+            expected_format = "JPEG" if suffix in {".jpg", ".jpeg"} else expected_content_type.split("/")[1].upper()
+            if image.format != expected_format:
+                raise ValueError("图片内容与文件类型不一致")
+            image.verify()
+    except (ValueError, UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+        raise HTTPException(status_code=422, detail="图片内容无效或与文件类型不一致") from exc
+    finally:
+        file.file.seek(0)
     sha256 = digest.hexdigest()
     storage_key = object_key(
         settings.oss_prefix,
@@ -398,21 +429,28 @@ def upload_answer_sheet_asset(
             size_bytes=size_bytes,
             sha256=sha256,
             etag=uploaded.etag,
+            kind=kind,
         )
     except ObjectStorageNotConfigured as exc:
-        raise HTTPException(status_code=503, detail="题图存储服务未配置，请联系管理员") from exc
+        raise HTTPException(status_code=503, detail="图片存储服务未配置，请联系管理员") from exc
     except ContentAssetError as exc:
         try:
             get_object_storage().delete_object(storage_key)
         except Exception:
             pass
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except KeyError as exc:
+        try:
+            get_object_storage().delete_object(storage_key)
+        except Exception:
+            pass
+        raise not_found() from exc
     except Exception as exc:
         try:
             get_object_storage().delete_object(storage_key)
         except Exception:
             pass
-        raise HTTPException(status_code=502, detail="题图上传失败，请稍后重试") from exc
+        raise HTTPException(status_code=502, detail="图片上传失败，请稍后重试") from exc
 
 
 @router.delete("/{flow_id}/answer-sheet-assets/{asset_id}")
@@ -424,16 +462,17 @@ def delete_answer_sheet_asset(
     try:
         removed = delete_content_asset(flow_id, asset_id, int(teacher["id"]))
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="题图不存在") from exc
+        raise HTTPException(status_code=404, detail="图片不存在") from exc
     except ContentAssetError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     try:
         get_object_storage().delete_object(removed["storageKey"])
     except ObjectStorageError as exc:
-        raise HTTPException(status_code=502, detail="题图记录已删除，但存储对象清理失败") from exc
+        raise HTTPException(status_code=502, detail="图片记录已删除，但存储对象清理失败") from exc
     return {"deleted": True}
 
 
+@router.get("/{flow_id}/content-assets/{asset_id}")
 @router.get("/{flow_id}/answer-sheet-assets/{asset_id}")
 def get_answer_sheet_asset(
     flow_id: str,
@@ -446,11 +485,11 @@ def get_answer_sheet_asset(
             str(asset["storage_key"]), str(asset["content_type"])
         )
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="题图不存在") from exc
+        raise HTTPException(status_code=404, detail="图片不存在") from exc
     except ObjectStorageNotConfigured as exc:
-        raise HTTPException(status_code=503, detail="题图存储服务未配置，请联系管理员") from exc
+        raise HTTPException(status_code=503, detail="图片存储服务未配置，请联系管理员") from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="题图预览链接生成失败") from exc
+        raise HTTPException(status_code=502, detail="图片预览链接生成失败") from exc
     return {
         "assetId": asset["id"],
         "contentType": asset["content_type"],

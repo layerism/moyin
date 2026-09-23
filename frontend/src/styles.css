@@ -14065,3 +14065,80 @@ td {
 .template-delete-dialog > footer .template-delete-confirm:hover:not(:disabled) { background: #b42318; border-color: #b42318; }
 .template-delete-dialog button:disabled { opacity: .55; cursor: not-allowed; }
 .template-delete-dialog button:focus-visible { outline: 2px solid #2970ff; outline-offset: 3px; }
+
+.announcement-editor {
+  min-width: 0;
+  border: 1px solid #d8e2f0;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.announcement-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e4eaf3;
+  background: #f8faff;
+}
+
+.announcement-editor-toolbar > strong { color: #344054; font-size: 13px; }
+.announcement-editor-toolbar > div { display: flex; gap: 5px; }
+.announcement-editor-toolbar button {
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #475467;
+  font: inherit;
+  font-size: 12px;
+}
+.announcement-editor-toolbar button[aria-pressed="true"] { border-color: #bdd4ff; background: #edf4ff; color: #175cd3; }
+.announcement-editor-toolbar button:last-child { border-color: #c9d9f5; background: #fff; color: #175cd3; }
+.announcement-editor-toolbar button:disabled { opacity: .5; cursor: not-allowed; }
+.announcement-editor textarea {
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  padding: 12px;
+  border: 0;
+  border-radius: 0;
+  outline-offset: -2px;
+  color: #344054;
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.announcement-editor-preview { min-height: 160px; padding: 12px; }
+.announcement-editor > small { display: block; padding: 8px 12px; border-top: 1px solid #e4eaf3; color: #667085; font-size: 12px; }
+.announcement-editor-error { margin: 0; padding: 8px 12px; color: #b42318; background: #fff1f0; font-size: 12px; }
+
+.runtime-node-dialog:has(.runtime-announcement-body) { width: min(760px, 100%); }
+.runtime-announcement-body { margin: 18px 24px; min-width: 0; }
+.announcement-markdown { min-width: 0; color: #344054; line-height: 1.7; overflow-wrap: anywhere; }
+.announcement-markdown > :first-child { margin-top: 0; }
+.announcement-markdown p { margin: 0 0 12px; white-space: pre-line; }
+.announcement-markdown h1, .announcement-markdown h2, .announcement-markdown h3 { margin: 14px 0 8px; color: #172033; }
+.announcement-markdown ul, .announcement-markdown ol { padding-left: 24px; }
+.announcement-markdown table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.announcement-markdown th, .announcement-markdown td { padding: 6px 10px; border: 1px solid #d8e2f0; }
+.announcement-image-button { display: block; max-width: 100%; margin: 10px auto; padding: 0; border: 1px solid #d8e2f0; border-radius: 8px; background: #fff; overflow: hidden; }
+.announcement-image-button img { display: block; max-width: 100%; max-height: 480px; height: auto; object-fit: contain; }
+.announcement-image-button:hover { border-color: #8fb5f6; }
+.announcement-image-message { display: inline-block; padding: 8px 10px; color: #667085; background: #f8faff; border-radius: 6px; }
+.announcement-image-dialog { width: min(1000px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); padding: 42px 14px 14px; border: 0; border-radius: 10px; background: #fff; text-align: center; }
+.announcement-image-dialog::backdrop { background: rgb(15 23 42 / 82%); }
+.announcement-image-dialog > button { position: absolute; right: 8px; top: 6px; width: 32px; height: 32px; border: 0; border-radius: 6px; background: transparent; color: #344054; font-size: 24px; }
+.announcement-image-dialog img { display: block; max-width: 100%; max-height: calc(100dvh - 100px); margin: auto; object-fit: contain; }
+
+@media (max-width: 640px) {
+  .runtime-announcement-body { margin: 14px 16px; }
+  .announcement-editor-toolbar { align-items: flex-start; flex-direction: column; }
+  .announcement-editor-toolbar > div { flex-wrap: wrap; }
+}

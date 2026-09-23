@@ -146,11 +146,11 @@ def get_answer_sheet_asset(
             str(asset["storage_key"]), str(asset["content_type"])
         )
     except (KeyError, RosterAccessError) as exc:
-        raise HTTPException(status_code=404, detail="题图不存在") from exc
+        raise HTTPException(status_code=404, detail="图片不存在") from exc
     except ObjectStorageNotConfigured as exc:
-        raise HTTPException(status_code=503, detail="题图存储服务未配置，请联系管理员") from exc
+        raise HTTPException(status_code=503, detail="图片存储服务未配置，请联系管理员") from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="题图预览链接生成失败") from exc
+        raise HTTPException(status_code=502, detail="图片预览链接生成失败") from exc
     return {
         "assetId": asset["id"],
         "contentType": asset["content_type"],

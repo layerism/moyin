@@ -11,6 +11,7 @@ from app.services.security import utc_now_iso
 CONTENT_ASSET_TYPES = {"image/jpeg", "image/png", "image/webp"}
 CONTENT_ASSET_LIMIT_BYTES = 5 * 1024 * 1024
 _ASSET_REFERENCE = re.compile(r"asset://([A-Za-z0-9-]+)")
+_MARKDOWN_IMAGE_TARGET = re.compile(r"!\[[^\]]*\]\(([^)\s]+)")
 
 
 class ContentAssetError(ValueError):
@@ -18,7 +19,7 @@ class ContentAssetError(ValueError):
 
 
 def get_editable_content_node(
-    flow_id: str, node_key: str, teacher_id: int
+    flow_id: str, node_key: str, teacher_id: int, kind: str = "answer_sheet"
 ) -> dict[str, Any]:
     with get_connection() as connection:
         flow = connection.execute(
@@ -33,8 +34,10 @@ def get_editable_content_node(
         import json
 
         node = node_by_key(json.loads(flow["draft_config"]), node_key)
-        if node.get("kind") != "answer_sheet":
-            raise ContentAssetError("当前节点不支持题图")
+        if node.get("kind") != kind:
+            raise ContentAssetError("当前节点不支持图片上传")
+        if kind == "announcement":
+            return dict(node)
         historical = connection.execute(
             """
             SELECT config_snapshot FROM flow_versions
@@ -52,6 +55,11 @@ def get_editable_content_node(
 
 
 def referenced_content_asset_ids(node: dict[str, Any]) -> set[str]:
+    if node.get("kind") == "announcement":
+        targets = _MARKDOWN_IMAGE_TARGET.findall(str(node.get("requirement") or ""))
+        if any(_ASSET_REFERENCE.fullmatch(target) is None for target in targets):
+            raise ContentAssetError("公告图片必须先上传到当前流程的 OSS")
+        return {target.removeprefix("asset://") for target in targets}
     if node.get("kind") != "answer_sheet":
         return set()
     references: set[str] = set()
@@ -84,7 +92,7 @@ def validate_content_assets(
             (flow_id, node["id"], *sorted(references)),
         ).fetchall()
         if {str(row["id"]) for row in rows} != references:
-            raise ContentAssetError("答题卡包含不存在或不属于当前节点的图片")
+            raise ContentAssetError("节点包含不存在或不属于当前节点的图片")
         result[str(node["id"])] = references
     return result
 
@@ -120,11 +128,12 @@ def save_content_asset(
     size_bytes: int,
     sha256: str,
     etag: str,
+    kind: str = "answer_sheet",
 ) -> dict[str, object]:
     if content_type not in CONTENT_ASSET_TYPES:
-        raise ContentAssetError("题图仅支持 PNG、JPEG 和 WebP")
+        raise ContentAssetError("图片仅支持 PNG、JPEG 和 WebP")
     if not 0 < size_bytes <= CONTENT_ASSET_LIMIT_BYTES:
-        raise ContentAssetError("题图大小不能超过 5 MB")
+        raise ContentAssetError("图片大小不能超过 5 MB")
     flow = connection.execute(
         """
         SELECT draft_config FROM flows
@@ -137,8 +146,8 @@ def save_content_asset(
     import json
 
     node = node_by_key(json.loads(flow["draft_config"]), node_key)
-    if node.get("kind") != "answer_sheet":
-        raise ContentAssetError("当前节点不支持题图")
+    if node.get("kind") != kind:
+        raise ContentAssetError("当前节点不支持图片上传")
     version_rows = connection.execute(
         """
         SELECT config_snapshot FROM flow_versions
@@ -151,7 +160,7 @@ def save_content_asset(
         for version in version_rows
         for published_node in json.loads(version["config_snapshot"]).get("nodes", [])
     }
-    if node_key in published_node_ids:
+    if kind == "answer_sheet" and node_key in published_node_ids:
         raise ContentAssetError("已发布答题卡节点不可新增或替换题图")
     asset_id = str(uuid.uuid4())
     now = utc_now_iso()
@@ -209,7 +218,7 @@ def remove_content_asset(
         (asset_id,),
     ).fetchone()
     if referenced is not None:
-        raise ContentAssetError("已发布版本引用的题图不可删除")
+        raise ContentAssetError("已发布版本引用的图片不可删除")
     connection.execute("DELETE FROM flow_content_assets WHERE id = ?", (asset_id,))
     return {"storageKey": str(row["storage_key"])}
 

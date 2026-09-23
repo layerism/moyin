@@ -584,7 +584,7 @@ def copy_flow_definition(
                     (asset_id,),
                 ).fetchone()
                 if asset is None:
-                    raise FlowValidationError("答题卡题图无效，无法复制")
+                    raise FlowValidationError("节点图片无效，无法复制")
                 source_content_assets.append((nodes_by_id[node_key], dict(asset)))
 
         source_data = dict(source)
@@ -644,6 +644,10 @@ def copy_flow_definition(
             copied_keys.append(target_key)
             old_reference = f"asset://{asset['id']}"
             new_reference = f"asset://{new_asset_id}"
+            if node.get("kind") == "announcement":
+                node["requirement"] = str(node.get("requirement") or "").replace(
+                    old_reference, new_reference
+                )
             for question in node.get("answerSheet", {}).get("questions", []):
                 question["content"] = str(question.get("content") or "").replace(
                     old_reference, new_reference

@@ -67,6 +67,10 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
                 if metadata is not None:
                     metadata["assetId"] = new_id
                 else:
+                    if node.get("kind") == "announcement":
+                        node["requirement"] = str(node.get("requirement") or "").replace(
+                            f"asset://{asset['id']}", f"asset://{new_id}"
+                        )
                     for question in node.get("answerSheet", {}).get("questions", []):
                         for item in [question, *question.get("options", [])]:
                             item["content"] = str(item.get("content") or "").replace(f"asset://{asset['id']}", f"asset://{new_id}")
