@@ -737,7 +737,7 @@ function RuntimeNodeDialog({
         {["file", "confirmation"].includes(node.kind) && writable ? nodeReferences(node).map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label={node.kind === "confirmation" ? "参考示例" : "填写参考"} />) : null}
         {node.kind === "announcement" ? (
           <section aria-label="公告正文" className="runtime-announcement-body">
-            <AnnouncementMarkdown instanceId={instanceId}>{node.requirement}</AnnouncementMarkdown>
+            <AnnouncementMarkdown instanceId={instanceId} nodeId={node.id}>{node.requirement}</AnnouncementMarkdown>
           </section>
         ) : null}
         {completedBranch ? (

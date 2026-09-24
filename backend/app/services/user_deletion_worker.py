@@ -23,7 +23,7 @@ def cleanup_one():
             key = keys[0]
             with get_connection() as db:
                 shared = any(db.execute(f'SELECT 1 FROM {table} WHERE storage_key = ? LIMIT 1', (key,)).fetchone()
-                             for table in ['uploaded_files', 'manual_feedback_files', 'flow_template_assets', 'flow_content_assets'])
+                             for table in ['uploaded_files', 'manual_feedback_files', 'flow_template_assets', 'flow_content_assets', 'flow_announcement_files'])
             if not shared:
                 storage.delete_object(key)
             keys.pop(0)

@@ -36,6 +36,7 @@ from app.repositories.flow_instances import (
 )
 from app.repositories.flow_roster import RosterAccessError
 from app.repositories.flow_content_assets import get_student_content_asset
+from app.repositories.flow_announcement_files import get_student_announcement_file
 from app.repositories.flow_templates import (
     TemplateDownloadError,
     get_student_template,
@@ -156,6 +157,44 @@ def get_answer_sheet_asset(
         "sizeBytes": asset["size_bytes"],
         "url": url,
     }
+
+
+@router.get("/flow-instances/{instance_id}/nodes/{node_key}/announcement-files/{asset_id}")
+def get_announcement_file_metadata(
+    instance_id: str,
+    node_key: str,
+    asset_id: str,
+    student: dict[str, object] = Depends(get_current_runtime_student),
+) -> dict[str, object]:
+    try:
+        asset = get_student_announcement_file(instance_id, node_key, asset_id, int(student["id"]))
+    except (KeyError, RosterAccessError) as exc:
+        raise HTTPException(status_code=404, detail="附件不存在") from exc
+    return {
+        "assetId": asset["id"], "originalName": asset["original_name"],
+        "contentType": asset["content_type"], "sizeBytes": asset["size_bytes"],
+    }
+
+
+@router.get("/flow-instances/{instance_id}/nodes/{node_key}/announcement-files/{asset_id}/download")
+def download_announcement_file(
+    instance_id: str,
+    node_key: str,
+    asset_id: str,
+    student: dict[str, object] = Depends(get_current_runtime_student),
+) -> dict[str, object]:
+    try:
+        asset = get_student_announcement_file(instance_id, node_key, asset_id, int(student["id"]))
+        url = get_object_storage().signed_download_url(
+            str(asset["storage_key"]), str(asset["original_name"])
+        )
+    except (KeyError, RosterAccessError) as exc:
+        raise HTTPException(status_code=404, detail="附件不存在") from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="附件存储服务未配置，请联系管理员") from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=502, detail="附件下载链接生成失败") from exc
+    return {"url": url, "originalName": asset["original_name"]}
 
 
 @router.post("/node-instances/{node_instance_id}/file")

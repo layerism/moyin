@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from app.domain.workflow import FlowValidationError
 from app.domain.answer_sheet import AnswerSheetConfigError
 from app.repositories.flow_content_assets import ContentAssetError
+from app.repositories.flow_announcement_files import AnnouncementFileError
 from app.repositories.workflow_blueprints import (
     BlueprintConflictError, list_blueprints, publish_blueprint, set_blueprint_active, use_blueprint,
     open_blueprint_draft, discard_blueprint_draft, delete_blueprint,
@@ -37,7 +38,7 @@ def perform(operation):
         raise HTTPException(404, "模板或源流程不存在，或无权访问") from exc
     except BlueprintConflictError as exc:
         raise HTTPException(409, str(exc)) from exc
-    except (FlowValidationError, AnswerSheetConfigError, ContentAssetError) as exc:
+    except (FlowValidationError, AnswerSheetConfigError, ContentAssetError, AnnouncementFileError) as exc:
         raise HTTPException(422, str(exc)) from exc
     except ObjectStorageError as exc:
         raise HTTPException(502, "复制模板附件失败，请稍后重试") from exc

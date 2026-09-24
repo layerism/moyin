@@ -33,8 +33,10 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
         frozenset({"deadline_at"}), deletable=True
     ),
     "flow_content_assets": TablePolicy(),
+    "flow_announcement_files": TablePolicy(),
     "flow_version_answer_keys": TablePolicy(),
     "flow_version_content_assets": TablePolicy(),
+    "flow_version_announcement_files": TablePolicy(),
     "flow_versions": TablePolicy(deletable=True),
     "flows": TablePolicy(
         frozenset({"name", "description", "owner_id", "status", "draft_config"}),

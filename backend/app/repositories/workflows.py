@@ -36,6 +36,11 @@ from app.repositories.flow_content_assets import (
     freeze_content_asset_refs,
     validate_content_assets,
 )
+from app.repositories.flow_announcement_files import (
+    AnnouncementFileError,
+    freeze_announcement_file_refs,
+    validate_announcement_files,
+)
 from app.repositories.workflow_groups import require_owned_workflow_group
 from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script
 from app.services.audit_script_parameters import (
@@ -571,6 +576,7 @@ def copy_flow_definition(
                 source_assets.append((node, dict(asset), template))
         source_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
         content_references = validate_content_assets(connection, flow_id, config)
+        announcement_file_references = validate_announcement_files(connection, flow_id, config)
         source_content_assets: list[tuple[dict[str, Any], dict[str, Any]]] = []
         nodes_by_id = {str(node["id"]): node for node in config.get("nodes", [])}
         for node_key, asset_ids in content_references.items():
@@ -582,6 +588,15 @@ def copy_flow_definition(
                 if asset is None:
                     raise FlowValidationError("节点图片无效，无法复制")
                 source_content_assets.append((nodes_by_id[node_key], dict(asset)))
+        source_announcement_files: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        for node_key, asset_ids in announcement_file_references.items():
+            for asset_id in sorted(asset_ids):
+                asset = connection.execute(
+                    "SELECT * FROM flow_announcement_files WHERE id = ?", (asset_id,)
+                ).fetchone()
+                if asset is None:
+                    raise FlowValidationError("公告附件无效，无法复制")
+                source_announcement_files.append((nodes_by_id[node_key], dict(asset)))
 
         source_data = dict(source)
 
@@ -589,7 +604,8 @@ def copy_flow_definition(
     copied_keys: list[str] = []
     new_assets: list[dict[str, Any]] = []
     new_content_assets: list[dict[str, Any]] = []
-    storage = get_object_storage() if source_assets or source_content_assets else None
+    new_announcement_files: list[dict[str, Any]] = []
+    storage = get_object_storage() if source_assets or source_content_assets or source_announcement_files else None
 
     def compensate() -> None:
         if storage is None:
@@ -661,6 +677,27 @@ def copy_flow_definition(
                     "etag": uploaded.etag,
                 }
             )
+        for node, asset in source_announcement_files:
+            new_asset_id = str(uuid.uuid4())
+            target_key = object_key(
+                settings.oss_prefix,
+                "announcement-files",
+                new_flow_id,
+                node["id"],
+                timestamped_object_name(asset["original_name"], asset["sha256"]),
+            )
+            uploaded = storage.copy_object(asset["storage_key"], target_key)  # type: ignore[union-attr]
+            copied_keys.append(target_key)
+            node["requirement"] = str(node.get("requirement") or "").replace(
+                f"asset://{asset['id']}", f"asset://{new_asset_id}"
+            )
+            new_announcement_files.append({
+                **asset,
+                "id": new_asset_id,
+                "flow_id": new_flow_id,
+                "storage_key": target_key,
+                "etag": uploaded.etag,
+            })
 
         now = utc_now_iso()
         with get_connection() as connection:
@@ -721,6 +758,20 @@ def copy_flow_definition(
                 connection.execute(
                     """
                     INSERT INTO flow_content_assets
+                        (id, flow_id, node_key, storage_key, original_name, content_type,
+                         size_bytes, sha256, etag, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        asset["id"], new_flow_id, asset["node_key"], asset["storage_key"],
+                        asset["original_name"], asset["content_type"], asset["size_bytes"],
+                        asset["sha256"], asset["etag"], teacher_id, now,
+                    ),
+                )
+            for asset in new_announcement_files:
+                connection.execute(
+                    """
+                    INSERT INTO flow_announcement_files
                         (id, flow_id, node_key, storage_key, original_name, content_type,
                          size_bytes, sha256, etag, created_by, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -874,9 +925,10 @@ def save_draft(
         try:
             assert_published_answer_keys_unchanged(connection, flow_id, config)
             validate_content_assets(connection, flow_id, config)
+            validate_announcement_files(connection, flow_id, config)
         except AnswerSheetConfigError as exc:
             raise PublishedNodeMutationError(str(exc)) from exc
-        except ContentAssetError as exc:
+        except (ContentAssetError, AnnouncementFileError) as exc:
             raise FlowValidationError(str(exc)) from exc
         _refresh_file_audit_script_configs(config)
         _validate_audit_script_nodes(config)
@@ -1310,7 +1362,8 @@ def publish_flow(
                 connection, flow_id, config, current_keys
             )
             validate_content_assets(connection, flow_id, config)
-        except (AnswerSheetConfigError, ContentAssetError) as exc:
+            validate_announcement_files(connection, flow_id, config)
+        except (AnswerSheetConfigError, ContentAssetError, AnnouncementFileError) as exc:
             raise FlowValidationError(str(exc)) from exc
         snapshot = canonical_json(config)
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
@@ -1377,6 +1430,7 @@ def publish_flow(
         )
         freeze_answer_sheet_keys(connection, flow_id, version_id, config)
         freeze_content_asset_refs(connection, flow_id, version_id, config)
+        freeze_announcement_file_refs(connection, flow_id, version_id, config)
         for node in config["nodes"]:
             connection.execute(
                 """
@@ -1496,9 +1550,10 @@ def get_revision_impact(
                 config, current_keys, require_publishable=True
             )
             validate_content_assets(connection, flow_id, config)
+            validate_announcement_files(connection, flow_id, config)
         except AnswerSheetConfigError as exc:
             raise FlowValidationError(str(exc)) from exc
-        except ContentAssetError as exc:
+        except (ContentAssetError, AnnouncementFileError) as exc:
             raise FlowValidationError(str(exc)) from exc
         try:
             assert_published_answer_keys_unchanged(

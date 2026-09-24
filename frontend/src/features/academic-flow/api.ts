@@ -480,6 +480,32 @@ export const workflowApi = {
       { method: "POST", body: createFileUploadBody(file) },
     );
   },
+  uploadAnnouncementFile(flowId: string, nodeKey: string, file: File) {
+    return request<{ assetId: string; originalName: string; contentType: string; sizeBytes: number; sha256: string }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/announcement-files`,
+      { method: "POST", body: createFileUploadBody(file) },
+    );
+  },
+  getTeacherAnnouncementFile(flowId: string, nodeKey: string, assetId: string) {
+    return request<{ assetId: string; originalName: string; contentType: string; sizeBytes: number }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/announcement-files/${encodeURIComponent(assetId)}`,
+    );
+  },
+  downloadTeacherAnnouncementFile(flowId: string, nodeKey: string, assetId: string) {
+    return request<{ url: string; originalName: string }>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/announcement-files/${encodeURIComponent(assetId)}/download`,
+    );
+  },
+  getStudentAnnouncementFile(instanceId: string, nodeKey: string, assetId: string) {
+    return request<{ assetId: string; originalName: string; contentType: string; sizeBytes: number }>(
+      `/api/student/flow-instances/${encodeURIComponent(instanceId)}/nodes/${encodeURIComponent(nodeKey)}/announcement-files/${encodeURIComponent(assetId)}`,
+    );
+  },
+  downloadStudentAnnouncementFile(instanceId: string, nodeKey: string, assetId: string) {
+    return request<{ url: string; originalName: string }>(
+      `/api/student/flow-instances/${encodeURIComponent(instanceId)}/nodes/${encodeURIComponent(nodeKey)}/announcement-files/${encodeURIComponent(assetId)}/download`,
+    );
+  },
   getTeacherContentImage(flowId: string, assetId: string) {
     return request<{ url: string }>(
       `/api/workflows/${encodeURIComponent(flowId)}/content-assets/${encodeURIComponent(assetId)}`,

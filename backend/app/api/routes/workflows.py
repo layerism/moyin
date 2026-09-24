@@ -72,6 +72,17 @@ from app.repositories.flow_content_assets import (
     get_editable_content_node,
     get_teacher_content_asset,
 )
+from app.repositories.flow_announcement_files import (
+    ANNOUNCEMENT_FILE_TYPES,
+    AnnouncementFileError,
+    create_announcement_file,
+    get_editable_announcement_node,
+    get_teacher_announcement_file,
+)
+from app.services.announcement_file_validation import (
+    InvalidAnnouncementFile,
+    inspect_announcement_file,
+)
 from app.services.object_storage import (
     ObjectStorageError,
     ObjectStorageNotConfigured,
@@ -404,6 +415,102 @@ def upload_announcement_asset(
     return _upload_content_image(flow_id, node_key, file, teacher, "announcement")
 
 
+@router.post("/{flow_id}/nodes/{node_key}/announcement-files")
+def upload_announcement_file(
+    flow_id: str,
+    node_key: str,
+    file: UploadFile = File(...),
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    teacher_id = int(teacher["id"])
+    try:
+        get_editable_announcement_node(flow_id, node_key, teacher_id)
+    except KeyError as exc:
+        raise not_found() from exc
+    except AnnouncementFileError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    filename = PurePosixPath(str(file.filename or "").replace("\\", "/")).name
+    suffix = PurePosixPath(filename).suffix.lower()
+    content_type = ANNOUNCEMENT_FILE_TYPES.get(suffix)
+    if not filename or content_type is None:
+        raise HTTPException(status_code=422, detail="附件仅支持 PDF、DOCX、XLSX 和 PPTX")
+    if file.content_type not in (content_type, "application/octet-stream", None, ""):
+        raise HTTPException(status_code=422, detail="附件扩展名与文件类型不一致")
+    try:
+        size_bytes, sha256 = inspect_announcement_file(file.file, suffix)
+    except InvalidAnnouncementFile as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    storage_key = object_key(
+        settings.oss_prefix,
+        "announcement-files",
+        flow_id,
+        node_key,
+        timestamped_object_name(filename, sha256),
+    )
+    try:
+        storage = get_object_storage()
+        uploaded = storage.put_object(storage_key, file.file, content_type)
+        return create_announcement_file(
+            flow_id=flow_id, node_key=node_key, teacher_id=teacher_id,
+            storage_key=storage_key, original_name=filename, content_type=content_type,
+            size_bytes=size_bytes, sha256=sha256, etag=uploaded.etag,
+        )
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="附件存储服务未配置，请联系管理员") from exc
+    except (AnnouncementFileError, KeyError) as exc:
+        try:
+            get_object_storage().delete_object(storage_key)
+        except Exception:
+            pass
+        if isinstance(exc, KeyError):
+            raise not_found() from exc
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        try:
+            get_object_storage().delete_object(storage_key)
+        except Exception:
+            pass
+        raise HTTPException(status_code=502, detail="附件上传失败，请稍后重试") from exc
+
+
+@router.get("/{flow_id}/nodes/{node_key}/announcement-files/{asset_id}")
+def get_announcement_file_metadata(
+    flow_id: str,
+    node_key: str,
+    asset_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        asset = get_teacher_announcement_file(flow_id, node_key, asset_id, int(teacher["id"]))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="附件不存在") from exc
+    return {
+        "assetId": asset["id"], "originalName": asset["original_name"],
+        "contentType": asset["content_type"], "sizeBytes": asset["size_bytes"],
+    }
+
+
+@router.get("/{flow_id}/nodes/{node_key}/announcement-files/{asset_id}/download")
+def download_announcement_file(
+    flow_id: str,
+    node_key: str,
+    asset_id: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        asset = get_teacher_announcement_file(flow_id, node_key, asset_id, int(teacher["id"]))
+        url = get_object_storage().signed_download_url(
+            str(asset["storage_key"]), str(asset["original_name"])
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="附件不存在") from exc
+    except ObjectStorageNotConfigured as exc:
+        raise HTTPException(status_code=503, detail="附件存储服务未配置，请联系管理员") from exc
+    except ObjectStorageError as exc:
+        raise HTTPException(status_code=502, detail="附件下载链接生成失败") from exc
+    return {"url": url, "originalName": asset["original_name"]}
+
+
 def _upload_content_image(
     flow_id: str,
     node_key: str,
@@ -605,7 +712,7 @@ def post_flow_clone(
         raise not_found() from exc
     except DuplicateFlowNameError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    except FlowValidationError as exc:
+    except (FlowValidationError, ContentAssetError, AnnouncementFileError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ObjectStorageError as exc:
         raise HTTPException(status_code=502, detail="模板复制失败，请稍后重试") from exc
@@ -671,6 +778,7 @@ def post_flow_preview(
     except (
         AnswerSheetConfigError,
         ContentAssetError,
+        AnnouncementFileError,
         FlowValidationError,
         TemplateMutationError,
     ) as exc:

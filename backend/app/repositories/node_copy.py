@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.database import get_connection
 from app.domain.workflow import validate_flow_config
 from app.repositories.flow_content_assets import validate_content_assets
+from app.repositories.flow_announcement_files import validate_announcement_files
 from app.repositories.flow_templates import validate_version_templates
 from app.services.node_models import validate_flow_models
 from app.services.object_storage import get_object_storage, object_key
@@ -32,6 +33,7 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
             validate_flow_config(config)
             validate_version_templates(db, flow_id, config)
             references = validate_content_assets(db, flow_id, config)
+            announcement_files = validate_announcement_files(db, flow_id, config)
             validate_flow_models(db, flow_id, config)
             assets = []
             for _, metadata in asset_entries(node):
@@ -40,6 +42,9 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
             for asset_id in references.get(node["id"], set()):
                 row = db.execute("SELECT * FROM flow_content_assets WHERE id = ?", (asset_id,)).fetchone()
                 assets.append(("flow_content_assets", None, dict(row)))
+            for asset_id in announcement_files.get(node["id"], set()):
+                row = db.execute("SELECT * FROM flow_announcement_files WHERE id = ?", (asset_id,)).fetchone()
+                assets.append(("flow_announcement_files", None, dict(row)))
             node["id"] = str(uuid.uuid4())
             node["status"] = "disabled"
             for branch in node.get("branches", []):

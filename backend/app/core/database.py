@@ -261,6 +261,28 @@ CREATE TABLE IF NOT EXISTS flow_content_assets (
 CREATE INDEX IF NOT EXISTS idx_flow_content_assets_node
     ON flow_content_assets(flow_id, node_key);
 
+CREATE TABLE IF NOT EXISTS flow_announcement_files (
+    id TEXT PRIMARY KEY,
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    storage_key TEXT NOT NULL UNIQUE,
+    original_name TEXT NOT NULL,
+    content_type TEXT NOT NULL CHECK (content_type IN (
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    )),
+    size_bytes INTEGER NOT NULL CHECK (size_bytes BETWEEN 1 AND 52428800),
+    sha256 TEXT NOT NULL,
+    etag TEXT NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_flow_announcement_files_node
+    ON flow_announcement_files(flow_id, node_key);
+
 CREATE TABLE IF NOT EXISTS flow_version_templates (
     flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
@@ -273,6 +295,13 @@ CREATE TABLE IF NOT EXISTS flow_version_content_assets (
     node_key TEXT NOT NULL,
     content_asset_id TEXT NOT NULL REFERENCES flow_content_assets(id) ON DELETE RESTRICT,
     PRIMARY KEY(flow_version_id, node_key, content_asset_id)
+);
+
+CREATE TABLE IF NOT EXISTS flow_version_announcement_files (
+    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    announcement_file_id TEXT NOT NULL REFERENCES flow_announcement_files(id) ON DELETE RESTRICT,
+    PRIMARY KEY(flow_version_id, node_key, announcement_file_id)
 );
 
 CREATE TABLE IF NOT EXISTS share_tokens (

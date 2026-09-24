@@ -266,7 +266,7 @@ export function AcademicFlowDesigner({
 
   const requestNavigation = (destination: string, navigate: () => void) => {
     if (announcementUploads > 0) {
-      showActionError("请等待公告图片上传完成后再离开");
+      showActionError("请等待公告资源上传完成后再离开");
       return;
     }
     if (!revisionDirty) {
@@ -746,7 +746,7 @@ export function AcademicFlowDesigner({
     }
   };
 
-  const uploadAnnouncementImage = async (nodeId: string, file: File) => {
+  const uploadAnnouncementAsset = async (nodeId: string, file: File, kind: "image" | "file") => {
     setAnnouncementUploads((count) => count + 1);
     try {
       if (!persistedNodeIds.current.has(nodeId)) {
@@ -764,11 +764,15 @@ export function AcademicFlowDesigner({
         }
         await pendingAnnouncementNodeSave.current;
       }
-      return await workflowApi.uploadAnnouncementImage(serverFlowId, nodeId, file);
+      return kind === "image"
+        ? await workflowApi.uploadAnnouncementImage(serverFlowId, nodeId, file)
+        : await workflowApi.uploadAnnouncementFile(serverFlowId, nodeId, file);
     } finally {
       setAnnouncementUploads((count) => count - 1);
     }
   };
+  const uploadAnnouncementImage = (nodeId: string, file: File) => uploadAnnouncementAsset(nodeId, file, "image");
+  const uploadAnnouncementFile = (nodeId: string, file: File) => uploadAnnouncementAsset(nodeId, file, "file");
 
   const deleteNodeTemplate = async (nodeId: string, assetId?: string) => {
     const reference = assetId !== undefined;
@@ -924,6 +928,7 @@ export function AcademicFlowDesigner({
             onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, [file])}
             onUploadReference={(files, replaceAssetId) => void uploadNodeTemplate(inspectorNode.id, files, true, replaceAssetId)}
             onUploadAnnouncementImage={uploadAnnouncementImage}
+            onUploadAnnouncementFile={uploadAnnouncementFile}
             onUpdateAnnouncementRequirement={updateAnnouncementRequirement}
             onDeleteReference={(assetId) => void deleteNodeTemplate(inspectorNode.id, assetId)}
             onUpdateNode={updateNode}
@@ -2297,6 +2302,7 @@ function NodeInspector({
   onUploadTemplate,
   onUploadReference,
   onUploadAnnouncementImage,
+  onUploadAnnouncementFile,
   onUpdateAnnouncementRequirement,
   onDeleteReference,
   onUpdateNode,
@@ -2318,6 +2324,7 @@ function NodeInspector({
   onUploadTemplate: (file: File) => void;
   onUploadReference: (files: File[], replaceAssetId?: string) => void;
   onUploadAnnouncementImage: (nodeId: string, file: File) => Promise<{ assetId: string }>;
+  onUploadAnnouncementFile: (nodeId: string, file: File) => Promise<{ assetId: string }>;
   onUpdateAnnouncementRequirement: (
     nodeId: string,
     value: string | ((current: string) => string),
@@ -2670,6 +2677,7 @@ function NodeInspector({
             nodeId={node.id}
             onChange={(requirement) => onUpdateAnnouncementRequirement(node.id, requirement)}
             onUpload={onUploadAnnouncementImage}
+            onUploadFile={onUploadAnnouncementFile}
             value={node.requirement}
           />
         ) : (
