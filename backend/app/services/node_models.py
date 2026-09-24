@@ -82,6 +82,10 @@ def model_node_usages(connection, owner_id: int) -> list[dict]:
         references.extend((row["node_key"], row["model_card_id"]) for row in connection.execute(
             "SELECT node_key, model_card_id FROM node_audit_policies WHERE flow_id = ?", (flow["id"],)
         ))
+        references.extend((row['node_key'], step.get('auditModelCardId'))
+                          for row in connection.execute(
+                              'SELECT node_key, steps_json FROM node_review_step_policies WHERE flow_id = ?', (flow['id'],))
+                          for step in json.loads(row['steps_json']))
         for node_key, card_id in references:
             if card_id:
                 key = (flow["id"], node_key, card_id)

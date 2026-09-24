@@ -1,4 +1,4 @@
-import type { AcademicFlowConfig, AcademicFlowNode, AcademicProcess, AnswerSheetPrivateKey } from "../../types";
+import type { AcademicFlowConfig, AcademicFlowNode, AcademicProcess, AnswerSheetPrivateKey, FileReviewStep } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
 import type { AuditScriptSummary, NodeAuditPolicy } from "./auditScripts";
 import type {
@@ -20,6 +20,14 @@ import type {
 import { createFlowConfig, createPublishRequestPayload } from "./flowRevision";
 
 export const FLOW_PREVIEW_TOKEN_KEY = "oa-flow-preview-token";
+
+export type ReviewStepPolicy = {
+  flowId: string;
+  nodeKey: string;
+  generation: number;
+  steps: FileReviewStep[];
+  updatedAt: string | null;
+};
 
 export type WorkflowTemplate = {
   id: string;
@@ -522,6 +530,21 @@ export const workflowApi = {
   ) {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
+      { method: "PUT", body: JSON.stringify(payload) },
+    );
+  },
+  getReviewStepPolicy(flowId: string, nodeKey: string) {
+    return request<ReviewStepPolicy>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/review-step-policy`,
+    );
+  },
+  updateReviewStepPolicy(
+    flowId: string,
+    nodeKey: string,
+    payload: { expectedGeneration: number; steps: Array<Pick<FileReviewStep, "id" | "auditScriptParams" | "auditModelCardId">> },
+  ) {
+    return request<ReviewStepPolicy>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/review-step-policy`,
       { method: "PUT", body: JSON.stringify(payload) },
     );
   },

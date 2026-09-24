@@ -35,6 +35,11 @@ from app.repositories.audit_policies import (
     get_node_audit_policy,
     update_node_audit_policy,
 )
+from app.repositories.review_step_policies import (
+    ReviewStepPolicyConflict,
+    get_review_step_policy,
+    update_review_step_policy,
+)
 from app.repositories.answer_sheet_keys import validate_answer_sheet_key_map
 from app.repositories.answer_sheet_policies import (
     AnswerSheetPolicyConflictError,
@@ -113,6 +118,11 @@ class PublishFlowRequest(BaseModel):
     expectedCurrentVersionId: str | None = None
 
 
+class ReviewStepPolicyRequest(BaseModel):
+    expectedGeneration: int = Field(ge=1)
+    steps: list[dict[str, Any]]
+
+
 class AuditPolicyRequest(BaseModel):
     modelCardId: str | None = Field(max_length=64)
     expectedGeneration: int = Field(ge=1)
@@ -174,6 +184,37 @@ def get_answer_key_policy_route(
         return get_node_answer_key_policy(flow_id, node_key, int(teacher["id"]))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="已发布答题卡不存在") from exc
+
+
+@router.get("/{flow_id}/nodes/{node_key}/review-step-policy")
+def get_review_step_policy_route(
+    flow_id: str,
+    node_key: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return get_review_step_policy(flow_id, node_key, int(teacher['id']))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail='已发布审核步骤不存在') from exc
+
+
+@router.put("/{flow_id}/nodes/{node_key}/review-step-policy")
+def put_review_step_policy_route(
+    flow_id: str,
+    node_key: str,
+    payload: ReviewStepPolicyRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return update_review_step_policy(
+            flow_id, node_key, int(teacher['id']), payload.expectedGeneration, payload.steps,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail='已发布审核步骤不存在') from exc
+    except ReviewStepPolicyConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.put("/{flow_id}/nodes/{node_key}/answer-key-policy")

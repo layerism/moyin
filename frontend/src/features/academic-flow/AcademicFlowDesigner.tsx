@@ -17,6 +17,7 @@ import type {
   AcademicFlowPort,
   AcademicFlowNodeStatus,
   AcademicProcess,
+  FileReviewStep,
 } from "../../types";
 import {
   createNode,
@@ -26,7 +27,7 @@ import {
   getFileTypeRestrictionPreset,
   nodeTemplates,
 } from "./academicFlowData";
-import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy } from "./api";
+import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy } from "./api";
 import {
   getAuditScriptParameterError,
   type NodeAuditPolicy,
@@ -2337,6 +2338,8 @@ function NodeInspector({
   const [modelValidationAttempt, setModelValidationAttempt] = useState(0);
   const [auditPolicyError, setAuditPolicyError] = useState("");
   const [auditPolicySaving, setAuditPolicySaving] = useState(false);
+  const [reviewStepPolicy, setReviewStepPolicy] = useState<ReviewStepPolicy | null>(null);
+  const [reviewStepDraft, setReviewStepDraft] = useState<FileReviewStep[]>([]);
   const [answerKeyPolicy, setAnswerKeyPolicy] = useState<AnswerKeyPolicy | null>(null);
   const [answerKeyDraft, setAnswerKeyDraft] = useState<AcademicProcess["answerSheetKeys"][string] | null>(null);
   const [answerKeyError, setAnswerKeyError] = useState("");
@@ -2345,6 +2348,9 @@ function NodeInspector({
   const nodeKey = node?.id ?? "";
   const hasPublishedAuditPolicy = Boolean(
     publishedAuditPolicy && node && (node.auditScriptId || node.scanAuditEnabled),
+  );
+  const hasPublishedReviewStepPolicy = Boolean(
+    publishedAuditPolicy && node?.fileReviewSteps?.some((step) => typeof step === "object" && step.kind !== "manual"),
   );
   const hasPublishedAnswerKeyPolicy = Boolean(
     publishedAuditPolicy && node?.kind === "answer_sheet",
@@ -2373,6 +2379,22 @@ function NodeInspector({
       cancelled = true;
     };
   }, [flowId, hasPublishedAuditPolicy, nodeKey]);
+
+  useEffect(() => {
+    setReviewStepPolicy(null);
+    setReviewStepDraft([]);
+    if (!hasPublishedReviewStepPolicy) return;
+    let cancelled = false;
+    workflowApi.getReviewStepPolicy(flowId, nodeKey).then((value) => {
+      if (cancelled) return;
+      setReviewStepPolicy(value);
+      setReviewStepDraft(value.steps);
+      setAuditPolicyError("");
+    }).catch((reason) => {
+      if (!cancelled) setAuditPolicyError(reason instanceof Error ? reason.message : "读取审核步骤失败");
+    });
+    return () => { cancelled = true; };
+  }, [flowId, hasPublishedReviewStepPolicy, nodeKey]);
 
   useEffect(() => {
     setAnswerKeyPolicy(null);
@@ -2409,6 +2431,12 @@ function NodeInspector({
       (parameter) => auditPolicyParams[parameter.key] !== auditPolicy.params[parameter.key],
     )
   ));
+  const reviewStepChanged = Boolean(reviewStepPolicy && reviewStepDraft.some((step, index) => (
+    step.kind !== "manual" && (
+      JSON.stringify(step.auditScriptParams ?? {}) !== JSON.stringify(reviewStepPolicy.steps[index]?.auditScriptParams ?? {})
+      || (step.auditModelCardId ?? null) !== (reviewStepPolicy.steps[index]?.auditModelCardId ?? null)
+    )
+  )));
   const answerKeyChanged = Boolean(
     answerKeyPolicy
     && answerKeyDraft
@@ -2419,7 +2447,7 @@ function NodeInspector({
   const missingAuditModel = requiresAuditModel && !(hasPublishedAuditPolicy ? auditModelCardId : node?.auditModelCardId);
 
   const persistPoliciesAndClose = useCallback(async (saveAnswerKey: boolean) => {
-    setAuditPolicySaving(auditPolicyChanged);
+    setAuditPolicySaving(auditPolicyChanged || reviewStepChanged);
     setAnswerKeySaving(saveAnswerKey && answerKeyChanged);
     setAuditPolicyError("");
     setAnswerKeyError("");
@@ -2444,6 +2472,18 @@ function NodeInspector({
         setAuditPolicy(updatedAuditPolicy);
         onAuditPolicySaved(updatedAuditPolicy);
       }
+      if (hasPublishedReviewStepPolicy && reviewStepPolicy && reviewStepChanged) {
+        const updatedReviewSteps = await workflowApi.updateReviewStepPolicy(flowId, nodeKey, {
+          expectedGeneration: reviewStepPolicy.generation,
+          steps: reviewStepDraft.filter((step) => step.kind !== "manual").map((step) => ({
+            id: step.id,
+            auditScriptParams: step.auditScriptParams ?? {},
+            auditModelCardId: step.auditModelCardId,
+          })),
+        });
+        setReviewStepPolicy(updatedReviewSteps);
+        setReviewStepDraft(updatedReviewSteps.steps);
+      }
       onClose();
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "保存节点配置失败";
@@ -2462,6 +2502,10 @@ function NodeInspector({
     auditPolicy,
     auditPolicyChanged,
     auditPolicyParams,
+    hasPublishedReviewStepPolicy,
+    reviewStepChanged,
+    reviewStepDraft,
+    reviewStepPolicy,
     flowId,
     hasPublishedAuditPolicy,
     nodeKey,
@@ -2474,8 +2518,12 @@ function NodeInspector({
     if (auditPolicySaving || answerKeySaving) return;
     if (requireModel && hasPublishedAnswerKeyPolicy && !answerKeyPolicy) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
+    if (requireModel && hasPublishedReviewStepPolicy && !reviewStepPolicy) return;
     if (requireModel && node && ["file", "confirmation"].includes(node.kind)) {
-      const error = fileReviewError(hasPublishedAuditPolicy ? { ...node, auditModelCardId: auditModelCardId ?? undefined } : node);
+      const reviewNode = hasPublishedReviewStepPolicy && reviewStepPolicy
+        ? { ...node, fileReviewSteps: reviewStepDraft }
+        : hasPublishedAuditPolicy ? { ...node, auditModelCardId: auditModelCardId ?? undefined } : node;
+      const error = fileReviewError(reviewNode);
       if (error) {
         setAuditPolicyError(error);
         return;
@@ -2511,6 +2559,9 @@ function NodeInspector({
     auditPolicySaving,
     hasPublishedAnswerKeyPolicy,
     hasPublishedAuditPolicy,
+    hasPublishedReviewStepPolicy,
+    reviewStepDraft,
+    reviewStepPolicy,
     persistPoliciesAndClose,
   ]);
 
@@ -2541,7 +2592,10 @@ function NodeInspector({
   }
 
   const coreSettingsDisabled = editingLocked || nodeCoreLocked;
-  const auditControlsNode: AcademicFlowNode = auditPolicy ? {
+  const auditControlsNode: AcademicFlowNode = reviewStepPolicy ? {
+    ...node,
+    fileReviewSteps: reviewStepDraft,
+  } : auditPolicy ? {
     ...node,
     auditScriptParams: auditPolicyParams,
     auditModelCardId: auditModelCardId ?? undefined,
@@ -2836,6 +2890,13 @@ function NodeInspector({
                 disabled={coreSettingsDisabled}
                 node={auditControlsNode}
                 onChange={(patch) => {
+                  if (hasPublishedReviewStepPolicy) {
+                    if (patch.fileReviewSteps?.every((step) => typeof step === "object")) {
+                      setAuditPolicyError("");
+                      setReviewStepDraft(patch.fileReviewSteps as FileReviewStep[]);
+                    }
+                    return;
+                  }
                   if (hasPublishedAuditPolicy && "auditModelCardId" in patch && !("fileReviewSteps" in patch)) {
                     setAuditPolicyError("");
                     setAuditModelCardId(patch.auditModelCardId ?? null);
@@ -2848,9 +2909,9 @@ function NodeInspector({
                   }
                   onUpdateNode(node.id, patch);
                 }}
-                parameterDisabled={hasPublishedAuditPolicy
-                  ? !auditPolicy || auditPolicySaving
-                  : coreSettingsDisabled}
+                parameterDisabled={hasPublishedReviewStepPolicy
+                  ? !reviewStepPolicy || auditPolicySaving
+                  : hasPublishedAuditPolicy ? !auditPolicy || auditPolicySaving : coreSettingsDisabled}
                 parameters={hasPublishedAuditPolicy ? auditPolicy?.parameters : undefined}
               />
             </section>
@@ -2870,18 +2931,24 @@ function NodeInspector({
                 ? "正在读取已发布标准答案…"
               : hasPublishedAuditPolicy && !auditPolicy
                 ? "正在读取已发布审核规则…"
+              : hasPublishedReviewStepPolicy && !reviewStepPolicy
+                ? "正在读取已发布审核步骤…"
                 : answerKeySaving || auditPolicySaving
                   ? "正在保存并更新相关结果…"
                   : answerKeyChanged
                     ? "点击完成后，标准答案立即更新并重新判定全部历史答卷。"
                   : hasPublishedAuditPolicy && auditPolicyChanged
                     ? "点击完成后，审核规则立即更新未完成审核。"
+                  : hasPublishedReviewStepPolicy && reviewStepChanged
+                    ? "点击完成后，新提交将使用更新后的审核参数；已提交批次保持原规则。"
                     : publishedRevision && hasPublishedAnswerKeyPolicy
                       ? "标题、说明和时间重新发布后生效；标准答案在完成时立即保存并重新判分。"
                       : publishedRevision
                         ? "标题、说明和时间重新发布后生效；审核规则在完成时立即保存。"
                       : hasPublishedAuditPolicy
                         ? "审核提示词和脚本参数可在原位置修改，完成时立即保存。"
+                        : hasPublishedReviewStepPolicy
+                          ? "审核参数和模型可修改；步骤与脚本保持发布锁定。"
                         : hasPublishedAnswerKeyPolicy
                           ? "正确答案可修改；题目结构保持发布锁定。"
                         : "修改仅保存在当前页面，提交发布后写入流程版本。"}
@@ -2890,7 +2957,8 @@ function NodeInspector({
             className="primary-action"
             disabled={answerKeySaving || auditPolicySaving
               || (hasPublishedAnswerKeyPolicy && !answerKeyPolicy)
-              || (hasPublishedAuditPolicy && !auditPolicy)}
+              || (hasPublishedAuditPolicy && !auditPolicy)
+              || (hasPublishedReviewStepPolicy && !reviewStepPolicy)}
             onClick={() => void closeInspector(true)}
             type="button"
           >

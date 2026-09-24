@@ -135,7 +135,7 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
               const { fileExtensions: _extensions, kind: _kind, id: _id, ...selection } = patch;
               update(step.id, selection);
             }} />
-          {requiresReviewModel(step) ? <div className="file-review-step-model"><NodeModelSelector value={step.auditModelCardId ?? null} disabled={legacySteps ? (props.parameterDisabled ?? disabled) : disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /></div> : null}
+          {requiresReviewModel(step) ? <div className="file-review-step-model"><NodeModelSelector value={step.auditModelCardId ?? null} disabled={props.parameterDisabled ?? disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /></div> : null}
         </> : null}
       </div>
     </li>)}</ol>
