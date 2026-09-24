@@ -30,13 +30,13 @@ export function getScanFilenameError(input: {
   }
   const invalidFilename = input.filenames.find((filename) => {
     const scan = getFilenameIdentity(filename);
-    return ![".jpg", ".jpeg", ".png"].includes(scan.suffix)
+    return ![".jpg", ".jpeg", ".png", ".pdf"].includes(scan.suffix)
       || (hasTemplate && !scan.stem.startsWith(template.stem));
   });
   if (invalidFilename) {
     if (!hasTemplate) {
       return `文件“${normalizeFilename(invalidFilename)}”格式不符合要求，`
-        + "请上传 JPG、JPEG 或 PNG 图片。";
+        + "请上传 JPG、JPEG、PNG 图片或 PDF。";
     }
     return `文件“${normalizeFilename(invalidFilename)}”名称不符合要求，`
       + `请改为以“${template.stem}”开头后重新上传。`;
@@ -214,14 +214,14 @@ export function ScanUploadWorkspace({
       onDrop={drop}
       onKeyDown={activateWithKeyboard}
     >
-      <input accept=".jpg,.jpeg,.png" disabled={disabled || templateLocked || uploading} multiple ref={fileInputRef} type="file" onChange={(event) => {
+      <input accept=".jpg,.jpeg,.png,.pdf" disabled={disabled || templateLocked || uploading} multiple ref={fileInputRef} type="file" onChange={(event) => {
         const files = Array.from(event.currentTarget.files ?? []);
         event.currentTarget.value = "";
         if (files.length) void upload(files);
       }} />
       <strong>{uploading ? "正在逐个上传扫描件" : "选择或拖拽扫描件"}</strong>
       <small>
-        JPG、JPEG、PNG；最多 10 个文件、20 页
+        JPG、JPEG、PNG、PDF；最多 10 个文件、20 页
         {templateFilename === null ? "；文件名不限" : ""}
       </small>
     </label>
@@ -237,7 +237,7 @@ export function ScanUploadWorkspace({
           <button aria-label={`上移 ${scan.originalName}`} disabled={disabled || index === 0} onClick={() => void move(index, -1)} type="button">↑</button>
           <button aria-label={`下移 ${scan.originalName}`} disabled={disabled || index === scans.length - 1} onClick={() => void move(index, 1)} type="button">↓</button>
           <button onClick={() => onDownload(scan.fileId)} type="button">下载</button>
-          <label className="runtime-scan-replace">替换<input accept=".jpg,.jpeg,.png" disabled={disabled} type="file" onChange={(event) => {
+          <label className="runtime-scan-replace">替换<input accept=".jpg,.jpeg,.png,.pdf" disabled={disabled} type="file" onChange={(event) => {
             const file = event.target.files?.[0];
             event.currentTarget.value = "";
             if (file) void replace(scan, file);

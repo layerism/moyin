@@ -3161,17 +3161,17 @@ function ConfirmationScanSettings({
         <small>{publishedMaterialRevision ? "材料变更后需重新提交" : "视觉审核"}</small>
       </header>
       <NodeFileRow label="文件模板" asset={node.templateAsset} accept=".docx"
-        hint="可选；DOCX，不提供时直接上传图片" disabled={templateDisabled} removable={templateRemovable}
+        hint="可选；DOCX，不提供时直接上传扫描件" disabled={templateDisabled} removable={templateRemovable}
         onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
       <NodeReferenceFiles label="参考示例" assets={nodeReferences(node)} disabled={referenceDisabled}
         replaceOnly={referenceReplaceOnly}
         onUpload={onUploadReference} onRemove={onDeleteReference} />
       <div className="confirmation-audit-row"><span
           className="confirmation-upload-limits"
-          title="学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB；支持 JPG、JPEG、PNG"
+          title="学生最多上传 10 个文件、合计 20 页；单文件 10 MB，整组 30 MB；支持 JPG、JPEG、PNG、PDF"
         >
           <i aria-hidden="true">⇧</i>
-          10 文件 · 20 页 · 10 MB/文件 · 30 MB/组 · JPG/JPEG/PNG
+          10 文件 · 20 页 · 10 MB/文件 · 30 MB/组 · JPG/JPEG/PNG/PDF
         </span></div>
       <FileReviewStepsEditor node={node} disabled={disabled} parameterDisabled={parameterDisabled} onChange={onUpdate} />
     </section>

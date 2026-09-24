@@ -124,10 +124,10 @@ def validate_confirmation_scan_filenames(
             raise ValueError("当前节点模板配置异常，请联系教师")
     for uploaded_filename in uploaded_filenames:
         uploaded_stem, uploaded_suffix = _filename_identity(uploaded_filename)
-        if uploaded_suffix not in {".jpg", ".jpeg", ".png"}:
+        if uploaded_suffix not in {".jpg", ".jpeg", ".png", ".pdf"}:
             normalized = _normalized_filename(uploaded_filename)
             raise ValueError(
-                f"文件“{normalized}”格式不符合要求，请上传 JPG、JPEG 或 PNG 图片。"
+                f"文件“{normalized}”格式不符合要求，请上传 JPG、JPEG、PNG 图片或 PDF。"
             )
         if template_stem and not uploaded_stem.startswith(template_stem):
             normalized = _normalized_filename(uploaded_filename)

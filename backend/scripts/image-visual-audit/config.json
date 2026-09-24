@@ -1,5 +1,5 @@
 {
-  "acceptedExtensions": [".jpg", ".jpeg", ".png"],
+  "acceptedExtensions": [".jpg", ".jpeg", ".png", ".pdf"],
   "parameters": [
     {
       "key": "reviewPrompt",
@@ -24,7 +24,8 @@
     {"key": "temperature", "label": "模型温度", "type": "number", "value": 0, "minimum": 0, "maximum": 1},
     {"key": "imageMaximumSide", "label": "图片最长边", "type": "integer", "value": 2000, "minimum": 512, "maximum": 4096},
     {"key": "jpegQuality", "label": "JPEG 质量", "type": "integer", "value": 85, "minimum": 40, "maximum": 100},
-    {"key": "requestTimeoutSeconds", "label": "请求超时", "type": "integer", "value": 60, "minimum": 5, "maximum": 300}
+    {"key": "requestTimeoutSeconds", "label": "请求超时", "type": "integer", "value": 180, "minimum": 5, "maximum": 300},
+    {"key": "executionTimeoutSeconds", "label": "脚本执行超时", "type": "integer", "value": 240, "minimum": 5, "maximum": 600}
   ],
   "execution": {"maxConcurrency": 4}
 }

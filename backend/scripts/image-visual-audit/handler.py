@@ -1,4 +1,4 @@
-"""Audit a complete group of student-uploaded images with a vision model."""
+"""Audit student-uploaded images and PDF pages with a vision model."""
 import base64
 import io
 import json
@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import fitz
 from PIL import Image, ImageOps
 
 
@@ -24,6 +25,23 @@ def image_url(item, settings):
     return "data:image/jpeg;base64," + base64.b64encode(output.getvalue()).decode("ascii")
 
 
+def material_images(item, settings):
+    if item["extension"].lower() != ".pdf":
+        return [image_url(item, settings)]
+    with fitz.open(Path(item["path"])) as document:
+        if document.needs_pass or not 1 <= document.page_count <= 20 or document.page_count != item["pageCount"]:
+            raise ValueError("PDF 页数与上传记录不符")
+        images = []
+        for page in document:
+            scale = int(settings["imageMaximumSide"]) / max(page.rect.width, page.rect.height)
+            pixmap = page.get_pixmap(
+                matrix=fitz.Matrix(scale, scale), colorspace=fitz.csRGB, alpha=False
+            )
+            png = pixmap.tobytes("png")
+            images.append("data:image/png;base64," + base64.b64encode(png).decode("ascii"))
+        return images
+
+
 def request_review(files, params, settings):
     base_url = os.environ.get("VISION_API_BASE_URL", "").rstrip("/")
     api_key = os.environ.get("VISION_API_KEY", "")
@@ -31,7 +49,12 @@ def request_review(files, params, settings):
     if not all((base_url, api_key, model)):
         raise RuntimeError("视觉审核模型未配置")
     content = [{"type": "text", "text": "教师审核标准：\n" + params["reviewPrompt"]}]
-    content.extend({"type": "image_url", "image_url": {"url": image_url(item, settings)}} for item in files)
+    for file_number, item in enumerate(files, 1):
+        for page_number, data_url in enumerate(material_images(item, settings), 1):
+            content.extend([
+                {"type": "text", "text": f"第 {file_number} 个文件，第 {page_number} 页"},
+                {"type": "image_url", "image_url": {"url": data_url}},
+            ])
     body = {
         "model": model,
         "messages": [
@@ -64,8 +87,8 @@ def request_review(files, params, settings):
 def main():
     payload = json.load(sys.stdin)
     files = payload["files"]
-    if not 1 <= len(files) <= 10:
-        raise ValueError("扫描图片数量无效")
+    if not 1 <= len(files) <= 10 or not 1 <= sum(item["pageCount"] for item in files) <= 20:
+        raise ValueError("扫描件数量或页数无效")
     context = payload["context"]
     passed, reason = request_review(files, context["scriptParams"], context["scriptSettings"])
     json.dump({"schemaVersion": "1.0", "passed": passed, "reason": reason,

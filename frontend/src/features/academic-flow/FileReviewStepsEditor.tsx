@@ -113,7 +113,7 @@ export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSe
           const scriptId = image ? (type === "score" ? "image-visual-score-audit" : "image-visual-audit") : "document-score-audit";
           save([...steps, { id, kind: type, ...(type !== "manual" && (image || type === "score") ? {
             auditScriptId: scriptId, auditScriptName: image ? (type === "score" ? "图片视觉打分" : "图片视觉审核") : "DOCX/PDF AI 评分",
-            auditScriptType: "py" as const, auditScriptAcceptedExtensions: image ? [".jpg", ".jpeg", ".png"] : [".docx", ".pdf"],
+            auditScriptType: "py" as const, auditScriptAcceptedExtensions: image ? [".jpg", ".jpeg", ".png", ".pdf"] : [".docx", ".pdf"],
             auditScriptParams: image ? (type === "score" ? { passThreshold: 60, scoringPrompt: "请依据材料完整性和任务要求评分。" } : { reviewPrompt: "请检查扫描图片是否完整、清晰，并符合材料要求。" }) : { passThreshold: 60, scoringPrompt: "# 评分标准\n\n请从内容完整性、逻辑和表达规范三个方面评分，并说明扣分原因。" },
           } : {}) }]); setAdding(false); toggleRef.current?.focus();
         }}><span className="file-review-type-icon" aria-hidden="true">{type !== "manual" ? "✦" : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2Z" /></svg>}</span><span><strong>{type === "ai" ? "AI 通过/不通过" : type === "score" ? "AI 评分 0–100" : "人工审核"}</strong><small>{type === "ai" ? "按所选规则自动检查" : type === "score" ? "评分达到阈值后通过" : "由流程发布者审核"}</small></span></button>)}</div>, document.body) : null}

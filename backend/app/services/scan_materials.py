@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
+import fitz
 from PIL import Image, UnidentifiedImageError
 
 
@@ -27,8 +28,15 @@ def inspect_scan_material(
         raise ScanMaterialError("单个扫描件必须小于 10 MB")
     try:
         stream.seek(0)
+        if extension == ".pdf":
+            with fitz.open(stream=stream.read(), filetype="pdf") as document:
+                if document.needs_pass or not 1 <= document.page_count <= 20:
+                    raise ScanMaterialError("PDF 必须未加密且不超过 20 页")
+                if any(page.rect.width <= 0 or page.rect.height <= 0 for page in document):
+                    raise ScanMaterialError("PDF 页面尺寸无效")
+                return ScanInspection("application/pdf", document.page_count)
         if extension not in {".jpg", ".jpeg", ".png"}:
-            raise ScanMaterialError("扫描件仅支持 JPG、JPEG 或 PNG")
+            raise ScanMaterialError("扫描件仅支持 JPG、JPEG、PNG 或 PDF")
         with Image.open(stream) as image:
             actual = (image.format or "").upper()
             expected = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG"}[extension]
@@ -39,7 +47,7 @@ def inspect_scan_material(
         return ScanInspection(content_type, 1)
     except ScanMaterialError:
         raise
-    except (UnidentifiedImageError, OSError, ValueError):
+    except (UnidentifiedImageError, OSError, RuntimeError, ValueError):
         raise ScanMaterialError("扫描件内容损坏或格式不符") from None
     finally:
         stream.seek(0)
