@@ -54,7 +54,11 @@ def _published_template_editable(
         return True
     if node.get("kind") == "file":
         return True
-    if node.get("kind") != "confirmation" or reference or not node.get("templateAsset"):
+    if node.get("kind") != "confirmation":
+        return False
+    if reference:
+        return True
+    if not node.get("templateAsset"):
         return False
     row = connection.execute(
         """SELECT config_snapshot FROM flow_versions

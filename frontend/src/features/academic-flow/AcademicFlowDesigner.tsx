@@ -2722,7 +2722,7 @@ function NodeInspector({
               <span aria-hidden="true">↻</span>
               发布后修订
             </strong>
-            <span className="revision-strip-detail">{node.kind === "file" ? "基本信息/材料/时间" : node.kind === "confirmation" && node.templateAsset ? "基本信息/模板/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
+            <span className="revision-strip-detail">{node.kind === "file" || node.kind === "confirmation" ? "基本信息/材料/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
               审核规则 · 完成立即生效
@@ -2768,7 +2768,9 @@ function NodeInspector({
             disabled={coreSettingsDisabled}
             templateDisabled={editingLocked || (nodeCoreLocked && !node.templateAsset)}
             templateRemovable={!nodeCoreLocked}
-            publishedTemplateRevision={publishedRevision && nodeCoreLocked && Boolean(node.templateAsset)}
+            referenceDisabled={editingLocked}
+            referenceReplaceOnly={nodeCoreLocked}
+            publishedMaterialRevision={publishedRevision && nodeCoreLocked}
             node={auditControlsNode}
             onDeleteTemplate={onDeleteTemplate}
             onDeleteReference={onDeleteReference}
@@ -3116,7 +3118,9 @@ function ConfirmationScanSettings({
   disabled,
   templateDisabled,
   templateRemovable,
-  publishedTemplateRevision,
+  referenceDisabled,
+  referenceReplaceOnly,
+  publishedMaterialRevision,
   node,
   onDeleteTemplate,
   onDeleteReference,
@@ -3127,13 +3131,15 @@ function ConfirmationScanSettings({
   disabled: boolean;
   templateDisabled: boolean;
   templateRemovable: boolean;
-  publishedTemplateRevision: boolean;
+  referenceDisabled: boolean;
+  referenceReplaceOnly: boolean;
+  publishedMaterialRevision: boolean;
   node: AcademicFlowNode;
   onDeleteTemplate: () => void;
   onDeleteReference: (assetId: string) => void;
   onUpdate: (patch: Partial<AcademicFlowNode>) => void;
   onUploadTemplate: (file: File) => void;
-  onUploadReference: (files: File[]) => void;
+  onUploadReference: (files: File[], replaceAssetId?: string) => void;
 }) {
   return (
     <section className="inspector-section confirmation-scan-settings">
@@ -3142,12 +3148,13 @@ function ConfirmationScanSettings({
           <i aria-hidden="true">✓</i>
           扫描件提交与审核
         </strong>
-        <small>{publishedTemplateRevision ? "模板更换后需重新提交" : "视觉审核"}</small>
+        <small>{publishedMaterialRevision ? "材料变更后需重新提交" : "视觉审核"}</small>
       </header>
       <NodeFileRow label="文件模板" asset={node.templateAsset} accept=".docx"
         hint="可选；DOCX，不提供时直接上传图片" disabled={templateDisabled} removable={templateRemovable}
         onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
-      <NodeReferenceFiles label="参考示例" assets={nodeReferences(node)} disabled={disabled}
+      <NodeReferenceFiles label="参考示例" assets={nodeReferences(node)} disabled={referenceDisabled}
+        replaceOnly={referenceReplaceOnly}
         onUpload={onUploadReference} onRemove={onDeleteReference} />
       <div className="confirmation-audit-row"><span
           className="confirmation-upload-limits"
