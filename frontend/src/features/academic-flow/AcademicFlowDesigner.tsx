@@ -2766,6 +2766,7 @@ function NodeInspector({
         {settingCapabilities.configuresConfirmationScan ? (
           <ConfirmationScanSettings
             disabled={coreSettingsDisabled}
+            parameterDisabled={hasPublishedReviewStepPolicy ? !reviewStepPolicy || auditPolicySaving : coreSettingsDisabled}
             templateDisabled={editingLocked || (nodeCoreLocked && !node.templateAsset)}
             templateRemovable={!nodeCoreLocked}
             referenceDisabled={editingLocked}
@@ -2776,6 +2777,13 @@ function NodeInspector({
             onDeleteReference={onDeleteReference}
             onUploadReference={onUploadReference}
             onUpdate={(patch) => {
+              if (hasPublishedReviewStepPolicy) {
+                if (patch.fileReviewSteps?.every((step) => typeof step === "object")) {
+                  setAuditPolicyError("");
+                  setReviewStepDraft(patch.fileReviewSteps as FileReviewStep[]);
+                }
+                return;
+              }
               if (
                 hasPublishedAuditPolicy &&
                 (typeof patch.scanAuditPrompt === "string"
@@ -3116,6 +3124,7 @@ function NodeTimeSettingsDialog({
 
 function ConfirmationScanSettings({
   disabled,
+  parameterDisabled,
   templateDisabled,
   templateRemovable,
   referenceDisabled,
@@ -3129,6 +3138,7 @@ function ConfirmationScanSettings({
   onUploadReference,
 }: {
   disabled: boolean;
+  parameterDisabled: boolean;
   templateDisabled: boolean;
   templateRemovable: boolean;
   referenceDisabled: boolean;
@@ -3163,7 +3173,7 @@ function ConfirmationScanSettings({
           <i aria-hidden="true">⇧</i>
           10 文件 · 20 页 · 10 MB/文件 · 30 MB/组 · JPG/JPEG/PNG
         </span></div>
-      <FileReviewStepsEditor node={node} disabled={disabled} onChange={onUpdate} />
+      <FileReviewStepsEditor node={node} disabled={disabled} parameterDisabled={parameterDisabled} onChange={onUpdate} />
     </section>
   );
 }
