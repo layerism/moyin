@@ -64,7 +64,7 @@ export function RevisionImpactDialog({
         </dl>
 
         <p className="revision-impact-warning">
-          重新发布后，受影响提交将变为仅供审计的历史记录，相关学生需按新版本重新提交。
+          重新发布后，受影响提交保留为审计历史；相关学生需按新版本重新提交并审核，下游节点将重新锁定。
         </p>
 
         <footer>

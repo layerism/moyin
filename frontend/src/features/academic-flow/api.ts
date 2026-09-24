@@ -468,10 +468,11 @@ export const workflowApi = {
       url: string;
     }>(`/api/student/files/${encodeURIComponent(fileId)}/download`);
   },
-  uploadNodeReference(flowId: string, nodeKey: string, file: File) {
+  uploadNodeReference(flowId: string, nodeKey: string, file: File, replaceAssetId?: string) {
     const body = new FormData(); body.append("file", file);
+    const query = replaceAssetId ? `?replace_asset_id=${encodeURIComponent(replaceAssetId)}` : "";
     return request<{ referenceAsset: NonNullable<AcademicProcess["nodes"][number]["referenceAsset"]> }>(
-      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/reference`, { method: "POST", body });
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/reference${query}`, { method: "POST", body });
   },
   uploadAnnouncementImage(flowId: string, nodeKey: string, file: File) {
     return request<{ assetId: string; originalName: string; contentType: string; sizeBytes: number; sha256: string }>(

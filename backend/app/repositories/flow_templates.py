@@ -59,7 +59,7 @@ def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int, ref
         node = node_by_key(config, node_key)
         if not supports_template(node, reference):
             raise TemplateMutationError("当前节点不支持模板")
-        if node_key in _published_node_ids(connection, flow_id):
+        if node_key in _published_node_ids(connection, flow_id) and node.get("kind") != "file":
             raise TemplateMutationError("已发布节点的模板不可修改")
         return dict(node)
 
@@ -76,6 +76,7 @@ def save_template_asset(
     sha256: str,
     etag: str,
     reference: bool = False,
+    replace_asset_id: str | None = None,
 ) -> tuple[dict[str, object], str | None, str]:
     asset_id = str(uuid.uuid4())
     now = utc_now_iso()
@@ -89,13 +90,20 @@ def save_template_asset(
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if not supports_template(node, reference) or node_key in _published_node_ids(connection, flow_id):
+        if not supports_template(node, reference) or (
+            node_key in _published_node_ids(connection, flow_id) and node.get("kind") != "file"
+        ):
             raise TemplateMutationError("已发布节点的模板不可修改")
+        if replace_asset_id and not reference:
+            raise TemplateMutationError("只有填写参考支持指定替换")
         if reference:
             validate_reference_metadata(original_name, size_bytes)
         else:
             _validate_template_name(node, original_name)
-        old_id = None if reference else (node.get("templateAsset") or {}).get("assetId")
+        references = reference_assets(node) if reference else []
+        if replace_asset_id and not any(item["assetId"] == replace_asset_id for item in references):
+            raise TemplateMutationError("待替换的参考文件不存在")
+        old_id = replace_asset_id if reference else (node.get("templateAsset") or {}).get("assetId")
         connection.execute(
             """
             INSERT INTO flow_template_assets
@@ -114,7 +122,9 @@ def save_template_asset(
             "sizeBytes": size_bytes,
         }
         if reference:
-            node["referenceAssets"] = [*reference_assets(node), metadata]
+            node["referenceAssets"] = [
+                metadata if item["assetId"] == replace_asset_id else item for item in references
+            ] if replace_asset_id else [*references, metadata]
             node.pop("referenceAsset", None)
         else:
             node["templateAsset"] = metadata

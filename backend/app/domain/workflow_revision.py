@@ -55,6 +55,11 @@ def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     snapshot = {
         key: value for key, value in node.items() if key not in REVISION_EDITABLE_NODE_FIELDS
     }
+    if node.get("kind") == "file":
+        snapshot.pop("templateAsset", None)
+        snapshot.pop("referenceAsset", None)
+        snapshot.pop("referenceAssets", None)
+        return snapshot
     if snapshot.get("templateAsset") is None:
         snapshot.pop("templateAsset", None)
     references = reference_assets(snapshot)
@@ -83,7 +88,7 @@ def assert_valid_revision(previous: dict[str, Any] | None, current: dict[str, An
     for node_id, previous_node in previous_nodes.items():
         if _locked_node_snapshot(previous_node) != _locked_node_snapshot(current_nodes[node_id]):
             raise PublishedNodeMutationError(
-                f"已发布节点只能修改标题、描述和起止时间：{node_id}"
+                f"已发布节点只能修改标题、描述、起止时间及文件节点材料：{node_id}"
             )
 
     previous_edges = {edge_key(edge) for edge in previous.get("edges", [])}
@@ -102,7 +107,11 @@ def assert_valid_revision(previous: dict[str, Any] | None, current: dict[str, An
 
 
 def business_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
-    return {field: node.get(field) for field in BUSINESS_NODE_FIELDS}
+    snapshot = {field: node.get(field) for field in BUSINESS_NODE_FIELDS}
+    if node.get("kind") == "file":
+        snapshot["templateAsset"] = node.get("templateAsset")
+        snapshot["referenceAssets"] = reference_assets(node)
+    return snapshot
 
 
 def predecessor_sets(config: dict[str, Any]) -> dict[str, set[str]]:

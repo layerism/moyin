@@ -708,7 +708,7 @@ export function AcademicFlowDesigner({
     commitDesignChange({ ...workingProcess, edges: nextEdges });
   };
 
-  const uploadNodeTemplate = async (nodeId: string, files: File[], reference = false) => {
+  const uploadNodeTemplate = async (nodeId: string, files: File[], reference = false, replaceAssetId?: string) => {
     if (reference && files.some((file) => !/\.(docx|pdf|png|jpe?g|webp|gif|bmp|tiff?)$/i.test(file.name) || file.size === 0 || file.size > 50 * 1024 * 1024)) {
       showActionError("填写参考仅支持 DOCX、PDF 或图片，文件须非空且不超过 50 MB");
       return;
@@ -724,18 +724,21 @@ export function AcademicFlowDesigner({
     try {
       for (const file of files) {
         const asset = reference
-          ? (await workflowApi.uploadNodeReference(serverFlowId, nodeId, file)).referenceAsset
+          ? (await workflowApi.uploadNodeReference(serverFlowId, nodeId, file, replaceAssetId)).referenceAsset
           : (await workflowApi.uploadNodeTemplate(serverFlowId, nodeId, file)).templateAsset;
         candidate = {
           ...candidate,
           nodes: candidate.nodes.map((node) => node.id !== nodeId ? node : reference
-            ? { ...node, referenceAsset: null, referenceAssets: [...nodeReferences(node), asset] }
+            ? { ...node, referenceAsset: null, referenceAssets: replaceAssetId
+              ? nodeReferences(node).map((item) => item.assetId === replaceAssetId ? asset : item)
+              : [...nodeReferences(node), asset] }
             : { ...node, templateAsset: asset }),
         };
         setWorkingProcess(candidate);
         setRevisionDirty(true);
       }
-      await saveWorkingDraft(candidate, reference ? "填写参考已上传，发布后供学生下载" : "模板已上传，重新发布后供学生下载");
+      const publishLabel = workingProcess.published ? "重新发布" : "发布";
+      await saveWorkingDraft(candidate, `${reference ? "填写参考" : "模板"}已暂存，${publishLabel}后供学生下载`);
     } catch (reason) {
       showActionError(reason instanceof Error ? reason.message : "模板上传失败");
     } finally {
@@ -919,7 +922,7 @@ export function AcademicFlowDesigner({
             onClose={() => { if (announcementUploads === 0) setInspectorNodeId(null); }}
             onDeleteTemplate={() => void deleteNodeTemplate(inspectorNode.id)}
             onUploadTemplate={(file) => void uploadNodeTemplate(inspectorNode.id, [file])}
-            onUploadReference={(files) => void uploadNodeTemplate(inspectorNode.id, files, true)}
+            onUploadReference={(files, replaceAssetId) => void uploadNodeTemplate(inspectorNode.id, files, true, replaceAssetId)}
             onUploadAnnouncementImage={uploadAnnouncementImage}
             onUpdateAnnouncementRequirement={updateAnnouncementRequirement}
             onDeleteReference={(assetId) => void deleteNodeTemplate(inspectorNode.id, assetId)}
@@ -2313,7 +2316,7 @@ function NodeInspector({
   onClose: () => void;
   onDeleteTemplate: () => void;
   onUploadTemplate: (file: File) => void;
-  onUploadReference: (files: File[]) => void;
+  onUploadReference: (files: File[], replaceAssetId?: string) => void;
   onUploadAnnouncementImage: (nodeId: string, file: File) => Promise<{ assetId: string }>;
   onUpdateAnnouncementRequirement: (
     nodeId: string,
@@ -2592,6 +2595,7 @@ function NodeInspector({
   }
 
   const coreSettingsDisabled = editingLocked || nodeCoreLocked;
+  const materialSettingsDisabled = editingLocked || (nodeCoreLocked && node.kind !== "file");
   const auditControlsNode: AcademicFlowNode = reviewStepPolicy ? {
     ...node,
     fileReviewSteps: reviewStepDraft,
@@ -2718,7 +2722,7 @@ function NodeInspector({
               <span aria-hidden="true">↻</span>
               发布后修订
             </strong>
-            <span className="revision-strip-detail">{node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
+            <span className="revision-strip-detail">{node.kind === "file" ? "基本信息/材料/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
               审核规则 · 完成立即生效
@@ -2877,13 +2881,13 @@ function NodeInspector({
                   <i aria-hidden="true">▤</i>
                   材料配置
                 </strong>
-                <small>文件节点</small>
+                <small>{publishedRevision && nodeCoreLocked ? "重新发布后学生需重交" : "文件节点"}</small>
               </header>
               <NodeFileRow label="文件模板" asset={node.templateAsset}
                 accept={node.fileExtensions.split(",").filter((value) => value.trim()).map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
-                hint="可选；须符合上传限制" disabled={coreSettingsDisabled}
+                hint="可选；须符合上传限制" disabled={materialSettingsDisabled} removable={!nodeCoreLocked}
                 onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
-              <NodeReferenceFiles assets={nodeReferences(node)} disabled={coreSettingsDisabled}
+              <NodeReferenceFiles assets={nodeReferences(node)} disabled={materialSettingsDisabled} replaceOnly={nodeCoreLocked}
                 onUpload={onUploadReference} onRemove={onDeleteReference} />
 
               <FileReviewStepsEditor

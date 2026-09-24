@@ -246,8 +246,8 @@ def upload_node_template(flow_id: str, node_key: str, file: UploadFile = File(..
 
 
 @router.post("/{flow_id}/nodes/{node_key}/reference")
-def upload_node_reference(flow_id: str, node_key: str, file: UploadFile = File(...), teacher=Depends(get_current_teacher)):
-    return _upload_node_asset(flow_id, node_key, file, teacher, reference=True)
+def upload_node_reference(flow_id: str, node_key: str, file: UploadFile = File(...), replace_asset_id: str | None = None, teacher=Depends(get_current_teacher)):
+    return _upload_node_asset(flow_id, node_key, file, teacher, reference=True, replace_asset_id=replace_asset_id)
 
 
 @router.delete("/{flow_id}/nodes/{node_key}/template")
@@ -290,6 +290,7 @@ def _upload_node_asset(
     file: UploadFile = File(...),
     teacher: dict[str, object] = Depends(get_current_teacher),
     reference: bool = False,
+    replace_asset_id: str | None = None,
 ) -> dict[str, object]:
     teacher_id = int(teacher["id"])
     try:
@@ -334,6 +335,7 @@ def _upload_node_asset(
             flow_id=flow_id, node_key=node_key, teacher_id=teacher_id,
             storage_key=storage_key, original_name=filename, content_type=content_type,
             size_bytes=size_bytes, sha256=sha256, etag=uploaded.etag, reference=reference,
+            replace_asset_id=replace_asset_id,
         )
     except ObjectStorageNotConfigured as exc:
         raise HTTPException(status_code=503, detail="模板存储服务未配置，请联系管理员") from exc

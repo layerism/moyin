@@ -931,6 +931,49 @@ def _node_invalidation_before_data(
         """,
         (node["id"],),
     ).fetchall()
+    uploaded_files = connection.execute(
+        "SELECT * FROM uploaded_files WHERE node_instance_id = ? ORDER BY created_at, id",
+        (node["id"],),
+    ).fetchall()
+    audit_jobs = connection.execute(
+        """SELECT id, submission_id, script_id, script_generation, script_content_hash,
+                  policy_generation, policy_hash, status, result_json, error_message,
+                  created_at, finished_at
+           FROM audit_jobs WHERE node_instance_id = ? ORDER BY created_at, id""",
+        (node["id"],),
+    ).fetchall()
+    review_runs = connection.execute(
+        """SELECT r.* FROM file_review_runs r
+           JOIN submissions s ON s.id = r.submission_id
+           WHERE s.node_instance_id = ? ORDER BY s.attempt_no""",
+        (node["id"],),
+    ).fetchall()
+    review_tasks = connection.execute(
+        """SELECT t.id, t.submission_id, t.step_index, t.status, t.attempt_count,
+                  t.result_json, t.created_at, t.finished_at
+           FROM file_review_ai_tasks t
+           JOIN submissions s ON s.id = t.submission_id
+           WHERE s.node_instance_id = ? ORDER BY s.attempt_no, t.step_index""",
+        (node["id"],),
+    ).fetchall()
+    template_downloads = connection.execute(
+        "SELECT * FROM template_download_events WHERE node_instance_id = ?",
+        (node["id"],),
+    ).fetchall()
+    manual_rejections = connection.execute(
+        "SELECT * FROM manual_node_rejections WHERE node_instance_id = ? ORDER BY created_at, id",
+        (node["id"],),
+    ).fetchall()
+    manual_source_reviews = connection.execute(
+        "SELECT * FROM manual_source_reviews WHERE node_instance_id = ? ORDER BY created_at",
+        (node["id"],),
+    ).fetchall()
+    manual_feedback = connection.execute(
+        """SELECT f.*, c.submission_id, c.step_index
+           FROM manual_feedback f LEFT JOIN file_review_feedback_context c ON c.feedback_id = f.id
+           WHERE f.node_instance_id = ? ORDER BY f.created_at, f.id""",
+        (node["id"],),
+    ).fetchall()
     override = connection.execute(
         """
         SELECT * FROM student_deadline_overrides
@@ -973,6 +1016,14 @@ def _node_invalidation_before_data(
             }
             for submission in submissions
         ],
+        "uploadedFiles": [dict(file) for file in uploaded_files],
+        "auditJobs": [dict(job) for job in audit_jobs],
+        "fileReviewRuns": [dict(run) for run in review_runs],
+        "fileReviewAiTasks": [dict(task) for task in review_tasks],
+        "templateDownloads": [dict(event) for event in template_downloads],
+        "manualRejections": [dict(rejection) for rejection in manual_rejections],
+        "manualSourceReviews": [dict(review) for review in manual_source_reviews],
+        "manualFeedback": [dict(feedback) for feedback in manual_feedback],
         "deadlineOverride": (
             {
                 "flowInstanceId": override["flow_instance_id"],
