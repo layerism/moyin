@@ -2722,7 +2722,7 @@ function NodeInspector({
               <span aria-hidden="true">↻</span>
               发布后修订
             </strong>
-            <span className="revision-strip-detail">{node.kind === "file" ? "基本信息/材料/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
+            <span className="revision-strip-detail">{node.kind === "file" ? "基本信息/材料/时间" : node.kind === "confirmation" && node.templateAsset ? "基本信息/模板/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
               审核规则 · 完成立即生效
@@ -2766,6 +2766,9 @@ function NodeInspector({
         {settingCapabilities.configuresConfirmationScan ? (
           <ConfirmationScanSettings
             disabled={coreSettingsDisabled}
+            templateDisabled={editingLocked || (nodeCoreLocked && !node.templateAsset)}
+            templateRemovable={!nodeCoreLocked}
+            publishedTemplateRevision={publishedRevision && nodeCoreLocked && Boolean(node.templateAsset)}
             node={auditControlsNode}
             onDeleteTemplate={onDeleteTemplate}
             onDeleteReference={onDeleteReference}
@@ -3111,6 +3114,9 @@ function NodeTimeSettingsDialog({
 
 function ConfirmationScanSettings({
   disabled,
+  templateDisabled,
+  templateRemovable,
+  publishedTemplateRevision,
   node,
   onDeleteTemplate,
   onDeleteReference,
@@ -3119,6 +3125,9 @@ function ConfirmationScanSettings({
   onUploadReference,
 }: {
   disabled: boolean;
+  templateDisabled: boolean;
+  templateRemovable: boolean;
+  publishedTemplateRevision: boolean;
   node: AcademicFlowNode;
   onDeleteTemplate: () => void;
   onDeleteReference: (assetId: string) => void;
@@ -3133,10 +3142,10 @@ function ConfirmationScanSettings({
           <i aria-hidden="true">✓</i>
           扫描件提交与审核
         </strong>
-        <small>视觉审核</small>
+        <small>{publishedTemplateRevision ? "模板更换后需重新提交" : "视觉审核"}</small>
       </header>
       <NodeFileRow label="文件模板" asset={node.templateAsset} accept=".docx"
-        hint="可选；DOCX，不提供时直接上传图片" disabled={disabled}
+        hint="可选；DOCX，不提供时直接上传图片" disabled={templateDisabled} removable={templateRemovable}
         onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
       <NodeReferenceFiles label="参考示例" assets={nodeReferences(node)} disabled={disabled}
         onUpload={onUploadReference} onRemove={onDeleteReference} />
