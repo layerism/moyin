@@ -21,6 +21,8 @@ def resolve_deadlines(config: dict) -> dict[str, str | None]:
         inherited = max(upstream) if upstream else None
         if node.get('kind') == 'branch':
             resolved[key] = inherited
+        elif node.get('kind') == 'or_gate':
+            resolved[key] = None
         elif node.get('deadlineAt'):
             value = datetime.fromisoformat(node['deadlineAt'].replace('Z', '+00:00'))
             resolved[key] = value.replace(tzinfo=UTC) if value.tzinfo is None else value

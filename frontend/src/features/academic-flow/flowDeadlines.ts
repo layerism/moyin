@@ -21,10 +21,10 @@ export function resolveFlowSchedule(nodes: AcademicFlowNode[], edges: AcademicFl
     const upstream = parents.get(key)!.flatMap((id) => dates.has(id) ? [dates.get(id)!] : []);
     const latest = upstream.length ? Math.max(...upstream) : NaN;
     minimumDeadlines.set(key, Number.isFinite(latest) ? new Date(latest).toISOString() : null);
-    const value = node.kind === "branch" ? latest : node.deadlineAt
+    const value = node.kind === "branch" ? latest : node.kind === "or_gate" ? NaN : node.deadlineAt
       ? new Date(node.deadlineAt).getTime() : NaN;
     if (Number.isFinite(value)) dates.set(key, value);
-    result.set(key, node.kind !== "branch" && Number.isFinite(value) ? new Date(value).toISOString() : null);
+    result.set(key, node.kind !== "branch" && node.kind !== "or_gate" && Number.isFinite(value) ? new Date(value).toISOString() : null);
     for (const child of children.get(key)!) {
       degree.set(child, degree.get(child)! - 1);
       if (!degree.get(child)) queue.push(child);
@@ -41,7 +41,7 @@ export function getFlowTimeIssues(nodes: AcademicFlowNode[], edges: AcademicFlow
   const schedule = resolveFlowSchedule(nodes, edges);
   const issues = new Map<string, string>();
   for (const node of nodes) {
-    if (node.kind === "branch") continue;
+    if (node.kind === "branch" || node.kind === "or_gate") continue;
     const deadline = schedule.deadlines.get(node.id);
     const upstream = schedule.minimumDeadlines.get(node.id);
     if ((node.startAt && !Number.isFinite(new Date(node.startAt).getTime()))

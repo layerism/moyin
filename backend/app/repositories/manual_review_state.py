@@ -24,7 +24,7 @@ def invalidate_nodes(connection, instance_id, config, node_keys, now):
         if row is None:
             continue
         connection.execute(
-            "UPDATE node_instances SET status = 'locked', approved_at = NULL, attempt_reset_no = attempt_no WHERE id = ?", (row['id'],),
+            "UPDATE node_instances SET status = 'locked', approved_at = NULL, or_winner_node_key = NULL, attempt_reset_no = attempt_no WHERE id = ?", (row['id'],),
         )
         connection.execute('''UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id IN (SELECT id FROM submissions WHERE node_instance_id = ?) AND status = 'active' ''', (row['id'],))
         node = next(item for item in config['nodes'] if item['id'] == node_key)

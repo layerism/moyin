@@ -318,6 +318,7 @@ CREATE TABLE IF NOT EXISTS node_instances (
     opened_at TEXT,
     submitted_at TEXT,
     approved_at TEXT,
+    or_winner_node_key TEXT,
     attempt_no INTEGER NOT NULL DEFAULT 0,
     attempt_reset_no INTEGER NOT NULL DEFAULT 0,
     UNIQUE(flow_instance_id, node_key)
@@ -619,6 +620,8 @@ def initialize_database() -> None:
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(node_instances)")}
         if "attempt_reset_no" not in columns:
             connection.execute("ALTER TABLE node_instances ADD COLUMN attempt_reset_no INTEGER NOT NULL DEFAULT 0")
+        if "or_winner_node_key" not in columns:
+            connection.execute("ALTER TABLE node_instances ADD COLUMN or_winner_node_key TEXT")
     _initialize_super_admin()
     from app.services.audit_model_connections import initialize_model_connections, initialize_model_thinking, initialize_model_billing
     initialize_model_connections()

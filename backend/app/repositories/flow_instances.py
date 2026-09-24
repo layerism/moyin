@@ -317,6 +317,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "id": row["id"],
                     "nodeKey": row["node_key"],
                     "status": status,
+                    "orWinnerNodeKey": row["or_winner_node_key"],
                     "attemptNo": row["attempt_no"],
                     "requiresResubmission": requires_resubmission,
                     "feedback": feedback,
@@ -329,7 +330,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),
                     "effectiveDeadline": deadline,
-                    "effectiveStartAt": None if preview or config_node.get("kind") == "branch" else config_node.get("startAt"),
+                    "effectiveStartAt": None if preview or config_node.get("kind") in {"branch", "or_gate"} else config_node.get("startAt"),
                     "template": {
                         "assetId": template["id"],
                         "contentType": template["content_type"],
@@ -964,8 +965,8 @@ def set_student_deadline(
             raise StudentDeadlineValidationError("请填写延期原因")
         config = json.loads(exists["config_snapshot"])
         node = node_by_key(config, node_key)
-        if node.get("kind") == "branch":
-            raise StudentDeadlineValidationError("条件分支不设置时间，上游通过后立即开放")
+        if node.get("kind") in {"branch", "or_gate"}:
+            raise StudentDeadlineValidationError("流程控制节点不设置截止时间")
         if exists["node_status"] == "approved" and node.get("kind") != "form":
             raise StudentDeadlineValidationError("已通过的非表单节点不能延期")
 
@@ -1100,7 +1101,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             (version_id,),
         ).fetchall()
     nodes_by_instance: dict[str, list[dict[str, object]]] = {}
-    branch_keys = {node["id"] for node in json.loads(version["config_snapshot"])["nodes"] if node.get("kind") == "branch"}
+    control_keys = {node["id"] for node in json.loads(version["config_snapshot"])["nodes"] if node.get("kind") in {"branch", "or_gate"}}
     for row in node_rows:
         nodes_by_instance.setdefault(str(row["flow_instance_id"]), []).append(
             {
@@ -1108,9 +1109,9 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
                 "nodeKey": row["node_key"],
                 "title": node_titles.get(row["node_key"], row["node_key"]),
                 "status": row["status"],
-                "globalDeadline": None if row["node_key"] in branch_keys else global_deadlines.get(row["node_key"]),
-                "overrideDeadline": None if row["node_key"] in branch_keys else row["override_deadline"],
-                "effectiveDeadline": None if row["node_key"] in branch_keys else row["override_deadline"] or global_deadlines.get(row["node_key"]),
+                "globalDeadline": None if row["node_key"] in control_keys else global_deadlines.get(row["node_key"]),
+                "overrideDeadline": None if row["node_key"] in control_keys else row["override_deadline"],
+                "effectiveDeadline": None if row["node_key"] in control_keys else row["override_deadline"] or global_deadlines.get(row["node_key"]),
             }
         )
     return {

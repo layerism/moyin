@@ -101,6 +101,7 @@ export type RuntimeNodeInstance = {
   id: string;
   grade: AnswerSheetGrade | null;
   nodeKey: string;
+  orWinnerNodeKey?: string | null;
   status: RuntimeNodeStatus;
   submission: Record<string, unknown>;
   submittedAt: string | null;

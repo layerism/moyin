@@ -37,7 +37,7 @@ def validate_flow_config(
         raise FlowValidationError("节点标识不能重复")
 
     for node in nodes:
-        if node.get("kind") not in {"branch", "announcement", "answer_sheet", "confirmation", "file", "form"}:
+        if node.get("kind") not in {"branch", "or_gate", "announcement", "answer_sheet", "confirmation", "file", "form"}:
             raise FlowValidationError("不支持的节点类型，请使用文件上传节点配置人工审核")
         if "fileReviewSteps" in node:
             from app.domain.file_review_steps import validate_steps
@@ -105,6 +105,14 @@ def validate_flow_config(
             connected = {edge.get("sourcePort") for edge in edges if edge["source"] == key}
             if ports - connected:
                 raise FlowValidationError("每个分支选项都需要连接下游节点")
+        for node in nodes:
+            if node.get("kind") != "or_gate":
+                continue
+            inputs = {edge["source"] for edge in edges if edge["target"] == node["id"]}
+            if len(inputs) < 2 or not any(edge["source"] == node["id"] for edge in edges):
+                raise FlowValidationError("或节点至少需要两个不同上游和一个下游")
+            if node.get("auditScriptId") or node.get("fileReviewSteps") or node.get("startAt") or node.get("deadlineAt"):
+                raise FlowValidationError("或节点不支持审核或定时设置")
 
     queue = deque(node_id for node_id, degree in indegree.items() if degree == 0)
     visited = 0
@@ -121,7 +129,7 @@ def validate_flow_config(
     by_id = {node["id"]: node for node in nodes}
     for edge in edges:
         target = by_id[edge["target"]]
-        if target.get("kind") == "branch":
+        if target.get("kind") in {"branch", "or_gate"}:
             continue
         upstream = _parse_node_time(deadlines.get(edge["source"]), "上游截止时间")
         downstream = _parse_node_time(deadlines.get(edge["target"]), "截止时间")
@@ -151,7 +159,7 @@ def _parse_node_time(value: object, label: str) -> datetime | None:
 
 
 def _validate_node_time_window(node: dict[str, Any]) -> None:
-    if node.get("kind") == "branch":
+    if node.get("kind") in {"branch", "or_gate"}:
         return
     start = _parse_node_time(node.get("startAt"), "起始时间")
     deadline = _parse_node_time(node.get("deadlineAt"), "截止时间")

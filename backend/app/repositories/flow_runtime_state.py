@@ -49,7 +49,7 @@ def version_deadlines(connection, version_id: str) -> dict[str, str | None]:
     deadlines = resolve_deadlines(config)
     # Branches transmit calendar constraints but have no submission deadline.
     for node in config["nodes"]:
-        if node.get("kind") == "branch":
+        if node.get("kind") in {"branch", "or_gate"}:
             deadlines[node["id"]] = None
     return deadlines
 

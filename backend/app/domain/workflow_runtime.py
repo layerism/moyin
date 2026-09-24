@@ -36,6 +36,8 @@ def pending_node_status(
 ) -> str:
     if not predecessors_approved:
         return "locked"
+    if kind == "or_gate":
+        return "locked"
     if kind == "branch":
         return "available"
     if deadline_has_passed(deadline_at, now):
@@ -63,6 +65,8 @@ def node_by_key(config: dict[str, Any], node_key: str) -> dict[str, Any]:
 
 def validate_submission(node: dict[str, Any], payload: dict[str, Any]) -> None:
     kind = node.get("kind")
+    if kind == "or_gate":
+        raise ValueError("或节点自动通过，无需提交")
     if kind == "branch":
         if not isinstance(payload.get("branchId"), str) or payload["branchId"] not in {option["id"] for option in node.get("branches", [])}:
             raise ValueError("请选择一个有效分支后再提交")

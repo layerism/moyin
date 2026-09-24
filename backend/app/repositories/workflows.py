@@ -10,7 +10,7 @@ from app.domain.node_assets import asset_entries
 from app.core.config import settings
 from app.core.database import get_connection
 from app.domain.answer_sheet import AnswerSheetConfigError
-from app.repositories.flow_runtime_state import version_deadlines
+from app.repositories.flow_runtime_state import advance_downstream, version_deadlines
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     analyze_revision,
@@ -18,7 +18,7 @@ from app.domain.workflow_revision import (
     assert_node_ids_present,
 )
 from app.domain.workflow_runtime import node_by_key, pending_node_status
-from app.repositories.branch_state import node_is_ready, sync_branch_states
+from app.repositories.branch_state import node_is_ready
 from app.repositories.flow_templates import TemplateMutationError, validate_version_templates
 from app.repositories.answer_sheet_keys import (
     assert_published_answer_keys_unchanged,
@@ -1151,7 +1151,7 @@ def _migrate_instance(
         "UPDATE flow_instances SET flow_version_id = ? WHERE id = ?",
         (new_version_id, instance["id"]),
     )
-    sync_branch_states(connection, instance["id"], config)
+    advance_downstream(connection, instance["id"], new_version_id, config)
     statuses = {row["node_key"]: row["status"] for row in connection.execute(
         "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?", (instance["id"],),
     ).fetchall()}

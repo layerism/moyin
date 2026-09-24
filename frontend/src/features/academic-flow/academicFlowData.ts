@@ -129,6 +129,7 @@ export function getNodeSettingCapabilities(kind: AcademicFlowNodeKind) {
 
 function getDefaultRequirement(kind: AcademicFlowNodeKind, title: string) {
   if (kind === "branch") return "请选择一个分支，提交后将开放对应任务，选择不可更改。";
+  if (kind === "or_gate") return "任一上游路径通过后自动继续，其余路径关闭。";
   if (kind === "answer_sheet") {
     return `请完成“${title}”中的题目，提交后系统将自动判分。`;
   }

@@ -20,7 +20,7 @@ import { branchPortFraction, branchPort } from "./branch";
 import { FlowNodeIcon } from "./FlowNodeIcon";
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
-  skipped: "未选择",
+  skipped: "未选择或已关闭",
   approved: "已通过",
   audit_error: "审核异常",
   available: "可填写",
@@ -180,9 +180,11 @@ export function StudentFlowTopology({
               const targetRuntime = runtimeByKey.get(edge.target);
               const sourceRuntime = runtimeByKey.get(edge.source);
               const sourceNode = nodes.find((node) => node.id === edge.source);
+              const targetNode = nodes.find((node) => node.id === edge.target);
               const chosen = sourceNode?.kind === "branch" && sourceRuntime?.status === "approved" ? sourceRuntime.submission.branchId : null;
               const excluded = sourceRuntime?.status === "skipped" || targetRuntime?.status === "skipped"
-                || (chosen != null && edge.sourcePort !== `branch:${chosen}`);
+                || (chosen != null && edge.sourcePort !== `branch:${chosen}`)
+                || (targetNode?.kind === "or_gate" && targetRuntime?.orWinnerNodeKey != null && targetRuntime.orWinnerNodeKey !== edge.source);
               const edgeState = excluded ? "skipped" : chosen != null || sourceRuntime?.status === "approved" ? "active" : "default";
               return (
                 <g className={edgeState} key={edge.id}>
@@ -201,7 +203,7 @@ export function StudentFlowTopology({
           {nodes.map((node) => {
             const runtime = runtimeByKey.get(node.id);
             if (!runtime) return null;
-            const openable = openableStatuses.has(runtime.status);
+            const openable = node.kind !== "or_gate" && openableStatuses.has(runtime.status);
             const deadline = getDeadlineBadge(node, runtime, clock, preview ? previewDeadlines.get(node.id) : runtime.effectiveDeadline);
             return (
               <button
@@ -231,7 +233,7 @@ export function StudentFlowTopology({
                 {runtime.status === "audit_error" || runtime.status === "rejected" ? (
                   <span className="student-topology-warning-marker" aria-hidden="true" title={runtime.status === "rejected" ? "审核未通过，请点击查看" : "审核异常，请点击查看"}>!</span>
                 ) : null}
-                <strong>{node.kind === "branch" ? <FlowNodeIcon kind={node.kind} /> : null}{node.title}</strong>
+                <strong>{node.kind === "branch" || node.kind === "or_gate" ? <FlowNodeIcon kind={node.kind} /> : null}{node.title}</strong>
                 {node.kind === "branch" ? <>
                   <span className="branch-node-caption">单选 · {node.branches?.length ?? 0} 个分支</span>
                   <span className="branch-node-options">{node.branches?.map((option) => <span key={option.id} title={option.label} style={{ left: `${branchPortFraction(node.branches, branchPort(option.id)) * 100}%`, width: `${90 / ((node.branches?.length ?? 0) + 1)}%` }}>{option.label}</span>)}</span>
@@ -256,6 +258,7 @@ export function StudentFlowTopology({
 
 function getKindLabel(node: AcademicFlowNode) {
   if (node.kind === "branch") return "条件分支";
+  if (node.kind === "or_gate") return "或节点";
   if (node.kind === "answer_sheet") return "答题卡";
   if (node.kind === "file") return "文件上传";
   if (node.kind === "confirmation") return "视觉审核";
@@ -267,8 +270,9 @@ function getTopologyStatusLabel(
   status: RuntimeNodeStatus,
   kind: AcademicFlowNode["kind"],
 ): string {
-  if (status === "skipped") return "未选择";
+  if (status === "skipped") return kind === "branch" ? "未选择" : "已关闭";
   if (status === "approved") {
+    if (kind === "or_gate") return "✓ 已满足";
     return kind === "form" ? "✓ 已完成 · 可修改" : "✓ 已完成 · 可查看";
   }
   if (status === "available" || status === "draft") return "→ 可填写";
@@ -288,7 +292,7 @@ function createArrowPolygon(x: number, y: number, port: AcademicFlowPort) {
 
 function getDeadlineBadge(node: AcademicFlowNode, runtime: RuntimeNodeInstance, now: number, deadline: string | null | undefined) {
   // Preview bypasses runtime time limits; only its badge uses the configured deadline.
-  if (!deadline || node.kind === "branch" || runtime.status === "skipped") return null;
+  if (!deadline || node.kind === "branch" || node.kind === "or_gate" || runtime.status === "skipped") return null;
   const end = new Date(deadline).getTime();
   if (!Number.isFinite(end)) return null;
   const remaining = end - now;

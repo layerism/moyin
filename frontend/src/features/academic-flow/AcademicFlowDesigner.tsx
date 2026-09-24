@@ -95,6 +95,7 @@ const statusLabels: Record<AcademicFlowNodeStatus, string> = {
 
 const kindLabels: Record<AcademicFlowNodeKind, string> = {
   branch: "条件分支",
+  or_gate: "或节点",
   announcement: "通知公告",
   answer_sheet: "答题卡",
   confirmation: "视觉审核",
@@ -398,6 +399,16 @@ export function AcademicFlowDesigner({
       setActiveNodeId(invalidBranch.id);
       setInspectorNodeId(invalidBranch.id);
       showActionError("条件分支至少需要两个选项，请填写名称并为每个选项连接下游节点");
+      return;
+    }
+    const invalidOrGate = candidate.nodes.find((node) => node.kind === "or_gate" && (
+      new Set(candidate.edges.filter((edge) => edge.target === node.id).map((edge) => edge.source)).size < 2
+      || !candidate.edges.some((edge) => edge.source === node.id)
+    ));
+    if (invalidOrGate) {
+      setActiveNodeId(invalidOrGate.id);
+      setInspectorNodeId(invalidOrGate.id);
+      showActionError("或节点至少需要两个不同上游和一个下游");
       return;
     }
     const missingFileAudit = candidate.nodes.find((node) => ["file", "confirmation"].includes(node.kind) && fileReviewError(node));
@@ -1077,6 +1088,17 @@ function ComponentPalette({
           <span aria-hidden="true">↳</span>
           <strong>条件分支</strong>
           <small>学生选择后进入对应流程</small>
+        </button>
+        <button className="node-function-colors" data-node-kind="or_gate" disabled={locked} type="button"
+          draggable={!locked} onClick={() => onAddNode("or_gate", "或节点")}
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "copy";
+            event.dataTransfer.setData("application/x-academic-node-kind", "or_gate");
+            event.dataTransfer.setData("application/x-academic-node-title", "或节点");
+          }}>
+          <span aria-hidden="true"><FlowNodeIcon kind="or_gate" /></span>
+          <strong>或节点</strong>
+          <small>任一路径通过，其余关闭</small>
         </button>
       </div>
       <div className="palette-hint">
@@ -2171,6 +2193,7 @@ function FlowNodeCanvas({
                 <span className="branch-node-caption">单选 · {node.branches?.length ?? 0} 个分支</span>
                 <span className="branch-node-options">{node.branches?.map((option) => <span key={option.id} title={option.label} style={{ left: `${branchPortFraction(node.branches, branchPort(option.id)) * 100}%`, width: `${90 / ((node.branches?.length ?? 0) + 1)}%` }}>{option.label}</span>)}</span>
               </> : null}
+              {node.kind === "or_gate" ? <span className="branch-node-caption">任一上游通过 · 其余关闭</span> : null}
               <span className="node-meta">
                 <em>{kindLabels[node.kind]}</em>
                 <i>{statusLabels[node.status]}</i>
@@ -2603,7 +2626,7 @@ function NodeInspector({
             />
           </label>
         )}
-        {node.kind !== "branch" ? <div className="node-basic-actions">
+        {node.kind !== "branch" && node.kind !== "or_gate" ? <div className="node-basic-actions">
           <button
             aria-haspopup="dialog"
             className="node-time-settings-toggle"
@@ -2634,14 +2657,14 @@ function NodeInspector({
           {node.startAt || node.deadlineAt ? (
             <small>{getTimeWindowStatus(node)}</small>
           ) : null}
-        </div> : <p className="branch-activation-hint">有效上游全部通过后立即开放，无需设置时间。</p>}
+        </div> : <p className="branch-activation-hint">{node.kind === "or_gate" ? "任一上游路径通过后自动继续，其余路径关闭。" : "有效上游全部通过后立即开放，无需设置时间。"}</p>}
         {publishedRevision ? (
           <div className="node-inspector-revision-strip" role="note">
             <strong className="revision-strip-title">
               <span aria-hidden="true">↻</span>
               发布后修订
             </strong>
-            <span className="revision-strip-detail">{node.kind === "branch" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
+            <span className="revision-strip-detail">{node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
               审核规则 · 完成立即生效
@@ -2875,7 +2898,7 @@ function NodeInspector({
           </button>
         </footer>
       </aside>
-      {timeSettingsOpen && node.kind !== "branch" ? (
+      {timeSettingsOpen && node.kind !== "branch" && node.kind !== "or_gate" ? (
         <NodeTimeSettingsDialog
           minimumDeadline={minimumDeadline}
           node={node}

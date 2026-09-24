@@ -47,11 +47,12 @@ def finish_step(connection, submission_id, kind, passed, now):
     if not passed:
         connection.execute("UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ? WHERE submission_id = ? AND status = 'pending'", (now, submission_id))
         connection.execute('''UPDATE audit_jobs SET status = 'cancelled', cancellation_reason = 'manual_rejected', finished_at = ?, updated_at = ? WHERE submission_id = ? AND status = 'pending' ''', (now, now, submission_id))
-    if completed:
+    if completed or not passed:
         from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready, version_config
         config = version_config(connection, row['flow_version_id'])
         advance_downstream(connection, row['flow_instance_id'], row['flow_version_id'], config)
-        complete_flow_if_ready(connection, row['flow_instance_id'], now)
+        if completed:
+            complete_flow_if_ready(connection, row['flow_instance_id'], now)
     return True
 
 

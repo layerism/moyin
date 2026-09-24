@@ -13014,6 +13014,7 @@ td {
 .node-function-colors[data-node-kind="confirmation"] { --node-accent: #c65c12; --node-tint: #fff6ec; --node-border: #f4ceaa; --node-icon-bg: #ffead3; }
 .node-function-colors[data-node-kind="announcement"] { --node-accent: #0f766e; --node-tint: #effbf8; --node-border: #a9ded5; --node-icon-bg: #ccf3e9; }
 .node-function-colors[data-node-kind="branch"] { --node-accent: #a16207; --node-tint: #fffbeb; --node-border: #efdc9c; --node-icon-bg: #fef0ba; }
+.node-function-colors[data-node-kind="or_gate"] { --node-accent: #0e7490; --node-tint: #f0fbff; --node-border: #a9dfea; --node-icon-bg: #cff1f8; }
 .flow-node.node-function-colors { background: var(--node-tint); border-color: var(--node-border); border-left: 4px solid var(--node-accent); color: #253044; }
 .flow-node.node-function-colors.selected { border-color: var(--node-accent); box-shadow: 0 0 0 3px var(--node-icon-bg), 0 6px 18px #17203312; }
 .flow-node-heading { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
@@ -13295,6 +13296,8 @@ td {
 }
 .student-topology-node[data-node-kind="branch"] > strong { display: flex; align-items: center; gap: 8px; }
 .student-topology-node[data-node-kind="branch"] > strong svg { flex-shrink: 0; }
+.student-topology-node[data-node-kind="or_gate"] > strong { display: flex; align-items: center; gap: 8px; }
+.student-topology-node[data-node-kind="or_gate"] > strong svg { flex-shrink: 0; color: #0e7490; }
 .student-topology-node.skipped { background: #f8fafc; border-color: #dce2eb; color: #94a3b8; box-shadow: none; }
 .student-topology-node.skipped .branch-node-caption,
 .student-topology-node.skipped .branch-node-options > span { color: #94a3b8; }
