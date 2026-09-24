@@ -11,7 +11,9 @@ def node_model_script(node: dict) -> str | None:
     if node.get("_fileReviewStep"):
         return node.get("auditScriptId")
     if node.get("kind") == "confirmation":
-        return "confirmation-visual-audit" if node.get("scanAuditEnabled") else None
+        if not node.get("scanAuditEnabled"):
+            return None
+        return "image-visual-score-audit" if node.get("scanAuditMode") == "score" else "image-visual-audit"
     return node.get("auditScriptId")
 
 

@@ -26,6 +26,9 @@ def node_policy_values(node: dict[str, Any]) -> tuple[str, dict[str, object]] | 
     script_id = node.get("auditScriptId")
     if not isinstance(script_id, str) or not script_id:
         return None
+    # Keep immutable legacy snapshots loadable after the old script is retired.
+    if script_id == "confirmation-visual-audit":
+        return None
     params = dict(node.get("auditScriptParams") or {})
     if node.get("kind") == "confirmation":
         params["scanAuditMode"] = node.get("scanAuditMode")

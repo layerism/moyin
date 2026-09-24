@@ -18,7 +18,6 @@ ENV_NAMES = {
 SCRIPT_PROVIDERS = {
     "docx-markdown-completion-audit": "document",
     "document-score-audit": "document",
-    "confirmation-visual-audit": "vision",
     "image-visual-audit": "vision",
     "image-visual-score-audit": "vision",
     "docx-layout-visual-audit": "vision",
@@ -26,7 +25,6 @@ SCRIPT_PROVIDERS = {
 SCRIPT_NAMES = {
     "docx-markdown-completion-audit": "DOCX 完成性审核",
     "document-score-audit": "DOCX/PDF AI 评分",
-    "confirmation-visual-audit": "确认承诺视觉审核",
     "image-visual-audit": "图片视觉审核",
     "image-visual-score-audit": "图片视觉打分",
     "docx-layout-visual-audit": "DOCX 视觉排版审核",
@@ -73,15 +71,9 @@ def initialize_model_connections() -> None:
         legacy = {row["provider"]: dict(row) for row in connection.execute(
             "SELECT * FROM audit_model_connections"
         ).fetchall()} if old_table else {}
-        config_path = Path(settings.audit_scripts_root) / "confirmation-visual-audit" / "config.json"
-        visual_model = ""
-        if config_path.exists():
-            config = json.loads(config_path.read_text(encoding="utf-8"))
-            visual_model = next((item["value"] for item in config.get("runtimeSettings", [])
-                                 if item["key"] == "modelName"), "")
         defaults = {
             "document": (settings.deepseek_api_url, settings.deepseek_api_key, settings.deepseek_model),
-            "vision": (settings.vision_api_base_url, settings.vision_api_key, visual_model),
+            "vision": (settings.vision_api_base_url, settings.vision_api_key, ""),
         }
         for script_id, kind in SCRIPT_PROVIDERS.items():
             url, key, model = defaults[kind]

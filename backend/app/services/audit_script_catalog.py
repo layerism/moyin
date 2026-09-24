@@ -28,7 +28,6 @@ from app.services.security import utc_now_iso
 logger = logging.getLogger(__name__)
 SCRIPT_ID_PATTERN = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 ENTRY_SUFFIXES: dict[str, str] = {"js": ".js", "py": ".py"}
-CONFIRMATION_VISUAL_AUDIT_ID = "confirmation-visual-audit"
 _SCRIPT_WRITE_LOCK = threading.Lock()
 
 
