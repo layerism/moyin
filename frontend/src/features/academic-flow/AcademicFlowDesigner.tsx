@@ -1098,7 +1098,7 @@ function ComponentPalette({
           }}>
           <span aria-hidden="true"><FlowNodeIcon kind="or_gate" /></span>
           <strong>或节点</strong>
-          <small>任一路径通过，其余关闭</small>
+          <small>任一上游通过即可继续</small>
         </button>
       </div>
       <div className="palette-hint">
@@ -2193,7 +2193,7 @@ function FlowNodeCanvas({
                 <span className="branch-node-caption">单选 · {node.branches?.length ?? 0} 个分支</span>
                 <span className="branch-node-options">{node.branches?.map((option) => <span key={option.id} title={option.label} style={{ left: `${branchPortFraction(node.branches, branchPort(option.id)) * 100}%`, width: `${90 / ((node.branches?.length ?? 0) + 1)}%` }}>{option.label}</span>)}</span>
               </> : null}
-              {node.kind === "or_gate" ? <span className="branch-node-caption">任一上游通过 · 其余关闭</span> : null}
+              {node.kind === "or_gate" ? <span className="branch-node-caption">任一上游通过即可继续</span> : null}
               <span className="node-meta">
                 <em>{kindLabels[node.kind]}</em>
                 <i>{statusLabels[node.status]}</i>
@@ -2657,7 +2657,7 @@ function NodeInspector({
           {node.startAt || node.deadlineAt ? (
             <small>{getTimeWindowStatus(node)}</small>
           ) : null}
-        </div> : <p className="branch-activation-hint">{node.kind === "or_gate" ? "任一上游路径通过后自动继续，其余路径关闭。" : "有效上游全部通过后立即开放，无需设置时间。"}</p>}
+        </div> : <p className="branch-activation-hint">{node.kind === "or_gate" ? "任一上游通过后自动开放下游，其他上游保持原状态。" : "有效上游全部通过后立即开放，无需设置时间。"}</p>}
         {publishedRevision ? (
           <div className="node-inspector-revision-strip" role="note">
             <strong className="revision-strip-title">

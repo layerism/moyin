@@ -20,7 +20,7 @@ import { branchPortFraction, branchPort } from "./branch";
 import { FlowNodeIcon } from "./FlowNodeIcon";
 
 const statusLabels: Record<RuntimeNodeStatus, string> = {
-  skipped: "未选择或已关闭",
+  skipped: "未选择",
   approved: "已通过",
   audit_error: "审核异常",
   available: "可填写",
@@ -180,11 +180,9 @@ export function StudentFlowTopology({
               const targetRuntime = runtimeByKey.get(edge.target);
               const sourceRuntime = runtimeByKey.get(edge.source);
               const sourceNode = nodes.find((node) => node.id === edge.source);
-              const targetNode = nodes.find((node) => node.id === edge.target);
               const chosen = sourceNode?.kind === "branch" && sourceRuntime?.status === "approved" ? sourceRuntime.submission.branchId : null;
               const excluded = sourceRuntime?.status === "skipped" || targetRuntime?.status === "skipped"
-                || (chosen != null && edge.sourcePort !== `branch:${chosen}`)
-                || (targetNode?.kind === "or_gate" && targetRuntime?.orWinnerNodeKey != null && targetRuntime.orWinnerNodeKey !== edge.source);
+                || (chosen != null && edge.sourcePort !== `branch:${chosen}`);
               const edgeState = excluded ? "skipped" : chosen != null || sourceRuntime?.status === "approved" ? "active" : "default";
               return (
                 <g className={edgeState} key={edge.id}>
@@ -270,7 +268,7 @@ function getTopologyStatusLabel(
   status: RuntimeNodeStatus,
   kind: AcademicFlowNode["kind"],
 ): string {
-  if (status === "skipped") return kind === "branch" ? "未选择" : "已关闭";
+  if (status === "skipped") return "未选择";
   if (status === "approved") {
     if (kind === "or_gate") return "✓ 已满足";
     return kind === "form" ? "✓ 已完成 · 可修改" : "✓ 已完成 · 可查看";

@@ -5,34 +5,9 @@ from collections import deque
 from app.services.security import utc_now_iso
 
 
-def _ancestors(key, incoming):
-    found = set()
-    pending = [key]
-    while pending:
-        current = pending.pop()
-        if current in found:
-            continue
-        found.add(current)
-        pending.extend(edge['source'] for edge in incoming[current])
-    return found
-
-
-def _closed_or_paths(incoming, winners):
-    closed = set()
-    winning_paths = set()
-    for winner in winners.values():
-        winning_paths.update(_ancestors(winner, incoming))
-    for gate, winner in winners.items():
-        for edge in incoming[gate]:
-            if edge['source'] == winner:
-                continue
-            closed.update(_ancestors(edge['source'], incoming))
-    return closed - winning_paths
-
-
 def resolve_routes(connection, instance_id, config):
     rows = connection.execute(
-        """SELECT n.node_key, n.status, n.or_winner_node_key, s.payload_snapshot
+        """SELECT n.node_key, n.status, s.payload_snapshot
            FROM node_instances n LEFT JOIN submissions s
              ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
            WHERE n.flow_instance_id = ?""", (instance_id,),
@@ -47,9 +22,6 @@ def resolve_routes(connection, instance_id, config):
     for edge in config['edges']:
         incoming[edge['target']].append(edge)
         outgoing[edge['source']].append(edge)
-    winners = {row['node_key']: row['or_winner_node_key'] for row in rows
-               if nodes.get(row['node_key'], {}).get('kind') == 'or_gate' and row['or_winner_node_key']}
-    closed = _closed_or_paths(incoming, winners)
     degrees = {key: len(edges) for key, edges in incoming.items()}
     queue = deque(key for key, degree in degrees.items() if not degree)
     reachable = {}
@@ -66,7 +38,7 @@ def resolve_routes(connection, instance_id, config):
                     continue
             enabled.add(source)
         predecessors[key] = enabled
-        reachable[key] = key not in closed and (not incoming[key] or bool(enabled))
+        reachable[key] = not incoming[key] or bool(enabled)
         for edge in outgoing[key]:
             degrees[edge['target']] -= 1
             if degrees[edge['target']] == 0:
@@ -110,39 +82,8 @@ def sync_branch_states(connection, instance_id, config):
         'SELECT id, node_key, status FROM node_instances WHERE flow_instance_id = ?',
         (instance_id,),
     ).fetchall()
-    now = utc_now_iso()
     for row in rows:
-        if row['node_key'] in skipped and row['status'] not in {'skipped', 'approved'}:
-            if gates and row['status'] in {'reviewing', 'audit_error'}:
-                job_ids = [job['id'] for job in connection.execute(
-                    "SELECT id FROM audit_jobs WHERE node_instance_id = ? AND status IN ('pending', 'running')",
-                    (row['id'],),
-                )]
-                connection.execute(
-                    """UPDATE audit_jobs SET status = 'cancelled', cancellation_reason = 'or_path_closed',
-                       finished_at = ?, updated_at = ? WHERE node_instance_id = ? AND status IN ('pending', 'running')""",
-                    (now, now, row['id']),
-                )
-                connection.execute(
-                    """UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ?
-                       WHERE submission_id IN (SELECT id FROM submissions WHERE node_instance_id = ?)
-                         AND status IN ('pending', 'running')""",
-                    (now, row['id']),
-                )
-                connection.execute(
-                    """UPDATE file_review_runs SET status = 'cancelled'
-                       WHERE submission_id IN (SELECT id FROM submissions WHERE node_instance_id = ?)
-                         AND status = 'active'""",
-                    (row['id'],),
-                )
-                connection.execute(
-                    """UPDATE submissions SET status = 'cancelled' WHERE node_instance_id = ?
-                         AND status IN ('reviewing', 'audit_error')""",
-                    (row['id'],),
-                )
-                if job_ids:
-                    from app.services.audit_job_worker import signal_audit_job_cancellations
-                    signal_audit_job_cancellations(job_ids)
+        if row['node_key'] in skipped and row['status'] != 'skipped':
             connection.execute("UPDATE node_instances SET status = 'skipped' WHERE id = ?", (row['id'],))
         elif row['node_key'] not in skipped and row['status'] == 'skipped':
             connection.execute("UPDATE node_instances SET status = 'locked' WHERE id = ?", (row['id'],))

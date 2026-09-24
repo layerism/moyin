@@ -317,7 +317,6 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "id": row["id"],
                     "nodeKey": row["node_key"],
                     "status": status,
-                    "orWinnerNodeKey": row["or_winner_node_key"],
                     "attemptNo": row["attempt_no"],
                     "requiresResubmission": requires_resubmission,
                     "feedback": feedback,
