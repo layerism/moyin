@@ -68,7 +68,7 @@ export function createNode(
     fileReviewSteps: kind === "file" || kind === "confirmation" ? [] : undefined,
     deadlineAt: null,
     fileExtensions: kind === "file" ? "pdf, docx, zip" : "",
-    fileLimitMb: kind === "file" ? "50" : "",
+    fileLimitMb: kind === "file" ? "5" : "",
     id: `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     infoFields: [],
     kind,
