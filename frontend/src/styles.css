@@ -2437,8 +2437,54 @@ button {
   position: relative;
 }
 
-.teacher-account-menu .avatar[aria-expanded="true"] {
-  outline: 3px solid rgb(40 120 240 / 18%);
+.teacher-profile-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 4px 9px 4px 5px;
+  border: 1px solid #dce3ed;
+  border-radius: 8px;
+  background: #fff;
+  color: #344054;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.teacher-profile-initial {
+  display: grid;
+  place-items: center;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  border-radius: 50%;
+  background: #1fbf8f;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.teacher-profile-link svg {
+  width: 13px;
+  height: 13px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.teacher-profile-link:hover {
+  border-color: #bad0ff;
+  background: #eff5ff;
+  box-shadow: 0 2px 8px rgb(36 100 205 / 10%);
+  color: #175cd3;
+}
+
+.teacher-profile-link:focus-visible {
+  outline: 2px solid #2670ef;
+  outline-offset: 2px;
 }
 
 .teacher-account-popover {
