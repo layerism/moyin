@@ -1,4 +1,5 @@
 import { saveDownloadFile } from "./saveStudentFile";
+import { saveDownload } from "./download";
 import { DownloadIcon } from "./DownloadIcon";
 import { FileFormatIcon } from "./FileFormatIcon";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +11,7 @@ const labels = { all: "全部", waiting: "未就绪", pending: "待人工审核"
 type Filter = keyof typeof labels;
 const category = (student: ManualReviewStudent): Exclude<Filter, "all"> => student.status === "approved" ? "approved"
   : student.status === "rejected" ? "returned" : student.canReview ? "pending" : "waiting";
+const quickRemarks = ["材料齐全，符合要求。", "请按模板补全后重新提交。", "请核对签名与日期后重新提交。"];
 
 function OriginalDownload({ nodeId, fileId, filename }: { nodeId: string; fileId: string; filename: string }) {
   const [busy, setBusy] = useState(false);
@@ -30,9 +32,10 @@ function OriginalDownload({ nodeId, fileId, filename }: { nodeId: string; fileId
   return <span><button type="button" className="review-download-icon" disabled={busy} title={busy ? "正在下载…" : "下载原件"} aria-label={`下载原件：${filename}`} onClick={() => void download()}><DownloadIcon /></button>{error && <small className="dialog-error" role="alert">{error}</small>}</span>;
 }
 
-export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo = "" }: { versionId: string; nodeKey: string; onClose: () => void; initialStudentNo?: string }) {
+export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo = "", allowBulkDownload = true }: { versionId: string; nodeKey: string; onClose: () => void; initialStudentNo?: string; allowBulkDownload?: boolean }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const actionInFlight = useRef(false);
+  const localRemarks = useRef(new Map<string, string>());
   const [queue, setQueue] = useState<ManualReviewQueue | null>(null);
   const [detail, setDetail] = useState<ManualReviewDetail | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -41,6 +44,8 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   const [remark, setRemark] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [autoAdvance, setAutoAdvance] = useState(true);
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const students = (queue?.students ?? []).filter((student) => (filter === "all" || category(student) === filter)
@@ -69,7 +74,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
     if (!activeId) { setLoading(false); return; }
     setLoading(true);
     workflowApi.getManualReview(activeId).then((value) => {
-      if (!cancelled) { setDetail(value); setRemark(value.feedbackDraft.remark); }
+      if (!cancelled) { setDetail(value); setRemark(localRemarks.current.get(activeId) ?? value.feedbackDraft.remark); }
     }).catch((reason: Error) => { if (!cancelled) setError(reason.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -89,10 +94,46 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
     void act(async () => {
       if (passed) await workflowApi.approveManualReview(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision, null, "");
       else await workflowApi.rejectManualSource(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, nodeKey, remark);
+      localRemarks.current.delete(current.nodeInstanceId);
+      if (autoAdvance) {
+        const initialScope = Boolean(initialStudentNo && query === initialStudentNo);
+        const candidates = initialScope
+          ? (queue?.students ?? []).filter((student) => student.canReview)
+          : students;
+        const index = candidates.findIndex((student) => student.nodeInstanceId === current.nodeInstanceId);
+        const ordered = index < 0 ? candidates : [...candidates.slice(index + 1), ...candidates.slice(0, index)];
+        const following = ordered
+          .find((student) => student.canReview && student.nodeInstanceId !== current.nodeInstanceId);
+        if (initialScope) { setQuery(""); setFilter("pending"); }
+        if (following) setSelected(following.id);
+      } else if (filter === "pending") {
+        setFilter("all");
+      }
       setDetail(null);
-      setQueue(await workflowApi.getManualReviewQueue(versionId, nodeKey));
       setRefresh((value) => value + 1);
     });
+  };
+  const downloadAll = async () => {
+    if (downloading) return;
+    setDownloading(true); setError("");
+    try {
+      const result = await workflowApi.downloadTeacherNodePackage(versionId, nodeKey, {
+        includeFiles: true, includeWorkbook: false, rosterEntryIds: [], studentScope: "all",
+      });
+      saveDownload(result.blob, result.filename, dialog.current ?? document.body);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量下载失败");
+    } finally { setDownloading(false); }
+  };
+  const changeRemark = (value: string) => {
+    if (activeId) localRemarks.current.set(activeId, value);
+    setRemark(value);
+  };
+  const appendRemark = (value: string) => changeRemark(remark.trim() ? `${remark.trim()}\n${value}` : value);
+  const moveSelection = (offset: number) => {
+    if (busy || loading || students.length < 2) return;
+    const index = students.findIndex((student) => student.id === active?.id);
+    setSelected(students[(index + offset + students.length) % students.length].id);
   };
   const upload = (files: File[]) => {
     const sourceFile = current?.sources[0]?.files[0];
@@ -105,17 +146,25 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
       }
     });
   };
-  return <dialog ref={dialog} className="manual-review-dialog file-manual-review-dialog" aria-label="材料人工审核" onKeyDown={(event) => event.stopPropagation()}
+  return <dialog ref={dialog} className="manual-review-dialog file-manual-review-dialog" aria-label="材料人工审核" onKeyDown={(event) => {
+    event.stopPropagation();
+    if ((event.key === "ArrowDown" || event.key === "ArrowUp")
+      && !(event.target as HTMLElement).closest("input, textarea, select, [contenteditable='true']")) {
+      event.preventDefault();
+      moveSelection(event.key === "ArrowDown" ? 1 : -1);
+    }
+  }}
     onCancel={(event) => {
       if (event.target !== event.currentTarget) return;
       event.preventDefault();
-      if (!actionInFlight.current) onClose();
+      if (!actionInFlight.current && !downloading) onClose();
     }}>
-    <header><div><h2>{queue?.title ?? "材料节点"} · 人工审核</h2></div><button type="button" disabled={busy} aria-label="关闭人工审核" onClick={onClose}>×</button></header>
+    <header><div><h2>{queue?.title ?? "材料节点"} · 人工审核</h2></div><button type="button" disabled={busy || downloading} aria-label="关闭人工审核" onClick={onClose}>×</button></header>
     {error ? <p className="dialog-error" role="alert">{error}</p> : null}
     <div className="manual-review-layout">
       <aside className="file-review-sidebar">
         <header><strong>学生列表</strong><button type="button" disabled={busy} onClick={() => setRefresh((value) => value + 1)}>刷新</button></header>
+        {allowBulkDownload ? <button className="file-review-batch-download" type="button" disabled={downloading || !(queue?.students.length)} onClick={() => void downloadAll()}>{downloading ? "正在打包…" : "批量下载文件 ZIP"}</button> : null}
         <input aria-label="搜索学生" disabled={busy} placeholder="搜索姓名、学号" value={query} onChange={(event) => setQuery(event.target.value)} />
         <select aria-label="审核状态筛选" disabled={busy} value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
           {(Object.keys(labels) as Filter[]).map((key) => <option key={key} value={key}>{labels[key]} · {(queue?.students ?? []).filter((student) => key === "all" || category(student) === key).length}</option>)}
@@ -130,6 +179,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
       <section className="manual-review-detail" aria-busy={loading}>
         {loading ? <p className="file-review-empty">正在读取材料……</p> : current ? <>
           <div className="manual-review-student-heading"><h3>{current.student.name}<small>{current.student.studentNo}</small></h3><span>{active ? labels[category(active)] : ""}</span></div>
+          <div className="file-review-body">
           <div className="manual-review-content">
             <section className="manual-review-source"><header><h4>本次提交</h4><small>{current.sources[0]?.submittedAt ? new Date(current.sources[0].submittedAt).toLocaleString("zh-CN") : "尚未提交"}</small></header>
               {current.sources.flatMap((source) => source.files).map((file) => <div key={file.id}>
@@ -139,19 +189,6 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
               </div>)}
             </section>
             {current.priorAiResults?.length ? <section className="file-review-prior-ai" aria-label="前序 AI 结论"><h4>前序 AI 结论</h4>{current.priorAiResults.map((result) => <article key={result.step}><strong>第 {result.step} 步 · {result.scriptName}：{result.passed ? "通过" : "未通过"}</strong><p>{result.reason}</p></article>)}</section> : null}
-            {current.canReview || current.canAmend ? <section className="file-review-workspace" aria-label="填写审核意见">
-              <label className="file-review-remark">审核评语 *<textarea disabled={busy} maxLength={1000} value={remark} onChange={(event) => setRemark(event.target.value)} placeholder="填写评阅意见或需要修改的内容…" /></label>
-              <section className="file-review-attachments" aria-label="评阅附件">
-                <header><strong>评阅附件 <small>（选填）</small></strong>
-                  <label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>＋ 添加文件<input aria-label="上传评阅附件" disabled={busy} type="file" multiple onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>
-                </header>
-                {!current.feedbackDraft.files.length ? <p className="file-review-attachment-empty">可添加批改文档或审批意见书<br /><small>单文件不超过 50 MB</small></p> : null}
-              {current.feedbackDraft.files.map((file) => <div className="file-review-attachment-row" key={file.id}><FileFormatIcon filename={file.name} /><span className="file-review-filename"><strong>{file.name}</strong><small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} iconOnly /><button title="移除附件" aria-label={`移除附件：${file.name}`} disabled={busy} type="button" onClick={() => void act(async () => {
-                const draft = await workflowApi.removeManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, file.id);
-                setDetail((value) => value ? { ...value, feedbackDraft: draft } : value);
-              })}>×</button></div>)}
-              </section>
-            </section> : <p className="file-review-muted">{current.status === "approved" ? "本节点已通过。" : current.status === "rejected" ? "本次材料已退回，等待学生重新提交。" : "当前未轮到人工审核，请刷新查看最新状态。"}</p>}
             <details className="file-review-secondary"><summary>材料要求与历史记录</summary>
               {current.requirement ? <section className="manual-review-instructions"><h4>材料要求</h4><p>{current.requirement}</p></section> : null}
             {current.referenceFiles?.length ? <details className="manual-review-instructions"><summary>填写模板与参考材料</summary>{current.referenceFiles.map((file) => <p key={file.id}>{file.label}：<a href={file.url} target="_blank" rel="noreferrer">{file.original_name}</a></p>)}</details> : null}
@@ -160,11 +197,33 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
               {!current.requirement && !current.referenceFiles?.length && !current.feedback.length && !current.history.length ? <p className="file-review-muted">暂无补充资料或历史记录。</p> : null}
             </details>
           </div>
-          {current.canReview || current.canAmend ? <footer className="manual-review-action"><div className="manual-review-action-buttons"><details className="file-review-more"><summary>更多操作</summary><div><p>发布批注可补充评语和附件，不结束本次审核。</p><button type="button" disabled={!canReview || !remark.trim()} onClick={() => void act(async () => {
+          <aside className="file-review-decision-pane" aria-label="人工审核操作">
+          {current.canReview || current.canAmend ? <>
+            <div className="file-review-decision-scroll">
+              <section className="file-review-workspace" aria-label="填写审核意见">
+                <label className="file-review-remark">审核评语 *<textarea disabled={busy} maxLength={1000} value={remark} onChange={(event) => changeRemark(event.target.value)} placeholder="填写评阅意见或需要修改的内容…" /></label>
+                <div className="file-review-quick-remarks" aria-label="常用评语"><small>常用评语</small>{quickRemarks.map((value) => <button key={value} type="button" disabled={busy} onClick={() => appendRemark(value)}>{value}</button>)}</div>
+                <section className="file-review-attachments" aria-label="评阅附件">
+                  <header><strong>评阅附件 <small>（选填）</small></strong>
+                    <label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>＋ 添加文件<input aria-label="上传评阅附件" disabled={busy} type="file" multiple onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>
+                  </header>
+                  {!current.feedbackDraft.files.length ? <p className="file-review-attachment-empty">可添加批改文档或审批意见书<br /><small>单文件不超过 50 MB</small></p> : null}
+                  {current.feedbackDraft.files.map((file) => <div className="file-review-attachment-row" key={file.id}><FileFormatIcon filename={file.name} /><span className="file-review-filename"><strong>{file.name}</strong><small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} iconOnly /><button title="移除附件" aria-label={`移除附件：${file.name}`} disabled={busy} type="button" onClick={() => void act(async () => {
+                    const draft = await workflowApi.removeManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, file.id);
+                    setDetail((value) => value ? { ...value, feedbackDraft: draft } : value);
+                  })}>×</button></div>)}
+                </section>
+              </section>
+            </div>
+            <footer className="manual-review-action"><label className="file-review-auto-advance"><input type="checkbox" checked={autoAdvance} onChange={(event) => setAutoAdvance(event.target.checked)} />完成后自动切换下一位</label><div className="manual-review-action-buttons"><details className="file-review-more"><summary>更多操作</summary><div><p>发布批注可补充评语和附件，不结束本次审核。</p><button type="button" disabled={!canReview || !remark.trim()} onClick={() => void act(async () => {
                 if (!current) return;
                 await workflowApi.saveManualFeedback(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision);
+                localRemarks.current.delete(current.nodeInstanceId);
                 setRefresh((value) => value + 1);
-              })}>发布批注</button></div></details><button type="button" className="file-review-reject" disabled={!canReview} onClick={() => decide(false)}>退回修改</button><button type="button" className="file-review-approve" disabled={!canReview} onClick={() => decide(true)}>{busy ? "处理中…" : "审核通过"}</button></div></footer> : null}
+              })}>发布批注</button></div></details><button type="button" className="file-review-reject" disabled={!canReview} onClick={() => decide(false)}>退回修改</button><button type="button" className="file-review-approve" disabled={!canReview} onClick={() => decide(true)}>{busy ? "处理中…" : "审核通过"}</button></div><small>↑ / ↓ 切换学生</small></footer>
+          </> : <p className="file-review-muted">{current.status === "approved" ? "本节点已通过。" : current.status === "rejected" ? "本次材料已退回，等待学生重新提交。" : "当前未轮到人工审核，请刷新查看最新状态。"}</p>}
+          </aside>
+          </div>
         </> : <p className="file-review-empty">{active ? "学生尚未提交材料。" : "请选择学生查看材料。"}</p>}
       </section>
     </div>

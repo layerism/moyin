@@ -13813,14 +13813,16 @@ td {
   scrollbar-gutter: stable;
 }
 
-/* Teacher file review: current submission first, compact queue alongside. */
-.file-manual-review-dialog { width: min(1180px, calc(100vw - 40px)); height: min(680px, calc(100dvh - 40px)); }
+/* Teacher file review: compact queue, evidence, and persistent decision pane. */
+.file-manual-review-dialog { width: min(1520px, calc(100vw - 32px)); height: min(880px, calc(100dvh - 32px)); }
 .file-manual-review-dialog > header { padding: 16px 22px; }
 .file-manual-review-dialog > header h2 { font-size: 18px; }
-.file-manual-review-dialog .manual-review-layout { grid-template-columns: 210px minmax(0, 1fr); }
-.file-review-sidebar { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 16px 12px; background: #f8fafc; border-right: 1px solid #e2e8f0; }
+.file-manual-review-dialog .manual-review-layout { grid-template-columns: 230px minmax(0, 1fr); }
+.file-review-sidebar { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 16px 12px; background: #f8fafc; border-right: 1px solid #e2e8f0; }
 .file-review-sidebar > header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
 .file-review-sidebar > header button { border: 0; background: transparent; padding: 4px; color: #64748b; font-size: 12px; }
+.file-review-sidebar > .file-review-batch-download { width: 100%; padding: 9px 10px; border-color: #bed2fb; color: #1d4ed8; background: #edf4ff; font-size: 12px; font-weight: 600; }
+.file-review-sidebar > .file-review-batch-download:hover:not(:disabled) { background: #dfeaff; }
 .file-review-sidebar > input, .file-review-sidebar > select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #dce3ed; border-radius: 7px; background: #fff; color: #344054; font: inherit; font-size: 12px; }
 .file-review-sidebar > select { background: #eff6ff; color: #1d4ed8; }
 .file-review-sidebar > nav { overflow: auto; min-height: 0; }
@@ -13828,7 +13830,11 @@ td {
 .file-review-sidebar > nav button[aria-current="true"] { background: #eaf2ff; border-color: #bad0ff; box-shadow: inset 3px 0 #2563eb; }
 .file-review-sidebar > nav strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .file-manual-review-dialog .manual-review-student-heading { padding: 16px 22px; }
+.file-review-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; flex: 1; min-height: 0; }
 .file-manual-review-dialog .manual-review-content { padding: 8px 22px 20px; }
+.file-review-decision-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid #e2e8f0; background: #fbfcfe; }
+.file-review-decision-scroll { flex: 1; min-height: 0; overflow: auto; }
+.file-review-decision-pane > .file-review-muted { padding: 18px; }
 .file-manual-review-dialog .file-review-original, .file-review-attachment-row { display: flex; align-items: center; gap: 10px; padding: 12px; margin-top: 10px; background: #f8fafc; border: 1px solid #e5ebf3; border-radius: 8px; }
 .file-review-image-preview { display: block; width: auto; max-width: min(100%, 620px); max-height: 520px; height: auto; object-fit: contain; margin: 8px 0 16px; border: 1px solid #e5ebf3; border-radius: 8px; }
 .file-review-prior-ai { margin: 16px 0; padding: 12px; border: 1px solid #dbeafe; border-radius: 8px; background: #f8fbff; }
@@ -13838,10 +13844,13 @@ td {
 .file-manual-review-dialog .file-review-filename { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; }
 .file-review-filename small { display: block; color: #78849a; font-size: 11px; margin-top: 3px; }
 .file-manual-review-dialog .file-format-icon { flex: 0 0 32px; }
-.file-review-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; padding: 18px 0; }
-.file-review-workspace .file-review-remark { margin: 0; align-content: start; gap: 12px; font-weight: 600; }
-.file-review-workspace textarea { min-height: 150px; line-height: 1.6; font-weight: 400; }
-.file-review-attachments { min-width: 0; padding-left: 20px; border-left: 1px solid #e7ecf3; }
+.file-review-workspace { display: grid; gap: 18px; padding: 18px; }
+.file-review-workspace .file-review-remark { margin: 0; gap: 10px; font-weight: 600; }
+.file-review-workspace textarea { min-height: 170px; line-height: 1.6; font-weight: 400; }
+.file-review-quick-remarks { display: flex; flex-wrap: wrap; gap: 6px; }
+.file-review-quick-remarks > small { flex-basis: 100%; color: #64748b; }
+.file-manual-review-dialog .file-review-quick-remarks > button { padding: 5px 8px; font-size: 11px; color: #475569; background: #fff; }
+.file-review-attachments { min-width: 0; padding-top: 16px; border-top: 1px solid #e7ecf3; }
 .file-review-attachments > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
 .file-review-attachments > header small { color: #78849a; font-size: 12px; font-weight: 400; }
 .file-review-attachment-empty { margin: 12px 0 0; padding: 24px 12px; border: 1px dashed #d6dfec; border-radius: 8px; color: #64748b; font-size: 12px; line-height: 1.8; text-align: center; }
@@ -13854,8 +13863,11 @@ td {
 .file-review-secondary { padding: 14px 0; border-top: 1px solid #e7ecf3; font-size: 12px; color: #64748b; }
 .file-review-secondary > summary { font-weight: 500; }
 .file-review-secondary .manual-review-instructions p { white-space: pre-wrap; }
-.file-manual-review-dialog .manual-review-action { padding: 14px 22px; }
-.file-manual-review-dialog .manual-review-action-buttons { width: 100%; }
+.file-manual-review-dialog .manual-review-action { padding: 14px 18px; }
+.file-manual-review-dialog .manual-review-action-buttons { width: 100%; justify-content: flex-end; }
+.file-review-auto-advance { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #475569; }
+.file-review-auto-advance input { margin: 0; }
+.file-manual-review-dialog .manual-review-action > small { color: #94a3b8; font-size: 11px; }
 .file-review-more { position: relative; margin-right: auto; font-size: 12px; color: #64748b; }
 .file-review-more > summary { cursor: pointer; padding: 8px 0; }
 .file-review-more > div { position: absolute; bottom: calc(100% + 8px); left: 0; width: 240px; padding: 14px; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px #1720331a; z-index: 2; }
@@ -13868,21 +13880,27 @@ td {
 .completed-review-feedback article + article { padding-top: 12px; border-top: 1px solid #edf0f5; }
 .completed-review-feedback .review-feedback-file > span:not(.file-format-icon) { white-space: normal; overflow-wrap: anywhere; }
 .completed-review-feedback .review-feedback-file > span:last-child { flex: 0 0 auto; }
-@media (max-width: 900px) {
-  .file-review-workspace { grid-template-columns: minmax(0, 1fr); }
-  .file-review-attachments { padding: 16px 0 0; border-left: 0; border-top: 1px solid #e7ecf3; }
+@media (max-width: 1050px) {
+  .file-review-body { grid-template-columns: minmax(0, 1fr) 320px; }
+  .file-manual-review-dialog .manual-review-layout { grid-template-columns: 200px minmax(0, 1fr); }
+}
+@media (max-width: 850px) {
+  .file-review-body { display: block; overflow: auto; }
+  .file-manual-review-dialog .manual-review-content { overflow: visible; }
+  .file-review-decision-pane { border-left: 0; border-top: 1px solid #e2e8f0; }
+  .file-review-decision-scroll { overflow: visible; }
 }
 @media (max-width: 720px) {
   .file-manual-review-dialog { width: calc(100vw - 16px); }
-  .file-manual-review-dialog .manual-review-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: 190px minmax(0, 1fr); }
+  .file-manual-review-dialog .manual-review-layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: 220px minmax(0, 1fr); }
   .file-review-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; border-right: 0; border-bottom: 1px solid #e2e8f0; }
-  .file-review-sidebar > header, .file-review-sidebar > nav { grid-column: 1 / -1; }
+  .file-review-sidebar > header, .file-review-sidebar > nav, .file-review-sidebar > .file-review-batch-download { grid-column: 1 / -1; }
   .file-review-sidebar > nav { display: flex; gap: 8px; }
   .file-review-sidebar > nav button { min-width: 150px; margin: 0; }
   .file-manual-review-dialog .manual-review-student-heading { flex-wrap: wrap; padding: 12px; }
   .file-manual-review-dialog .manual-review-student-heading h3 small { display: block; margin: 4px 0 0; }
   .file-manual-review-dialog .manual-review-detail { overflow: hidden; }
-  .file-manual-review-dialog .manual-review-content { flex: 1; overflow: auto; }
+  .file-manual-review-dialog .manual-review-content { flex: none; overflow: visible; }
   .file-manual-review-dialog .manual-review-content, .file-manual-review-dialog .manual-review-action { padding: 12px; }
   .file-review-more > div { width: min(240px, calc(100vw - 64px)); }
 }

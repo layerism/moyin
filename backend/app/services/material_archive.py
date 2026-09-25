@@ -106,9 +106,11 @@ def build_material_archive(selection: TeacherMaterialSelection) -> MaterialArchi
 def _node_package_material_path(
     student: TeacherNodeExportStudent,
     material: TeacherNodeExportFile,
+    *,
+    include_workbook: bool,
 ) -> PurePosixPath:
     return PurePosixPath(
-        "学生文件",
+        *(("学生文件",) if include_workbook else ()),
         f"{_safe_component(student.student_no)}-{_safe_component(student.name)}",
         _safe_component(material.original_name),
     )
@@ -150,7 +152,9 @@ def build_node_submission_archive(
                         local_path,
                         arcname=str(
                             _unique_path(
-                                _node_package_material_path(student, material),
+                                _node_package_material_path(
+                                    student, material, include_workbook=include_workbook,
+                                ),
                                 used_paths,
                             )
                         ),
