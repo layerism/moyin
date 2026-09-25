@@ -13824,11 +13824,9 @@ td {
 .file-review-sidebar > input, .file-review-sidebar > select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid #dce3ed; border-radius: 7px; background: #fff; color: #344054; font: inherit; font-size: 12px; }
 .file-review-sidebar > select { background: #eff6ff; color: #1d4ed8; }
 .file-review-sidebar > nav { overflow: auto; min-height: 0; }
-.file-review-sidebar > nav button { display: grid; gap: 5px; width: 100%; margin-bottom: 6px; text-align: left; padding: 12px; border-color: transparent; background: transparent; overflow-wrap: anywhere; }
+.file-review-sidebar > nav button { display: block; width: 100%; margin-bottom: 6px; text-align: left; padding: 8px 10px; border-color: transparent; background: transparent; }
 .file-review-sidebar > nav button[aria-current="true"] { background: #eaf2ff; border-color: #bad0ff; box-shadow: inset 3px 0 #2563eb; }
-.file-review-sidebar > nav strong { font-size: 13px; }
-.file-review-sidebar > nav small { color: #64748b; font-size: 11px; }
-.file-review-sidebar > nav span { color: #475467; font-size: 11px; }
+.file-review-sidebar > nav strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .file-manual-review-dialog .manual-review-student-heading { padding: 16px 22px; }
 .file-manual-review-dialog .manual-review-content { padding: 8px 22px 20px; }
 .file-manual-review-dialog .file-review-original, .file-review-attachment-row { display: flex; align-items: center; gap: 10px; padding: 12px; margin-top: 10px; background: #f8fafc; border: 1px solid #e5ebf3; border-radius: 8px; }

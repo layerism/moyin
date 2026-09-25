@@ -121,8 +121,10 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
           {(Object.keys(labels) as Filter[]).map((key) => <option key={key} value={key}>{labels[key]} · {(queue?.students ?? []).filter((student) => key === "all" || category(student) === key).length}</option>)}
         </select>
         <nav aria-label="学生审核列表">{students.map((student) => <button key={student.id} type="button" disabled={busy}
-          aria-current={active?.id === student.id ? "true" : undefined} onClick={() => setSelected(student.id)}>
-          <strong>{student.name}</strong><small>{student.studentNo}</small><span>{labels[category(student)]}</span>
+          aria-current={active?.id === student.id ? "true" : undefined}
+          aria-label={`${student.studentNo}－${student.name}，${labels[category(student)]}`}
+          onClick={() => setSelected(student.id)}>
+          <strong title={`${student.studentNo}－${student.name}`}>{student.studentNo}－{student.name}</strong>
         </button>)}{queue && !students.length ? <p className="file-review-muted">暂无符合条件的学生</p> : null}</nav>
       </aside>
       <section className="manual-review-detail" aria-busy={loading}>
