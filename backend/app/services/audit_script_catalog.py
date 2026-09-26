@@ -394,8 +394,17 @@ def _record_for_manifest(manifest: _AuditScriptManifest) -> AuditScriptRecord:
     except (AuditScriptParameterError, json.JSONDecodeError, OSError, UnicodeError) as exc:
         raise AuditScriptCatalogError("审核脚本配置无效") from exc
     source_hash = hashlib.sha256(source.encode("utf-8")).hexdigest()
-    content_hash = _hash_json({"language": manifest.language, "entry": manifest.entry,
-        "sourceHash": source_hash, "configHash": config.sha256})
+    content_identity = {"language": manifest.language, "entry": manifest.entry,
+                        "sourceHash": source_hash, "configHash": config.sha256}
+    client_modified_at = 0.0
+    if manifest.id in SCRIPT_PROVIDERS:
+        client_path = Path(__file__).with_name("audit_llm_client.py")
+        try:
+            content_identity["requestClientHash"] = hashlib.sha256(client_path.read_bytes()).hexdigest()
+            client_modified_at = client_path.stat().st_mtime
+        except OSError as exc:
+            raise AuditScriptCatalogError("审核模型客户端不可用") from exc
+    content_hash = _hash_json(content_identity)
     editor_hash = _hash_json({"name": manifest.name, "description": manifest.description,
         "contentHash": content_hash})
     config_path = manifest.script_dir / "config.json"
@@ -403,7 +412,7 @@ def _record_for_manifest(manifest: _AuditScriptManifest) -> AuditScriptRecord:
         manifest.id, manifest.name, manifest.description, manifest.language, manifest.entry,
         entry_path, source, source_hash, config.sha256, content_hash, editor_hash,
         config.accepted_extensions, config.parameters, config.runtime_settings, config,
-        datetime.fromtimestamp(max(stat.st_mtime, manifest.manifest_path.stat().st_mtime,
+        datetime.fromtimestamp(max(stat.st_mtime, client_modified_at, manifest.manifest_path.stat().st_mtime,
             config_path.stat().st_mtime if config_path.is_file() else 0), timezone.utc).isoformat(),
         manifest.visibility, manifest.manifest_path, manifest.data,
     )

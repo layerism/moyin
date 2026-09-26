@@ -120,10 +120,10 @@ def execute_staged_audit_script(
     execution_root: Path,
     *,
     cancelled: Callable[[], bool] | None = None,
-    model_variables: dict[str, str] | None = None,
+    model_configuration: dict[str, object] | None = None,
 ) -> dict[str, object]:
     payload = _build_payload(str(uuid.uuid4()), files, context, execution_root / "files")
-    output = _run_process(descriptor, payload, execution_root, cancelled, model_variables)
+    output = _run_process(descriptor, payload, execution_root, cancelled, model_configuration)
     return _validate_result(output, materials)
 
 
@@ -153,18 +153,20 @@ def _run_process(
     payload: dict[str, object],
     execution_root: Path,
     cancelled: Callable[[], bool] | None,
-    model_variables: dict[str, str] | None = None,
+    model_configuration: dict[str, object] | None = None,
 ) -> bytes:
     _raise_if_cancelled(cancelled)
     command = _command_for(descriptor)
     runtime_settings = validate_script_settings(descriptor.config, payload["context"]["scriptSettings"])
     timeout_seconds = float(runtime_settings.get("executionTimeoutSeconds", settings.audit_script_timeout_seconds))
-    environment = _script_environment(descriptor, str(payload["context"].get("flowId", "")), str(payload["context"].get("nodeKey", "")), payload["context"].get("stepModelCardId"), model_variables)
+    environment = _script_environment()
     environment.update({"TMPDIR": str(execution_root), "TMP": str(execution_root), "TEMP": str(execution_root)})
-    if "VISION_MODEL" in environment:
-        context = dict(payload["context"])
-        context["scriptSettings"] = {**context["scriptSettings"], "modelName": environment["VISION_MODEL"]}
-        payload = {**payload, "context": context}
+    from app.services.audit_model_connections import model_config
+    configuration = model_configuration if model_configuration is not None else model_config(
+        descriptor.script_id, str(payload["context"].get("flowId", "")),
+        str(payload["context"].get("nodeKey", "")), payload["context"].get("stepModelCardId"),
+    )
+    payload = {**payload, "modelConfig": configuration}
     try:
         stdin = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     except (TypeError, ValueError):
@@ -248,18 +250,21 @@ def _raise_if_cancelled(cancelled: Callable[[], bool] | None) -> None:
         raise AuditScriptExecutionCancelled("审核任务已取消")
 
 
-def _script_environment(descriptor: AuditScriptRuntimeDescriptor, flow_id: str, node_key: str, card_id: str | None = None, model_variables: dict[str, str] | None = None) -> dict[str, str]:
+def _script_environment() -> dict[str, str]:
     environment = {
         "PATH": os.environ.get("PATH", os.defpath),
         "LANG": os.environ.get("LANG", "C.UTF-8"),
         "PYTHONUTF8": "1",
         "PYTHONNOUSERSITE": "1",
         "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": str(Path(__file__).resolve().parents[2]),
         "NODE_PATH": settings.audit_node_modules_path,
     }
     dotenv = dotenv_values(Path(__file__).resolve().parents[2] / ".env")
-    from app.services.audit_model_connections import ENV_NAMES, model_environment
-    managed_names = {name for names in ENV_NAMES.values() for name in names if name}
+    # Legacy model credentials must not leak back through a configured allowlist.
+    managed_names = {"DEEPSEEK_API_URL", "DEEPSEEK_API_KEY", "DEEPSEEK_MODEL",
+                     "VISION_API_BASE_URL", "VISION_API_KEY", "VISION_MODEL", "AUDIT_CHAT_OPTIONS",
+                     "PYTHONPATH", "PYTHONDONTWRITEBYTECODE"}
     names: list[str] = []
     for candidate in settings.audit_script_env_allowlist.split(","):
         name = candidate.strip()
@@ -272,7 +277,6 @@ def _script_environment(descriptor: AuditScriptRuntimeDescriptor, flow_id: str, 
             value = dotenv_value if isinstance(dotenv_value, str) else None
         if value is not None:
             environment[name] = value
-    environment.update(model_variables if model_variables is not None else model_environment(descriptor.script_id, flow_id, node_key, card_id))
     return environment
 
 

@@ -2,21 +2,18 @@ from __future__ import annotations
 
 import json
 import math
-import os
 import re
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
 
 from docx import Document
 from markitdown import MarkItDown
 
+from app.services.audit_llm_client import AuditLLMClient
+
 MAX_CHUNK_CHARACTERS = 12_000
-MAX_MODEL_RESPONSE_BYTES = 1_048_576
 MAX_ISSUES = 100
 MAX_TARGET_CHARACTERS = 300
 MAX_EVIDENCE_CHARACTERS = 1000
@@ -415,74 +412,6 @@ def build_model_messages(
     return system, user
 
 
-def request_review(
-    system: str, user: str, settings: dict[str, object]
-) -> dict[str, object]:
-    api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    base_url = os.environ.get("DEEPSEEK_API_URL", "").strip().rstrip("/")
-    model = os.environ.get("DEEPSEEK_MODEL", "").strip()
-    if not api_key or not base_url or not model:
-        raise RuntimeError("DOCX LLM 审核服务未配置")
-    if len(model) > 200:
-        raise RuntimeError("DOCX LLM 审核模型配置无效")
-    parsed_url = urlsplit(base_url)
-    if (
-        parsed_url.scheme not in {"http", "https"}
-        or not parsed_url.netloc
-        or parsed_url.username is not None
-        or parsed_url.password is not None
-    ):
-        raise RuntimeError("DOCX LLM 审核服务地址无效")
-    body: dict[str, object] = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        "response_format": {"type": "json_object"},
-        "temperature": settings["temperature"],
-    }
-    options = json.loads(os.environ.get("AUDIT_CHAT_OPTIONS", "{}"))
-    body.update(options.get("body", {}))
-    if options.get("omitTemperature"):
-        body.pop("temperature", None)
-    request = Request(
-        f"{base_url}/chat/completions",
-        data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-    )
-    try:
-        with urlopen(request, timeout=float(settings["requestTimeoutSeconds"])) as response:
-            raw_response = response.read(MAX_MODEL_RESPONSE_BYTES + 1)
-        if len(raw_response) > MAX_MODEL_RESPONSE_BYTES:
-            raise ValueError("模型响应过大")
-        payload = json.loads(raw_response)
-        content = payload["choices"][0]["message"]["content"]
-        if not isinstance(content, str):
-            raise TypeError("模型响应内容无效")
-        value = json.loads(content)
-        if not isinstance(value, dict):
-            raise TypeError("模型响应内容无效")
-        return value
-    except (
-        HTTPError,
-        URLError,
-        TimeoutError,
-        OSError,
-        KeyError,
-        IndexError,
-        TypeError,
-        json.JSONDecodeError,
-        UnicodeDecodeError,
-        ValueError,
-    ) as exc:
-        raise RuntimeError("DOCX LLM 审核请求或响应无效") from exc
-
-
 def _validate_coverage(value: object, expected: set[str], label: str) -> list[str]:
     if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
         raise ValueError(f"模型返回的{label}覆盖无效")
@@ -658,7 +587,11 @@ def run(payload: object) -> dict[str, object]:
         document_chunks,
         int(settings["maximumInputCharacters"]),
     )
-    model_value = request_review(system, user, settings)
+    client = AuditLLMClient(payload["modelConfig"])
+    model_value = client.request_json(
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        temperature=float(settings["temperature"]), timeout=float(settings["requestTimeoutSeconds"]),
+    )
     issues = validate_model_result(model_value, review_rules, document_chunks)
     final_issues = [
         {

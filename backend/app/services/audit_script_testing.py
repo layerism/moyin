@@ -6,7 +6,7 @@ from pathlib import Path, PurePosixPath
 
 from fastapi import UploadFile
 
-from app.services.audit_model_connections import test_model_environment
+from app.services.audit_model_connections import test_model_config
 from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script
 from app.services.audit_script_executor import (
     ALLOWED_EXTENSIONS,
@@ -32,7 +32,7 @@ def run_audit_script_test(
     descriptor = resolve_audit_script(script_id)
     parameters = validate_script_params(descriptor.config, params)
     runtime_settings = default_script_settings(descriptor.config)
-    model_variables = test_model_environment(script_id, model_card_id, owner_id)
+    model_configuration = test_model_config(script_id, model_card_id, owner_id)
     scans = script_id in {"image-visual-audit", "image-visual-score-audit"}
     if not 1 <= len(uploads) <= (10 if scans else 1):
         raise ValueError("扫描审核请选择 1–10 个文件" if scans else "文档审核请选择一个文件")
@@ -87,5 +87,5 @@ def run_audit_script_test(
         return execute_staged_audit_script(
             descriptor, materials, staged,
             {"scriptParams": parameters, "scriptSettings": runtime_settings, "stepModelCardId": model_card_id},
-            execution_root, model_variables=model_variables,
+            execution_root, model_configuration=model_configuration,
         )

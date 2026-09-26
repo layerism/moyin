@@ -2,16 +2,16 @@
 import base64
 import html
 import json
-import os
 import re
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
-from urllib.request import Request, urlopen
 
 import fitz
+
+from app.services.audit_llm_client import AuditLLMClient
 
 
 OUTPUT_RULE = """
@@ -61,8 +61,7 @@ def page_image(document, page_number: int, maximum_side: int, folder: Path) -> s
     return "data:image/png;base64," + base64.b64encode(path.read_bytes()).decode("ascii")
 
 
-def parse_result(content: str, reviewed_pages: list[int]) -> list[dict]:
-    value = json.loads(re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.I))
+def parse_result(value: dict, reviewed_pages: list[int]) -> list[dict]:
     if not isinstance(value, dict) or set(value) != {"passed", "readable", "reviewedPages", "issues"}:
         raise ValueError("视觉模型返回字段无效")
     if type(value['passed']) is not bool or type(value['readable']) is not bool:
@@ -88,42 +87,19 @@ def parse_result(content: str, reviewed_pages: list[int]) -> list[dict]:
 
 
 def request_audit(images: list[tuple[int, str]], reviewed_pages: list[int], prompt: str,
-                  settings: dict, timeout: float) -> list[dict]:
-    base_url = os.environ.get('VISION_API_BASE_URL', '').rstrip('/')
-    api_key = os.environ.get('VISION_API_KEY', '')
-    model = os.environ.get('VISION_MODEL', '')
-    if not base_url or not api_key or not model:
-        raise RuntimeError("请配置支持图片输入的视觉审核模型")
+                  settings: dict, timeout: float, client: AuditLLMClient) -> list[dict]:
     content = [{"type": "text", "text": f"教师排版要求：\n{prompt}\n本批新审核页码：{reviewed_pages}"}]
     for page, data_url in images:
         content.extend([
             {"type": "text", "text": f"实际第 {page} 页；{'审核页' if page in reviewed_pages else '仅作上下文'}"},
             {"type": "image_url", "image_url": {"url": data_url}},
         ])
-    body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": settings['systemPrompt'] + '\n' + OUTPUT_RULE},
-            {"role": "user", "content": content},
-        ],
-        "response_format": {"type": "json_object"}, "temperature": settings['temperature'],
-    }
-    options = json.loads(os.environ.get('AUDIT_CHAT_OPTIONS', '{}'))
-    body.update(options.get('body', {}))
-    if options.get('omitTemperature'):
-        body.pop('temperature', None)
-    request = Request(
-        f"{base_url}/chat/completions", data=json.dumps(body).encode('utf-8'), method='POST',
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-    )
-    with urlopen(request, timeout=timeout) as response:
-        raw = response.read(1_048_577)
-    if len(raw) > 1_048_576:
-        raise ValueError("视觉模型响应过大")
-    content = json.loads(raw)['choices'][0]['message']['content']
-    if not isinstance(content, str):
-        raise ValueError("视觉模型响应不是文本")
-    return parse_result(content, reviewed_pages)
+    messages = [
+        {"role": "system", "content": settings['systemPrompt'] + '\n' + OUTPUT_RULE},
+        {"role": "user", "content": content},
+    ]
+    value = client.request_json(messages=messages, temperature=float(settings['temperature']), timeout=timeout)
+    return parse_result(value, reviewed_pages)
 
 
 def markdown_text(value: str) -> str:
@@ -133,6 +109,7 @@ def markdown_text(value: str) -> str:
 
 def audit(payload: dict) -> dict:
     files = payload['files']
+    client = AuditLLMClient(payload['modelConfig'])
     settings = payload['context']['scriptSettings']
     prompt = payload['context']['scriptParams']['layoutReviewPrompt']
     deadline = time.monotonic() + float(settings['executionTimeoutSeconds']) - 2
@@ -170,7 +147,7 @@ def audit(payload: dict) -> dict:
                     for page in reviewed_pages:
                         images.append((page, page_image(document, page, settings['imageMaximumSide'], folder)))
                     file_issues.extend(request_audit(images, reviewed_pages, prompt, settings,
-                        remaining(deadline, settings['requestTimeoutSeconds'])))
+                        remaining(deadline, settings['requestTimeoutSeconds']), client))
                     previous = images[-1]
                     next_page = end
             seen = set()

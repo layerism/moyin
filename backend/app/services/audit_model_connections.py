@@ -11,10 +11,6 @@ from app.core.config import settings
 from app.core.database import get_connection
 from app.services.model_balance import balance_capability
 
-ENV_NAMES = {
-    "document": ("DEEPSEEK_API_URL", "DEEPSEEK_API_KEY", "DEEPSEEK_MODEL"),
-    "vision": ("VISION_API_BASE_URL", "VISION_API_KEY", "VISION_MODEL"),
-}
 SCRIPT_PROVIDERS = {
     "docx-markdown-completion-audit": "document",
     "document-score-audit": "document",
@@ -182,7 +178,7 @@ def delete_model_card(card_id: str, revision: int, owner_id: int) -> None:
         connection.execute("DELETE FROM audit_model_cards WHERE id = ?", (card_id,))
 
 
-def model_environment(script_id: str, flow_id: str, node_key: str, card_id: str | None = None) -> dict[str, str]:
+def model_config(script_id: str, flow_id: str, node_key: str, card_id: str | None = None) -> dict[str, object]:
     kind = SCRIPT_PROVIDERS.get(script_id)
     if kind is None:
         return {}
@@ -200,10 +196,10 @@ def model_environment(script_id: str, flow_id: str, node_key: str, card_id: str 
                 (flow_id, card_id)).fetchone()
     if row is None or not row["encrypted_api_key"] or not row["api_url"] or not row["model"]:
         raise PublisherModelNotConfigured("当前节点尚未配置发布者自己的审核模型，请联系发布者配置后重试")
-    return _card_environment(kind, row)
+    return _card_config(row)
 
 
-def test_model_environment(script_id: str, card_id: str | None, owner_id: int) -> dict[str, str]:
+def test_model_config(script_id: str, card_id: str | None, owner_id: int) -> dict[str, object]:
     kind = SCRIPT_PROVIDERS.get(script_id)
     if kind is None:
         return {}
@@ -214,16 +210,14 @@ def test_model_environment(script_id: str, card_id: str | None, owner_id: int) -
         ).fetchone()
     if row is None or not row["encrypted_api_key"] or not row["api_url"] or not row["model"]:
         raise PublisherModelNotConfigured("请先选择你自己的可用审核模型卡")
-    return _card_environment(kind, row)
+    return _card_config(row)
 
 
-def _card_environment(kind: str, row) -> dict[str, str]:
-    url_name, key_name, model_name = ENV_NAMES[kind]
+def _card_config(row) -> dict[str, object]:
     key = _cipher().decrypt(row["encrypted_api_key"].encode()).decode() if row["encrypted_api_key"] else ""
     from app.services.model_thinking import request_thinking_options
     options = request_thinking_options(row["vendor"], row["model"], json.loads(row["thinking_json"]))
-    return {url_name: row["api_url"], key_name: key, model_name: row["model"],
-            "AUDIT_CHAT_OPTIONS": json.dumps(options)}
+    return {"baseUrl": row["api_url"], "apiKey": key, "model": row["model"], "requestOptions": options}
 
 
 def initialize_model_thinking() -> None:
