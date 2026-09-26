@@ -68,7 +68,7 @@ def stage_audit_materials(
             raise AuditScriptExecutionError("审核材料路径无效")
         try:
             storage.download_to_file(material.storage_key, path)
-            _validate_download(path, extension, material)
+            validate_audit_material(path, extension, material)
             _raise_if_cancelled(cancelled)
         except AuditScriptExecutionError:
             raise
@@ -109,9 +109,22 @@ def execute_audit_script(
             materials, execution_root / "files", storage or get_object_storage(), cancelled
         )
         _raise_if_cancelled(cancelled)
-        payload = _build_payload(str(uuid.uuid4()), staged, context, execution_root / "files")
-        output = _run_process(descriptor, payload, execution_root, cancelled)
-        return _validate_result(output, materials)
+        return execute_staged_audit_script(descriptor, materials, staged, context, execution_root, cancelled=cancelled)
+
+
+def execute_staged_audit_script(
+    descriptor: AuditScriptRuntimeDescriptor,
+    materials: list[AuditMaterial],
+    files: list[dict[str, object]],
+    context: dict[str, object],
+    execution_root: Path,
+    *,
+    cancelled: Callable[[], bool] | None = None,
+    model_variables: dict[str, str] | None = None,
+) -> dict[str, object]:
+    payload = _build_payload(str(uuid.uuid4()), files, context, execution_root / "files")
+    output = _run_process(descriptor, payload, execution_root, cancelled, model_variables)
+    return _validate_result(output, materials)
 
 
 def _build_payload(
@@ -140,12 +153,14 @@ def _run_process(
     payload: dict[str, object],
     execution_root: Path,
     cancelled: Callable[[], bool] | None,
+    model_variables: dict[str, str] | None = None,
 ) -> bytes:
     _raise_if_cancelled(cancelled)
     command = _command_for(descriptor)
     runtime_settings = validate_script_settings(descriptor.config, payload["context"]["scriptSettings"])
     timeout_seconds = float(runtime_settings.get("executionTimeoutSeconds", settings.audit_script_timeout_seconds))
-    environment = _script_environment(descriptor, str(payload["context"].get("flowId", "")), str(payload["context"].get("nodeKey", "")), payload["context"].get("stepModelCardId"))
+    environment = _script_environment(descriptor, str(payload["context"].get("flowId", "")), str(payload["context"].get("nodeKey", "")), payload["context"].get("stepModelCardId"), model_variables)
+    environment.update({"TMPDIR": str(execution_root), "TMP": str(execution_root), "TEMP": str(execution_root)})
     if "VISION_MODEL" in environment:
         context = dict(payload["context"])
         context["scriptSettings"] = {**context["scriptSettings"], "modelName": environment["VISION_MODEL"]}
@@ -233,12 +248,13 @@ def _raise_if_cancelled(cancelled: Callable[[], bool] | None) -> None:
         raise AuditScriptExecutionCancelled("审核任务已取消")
 
 
-def _script_environment(descriptor: AuditScriptRuntimeDescriptor, flow_id: str, node_key: str, card_id: str | None = None) -> dict[str, str]:
+def _script_environment(descriptor: AuditScriptRuntimeDescriptor, flow_id: str, node_key: str, card_id: str | None = None, model_variables: dict[str, str] | None = None) -> dict[str, str]:
     environment = {
         "PATH": os.environ.get("PATH", os.defpath),
         "LANG": os.environ.get("LANG", "C.UTF-8"),
         "PYTHONUTF8": "1",
         "PYTHONNOUSERSITE": "1",
+        "PYTHONDONTWRITEBYTECODE": "1",
         "NODE_PATH": settings.audit_node_modules_path,
     }
     dotenv = dotenv_values(Path(__file__).resolve().parents[2] / ".env")
@@ -256,7 +272,7 @@ def _script_environment(descriptor: AuditScriptRuntimeDescriptor, flow_id: str, 
             value = dotenv_value if isinstance(dotenv_value, str) else None
         if value is not None:
             environment[name] = value
-    environment.update(model_environment(descriptor.script_id, flow_id, node_key, card_id))
+    environment.update(model_variables if model_variables is not None else model_environment(descriptor.script_id, flow_id, node_key, card_id))
     return environment
 
 
@@ -297,7 +313,7 @@ def _validate_result(output: bytes, materials: list[AuditMaterial]) -> dict[str,
     return result
 
 
-def _validate_download(path: Path, extension: str, material: AuditMaterial) -> None:
+def validate_audit_material(path: Path, extension: str, material: AuditMaterial) -> None:
     try:
         actual_size = path.stat().st_size
         actual_hash = _sha256(path)

@@ -13743,8 +13743,32 @@ td {
 .node-reference-file > .node-template-file-icon { width: 24px; height: 24px; flex: 0 0 24px; font-size: 7px; }
 
 .file-review-score-summary { min-width: 0; padding: 9px 12px; color: #475467; background: #f4f6fa; border-radius: 6px; font-size: 12px; }
-.file-review-step-model { display: flex; justify-content: flex-start; }
+.file-review-step-model { display: flex; justify-content: flex-start; align-items: center; gap: 8px; }
 .file-review-step-model .node-model-toggle { min-height: 30px; padding: 5px 10px; font-size: 12px; }
+.file-review-step-model .audit-test-toggle { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 5px 10px; font-size: 12px; color: #2563eb; background: #edf4ff; }
+.audit-test-dialog { width: min(800px, calc(100vw - 32px)); height: auto; max-height: 88dvh; }
+.audit-test-dialog header button:disabled { opacity: .5; cursor: not-allowed; }
+.audit-test-body { display: flex; flex-direction: column; gap: 16px; }
+.audit-test-note { margin: 0; color: #667085; font-size: 13px; line-height: 1.6; }
+.audit-test-file-input { display: none; }
+.audit-test-upload { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.audit-test-upload > button { padding: 8px 12px; border: 1px solid #bad0ff; border-radius: 8px; background: #f7faff; color: #2563eb; cursor: pointer; }
+.audit-test-upload > small { color: #667085; font-size: 12px; }
+.audit-test-empty { padding: 30px 16px; border: 1px dashed #ccd7e6; border-radius: 10px; color: #8591a5; text-align: center; font-size: 13px; }
+.audit-test-files { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.audit-test-files > li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #e0e7f0; border-radius: 8px; background: #fafbfe; }
+.audit-test-files li > span { display: grid; gap: 4px; min-width: 0; }
+.audit-test-files strong { overflow-wrap: anywhere; font-size: 13px; font-weight: 500; }
+.audit-test-files small { color: #667085; font-size: 12px; }
+.audit-test-files button { flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: 6px; color: #667085; background: #eef2f8; cursor: pointer; }
+.audit-test-upload button:disabled, .audit-test-files button:disabled { opacity: .5; cursor: not-allowed; }
+.audit-test-running { margin: 0; color: #2563eb; font-size: 13px; }
+.audit-test-result { min-width: 0; }
+.audit-test-result > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+.audit-test-result header span { padding: 3px 8px; border-radius: 6px; font-size: 12px; }
+.audit-test-result .is-passed { background: #ecfdf3; color: #14804a; }
+.audit-test-result .is-rejected { background: #fff1f0; color: #c73535; }
+.audit-test-result pre { max-height: 44dvh; overflow: auto; margin: 0; padding: 16px; border: 1px solid #dce4ef; border-radius: 10px; background: #f7f9fc; color: #24344b; font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .node-template-file-icon.file-format-icon { background: transparent; }
 .file-format-icon > svg { display: block; flex-shrink: 0; }

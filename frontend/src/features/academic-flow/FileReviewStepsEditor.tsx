@@ -4,6 +4,7 @@ import { AuditScriptSelector } from "./AuditScriptSelector";
 import { toNodeAuditScriptSelection } from "./auditScripts";
 import { rememberReviewSteps, restoreReviewScript, recoverRemovedReviewStep } from "./fileReviewConfigHistory";
 import { NodeModelSelector } from "./NodeModelSelector";
+import { AuditScriptTest } from "./AuditScriptTest";
 import type { AcademicFlowNode, FileReviewStep } from "../../types";
 
 export function fileReviewSteps(node: AcademicFlowNode): FileReviewStep[] {
@@ -254,7 +255,11 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
               const { fileExtensions: _extensions, kind: _kind, id: _id, ...selection } = patch;
               update(step.id, selection);
             }} />
-          {requiresReviewModel(step) ? <div className="file-review-step-model"><NodeModelSelector value={step.auditModelCardId ?? null} disabled={props.parameterDisabled ?? disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /></div> : null}
+          <div className="file-review-step-model">
+            {requiresReviewModel(step) ? <NodeModelSelector value={step.auditModelCardId ?? null} disabled={props.parameterDisabled ?? disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /> : null}
+            <AuditScriptTest key={`${node.id}-${step.id}-${step.auditScriptId}`} step={step}
+              disabled={(props.parameterDisabled ?? disabled) || (requiresReviewModel(step) && !step.auditModelCardId)} />
+          </div>
         </> : null}
       </div>
     </li>)}</ol>

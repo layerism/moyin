@@ -545,6 +545,21 @@ export const workflowApi = {
   listAuditScripts() {
     return request<AuditScriptSummary[]>("/api/workflow-admin/audit-scripts");
   },
+
+  testAuditScript(
+    scriptId: string,
+    configuration: { params: Record<string, string | number | boolean>; modelCardId: string | null },
+    files: File[],
+    signal?: AbortSignal,
+  ) {
+    const body = new FormData();
+    body.append("configuration", JSON.stringify(configuration));
+    files.forEach(file => body.append("files", file));
+    return request<Record<string, unknown>>(
+      `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}/test`,
+      { method: "POST", body, signal },
+    );
+  },
   getNodeAuditPolicy(flowId: string, nodeKey: string) {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,

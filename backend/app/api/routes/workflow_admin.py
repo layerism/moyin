@@ -1,9 +1,9 @@
 from typing import Literal
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.background import BackgroundTask
 
 from app.api.routes.personal_drive import router as personal_drive_router
@@ -44,6 +44,10 @@ from app.services.audit_script_catalog import (
     update_audit_script_config,
 )
 from app.services.audit_script_parameters import AuditScriptParameterError
+from app.services.audit_model_connections import PublisherModelNotConfigured
+from app.services.audit_script_executor import AuditScriptExecutionError
+from app.services.audit_script_runtime import AuditScriptResolutionError
+from app.services.audit_script_testing import run_audit_script_test
 from app.services.material_archive import (
     MaterialArchiveEmptyError,
     build_material_archive,
@@ -83,6 +87,13 @@ class AuditScriptConfigRequest(BaseModel):
     maxConcurrency: int = Field(ge=1, le=32)
 
 
+class AuditScriptTestRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    params: dict[str, str | int | float | bool]
+    modelCardId: str | None = Field(default=None, max_length=128)
+
+
 class NodePackageDownloadRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -102,6 +113,30 @@ def get_manageable_audit_scripts(
     _teacher: dict[str, object] = Depends(get_current_super_admin),
 ) -> list[dict[str, object]]:
     return list_manageable_audit_scripts()
+
+
+@router.post("/audit-scripts/{script_id}/test")
+def test_audit_script(
+    script_id: str,
+    configuration: str = Form(..., max_length=20000),
+    files: list[UploadFile] = File(...),
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        try:
+            payload = AuditScriptTestRequest.model_validate_json(configuration)
+        except ValidationError:
+            raise HTTPException(status_code=422, detail="测试配置格式无效") from None
+        return run_audit_script_test(script_id, payload.params, payload.modelCardId, int(teacher["id"]), files)
+    except (AuditScriptCatalogError, AuditScriptResolutionError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (ValueError, PublisherModelNotConfigured) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AuditScriptExecutionError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        for upload in files:
+            upload.file.close()
 
 
 @router.get("/audit-scripts/{script_id}")
