@@ -123,20 +123,9 @@ export function createCurvedEdgeGeometries(
       targetPort: edge.targetPort ?? fallback.targetPort,
     }];
   });
-  const sourceOffsets = getLaneOffsets(resolvedEdges, "source");
-  const targetOffsets = getLaneOffsets(resolvedEdges, "target");
-
   return new Map(resolvedEdges.map((edge) => {
-    const source = getPortPoint(
-      edge.sourceNode,
-      edge.sourcePort,
-      sourceOffsets.get(edge.id) ?? 0,
-    );
-    const target = getPortPoint(
-      edge.targetNode,
-      edge.targetPort,
-      targetOffsets.get(edge.id) ?? 0,
-    );
+    const source = getPortPoint(edge.sourceNode, edge.sourcePort);
+    const target = getPortPoint(edge.targetNode, edge.targetPort);
     return [edge.id, createCurveGeometry({
       source,
       sourcePort: edge.sourcePort,
@@ -169,46 +158,6 @@ function getFallbackPorts(source: CurveNode, target: CurveNode) {
     : ({ sourcePort: "left", targetPort: "right" } as const);
 }
 
-function getLaneOffsets(edges: ResolvedEdge[], side: "source" | "target") {
-  const groups = new Map<string, ResolvedEdge[]>();
-  edges.forEach((edge) => {
-    const node = side === "source" ? edge.sourceNode : edge.targetNode;
-    const port = side === "source" ? edge.sourcePort : edge.targetPort;
-    const key = `${node.id}:${port}`;
-    groups.set(key, [...(groups.get(key) ?? []), edge]);
-  });
-
-  const offsets = new Map<string, number>();
-  groups.forEach((group) => {
-    const node = side === "source" ? group[0].sourceNode : group[0].targetNode;
-    const port = side === "source" ? group[0].sourcePort : group[0].targetPort;
-    const verticalPort = port === "top" || port === "bottom";
-    const span = verticalPort ? node.width : node.height;
-    const usableSpan = Math.max(0, span - 32);
-    const spacing = group.length > 1
-      ? Math.min(18, usableSpan / (group.length - 1))
-      : 0;
-    const sorted = [...group].sort((left, right) => {
-      const leftNode = side === "source" ? left.targetNode : left.sourceNode;
-      const rightNode = side === "source" ? right.targetNode : right.sourceNode;
-      const leftCenter = getNodeCenter(leftNode);
-      const rightCenter = getNodeCenter(rightNode);
-      const primary = verticalPort
-        ? leftCenter.x - rightCenter.x
-        : leftCenter.y - rightCenter.y;
-      if (primary !== 0) return primary;
-      const secondary = verticalPort
-        ? leftCenter.y - rightCenter.y
-        : leftCenter.x - rightCenter.x;
-      return secondary || left.id.localeCompare(right.id);
-    });
-    sorted.forEach((edge, index) => {
-      offsets.set(edge.id, (index - (sorted.length - 1) / 2) * spacing);
-    });
-  });
-  return offsets;
-}
-
 function getNodeCenter(node: CurveNode): CurvePoint {
   return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
 }
@@ -216,15 +165,14 @@ function getNodeCenter(node: CurveNode): CurvePoint {
 function getPortPoint(
   node: CurveNode,
   port: AcademicFlowPort,
-  laneOffset: number,
 ): CurvePoint {
   if (port.startsWith("branch:")) return { x: node.x + node.width * branchPortFraction(node.branches, port), y: node.y + node.height };
-  if (port === "top") return { x: node.x + node.width / 2 + laneOffset, y: node.y };
+  if (port === "top") return { x: node.x + node.width / 2, y: node.y };
   if (port === "bottom") {
-    return { x: node.x + node.width / 2 + laneOffset, y: node.y + node.height };
+    return { x: node.x + node.width / 2, y: node.y + node.height };
   }
-  if (port === "left") return { x: node.x, y: node.y + node.height / 2 + laneOffset };
-  return { x: node.x + node.width, y: node.y + node.height / 2 + laneOffset };
+  if (port === "left") return { x: node.x, y: node.y + node.height / 2 };
+  return { x: node.x + node.width, y: node.y + node.height / 2 };
 }
 
 function getPortNormal(port: AcademicFlowPort): CurvePoint {
