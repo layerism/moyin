@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
+import { AuditRuleSelect } from "./AuditRuleSelect";
+import { PromptTextarea } from "./PromptTextarea";
+
 import type { AcademicFlowNode } from "../../types";
 import { workflowApi } from "./api";
 import {
@@ -33,6 +36,7 @@ export function AuditScriptSelector({
   const [scripts, setScripts] = useState<AuditScriptSummary[]>([]);
   const [error, setError] = useState("");
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [configSession, setConfigSession] = useState(0);
   const [draft, setDraft] = useState<Record<string, string | number | boolean>>({});
 
   useEffect(() => { dialogRef.current?.close(); }, [node.id, node.auditScriptId]);
@@ -65,6 +69,7 @@ export function AuditScriptSelector({
     setDraft((current) => ({ ...current, [key]: value }));
   };
   const openConfig = () => {
+    setConfigSession(session => session + 1);
     setDraft({ ...Object.fromEntries(parameterDefinitions.map((item) => [item.key, item.default])), ...node.auditScriptParams });
     dialogRef.current?.showModal();
   };
@@ -74,18 +79,9 @@ export function AuditScriptSelector({
     <div className="audit-script-section">
       <div className="audit-script-selector-row">
         <strong className="node-file-material-label">审核</strong>
-        {scoreOnly ? <span className="file-review-score-summary">通过阈值 ≥ {node.auditScriptParams?.passThreshold ?? 60} 分 · 满分 100</span> : <select
-          aria-label="材料审核脚本"
-          disabled={disabled}
-          value={selectedValue}
-          onChange={(event) => onChange(resolveAuditScriptSelection(event.target.value, eligibleScripts))}
-        >
-          {options.map((option) => (
-            <option key={option.value || "none"} value={option.value}>
-              {selectionRequired && !option.value ? "请选择审核规则" : option.label}
-            </option>
-          ))}
-        </select>}
+        {scoreOnly ? <span className="file-review-score-summary">通过阈值 ≥ {node.auditScriptParams?.passThreshold ?? 60} 分 · 满分 100</span> : <AuditRuleSelect options={options} scripts={eligibleScripts} value={selectedValue}
+          disabled={disabled} selectionRequired={selectionRequired}
+          onChange={value => onChange(resolveAuditScriptSelection(value, eligibleScripts))} /> }
         {selectedValue ? <button className="node-script-config-toggle" type="button" aria-label="审核脚本配置" title="审核脚本配置" aria-haspopup="dialog" onClick={openConfig}>
           <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m9 3-.6 2.3-2 .9-2.2-.6-2 3.4 1.6 1.7v2.6L2.2 15l2 3.4 2.2-.6 2 .9L9 21h4l.6-2.3 2-.9 2.2.6 2-3.4-1.6-1.7v-2.6L19.8 9l-2-3.4-2.2.6-2-.9L13 3Z"/><circle cx="11" cy="12" r="3"/></svg>
         </button> : null}
@@ -126,12 +122,13 @@ export function AuditScriptSelector({
                   </select>
                 ) : isLongText && parameter.type === "string" ? (
                   <span className="audit-script-long-text-input">
-                    <textarea
+                    <PromptTextarea
+                      key={`${configSession}-${parameter.key}`}
                       disabled={parameterDisabled}
                       maxLength={parameter.maximumLength}
                       minLength={parameter.minimumLength}
                       value={String(value)}
-                      onChange={(event) => updateParameter(parameter.key, event.target.value)}
+                      onChange={value => updateParameter(parameter.key, value)}
                     />
                     <small>{String(value).length}/{parameter.maximumLength}</small>
                   </span>
