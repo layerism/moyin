@@ -67,12 +67,35 @@ export function createCurveGeometry(input: {
     x: input.target.x + targetNormal.x * controlDistance,
     y: input.target.y + targetNormal.y * controlDistance,
   };
-  const midpoint = getCubicPoint(input.source, control1, control2, input.target, 0.5);
+  let midpoint = getCubicPoint(input.source, control1, control2, input.target, 0.5);
+  let path = `M ${input.source.x} ${input.source.y} C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${input.target.x} ${input.target.y}`;
+  if (opposingPorts && facingGap > 0) {
+    const sideways = { x: sourceNormal.y, y: -sourceNormal.x };
+    const lateral = (input.target.x - input.source.x) * sideways.x
+      + (input.target.y - input.source.y) * sideways.y;
+    const turn = Math.sign(lateral) * Math.min(Math.abs(lateral) / 2, facingGap / 2);
+    const point = (along: number, across: number) => ({
+      x: input.source.x + sourceNormal.x * along + sideways.x * across,
+      y: input.source.y + sourceNormal.y * along + sideways.y * across,
+    });
+    const halfGap = facingGap / 2;
+    const firstControl = point(halfGap, 0);
+    const firstTangent = point(halfGap, turn / 2);
+    const firstEnd = point(halfGap, turn);
+    const secondStart = point(halfGap, lateral - turn);
+    const secondTangent = point(halfGap, lateral - turn / 2);
+    const lastControl = point(halfGap, lateral);
+    // Collinear controls make each curve meet the middle segment with zero curvature.
+    path = lateral === 0
+      ? `M ${input.source.x} ${input.source.y} L ${input.target.x} ${input.target.y}`
+      : `M ${input.source.x} ${input.source.y} C ${firstControl.x} ${firstControl.y} ${firstTangent.x} ${firstTangent.y} ${firstEnd.x} ${firstEnd.y} L ${secondStart.x} ${secondStart.y} C ${secondTangent.x} ${secondTangent.y} ${lastControl.x} ${lastControl.y} ${input.target.x} ${input.target.y}`;
+    midpoint = point(halfGap, lateral / 2);
+  }
 
   return {
     midX: midpoint.x,
     midY: midpoint.y,
-    path: `M ${input.source.x} ${input.source.y} C ${control1.x} ${control1.y} ${control2.x} ${control2.y} ${input.target.x} ${input.target.y}`,
+    path,
     sourcePort: input.sourcePort,
     sourceX: input.source.x,
     sourceY: input.source.y,
