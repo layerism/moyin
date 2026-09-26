@@ -14319,3 +14319,27 @@ td {
   .announcement-editor-toolbar > div { flex-wrap: wrap; }
   .announcement-file-details { max-width: 42vw; }
 }
+
+.script-prompt-field { grid-column: 1 / -1; }
+.script-prompt-summary { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border: 1px solid #d5deeb; border-radius: 8px; background: #fafbfe; }
+.script-prompt-summary > div { flex: 1; min-width: 0; }
+.script-prompt-summary p { margin: 0 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: #344054; }
+.script-prompt-summary small { color: #66758c; font-size: 12px; }
+.script-prompt-dialog { width: min(1040px, calc(100vw - 48px)); height: min(820px, 84dvh); max-height: calc(100dvh - 32px); }
+.script-prompt-dialog[open] { display: flex; flex-direction: column; }
+.script-prompt-dialog > header, .script-prompt-dialog > footer { flex-shrink: 0; }
+.script-prompt-body { display: flex; flex: 1; min-height: 0; padding: 20px 24px; }
+.script-prompt-body textarea { width: 100%; min-height: 0; padding: 18px 20px; resize: none; border: 1px solid #d5deeb; border-radius: 8px; background: #fafbfe; color: #202b3d; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; line-height: 1.8; tab-size: 2; }
+.script-prompt-body textarea:focus { outline: 2px solid #94baff; outline-offset: 2px; }
+.script-prompt-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-top: 1px solid #e4eaf3; }
+.script-prompt-dialog > footer small { color: #344054; font-size: 12px; font-variant-numeric: tabular-nums; }
+.script-prompt-dialog > footer p { margin: 5px 0 0; }
+.script-prompt-actions { display: flex; gap: 10px; }
+@media (max-width: 600px) {
+  .script-prompt-dialog { width: calc(100vw - 24px); height: 88dvh; }
+  .script-prompt-dialog > header, .script-prompt-body, .script-prompt-dialog > footer { padding: 16px; }
+  .script-prompt-dialog > footer { flex-wrap: wrap; }
+  .script-prompt-actions { margin-left: auto; }
+  .script-prompt-body textarea { padding: 12px; font-size: 13px; }
+}
+.script-prompt-dialog > footer .audit-script-config-error { color: #b42318; }

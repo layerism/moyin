@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { AuditScriptRuntimeSetting } from "./auditScripts";
 import type { AuditScriptValue } from "./auditScriptConfig";
+import { ScriptPromptEditor } from "./ScriptPromptEditor";
 
 function ConfigInput({
   definition,
@@ -21,6 +22,12 @@ function ConfigInput({
   const describedBy = [definition.description ? descriptionId : "", error ? errorId : ""]
     .filter(Boolean)
     .join(" ") || undefined;
+
+  if (definition.key === "systemPrompt" && definition.type === "string") {
+    return <ScriptPromptEditor label={definition.label} value={String(value)} disabled={disabled}
+      minimumLength={definition.minimumLength} maximumLength={definition.maximumLength}
+      error={error} onChange={onChange} />;
+  }
 
   if (definition.type === "boolean") {
     return (
