@@ -1305,8 +1305,8 @@ function FlowNodeCanvas({
     };
   }, [cancelMarquee]);
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
-  const [viewportOffset, setViewportOffset] = useState(() => ({ x: -layoutBounds.left * 0.25, y: -layoutBounds.top * 0.25 }));
-  const [zoom, setZoom] = useState(0.25);
+  const [viewportOffset, setViewportOffset] = useState(() => ({ x: -layoutBounds.left * 0.5, y: -layoutBounds.top * 0.5 }));
+  const [zoom, setZoom] = useState(0.5);
   useEffect(() => {
     if (!timeFocus) return;
     const element = nodeElementsRef.current.get(timeFocus.nodeId);
@@ -2077,10 +2077,6 @@ function FlowNodeCanvas({
         onPointerMove={moveCanvasPointer}
         onPointerUp={endCanvasPointer}
         ref={canvasRef}
-        style={{
-          backgroundPosition: `${viewportOffset.x}px ${viewportOffset.y}px`,
-          backgroundSize: `${16 * zoom}px ${16 * zoom}px`,
-        }}
       >
         <div
           className="canvas-zoom-surface"

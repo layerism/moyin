@@ -4314,6 +4314,7 @@ button {
 }
 
 .dag-canvas {
+  background-image: none;
   min-width: 100%;
   min-height: 0;
   position: relative;
