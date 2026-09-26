@@ -36,6 +36,12 @@ def thinking_profile(vendor: str, model: str) -> dict[str, object]:
             profile.update(id="toggle", modes=["default", "off", "on"])
     elif vendor == "moonshot" and model in {"kimi-k2.5", "kimi-k2.6"}:
         profile.update(id="kimi", modes=["default", "off", "on"])
+    elif vendor == "minimax":
+        if model == "minimax-m3":
+            profile.update(id="minimax-adaptive", modes=["default", "off", "on"])
+        elif model in {"minimax-m2", "minimax-m2.1", "minimax-m2.1-highspeed", "minimax-m2.5",
+                       "minimax-m2.5-highspeed", "minimax-m2.7", "minimax-m2.7-highspeed"}:
+            profile.update(id="minimax-always-on")
     if profile["id"] != "unknown":
         profile["note"] = "按提供商及当前型号适配；接口默认表示不指定思考参数。"
         if profile["id"] == "qwen-budget":
@@ -63,6 +69,12 @@ def thinking_profile(vendor: str, model: str) -> dict[str, object]:
         profile["defaultEffortLabel"] = "模型默认预算"
     elif profile["id"] == "kimi":
         profile["note"] = "支持开启或关闭思考，不提供强度档位；接口默认由厂商决定。"
+    elif profile["id"] == "minimax-adaptive":
+        profile["modeLabels"]["default"] = "接口默认（开启思考）"
+        profile["note"] = "M3 默认开启思考；可显式开启或关闭，不提供思考强度和预算设置。"
+    elif profile["id"] == "minimax-always-on":
+        profile["modeLabels"]["default"] = "始终开启思考"
+        profile["note"] = "M2.x 系列始终开启思考，接口不支持关闭；不发送思考控制参数。"
     return profile
 
 
@@ -96,6 +108,9 @@ def request_thinking_options(vendor: str, model: str, value: dict[str, object]) 
             body["enable_thinking"] = mode == "on"
         if value["budget"] is not None:
             body["thinking_budget"] = value["budget"]
+    elif kind == "minimax-adaptive":
+        if mode != "default":
+            body["thinking"] = {"type": "adaptive" if mode == "on" else "disabled"}
     elif kind in {"deepseek", "doubao", "glm-effort", "toggle", "kimi"}:
         if mode != "default":
             body["thinking"] = {"type": "enabled" if mode == "on" else "disabled"}
