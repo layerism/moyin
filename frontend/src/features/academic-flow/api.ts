@@ -175,6 +175,17 @@ type ErrorDetail = string | {
   message?: string;
 };
 
+export type AuditLLMMessage = {
+  role: string;
+  content: string | Array<{ type: string; text?: string; image_url?: { url: string; detail?: string } }>;
+};
+
+export type AuditScriptTestResponse = {
+  result: Record<string, unknown> | null;
+  requests: Array<{ messages: AuditLLMMessage[] }>;
+  error: string | null;
+};
+
 export function applyPreviewHeaders(headers: Headers): void {
   const previewToken = window.sessionStorage.getItem(FLOW_PREVIEW_TOKEN_KEY);
   if (previewToken) headers.set("X-Flow-Preview-Token", previewToken);
@@ -555,7 +566,7 @@ export const workflowApi = {
     const body = new FormData();
     body.append("configuration", JSON.stringify(configuration));
     files.forEach(file => body.append("files", file));
-    return request<Record<string, unknown>>(
+    return request<AuditScriptTestResponse>(
       `/api/workflow-admin/audit-scripts/${encodeURIComponent(scriptId)}/test`,
       { method: "POST", body, signal },
     );

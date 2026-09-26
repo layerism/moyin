@@ -1,5 +1,6 @@
 """Run a teacher's unsaved review configuration without creating a submission."""
 import hashlib
+import json
 import tempfile
 import uuid
 from pathlib import Path, PurePosixPath
@@ -11,6 +12,7 @@ from app.services.audit_script_catalog import AuditScriptCatalogError, find_audi
 from app.services.audit_script_executor import (
     ALLOWED_EXTENSIONS,
     AuditMaterial,
+    AuditScriptExecutionError,
     execute_staged_audit_script,
     validate_audit_material,
 )
@@ -45,6 +47,8 @@ def run_audit_script_test(
         execution_root = Path(temporary)
         files_root = execution_root / "files"
         files_root.mkdir()
+        trace_directory = execution_root / "requests"
+        trace_directory.mkdir()
         materials: list[AuditMaterial] = []
         staged: list[dict[str, object]] = []
         for upload in uploads:
@@ -84,8 +88,15 @@ def run_audit_script_test(
                 "mimeType": content_type, "path": str(path), "size": size,
                 "sha256": material.sha256, "pageCount": page_count,
             })
-        return execute_staged_audit_script(
-            descriptor, materials, staged,
-            {"scriptParams": parameters, "scriptSettings": runtime_settings, "stepModelCardId": model_card_id},
-            execution_root, model_configuration=model_configuration,
-        )
+        result = None
+        error = None
+        try:
+            result = execute_staged_audit_script(
+                descriptor, materials, staged,
+                {"scriptParams": parameters, "scriptSettings": runtime_settings, "stepModelCardId": model_card_id},
+                execution_root, model_configuration={**model_configuration, "requestTraceDirectory": str(trace_directory)},
+            )
+        except AuditScriptExecutionError as exc:
+            error = str(exc)
+        requests = [json.loads(path.read_text(encoding="utf-8")) for path in sorted(trace_directory.glob("*.json"))]
+        return {"result": result, "requests": requests, "error": error}

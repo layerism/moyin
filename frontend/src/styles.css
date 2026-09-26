@@ -13769,6 +13769,21 @@ td {
 .audit-test-result .is-passed { background: #ecfdf3; color: #14804a; }
 .audit-test-result .is-rejected { background: #fff1f0; color: #c73535; }
 .audit-test-result pre { max-height: 44dvh; overflow: auto; margin: 0; padding: 16px; border: 1px solid #dce4ef; border-radius: 10px; background: #f7f9fc; color: #24344b; font: 12px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.audit-test-tabs { display: flex; gap: 18px; border-bottom: 1px solid #e0e7f0; }
+.audit-test-tabs button { padding: 10px 0; border: 0; border-bottom: 2px solid transparent; color: #667085; background: transparent; font-size: 13px; cursor: pointer; }
+.audit-test-tabs button[aria-selected="true"] { border-bottom-color: #2670ef; color: #2670ef; font-weight: 600; }
+.audit-test-tabs button:focus-visible, .audit-test-request-picker button:focus-visible { outline: 2px solid #2670ef; outline-offset: 2px; }
+.audit-test-request-picker { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.audit-test-request-picker button { padding: 5px 10px; border: 1px solid #dce4ef; border-radius: 6px; color: #667085; background: white; font-size: 12px; cursor: pointer; }
+.audit-test-request-picker button[aria-pressed="true"] { color: #2563eb; border-color: #bad0ff; background: #edf4ff; }
+.audit-test-messages { display: grid; gap: 16px; }
+.audit-test-message { display: grid; gap: 8px; min-width: 0; }
+.audit-test-message > header { display: flex; align-items: center; gap: 8px; }
+.audit-test-message header strong { padding: 3px 8px; border-radius: 5px; background: #edf4ff; color: #2563eb; font: 12px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.audit-test-message header small { color: #8591a5; font-size: 11px; }
+.audit-test-message figure { margin: 0; padding: 12px; border: 1px solid #dce4ef; border-radius: 10px; background: #f7f9fc; }
+.audit-test-message img { display: block; max-width: 100%; max-height: 380px; margin: 0 auto; object-fit: contain; }
+.audit-test-message figcaption { margin-top: 8px; color: #667085; text-align: center; font-size: 12px; }
 
 .node-template-file-icon.file-format-icon { background: transparent; }
 .file-format-icon > svg { display: block; flex-shrink: 0; }

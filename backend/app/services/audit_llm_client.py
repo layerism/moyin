@@ -1,6 +1,9 @@
 """Task-scoped Chat Completions client, independent of the application runtime."""
 import json
 import re
+import time
+import uuid
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
@@ -22,6 +25,7 @@ class AuditLLMClient:
         if not isinstance(options, dict):
             raise AuditLLMError("审核模型请求参数无效")
         self._options = options
+        self._trace_directory = config.get("requestTraceDirectory")
         if not self._base_url or not self._api_key or not self._model:
             raise AuditLLMError("审核模型配置不完整")
         parsed = urlsplit(self._base_url)
@@ -47,6 +51,12 @@ class AuditLLMClient:
             method="POST",
             headers={"Authorization": "Bearer " + self._api_key, "Content-Type": "application/json"},
         )
+        if self._trace_directory:
+            # Only the test runner enables this; never record connection settings or headers.
+            path = Path(self._trace_directory) / f"{time.monotonic_ns():020d}-{uuid.uuid4().hex}.json"
+            temporary = path.with_suffix(".tmp")
+            temporary.write_text(json.dumps({"messages": body["messages"]}, ensure_ascii=False), encoding="utf-8")
+            temporary.replace(path)
         try:
             with urlopen(request, timeout=timeout) as response:
                 raw = response.read(MAX_RESPONSE_BYTES + 1)
