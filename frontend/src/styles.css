@@ -14343,3 +14343,20 @@ td {
   .script-prompt-body textarea { padding: 12px; font-size: 13px; }
 }
 .script-prompt-dialog > footer .audit-script-config-error { color: #b42318; }
+
+.audit-message-summary { padding: 14px 16px; border: 1px solid #dce4ef; border-radius: 10px; background: #fafbfe; }
+.audit-message-summary-row { display: flex; align-items: center; gap: 16px; }
+.audit-message-summary-row p { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #667085; font-size: 13px; line-height: 1.7; }
+.audit-message-summary-row button { flex-shrink: 0; padding: 7px 12px; border: 1px solid #ccd7e6; border-radius: 7px; background: white; color: #2563eb; font-size: 12px; cursor: pointer; }
+.audit-message-summary-row button:focus-visible { outline: 2px solid #2670ef; outline-offset: 2px; }
+.audit-message-dialog { width: min(1040px, calc(100vw - 48px)); height: min(820px, 84dvh); }
+.audit-message-content { display: block; }
+.audit-message-content pre { margin: 0; padding: 18px 20px; border: 1px solid #dce4ef; border-radius: 8px; background: #fafbfe; color: #24344b; font: 14px/1.8 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; }
+.audit-message-content > * + * { margin-top: 16px; }
+.audit-message-content pre:focus-visible { outline: 2px solid #94baff; outline-offset: 2px; }
+@media (max-width: 600px) {
+  .audit-message-dialog { width: calc(100vw - 24px); height: 88dvh; }
+  .audit-message-summary-row { flex-wrap: wrap; gap: 8px; }
+  .audit-message-summary-row p { flex-basis: 100%; }
+  .audit-message-content pre { padding: 12px; font-size: 13px; }
+}

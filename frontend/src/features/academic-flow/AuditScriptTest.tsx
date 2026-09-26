@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { FileReviewStep } from "../../types";
 import { workflowApi, type AuditLLMMessage } from "./api";
+import { AuditMessageViewer } from "./AuditMessageViewer";
 
 export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disabled: boolean }) {
   const titleId = useId();
@@ -108,16 +109,7 @@ export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disa
                   onClick={() => { setRequestIndex(index); setCopied(false); }}>请求 {index + 1}</button>)}
               </div> : null}
               {messages ? <div className="audit-test-messages">
-                {messages.map((message, index) => <article key={index} className="audit-test-message">
-                  <header><strong>{message.role}</strong><small>消息 {index + 1}</small></header>
-                  {typeof message.content === "string" ? <pre tabIndex={0}>{message.content}</pre> : message.content.map((part, partIndex) => {
-                    if (part.type === "text") return <pre key={partIndex} tabIndex={0}>{part.text}</pre>;
-                    if (part.type === "image_url" && part.image_url && /^data:image\/(png|jpe?g|webp|gif);base64,/i.test(part.image_url.url)) {
-                      return <figure key={partIndex}><img src={part.image_url.url} alt={`消息 ${index + 1} 中的图片 ${partIndex + 1}`} loading="lazy" /><figcaption>图片消息{part.image_url.detail ? ` · ${part.image_url.detail}` : ""}</figcaption></figure>;
-                    }
-                    return <pre key={partIndex} tabIndex={0}>{JSON.stringify(part, null, 2)}</pre>;
-                  })}
-                </article>)}
+                {messages.map((message, index) => <AuditMessageViewer key={`${requestIndex}-${index}`} message={message} index={index} />)}
                 <p className="audit-test-note">以上为实际请求的消息内容；复制 messages 会包含完整图片数据。</p>
               </div> : <p className="audit-test-note">{running ? "执行结束后显示实际请求的 messages。" : error ? "本次没有记录到模型请求，可能在文件处理或请求准备阶段失败。" : "此脚本未调用大模型。"}</p>}
             </> : result ? <>
