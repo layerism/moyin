@@ -16,11 +16,13 @@ export function ScriptPromptEditor({ label, value, disabled, minimumLength = 0, 
   const [length, setLength] = useState(value.length);
   const valid = length >= minimumLength && (maximumLength === undefined || length <= maximumLength);
   const count = (size: number) => `${size.toLocaleString()}${maximumLength === undefined ? "" : ` / ${maximumLength.toLocaleString()}`} 字符`;
+  const firstLine = value.trim().split("\n")[0] || "尚未填写提示词";
+  const summary = firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : firstLine;
 
   return <div className="audit-script-config-field script-prompt-field">
     <span>{label}</span>
     <div className="script-prompt-summary">
-      <div><p>{value.trim().split("\n")[0] || "尚未填写提示词"}</p><small>{count(value.length)}</small></div>
+      <div><p>{summary}</p><small>{count(value.length)}</small></div>
       <button type="button" disabled={disabled} aria-haspopup="dialog" onClick={() => {
         if (!input.current) return;
         input.current.value = value;
