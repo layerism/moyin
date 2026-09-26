@@ -12,11 +12,12 @@ export function AuditMessageViewer({ message, index }: { message: AuditLLMMessag
     : message.content.filter(part => part.type === "text").map(part => part.text ?? "").join("\n\n");
   const imageCount = typeof message.content === "string" ? 0 : message.content.filter(part => part.type === "image_url").length;
   const copyText = typeof message.content === "string" ? message.content : JSON.stringify(message.content, null, 2);
+  const preview = text.trim().replace(/\s+/g, " ");
 
   return <article className="audit-test-message audit-message-summary">
     <header><strong>{message.role}</strong><small>消息 {index + 1}{imageCount ? ` · ${imageCount} 张图片` : ""}</small></header>
     <div className="audit-message-summary-row">
-      <p>{text.trim().replace(/\s+/g, " ").slice(0, 180) || (imageCount ? "图片消息" : "空消息")}</p>
+      <p>{preview ? preview.length > 48 ? `${preview.slice(0, 48)}…` : preview : imageCount ? "图片消息" : "空消息"}</p>
       <button type="button" aria-haspopup="dialog" onClick={() => {
         setCopied(false); setError("");
         dialog.current?.showModal();
