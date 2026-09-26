@@ -116,6 +116,11 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
   const { node, disabled = false, onChange } = props;
   const [adding, setAdding] = useState(false);
   const steps = fileReviewSteps(node);
+  const listRef = useRef<HTMLOListElement>(null);
+  const dragRef = useRef<{ id: string; targetId: string; after: boolean } | null>(null);
+  const [drag, setDrag] = useState<typeof dragRef.current>(null);
+  const cancelDrag = () => { dragRef.current = null; setDrag(null); };
+  useEffect(cancelDrag, [node.id, disabled]);
   const legacySteps = !node.fileReviewSteps || node.fileReviewSteps.some((step) => typeof step === "string");
   const history = rememberReviewSteps(node.fileReviewConfigHistory, steps);
   const save = (next: FileReviewStep[]) => {
@@ -157,6 +162,7 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
     };
   }, [adding]);
   const move = (index: number, offset: number) => {
+    if (disabled || index + offset < 0 || index + offset >= steps.length) return;
     const next = [...steps];
     [next[index], next[index + offset]] = [next[index + offset], next[index]];
     save(next);
@@ -195,12 +201,49 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
         }}><span className="file-review-type-icon" aria-hidden="true">{type !== "manual" ? "✦" : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2Z" /></svg>}</span><span><strong>{type === "ai" ? "AI 通过/不通过" : type === "score" ? "AI 评分 0–100" : "人工审核"}</strong><small>{type === "ai" ? "按所选规则自动检查" : type === "score" ? "评分达到阈值后通过" : "由流程发布者审核"}</small></span></button>)}</div>, document.body) : null}
       </div> : null}
     </header>
-    <ol>{steps.map((step, index) => <li key={step.id}>
+    <ol ref={listRef}>{steps.map((step, index) => <li key={step.id} data-review-step-id={step.id}
+      className={`${drag?.id === step.id ? "is-dragging" : ""}${drag && drag.targetId === step.id && drag.id !== step.id ? (drag.after ? " drop-after" : " drop-before") : ""}`}>
       <span className="file-review-step-number">{index + 1}</span>
       <div className="file-review-step-body">
+        {!disabled ? <button type="button" className="file-review-drag-handle" disabled={steps.length < 2}
+          aria-label={`拖动调整第 ${index + 1} 个审核步骤顺序，也可使用上下方向键`} title="拖动排序"
+          onKeyDown={event => {
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault(); event.stopPropagation(); move(index, event.key === "ArrowUp" ? -1 : 1);
+            }
+          }}
+          onPointerDown={event => {
+            if (event.button !== 0) return;
+            event.preventDefault(); event.stopPropagation(); event.currentTarget.focus();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            dragRef.current = { id: step.id, targetId: step.id, after: false };
+            setDrag(dragRef.current);
+          }}
+          onPointerMove={event => {
+            if (!dragRef.current) return;
+            const row = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-review-step-id]");
+            if (!row || !listRef.current?.contains(row)) return;
+            const rect = row.getBoundingClientRect();
+            dragRef.current = { ...dragRef.current, targetId: row.dataset.reviewStepId!, after: event.clientY > rect.top + rect.height / 2 };
+            setDrag(dragRef.current);
+          }}
+          onPointerUp={event => {
+            const pending = dragRef.current;
+            cancelDrag();
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+            if (!pending || pending.id === pending.targetId) return;
+            if (!listRef.current?.contains(document.elementFromPoint(event.clientX, event.clientY))) return;
+            const moved = steps.find(item => item.id === pending.id);
+            const next = steps.filter(item => item.id !== pending.id);
+            const target = next.findIndex(item => item.id === pending.targetId);
+            if (!moved || target < 0) return;
+            next.splice(target + (pending.after ? 1 : 0), 0, moved);
+            save(next);
+          }}
+          onPointerCancel={cancelDrag} onLostPointerCapture={cancelDrag}>
+          <svg aria-hidden="true" width="12" height="18" viewBox="0 0 12 18" fill="currentColor">{[4, 9, 14].map(y => <g key={y}><circle cx="3" cy={y} r="1.3" /><circle cx="9" cy={y} r="1.3" /></g>)}</svg>
+        </button> : null}
         <header><div className="file-review-step-title"><span className="file-review-type-icon" aria-hidden="true">{step.kind !== "manual" ? "✦" : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2Z" /></svg>}</span><div><strong>{step.kind === "ai" ? "AI 通过/不通过" : step.kind === "score" ? "AI 评分 0–100" : "人工审核"}</strong><small>{index === 0 ? "学生提交后开始" : "上一步通过后开始"}</small></div></div><div className="file-review-step-actions">
-          <button type="button" disabled={disabled || index === 0} aria-label="上移审核步骤" onClick={() => move(index, -1)}>↑</button>
-          <button type="button" disabled={disabled || index === steps.length - 1} aria-label="下移审核步骤" onClick={() => move(index, 1)}>↓</button>
           <button type="button" disabled={disabled} aria-label="删除审核步骤" onClick={() => save(steps.filter((item) => item.id !== step.id))}>×</button>
         </div></header>
         {step.kind !== "manual" ? <>

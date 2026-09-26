@@ -86,20 +86,19 @@ export function AuditRuleSelect({ options, scripts, value, disabled, selectionRe
       }}>
       <span className="audit-rule-trigger-icon" aria-hidden="true">▤</span>
       <span className="audit-rule-trigger-label">{selected ? label(selected) : "请选择审核规则"}</span>
-      <span className="audit-rule-chevron" aria-hidden="true">⌄</span>
+      <svg className="audit-rule-chevron" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="m7 10 5 5 5-5" /></svg>
     </button>
     {open ? createPortal(<div ref={menu} className="audit-rule-menu" style={position} onMouseDown={event => event.preventDefault()}>
-      <div className="audit-rule-menu-heading">审核规则<small>{options.filter(option => option.value).length} 项可选</small></div>
       <div id={listId} role="listbox" aria-label="材料审核脚本" className="audit-rule-options">
         {options.map((option, index) => {
           const script = scripts.find(item => `uploaded:${item.id}` === option.value);
           return <div id={`${listId}-${index}`} key={option.value || "none"} role="option" aria-selected={option.value === value}
             className={`audit-rule-option${index === active ? " is-active" : ""}${option.value === value ? " is-selected" : ""}`}
+            title={script?.description || (option.value ? "使用已配置的审核规则" : selectionRequired ? "暂不选择，稍后配置" : "提交材料后自动通过")}
             onPointerMove={() => setActive(index)} onClick={() => choose(index)}>
             <span className="audit-rule-option-icon" aria-hidden="true">{option.value ? "▤" : "−"}</span>
-            <span className="audit-rule-option-copy"><strong>{label(option)}</strong>
-              <small>{script?.description || (option.value ? "使用已配置的审核规则" : selectionRequired ? "暂不选择，稍后配置" : "提交材料后自动通过")}</small>
-            </span><span className="audit-rule-option-check" aria-hidden="true">{option.value === value ? "✓" : ""}</span>
+            <span className="audit-rule-option-copy"><strong>{label(option)}</strong></span>
+            <span className="audit-rule-option-check" aria-hidden="true">{option.value === value ? "✓" : ""}</span>
           </div>;
         })}
       </div>

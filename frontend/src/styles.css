@@ -6345,24 +6345,23 @@ button {
   font-size: 12px;
 }
 
-.audit-rule-trigger { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 38px; width: 100%; padding: 7px 10px; border: 1px solid #d8e2ef; border-radius: 8px; background: #fff; color: #667085; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.audit-rule-trigger { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 36px; width: 100%; padding: 5px 10px; border: 1px solid #d8e2ef; border-radius: 8px; background: #fff; color: #667085; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
 .audit-rule-trigger.has-value { color: #253044; }
 .audit-rule-trigger:hover:not(:disabled), .audit-rule-trigger[aria-expanded="true"] { border-color: #92b6ff; background: #f8fbff; }
 .audit-rule-trigger:focus-visible { outline: 2px solid #2670ef; outline-offset: 2px; }
 .audit-rule-trigger:disabled { cursor: default; background: #f8fafc; }
-.audit-rule-trigger-icon, .audit-rule-option-icon { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px; background: #edf4ff; color: #2670ef; font-size: 16px; }
+.audit-rule-trigger-icon { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 6px; background: #edf4ff; color: #2670ef; font-size: 14px; }
+.audit-rule-option-icon { display: grid; place-items: center; flex-shrink: 0; width: 18px; height: 18px; color: #78869a; font-size: 14px; }
 .audit-rule-trigger-label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.audit-rule-chevron { color: #78869a; }
+.audit-rule-chevron { display: block; flex: 0 0 16px; color: #78869a; transition: transform 150ms ease; }
+.audit-rule-trigger[aria-expanded="true"] .audit-rule-chevron { transform: rotate(180deg); }
 .audit-rule-menu { position: fixed; z-index: 100; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; padding: 5px; border: 1px solid #d8e2ef; border-radius: 10px; background: #fff; box-shadow: 0 12px 32px #17203326; }
-.audit-rule-menu-heading { display: flex; flex-shrink: 0; justify-content: space-between; gap: 12px; padding: 8px 10px 10px; color: #475569; font-size: 12px; font-weight: 600; }
-.audit-rule-menu-heading small { color: #98a2b3; font-size: 11px; font-weight: 400; }
 .audit-rule-options { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.audit-rule-option { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 7px; cursor: pointer; }
+.audit-rule-option { display: flex; align-items: center; gap: 8px; box-sizing: border-box; min-height: 34px; padding: 7px 8px; border-radius: 5px; cursor: pointer; }
 .audit-rule-option.is-active { background: #f2f6fc; }
 .audit-rule-option.is-selected { background: #edf4ff; }
 .audit-rule-option-copy { flex: 1; min-width: 0; }
-.audit-rule-option-copy strong { display: block; color: #253044; font-size: 13px; font-weight: 600; }
-.audit-rule-option-copy small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; color: #78849a; font-size: 11px; line-height: 1.55; }
+.audit-rule-option-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #253044; font-size: 13px; line-height: 20px; font-weight: 500; }
 .audit-rule-option-check { width: 18px; flex-shrink: 0; color: #2670ef; font-size: 15px; font-weight: 600; }
 
 .audit-script-lock {
@@ -13644,7 +13643,15 @@ td {
 .file-review-steps li { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: start; gap: 10px; }
 .file-review-steps li:not(:last-child)::before { content: ""; position: absolute; top: 38px; bottom: -26px; left: 11px; width: 1px; background: #cbdcff; }
 .file-review-step-number { z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; margin-top: 14px; border-radius: 50%; background: #2670ef; color: #fff; font-size: 12px; }
-.file-review-step-body { min-width: 0; display: grid; gap: 12px; padding: 12px; border: 1px solid #e1e7ef; border-radius: 8px; background: #fff; }
+.file-review-step-body { position: relative; min-width: 0; display: grid; gap: 12px; padding: 12px; border: 1px solid #e1e7ef; border-radius: 8px; background: #fff; }
+.file-review-step-body:has(.file-review-drag-handle) { padding-left: 34px; }
+.file-review-drag-handle { position: absolute; top: 15px; left: 6px; display: grid; place-items: center; width: 22px; height: 30px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: #98a2b3; cursor: grab; touch-action: none; user-select: none; }
+.file-review-drag-handle:hover:not(:disabled) { background: #f1f5fa; color: #64748b; }
+.file-review-drag-handle:active { cursor: grabbing; }
+.file-review-steps li.is-dragging .file-review-step-body { border-color: #92b6ff; background: #f8fbff; }
+.file-review-steps li.drop-before .file-review-step-body::after, .file-review-steps li.drop-after .file-review-step-body::after { content: ""; position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px; background: #2670ef; pointer-events: none; }
+.file-review-steps li.drop-before .file-review-step-body::after { top: -8px; }
+.file-review-steps li.drop-after .file-review-step-body::after { bottom: -8px; }
 .file-review-step-title { display: flex; align-items: center; gap: 9px; }
 .file-review-step-title strong { color: #253044; font-size: 13px; }
 .file-review-step-actions { display: flex; gap: 4px; }
