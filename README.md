@@ -143,7 +143,7 @@ bash deploy/run_dev.sh
 
 脚本使用项目内 Node.js，前端固定监听 6173，后端监听 9000，并通过 `VITE_API_PROXY_TARGET` 将 `/api` 请求代理到开发后端。端口被占用时启动失败，不自动切换端口。
 
-通过 Nginx 部署正式、灰度或测试环境时，使用 `bash deploy/run_server.sh <prod|gray|test>`；该脚本构建静态前端并只启动后端，完整步骤见 [`deploy/README.md`](./deploy/README.md)。
+通过 Nginx 部署正式环境时，使用 `bash deploy/run_server.sh`；该脚本构建静态前端并只启动后端，完整步骤见 [`deploy/README.md`](./deploy/README.md)。
 
 ### 常用环境变量
 
@@ -201,7 +201,7 @@ bash deploy/run_dev.sh
 │   └── tests/                  # 后端测试
 ├── frontend/src/               # React 页面、功能模块和样式
 ├── deploy/
-│   ├── run_server.sh           # prod/gray/test 构建与后端启动脚本
+│   ├── run_server.sh           # 正式前端构建与后端启动脚本
 │   └── nginx.conf              # Nginx 配置
 ├── docs/                       # 架构、流程和节点设计文档
 ├── assets/                     # 项目业务模板资产

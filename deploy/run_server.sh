@@ -1,27 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
-environment="${1:-prod}"
-if [[ "$#" -gt 1 ]]; then
-  echo "用法: bash deploy/run_server.sh [prod|gray|test]" >&2
+if [[ "$#" -ne 0 ]]; then
+  echo "用法: bash deploy/run_server.sh" >&2
   exit 1
 fi
-
-case "$environment" in
-  prod)
-    backend_port=8000
-    ;;
-  gray)
-    backend_port=8001
-    ;;
-  test)
-    backend_port=8002
-    ;;
-  *)
-    echo "用法: bash deploy/run_server.sh [prod|gray|test]" >&2
-    exit 1
-    ;;
-esac
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 project_dir="$(cd -- "$script_dir/.." && pwd)"
@@ -34,11 +17,11 @@ fi
 
 frontend_dist="$project_dir/frontend/dist"
 publish_root=/var/www/moyin
-publish_link="$publish_root/$environment"
+publish_link="$publish_root/prod"
 expected_target="$(realpath -m -- "$frontend_dist")"
 
-# Build the selected checkout before changing links or starting services.
-echo "正在构建 $environment 前端……"
+# Build this checkout before changing links or starting services.
+echo "正在构建正式前端……"
 npm --prefix "$project_dir/frontend" run build
 if [[ ! -f "$frontend_dist/index.html" ]]; then
   echo "前端构建未生成 $frontend_dist/index.html。" >&2
@@ -73,4 +56,4 @@ fi
 "${privileged[@]}" systemctl reload nginx
 
 cd "$project_dir/backend"
-exec ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port "$backend_port"
+exec ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000

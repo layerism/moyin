@@ -116,5 +116,5 @@ npm --prefix "$frontend_dir" ls --depth=0
 npm --prefix "$audit_runtime_dir" ls --depth=0
 
 echo "安装完成。请检查 backend/.env。"
-echo "本地开发：分别启动 backend Uvicorn 与 frontend Vite"
-echo "环境部署：bash deploy/run_server.sh <prod|gray|test>，完整步骤见 deploy/README.md"
+echo "本地开发：bash deploy/run_dev.sh"
+echo "正式部署：bash deploy/run_server.sh，完整步骤见 deploy/README.md"
