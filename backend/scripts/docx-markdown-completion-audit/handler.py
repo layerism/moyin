@@ -381,11 +381,11 @@ def build_model_messages(
         for block in document_chunks
     ]
     system = system_prompt.strip()
-    rules_json = json.dumps(rules_payload, ensure_ascii=False, separators=(",", ":"))
-    chunks_json = json.dumps(chunks_payload, ensure_ascii=False, separators=(",", ":"))
+    rules_json = json.dumps(rules_payload, ensure_ascii=False, indent=2)
+    chunks_json = json.dumps(chunks_payload, ensure_ascii=False, indent=2)
     user = (
-        f"<review_specification_json>{rules_json}</review_specification_json>\n"
-        f"<submitted_document_json>{chunks_json}</submitted_document_json>"
+        f"<review_specification_json>\n{rules_json}\n</review_specification_json>\n\n"
+        f"<submitted_document_json>\n{chunks_json}\n</submitted_document_json>"
     )
     if len(system) + len(user) > maximum_input_characters:
         raise ValueError("DOCX LLM 审核输入内容超过限制")
