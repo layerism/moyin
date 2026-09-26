@@ -34,7 +34,6 @@ import {
 } from "./auditScripts";
 import {
   bindCanvasZoomWheelListener,
-  constrainCanvasGroupDelta,
   getCanvasArrowKeyDelta,
   getCanvasEdgePanDelta,
   getCanvasPanOffset,
@@ -117,8 +116,35 @@ function snapToGrid(value: number) {
 
 function snapCanvasPoint(position: { x: number; y: number }) {
   return {
-    x: Math.max(canvasGridSize, snapToGrid(position.x)),
-    y: Math.max(canvasGridSize, snapToGrid(position.y)),
+    x: snapToGrid(position.x),
+    y: snapToGrid(position.y),
+  };
+}
+
+type CanvasLayoutBounds = { left: number; top: number; right: number; bottom: number };
+
+function createCanvasLayoutBounds(nodes: AcademicFlowNode[]): CanvasLayoutBounds {
+  return {
+    left: Math.min(0, ...nodes.map(node => node.x - canvasGridSize)),
+    top: Math.min(0, ...nodes.map(node => node.y - canvasGridSize)),
+    right: Math.max(canvasMinimumSize.width, ...nodes.map(node => node.x + nodeSize.width + canvasConnectionPadding)),
+    bottom: Math.max(canvasMinimumSize.height, ...nodes.map(node => node.y + nodeSize.height + canvasConnectionPadding)),
+  };
+}
+
+function constrainLayoutPoint(point: CanvasPoint, height: number, bounds: CanvasLayoutBounds): CanvasPoint {
+  return {
+    x: Math.min(bounds.right - nodeSize.width - canvasGridSize, Math.max(bounds.left + canvasGridSize, point.x)),
+    y: Math.min(bounds.bottom - height - canvasGridSize, Math.max(bounds.top + canvasGridSize, point.y)),
+  };
+}
+
+function constrainLayoutGroupDelta(nodes: { x: number; y: number; renderedHeight: number }[], delta: CanvasPoint, bounds: CanvasLayoutBounds): CanvasPoint {
+  return {
+    x: Math.min(bounds.right - canvasGridSize - Math.max(...nodes.map(node => node.x + nodeSize.width)),
+      Math.max(delta.x, bounds.left + canvasGridSize - Math.min(...nodes.map(node => node.x)))),
+    y: Math.min(bounds.bottom - canvasGridSize - Math.max(...nodes.map(node => node.y + node.renderedHeight)),
+      Math.max(delta.y, bounds.top + canvasGridSize - Math.min(...nodes.map(node => node.y)))),
   };
 }
 
@@ -176,6 +202,25 @@ export function AcademicFlowDesigner({
   process: AcademicProcess;
 }) {
   const [workingProcess, setWorkingProcess] = useState(() => createDraftWorkingProcess(process));
+  const [layoutBounds, setLayoutBounds] = useState(() => createCanvasLayoutBounds(workingProcess.nodes));
+  const expandLayoutToViewport = useCallback((size: { width: number; height: number }) => {
+    setLayoutBounds(current => {
+      const right = Math.max(current.right, current.left + size.width / 0.25);
+      const bottom = Math.max(current.bottom, current.top + size.height / 0.25);
+      return right === current.right && bottom === current.bottom ? current : { ...current, right, bottom };
+    });
+  }, []);
+  const initialLayoutNodes = useRef(workingProcess.nodes);
+  const measuredNodeHeights = useRef<Record<string, number>>({});
+  const recordNodeHeights = useCallback((heights: Record<string, number>) => {
+    measuredNodeHeights.current = heights;
+    // Preserve the loaded layout when existing nodes exceed the default height.
+    setLayoutBounds(current => {
+      const bottom = Math.max(current.bottom, ...initialLayoutNodes.current.map(node =>
+        node.y + (heights[node.id] ?? nodeSize.height) + canvasGridSize));
+      return bottom === current.bottom ? current : { ...current, bottom };
+    });
+  }, []);
   const [activeNodeId, setActiveNodeId] = useState(process.draftConfig.nodes[0]?.id ?? "");
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
@@ -278,6 +323,9 @@ export function AcademicFlowDesigner({
 
   useEffect(() => {
     setWorkingProcess(createDraftWorkingProcess(process));
+    initialLayoutNodes.current = createDraftWorkingProcess(process).nodes;
+    setLayoutBounds(createCanvasLayoutBounds(initialLayoutNodes.current));
+    measuredNodeHeights.current = {};
     persistedNodeIds.current = new Set(process.draftConfig.nodes.map((node) => node.id));
     pendingAnnouncementNodeSave.current = null;
     setActiveNodeId(process.draftConfig.nodes[0]?.id ?? "");
@@ -518,7 +566,8 @@ export function AcademicFlowDesigner({
     position?: { x: number; y: number },
   ) => {
     if (editorLocked) return;
-    const nextNode = createNode(kind, title, position);
+    const created = createNode(kind, title, position);
+    const nextNode = { ...created, ...constrainLayoutPoint(snapCanvasPoint(created), nodeSize.height, layoutBounds) };
     const answerSheetKeys = nextNode.kind === "answer_sheet" && nextNode.answerSheet
       ? {
           ...workingProcess.answerSheetKeys,
@@ -555,7 +604,9 @@ export function AcademicFlowDesigner({
       while (workingProcess.nodes.some((node) => Math.abs(node.x - x) < nodeSize.width + 20 && Math.abs(node.y - y) < nodeSize.height + 40)) {
         y += nodeSize.height + 40;
       }
-      const nextNode = { ...copied, x, y };
+      const nextNode = { ...copied, ...constrainLayoutPoint(
+        snapCanvasPoint({ x, y }), measuredNodeHeights.current[source.id] ?? nodeSize.height, layoutBounds,
+      ) };
       const key = workingProcess.answerSheetKeys[source.id];
       setWorkingProcess((current) => ({
         ...current,
@@ -662,8 +713,9 @@ export function AcademicFlowDesigner({
     if (editorLocked) return;
     let changed = false;
     const nextNodes = workingProcess.nodes.map((node) => {
-      const position = positions[node.id];
-      if (!position || !canMoveRevisionNode(node.id, protectedNodeIds)) return node;
+      const requested = positions[node.id];
+      if (!requested || !canMoveRevisionNode(node.id, protectedNodeIds)) return node;
+      const position = constrainLayoutPoint(requested, measuredNodeHeights.current[node.id] ?? nodeSize.height, layoutBounds);
       if (node.x === position.x && node.y === position.y) return node;
       changed = true;
       return { ...node, ...position };
@@ -884,6 +936,10 @@ export function AcademicFlowDesigner({
         <section className="flow-designer-grid">
           <ComponentPalette locked={editorLocked} onAddNode={addNode} />
           <FlowNodeCanvas
+            layoutBounds={layoutBounds}
+            onViewportSize={expandLayoutToViewport}
+            onNodeHeights={recordNodeHeights}
+            initialNodes={initialLayoutNodes.current}
             timeIssues={timeIssues}
             timeFocus={timeFocus}
             actionNotice={actionNotice}
@@ -1118,6 +1174,10 @@ function ComponentPalette({
 }
 
 function FlowNodeCanvas({
+  initialNodes,
+  layoutBounds,
+  onViewportSize,
+  onNodeHeights,
   timeIssues,
   timeFocus,
   actionNotice,
@@ -1143,6 +1203,10 @@ function FlowNodeCanvas({
   onUpdateNodePositions,
   publishedNodeIds,
 }: {
+  onViewportSize: (size: { width: number; height: number }) => void;
+  initialNodes: AcademicFlowNode[];
+  layoutBounds: CanvasLayoutBounds;
+  onNodeHeights: (heights: Record<string, number>) => void;
   timeIssues: Map<string, string>;
   timeFocus: { nodeId: string; attempt: number } | null;
   onCopyNode: (nodeId: string) => Promise<string | null>;
@@ -1178,6 +1242,17 @@ function FlowNodeCanvas({
   publishedNodeIds: string[];
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+        onViewportSize({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [onViewportSize, initialNodes]);
   const canvasSurfaceRef = useRef<HTMLDivElement | null>(null);
   const nodeMenuRef = useRef<HTMLDivElement | null>(null);
   const suppressContextMenuUntilRef = useRef(0);
@@ -1230,8 +1305,8 @@ function FlowNodeCanvas({
     };
   }, [cancelMarquee]);
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
-  const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(0.5);
+  const [viewportOffset, setViewportOffset] = useState(() => ({ x: -layoutBounds.left * 0.25, y: -layoutBounds.top * 0.25 }));
+  const [zoom, setZoom] = useState(0.25);
   useEffect(() => {
     if (!timeFocus) return;
     const element = nodeElementsRef.current.get(timeFocus.nodeId);
@@ -1268,10 +1343,12 @@ function FlowNodeCanvas({
       const surface = canvasSurfaceRef.current.getBoundingClientRect();
       const x = viewport.left + viewport.width / 2 - surface.left;
       const y = viewport.top + viewport.height / 2 - surface.top;
-      setViewportOffset(current => ({
-        x: current.x + x * (1 - nextZoom / zoom),
-        y: current.y + y * (1 - nextZoom / zoom),
-      }));
+      setViewportOffset(current => nextZoom === 0.25
+        ? { x: -layoutBounds.left * nextZoom, y: -layoutBounds.top * nextZoom }
+        : {
+          x: current.x + x * (1 - nextZoom / zoom),
+          y: current.y + y * (1 - nextZoom / zoom),
+        });
       setZoom(nextZoom);
     }
   };
@@ -1387,6 +1464,22 @@ function FlowNodeCanvas({
     ...node,
     renderedHeight: nodeHeights[node.id] ?? nodeSize.height,
   })), [nodeHeights, nodes]);
+  useEffect(() => {
+    onNodeHeights(nodeHeights);
+  }, [nodeHeights, onNodeHeights]);
+
+  useEffect(() => {
+    // Keep the entire node inside the boundary after its rendered height changes.
+    const measuredBottom = Math.max(layoutBounds.bottom, ...initialNodes.map(node =>
+      node.y + (nodeHeights[node.id] ?? nodeSize.height) + canvasGridSize));
+    if (measuredBottom > layoutBounds.bottom) return;
+    const positions = Object.fromEntries(layoutNodes.filter(node => canMoveNode(node.id)).flatMap(node => {
+      const point = constrainLayoutPoint(node, node.renderedHeight, layoutBounds);
+      return point.x === node.x && point.y === node.y ? [] : [[node.id, point]];
+    }));
+    if (Object.keys(positions).length) onUpdateNodePositions(positions);
+  }, [layoutNodes, layoutBounds, initialNodes, nodeHeights, canMoveNode, onUpdateNodePositions]);
+
   const nodeById = useMemo(
     () => new Map(layoutNodes.map((node) => [node.id, node])),
     [layoutNodes],
@@ -1469,10 +1562,10 @@ function FlowNodeCanvas({
       );
       if (movableNodes.length === 0) return;
       event.preventDefault();
-      const delta = constrainCanvasGroupDelta(
+      const delta = constrainLayoutGroupDelta(
         movableNodes,
         desiredDelta,
-        canvasGridSize,
+        layoutBounds,
       );
       if (delta.x === 0 && delta.y === 0) return;
       onUpdateNodePositions(Object.fromEntries(
@@ -1485,7 +1578,7 @@ function FlowNodeCanvas({
 
     window.addEventListener("keydown", moveSelectedNodes);
     return () => window.removeEventListener("keydown", moveSelectedNodes);
-  }, [canMoveNode, layoutNodes, locked, onUpdateNodePositions, selectedNodeIds]);
+  }, [canMoveNode, layoutNodes, layoutBounds, locked, onUpdateNodePositions, selectedNodeIds]);
 
   const getCanvasPoint = (clientX: number, clientY: number) => {
     const rect = canvasSurfaceRef.current?.getBoundingClientRect();
@@ -1511,14 +1604,16 @@ function FlowNodeCanvas({
       zoom,
     });
     setZoom(next.zoom);
-    setViewportOffset({ x: next.offsetX, y: next.offsetY });
+    setViewportOffset(next.zoom === 0.25
+      ? { x: -layoutBounds.left * next.zoom, y: -layoutBounds.top * next.zoom }
+      : { x: next.offsetX, y: next.offsetY });
   };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     return bindCanvasZoomWheelListener(canvas, zoomCanvas);
-  }, [viewportOffset, zoom]);
+  }, [viewportOffset, zoom, layoutBounds]);
 
   const findMagnetTarget = (point: { x: number; y: number }, sourceNodeId: string) => {
     const magnetPadding = 36;
@@ -1640,15 +1735,14 @@ function FlowNodeCanvas({
       x: anchorStart.x + point.x - draggingNodes.pointerStart.x,
       y: anchorStart.y + point.y - draggingNodes.pointerStart.y,
     });
-    const constrainedDelta = constrainCanvasGroupDelta(
-      Object.values(draggingNodes.startPositions),
+    const constrainedDelta = constrainLayoutGroupDelta(
+      Object.entries(draggingNodes.startPositions).map(([id, point]) => ({ ...point, renderedHeight: nodeById.get(id)?.renderedHeight ?? nodeSize.height })),
       {
         x: desiredAnchor.x - anchorStart.x,
         y: desiredAnchor.y - anchorStart.y,
       },
-      canvasGridSize,
+      layoutBounds,
     );
-    if (constrainedDelta.x === 0 && constrainedDelta.y === 0) return;
     onUpdateNodePositions(
       Object.fromEntries(
         Object.entries(draggingNodes.startPositions).map(([nodeId, position]) => [
@@ -1887,15 +1981,11 @@ function FlowNodeCanvas({
       : null;
   const previewPath = previewGeometry?.path ?? "";
   const canvasSurfaceWidth = Math.max(
-    canvasMinimumSize.width,
-    ...layoutNodes.map((node) => node.x + nodeSize.width + canvasConnectionPadding),
+    layoutBounds.right,
     connectionPreviewPoint ? connectionPreviewPoint.x + canvasConnectionPadding : 0,
   );
   const canvasSurfaceHeight = Math.max(
-    canvasMinimumSize.height,
-    ...layoutNodes.map(
-      (node) => node.y + node.renderedHeight + canvasConnectionPadding,
-    ),
+    layoutBounds.bottom,
     connectionPreviewPoint ? connectionPreviewPoint.y + canvasConnectionPadding : 0,
   );
   return (
@@ -2009,6 +2099,11 @@ function FlowNodeCanvas({
               width: canvasSurfaceWidth,
             }}
           >
+            <div className="canvas-layout-boundary" aria-hidden="true" style={{
+              left: layoutBounds.left, top: layoutBounds.top,
+              width: layoutBounds.right - layoutBounds.left,
+              height: layoutBounds.bottom - layoutBounds.top,
+            }} />
             {selectionBox ? <div className="canvas-selection-box" style={selectionBox} aria-hidden="true" /> : null}
             <svg
               className="flow-edge-layer"

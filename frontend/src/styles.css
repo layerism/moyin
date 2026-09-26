@@ -4359,6 +4359,15 @@ button {
   pointer-events: none;
 }
 
+.canvas-layout-boundary {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #94a3b8;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+
 .canvas-selection-box {
   position: absolute;
   z-index: 2;
