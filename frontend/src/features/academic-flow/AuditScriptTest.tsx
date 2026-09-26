@@ -66,7 +66,7 @@ export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disa
         <button type="button" aria-label="关闭审核测试" disabled={running} onClick={() => dialogRef.current?.close()}>×</button>
       </header>
       <div className="node-script-config-body audit-test-body">
-        <p className="audit-test-note">使用当前步骤的审核要点和模型配置。AI 审核会调用所选模型，测试结果不会写入学生流程。</p>
+        <p className="audit-test-note">使用当前审核要点和模型配置，测试结果不写入学生流程。</p>
         <input ref={inputRef} className="audit-test-file-input" type="file" accept={accept} multiple={scans} disabled={running}
           aria-label="选择审核测试文件" onChange={event => {
             const selected = Array.from(event.currentTarget.files ?? []);
@@ -76,16 +76,21 @@ export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disa
             }
             event.currentTarget.value = "";
           }} />
-        <div className="audit-test-upload">
+        <div className={`audit-test-upload${files.length && !scans ? " has-file" : ""}`}>
           <button type="button" disabled={running} onClick={() => inputRef.current?.click()}>＋ {files.length && !scans ? "替换文件" : "添加文件"}</button>
-          <small>{scans ? "最多 10 个文件、20 页；单文件 10 MB，合计 30 MB" : "选择一个文件，最大 50 MB"}{accept ? ` · ${accept.replace(/\./g, "").toUpperCase()}` : ""}</small>
+          {files.length && !scans ? <>
+            <span className="audit-test-file-name" title={files[0].name}>{files[0].name}</span>
+            <small className="audit-test-file-size">{(files[0].size / 1024).toFixed(1)} KB</small>
+            <button type="button" className="audit-test-file-remove" disabled={running} aria-label={`移除 ${files[0].name}`}
+              onClick={() => { setFiles([]); clearOutput(); }}>×</button>
+          </> : <small>{scans ? "最多 10 个文件、20 页；单文件 10 MB，合计 30 MB" : "选择一个文件，最大 50 MB"}{accept ? ` · ${accept.replace(/\./g, "").toUpperCase()}` : ""}</small>}
         </div>
-        {files.length ? <ul className="audit-test-files">{files.map((file, index) => <li key={`${index}-${file.name}`}>
+        {files.length ? scans ? <ul className="audit-test-files">{files.map((file, index) => <li key={`${index}-${file.name}`}>
           <span><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(1)} KB</small></span>
           <button type="button" disabled={running} aria-label={`移除 ${file.name}`} onClick={() => {
             setFiles(files.filter((_, position) => position !== index)); clearOutput();
           }}>×</button>
-        </li>)}</ul> : <div className="audit-test-empty">添加文件后即可开始测试</div>}
+        </li>)}</ul> : null : <div className="audit-test-empty">添加文件后即可开始测试</div>}
         {running ? <p className="audit-test-running" role="status">正在执行审核，请稍候…</p> : null}
         {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
         {running || result || requests.length || error ? <>
