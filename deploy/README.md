@@ -43,7 +43,11 @@ tmux new -s moyin
 bash deploy/run_server.sh
 ```
 
-后端固定监听 `127.0.0.1:8000`，脚本不接受环境参数。端口被占用时直接报错，不自动换端口。
+脚本从 `deploy/nginx.conf` 读取完整 `root` 路径作为前端发布软链接，并从 `proxy_pass` 读取后端端口。当前配置对应 `/var/www/moyin/prod` 和 `127.0.0.1:8000`；以后修改路径或端口只需修改该配置。
+
+配置须包含唯一的 `root` 和 `proxy_pass`，每条指令独占一行，以分号结束；支持行尾注释及双引号。`root` 必须是直接写出的绝对路径，`proxy_pass` 必须为 `http://127.0.0.1:端口`，端口范围为 1–65535。不解析变量或 `include` 中的指令。配置不符合要求时，脚本在构建和修改系统配置之前退出。
+
+脚本不接受环境参数。端口被占用时直接报错，不自动换端口。
 
 按 Ctrl+B，再按 D 返回普通终端，服务仍在运行。重新进入使用 tmux attach -t moyin；停止时在会话中按 Ctrl+C，正式后端随即停止。
 
@@ -65,7 +69,7 @@ npm --prefix frontend run build
 chmod -R a+rX frontend/dist
 ```
 
-`run_server.sh` 每次启动都会把 `/var/www/moyin/prod` 符号链接更新为当前仓库的 `frontend/dist`；将项目拷贝到新位置后，从新位置运行脚本即可更新正式发布路径。若发布路径已存在且是实际目录或普通文件，脚本会中止并保留原内容。构建失败不会更新链接。`/var/www/moyin` 中不保存构建文件或 `node_modules`。
+`run_server.sh` 每次启动都会把 `nginx.conf` 的 `root` 所指定的符号链接更新为当前仓库的 `frontend/dist`；将项目拷贝到新位置后，从新位置运行脚本即可更新正式发布路径。若发布路径已存在且是实际目录或普通文件，脚本会中止并保留原内容。构建失败不会更新链接。`/var/www/moyin` 中不保存构建文件或 `node_modules`。
 
 Nginx 只通过链接读取 `dist`，不读取源码。前端修改后只须重新构建，无须复制文件或 reload Nginx。需要 Vite 热更新时，应执行 `bash deploy/run_dev.sh` 启动前后端。
 
