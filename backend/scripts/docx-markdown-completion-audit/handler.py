@@ -357,6 +357,30 @@ def annotate_document_structure(path: Path, blocks: list[MarkdownBlock]) -> list
     return updated
 
 
+def split_review_points(markdown: str) -> list[str]:
+    lines = markdown.splitlines()
+    markers = [re.match(r"^([ \t]*)-\s+", line) for line in lines]
+    indents = [len(match.group(1).expandtabs(4)) for match in markers if match]
+    if not indents:
+        return [part.strip() for part in re.split(r"\n[ \t]*\n", markdown) if part.strip()]
+
+    top_level = min(indents)
+    points: list[str] = []
+    current: list[str] = []
+    for line, match in zip(lines, markers):
+        if match and len(match.group(1).expandtabs(4)) == top_level:
+            value = "\n".join(current).strip()
+            if value:
+                points.append(value)
+            current = [line[match.end():]]
+        else:
+            current.append(line)
+    value = "\n".join(current).strip()
+    if value:
+        points.append(value)
+    return points
+
+
 def build_model_messages(
     system_prompt: str,
     review_rules: list[MarkdownBlock],
@@ -366,10 +390,11 @@ def build_model_messages(
     rules_payload = []
     for block in review_rules:
         first_line, _, remaining = block.markdown.partition("\n")
+        review_text = remaining.strip() if HEADING_PATTERN.fullmatch(first_line) else block.markdown
         rules_payload.append({
             "id": block.id,
             "section": " / ".join(block.heading_path),
-            "markdown": remaining.strip() if HEADING_PATTERN.fullmatch(first_line) else block.markdown,
+            "reviewPoints": split_review_points(review_text),
         })
     chunks_payload = [
         {
