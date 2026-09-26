@@ -27,7 +27,6 @@ UNCERTAIN_PATTERN = re.compile(
 ALLOWED_ISSUE_CODES = {
     "REQUIRED_CONTENT_MISSING",
     "CONTENT_REQUIREMENT_NOT_MET",
-    "TARGET_NOT_FOUND",
 }
 EXPECTED_SETTING_KEYS = {
     "systemPrompt",
@@ -453,10 +452,7 @@ def validate_model_result(
             raise ValueError("模型返回问题规则无效")
         if not isinstance(code, str) or code not in ALLOWED_ISSUE_CODES:
             raise ValueError("模型返回问题代码无效")
-        if code == "TARGET_NOT_FOUND":
-            if chunk_id is not None:
-                raise ValueError("模型返回未找到目标的位置无效")
-        elif not isinstance(chunk_id, str) or chunk_id not in chunk_ids:
+        if not isinstance(chunk_id, str) or chunk_id not in chunk_ids:
             raise ValueError("模型返回问题文档位置无效")
         target = _bounded_model_text(
             issue_value["target"], "问题位置", MAX_TARGET_CHARACTERS
