@@ -53,7 +53,8 @@ def _vendor(api_url: str) -> str:
     for domain, vendor in [("openai.com", "openai"), ("deepseek.com", "deepseek"),
                            ("aliyuncs.com", "qwen"), ("volces.com", "doubao"),
                            ("bigmodel.cn", "zhipu"), ("moonshot.cn", "moonshot"),
-                           ("moonshot.ai", "moonshot")]:
+                           ("moonshot.ai", "moonshot"), ("minimax.cn", "minimax"),
+                           ("minimax.io", "minimax"), ("minimaxi.com", "minimax")]:
         if host == domain or host.endswith("." + domain):
             return vendor
     return "custom"

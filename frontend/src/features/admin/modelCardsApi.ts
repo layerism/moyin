@@ -1,11 +1,12 @@
 export const MODEL_VENDORS = [
-  { id: "openai", name: "OpenAI" },
-  { id: "deepseek", name: "DeepSeek" },
-  { id: "qwen", name: "通义千问" },
-  { id: "doubao", name: "豆包" },
-  { id: "zhipu", name: "智谱" },
-  { id: "moonshot", name: "Moonshot" },
-  { id: "custom", name: "自定义" },
+  { id: "openai", name: "OpenAI", baseUrl: "https://api.openai.com/v1" },
+  { id: "deepseek", name: "DeepSeek", baseUrl: "https://api.deepseek.com" },
+  { id: "qwen", name: "通义千问", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+  { id: "doubao", name: "豆包", baseUrl: "https://ark.cn-beijing.volces.com/api/v3" },
+  { id: "zhipu", name: "智谱", baseUrl: "https://open.bigmodel.cn/api/paas/v4" },
+  { id: "moonshot", name: "Moonshot", baseUrl: "https://api.moonshot.cn/v1" },
+  { id: "minimax", name: "MiniMax", baseUrl: "https://api.minimax.cn/v1" },
+  { id: "custom", name: "自定义", baseUrl: "" },
 ] as const;
 export type ModelVendor = typeof MODEL_VENDORS[number]["id"];
 export interface ModelThinking { mode: "default" | "off" | "on"; effort: string; budget: number | null }
@@ -70,6 +71,7 @@ export function modelConsoleUrl(card: ModelCard): string | null {
     qwen: "https://bailian.console.aliyun.com/",
     doubao: "https://console.volcengine.com/ark",
     zhipu: "https://bigmodel.cn/console/overview",
+    minimax: "https://platform.minimax.cn/",
   };
   if (card.vendor === "moonshot") {
     try {

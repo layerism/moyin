@@ -43,7 +43,7 @@ class ThinkingConfig(BaseModel):
 class CardUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     thinking: ThinkingConfig
-    vendor: Literal["openai", "deepseek", "qwen", "doubao", "zhipu", "moonshot", "custom"]
+    vendor: Literal["openai", "deepseek", "qwen", "doubao", "zhipu", "moonshot", "minimax", "custom"]
     name: str = Field(min_length=1, max_length=100)
     apiUrl: str = Field(min_length=1, max_length=2048)
     apiKey: str | None = Field(default=None, max_length=4096)
@@ -85,7 +85,7 @@ class ModelDiscovery(BaseModel):
     model_config = ConfigDict(extra="forbid")
     cardId: str | None = Field(default=None, max_length=64)
     revision: int = Field(default=0, ge=0)
-    vendor: Literal["openai", "deepseek", "qwen", "doubao", "zhipu", "moonshot", "custom"]
+    vendor: Literal["openai", "deepseek", "qwen", "doubao", "zhipu", "moonshot", "minimax", "custom"]
     apiUrl: str = Field(min_length=1, max_length=2048)
     apiKey: str = Field(default="", max_length=4096)
 
