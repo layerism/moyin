@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { createPortal } from "react-dom";
 import { AuditScriptSelector } from "./AuditScriptSelector";
 import { toNodeAuditScriptSelection } from "./auditScripts";
+import { rememberReviewSteps, restoreReviewScript, recoverRemovedReviewStep } from "./fileReviewConfigHistory";
 import { NodeModelSelector } from "./NodeModelSelector";
 import type { AcademicFlowNode, FileReviewStep } from "../../types";
 
@@ -116,11 +117,13 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
   const [adding, setAdding] = useState(false);
   const steps = fileReviewSteps(node);
   const legacySteps = !node.fileReviewSteps || node.fileReviewSteps.some((step) => typeof step === "string");
+  const history = rememberReviewSteps(node.fileReviewConfigHistory, steps);
   const save = (next: FileReviewStep[]) => {
     const accepted = next.filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length)
       .map((step) => step.auditScriptAcceptedExtensions!);
     const extensions = accepted.length ? accepted[0].filter((ext) => accepted.every((list) => list.includes(ext))) : null;
     onChange({ ...toNodeAuditScriptSelection(null), auditModelCardId: undefined, fileReviewSteps: next,
+      fileReviewConfigHistory: rememberReviewSteps(history, next),
       ...(node.kind === "confirmation" ? { scanAuditEnabled: false, scanAuditMode: undefined,
         scanAuditPrompt: "", scanAuditThreshold: undefined } : {}),
       ...(node.kind === "file" && extensions?.length ? { fileExtensions: extensions.map((ext) => ext.replace(/^\./, "")).join(", ") } : {}),
@@ -131,7 +134,7 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
       onChange(patch);
       return;
     }
-    save(steps.map((step) => step.id === id ? { ...step, ...patch } : step));
+    save(steps.map((step) => step.id === id ? restoreReviewScript(step, patch, history) : step));
   };
   const pickerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -175,6 +178,11 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
           setAdding(!adding);
         }}>＋ 添加审核 <span aria-hidden="true">⌄</span></button>
         {adding ? createPortal(<div ref={menuRef} style={menuPosition} className="file-review-add-options" role="group" aria-label="选择审核类型">{(["ai", "score", "manual"] as const).map((type) => <button key={type} type="button" onClick={() => {
+          const recovered = recoverRemovedReviewStep(history, steps, type);
+          if (recovered) {
+            save([...steps, recovered]); setAdding(false); toggleRef.current?.focus();
+            return;
+          }
           const id = globalThis.crypto?.randomUUID?.()
             ?? `review-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
           const image = node.kind === "confirmation";

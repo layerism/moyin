@@ -365,6 +365,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     for key, value in node.items()
                     if not (
                         key in {
+                            "fileReviewConfigHistory",
                             "auditScriptVersion",
                             "auditScriptHash",
                             "auditScriptConfigHash",

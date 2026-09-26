@@ -549,6 +549,10 @@ def copy_flow_definition(
                 for step in node.get("fileReviewSteps", []):
                     if isinstance(step, dict):
                         step.pop("auditModelCardId", None)
+                for item in node.get("fileReviewConfigHistory", {}).values():
+                    item["step"].pop("auditModelCardId", None)
+                    for script in item["scripts"].values():
+                        script.pop("auditModelCardId", None)
         if clear_dates:
             for node in config.get("nodes", []):
                 node.pop("startAt", None)

@@ -193,7 +193,14 @@ export type FileReviewStep = {
   auditModelCardId?: string;
 };
 
+export type FileReviewConfigHistory = Record<string, {
+  order: number;
+  step: FileReviewStep;
+  scripts: Record<string, Pick<FileReviewStep, "auditScriptParams" | "auditModelCardId">>;
+}>;
+
 export type AcademicFlowNode = {
+  fileReviewConfigHistory?: FileReviewConfigHistory;
   fileReviewSteps?: Array<"ai" | "manual" | FileReviewStep>;
   branches?: Array<{ id: string; label: string }>;
   answerSheet?: AnswerSheetConfig;

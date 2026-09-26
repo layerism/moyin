@@ -45,6 +45,12 @@ def validate_flow_config(
                 validate_steps(node, require_publishable)
             except ValueError as exc:
                 raise FlowValidationError(str(exc)) from exc
+        if "fileReviewConfigHistory" in node:
+            from app.domain.file_review_steps import validate_review_config_history
+            try:
+                validate_review_config_history(node)
+            except ValueError as exc:
+                raise FlowValidationError(str(exc)) from exc
         _validate_node_time_window(node)
         _validate_confirmation_scan(node, require_publishable=require_publishable)
         _validate_node_template(node)

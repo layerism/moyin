@@ -26,6 +26,7 @@ REVISION_EDITABLE_NODE_FIELDS = {
     "startAt",
     "deadlineAt",
     "auditModelCardId",  # Updated independently by the versioned node audit policy.
+    "fileReviewConfigHistory",  # Editor history does not change active review behavior.
 }
 
 

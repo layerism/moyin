@@ -52,9 +52,20 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
             for field in node.get("infoFields", []):
                 if isinstance(field, dict) and "id" in field:
                     field["id"] = str(uuid.uuid4())
+            review_ids = {}
             for step in node.get("fileReviewSteps", []):
                 if isinstance(step, dict):
+                    old_id = step["id"]
                     step["id"] = str(uuid.uuid4())
+                    review_ids[old_id] = step["id"]
+            history = node.get("fileReviewConfigHistory")
+            if history is not None:
+                copied_history = {}
+                for old_id, item in history.items():
+                    new_id = review_ids.get(old_id) or str(uuid.uuid4())
+                    item["step"]["id"] = new_id
+                    copied_history[new_id] = item
+                node["fileReviewConfigHistory"] = copied_history
             storage = get_object_storage() if assets else None
             for table, metadata, asset in assets:
                 new_id = str(uuid.uuid4())

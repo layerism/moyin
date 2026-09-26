@@ -76,3 +76,27 @@ def review_config_nodes(config):
         else:
             nodes.append(node)
     return nodes
+
+
+def validate_review_config_history(node):
+    history = node.get('fileReviewConfigHistory', {})
+    if not isinstance(history, dict) or node.get('kind') not in {'file', 'confirmation'}:
+        raise ValueError('审核配置历史无效')
+    for key, item in history.items():
+        if not isinstance(item, dict):
+            raise ValueError('审核配置历史无效')
+        step, scripts, order = item.get('step'), item.get('scripts'), item.get('order')
+        if (not isinstance(step, dict) or step.get('id') != key
+                or not isinstance(key, str) or not key or len(key) > 80
+                or step.get('kind') not in ('ai', 'score', 'manual')
+                or not isinstance(scripts, dict) or type(order) is not int or order < 0):
+            raise ValueError('审核配置历史无效')
+        for snapshot in [step, *scripts.values()]:
+            if not isinstance(snapshot, dict):
+                raise ValueError('审核配置历史无效')
+            params = snapshot.get('auditScriptParams', {})
+            model = snapshot.get('auditModelCardId')
+            if (not isinstance(params, dict)
+                    or any(not isinstance(value, (str, int, float, bool)) for value in params.values())
+                    or (model is not None and not isinstance(model, str))):
+                raise ValueError('审核配置历史无效')
