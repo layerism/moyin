@@ -417,14 +417,6 @@ def build_model_messages(
     return system, user
 
 
-def _validate_coverage(value: object, expected: set[str], label: str) -> list[str]:
-    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
-        raise ValueError(f"模型返回的{label}覆盖无效")
-    if len(value) != len(set(value)) or set(value) != expected:
-        raise ValueError(f"模型返回的{label}覆盖不完整")
-    return value
-
-
 def _bounded_model_text(value: object, label: str, maximum: int) -> str:
     if not isinstance(value, str) or not value.strip() or len(value) > maximum:
         raise ValueError(f"模型返回的{label}无效")
@@ -436,17 +428,10 @@ def validate_model_result(
     review_rules: list[MarkdownBlock],
     document_chunks: list[MarkdownBlock],
 ) -> list[dict[str, object]]:
-    if not isinstance(value, dict) or set(value) != {
-        "passed",
-        "issues",
-        "checkedRuleIds",
-        "checkedChunkIds",
-    }:
+    if not isinstance(value, dict) or set(value) != {"passed", "issues"}:
         raise ValueError("模型返回字段无效")
     rule_ids = {block.id for block in review_rules}
     chunk_ids = {block.id for block in document_chunks}
-    _validate_coverage(value["checkedRuleIds"], rule_ids, "规则")
-    _validate_coverage(value["checkedChunkIds"], chunk_ids, "文档")
     issue_values = value["issues"]
     if not isinstance(issue_values, list) or len(issue_values) > MAX_ISSUES:
         raise ValueError("模型返回问题数量无效")
@@ -622,8 +607,6 @@ def run(payload: object) -> dict[str, object]:
         "details": {
             "checkedFileCount": 1,
             "issues": final_issues,
-            "checkedRuleIds": [block.id for block in review_rules],
-            "checkedChunkIds": [block.id for block in document_chunks],
         },
     }
 
