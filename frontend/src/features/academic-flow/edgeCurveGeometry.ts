@@ -48,9 +48,17 @@ export function createCurveGeometry(input: {
     input.target.x - input.source.x,
     input.target.y - input.source.y,
   );
-  const controlDistance = Math.min(180, Math.max(48, endpointDistance * 0.35));
   const sourceNormal = getPortNormal(input.sourcePort);
   const targetNormal = getPortNormal(input.targetPort);
+  const facingGap = (input.target.x - input.source.x) * sourceNormal.x
+    + (input.target.y - input.source.y) * sourceNormal.y;
+  const opposingPorts = sourceNormal.x === -targetNormal.x
+    && sourceNormal.y === -targetNormal.y;
+  const preferredDistance = Math.min(180, Math.max(48, endpointDistance * 0.35));
+  // Keep facing control points ordered inside the gap, even with a large lateral offset.
+  const controlDistance = opposingPorts && facingGap >= 0
+    ? Math.min(preferredDistance, facingGap / 2)
+    : preferredDistance;
   const control1 = {
     x: input.source.x + sourceNormal.x * controlDistance,
     y: input.source.y + sourceNormal.y * controlDistance,
