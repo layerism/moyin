@@ -44,6 +44,74 @@ export function fileReviewError(node: AcademicFlowNode): string | null {
 }
 
 export function FileReviewStepsEditor(props: ComponentProps<typeof AuditScriptSelector>) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const steps = fileReviewSteps(props.node);
+  const titleId = `file-review-config-title-${props.node.id}`;
+  useEffect(() => { setOpen(false); }, [props.node.id]);
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      triggerRef.current?.focus({ preventScroll: true });
+    };
+  }, [open]);
+
+  return <>
+    <section className="file-review-steps file-review-summary" aria-label="审核流程">
+      <header>
+        <div className="file-review-heading">
+          <span className="file-review-heading-icon" aria-hidden="true">☑</span><strong>审核</strong>
+          <small>{steps.length ? `${steps.length} 个步骤 · 按顺序执行` : "未添加 · 提交后自动通过"}</small>
+        </div>
+        <button ref={triggerRef} className="file-review-add" type="button" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+          {steps.length ? "配置审核" : props.disabled ? "查看审核" : "＋ 添加审核"}
+        </button>
+      </header>
+    </section>
+    {open ? createPortal(
+      <div className="file-review-config-backdrop" onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setOpen(false);
+      }}>
+        <section ref={panelRef} className="file-review-config-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}
+          onKeyDown={(event) => {
+            // Nested model and script dialogs retain their own keyboard handling.
+            const target = event.target as HTMLElement;
+            if (!panelRef.current?.contains(target) && !target.closest(".file-review-add-options")) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              event.stopPropagation();
+              setOpen(false);
+            }
+            if (event.key !== "Tab") return;
+            const controls = [
+              ...Array.from(panelRef.current!.querySelectorAll<HTMLElement>(
+                'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [tabindex="0"]',
+              )),
+              ...Array.from(document.querySelectorAll<HTMLElement>(".file-review-add-options button:not(:disabled)")),
+            ].filter(element => element.getClientRects().length > 0);
+            const first = controls[0], last = controls[controls.length - 1];
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+          }}>
+          <header>
+            <div><h2 id={titleId}>审核配置</h2><p>{props.node.title}</p></div>
+            <button ref={closeRef} type="button" aria-label="关闭审核配置" onClick={() => setOpen(false)}>×</button>
+          </header>
+          <div className="file-review-config-body"><FileReviewStepsFields {...props} /></div>
+          <footer><button type="button" className="primary-action" onClick={() => setOpen(false)}>返回节点设置</button></footer>
+        </section>
+      </div>, document.body,
+    ) : null}
+  </>;
+}
+
+function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>) {
   const { node, disabled = false, onChange } = props;
   const [adding, setAdding] = useState(false);
   const steps = fileReviewSteps(node);
