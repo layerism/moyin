@@ -77,7 +77,7 @@ export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disa
           }} />
         <div className="audit-test-upload">
           <button type="button" disabled={running} onClick={() => inputRef.current?.click()}>＋ {files.length && !scans ? "替换文件" : "添加文件"}</button>
-          <small>{scans ? "最多 10 个文件、20 页；单文件 10 MB，合计 30 MB" : "选择一个文件，最大 50 MB"}{accept ? ` · ${accept.replaceAll(".", "").toUpperCase()}` : ""}</small>
+          <small>{scans ? "最多 10 个文件、20 页；单文件 10 MB，合计 30 MB" : "选择一个文件，最大 50 MB"}{accept ? ` · ${accept.replace(/\./g, "").toUpperCase()}` : ""}</small>
         </div>
         {files.length ? <ul className="audit-test-files">{files.map((file, index) => <li key={`${index}-${file.name}`}>
           <span><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(1)} KB</small></span>
