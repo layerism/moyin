@@ -18,6 +18,10 @@ def balance_capability(vendor: str, api_url: str, has_billing: bool = False) -> 
         return {"supported": has_billing, "reason": "火山云账户余额，不代表单模型配额。" if has_billing else "请在编辑配置中填写财务 AK/SK。"}
     if vendor == "zhipu":
         return {"supported": has_billing, "reason": "通过智谱控制台会话查询；Token 过期后需更新。" if has_billing else "请在编辑配置中填写智谱控制台 Token。"}
+    if vendor == "minimax":
+        if api_url.rstrip("/") not in {"https://api.minimax.cn/v1", "https://api.minimaxi.com/v1"}:
+            return {"supported": False, "reason": "当前仅支持 MiniMax 国内官方地址的账户余额查询。"}
+        return {"supported": has_billing, "reason": "查询国内控制台账户金额余额；Cookie 过期后需更新。" if has_billing else "请在编辑配置中填写 MiniMax 控制台 Cookie 和 Group ID。"}
     supported = (vendor, api_url.rstrip("/")) in ENDPOINTS
     reason = {
         "openai": "暂未接入：官方 Usage / Costs 查询的是用量与费用，不是剩余余额。",

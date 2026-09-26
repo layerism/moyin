@@ -119,7 +119,8 @@ def list_model_connections(owner_id: int) -> dict[str, object]:
 
 def save_model_card(card_id: str | None, *, owner_id: int, vendor: str, name: str, api_url: str,
                     api_key: str | None, model: str, revision: int, thinking: dict[str, object],
-                    billing_access_key: str = "", billing_secret_key: str = "", billing_console_token: str = "", clear_billing: bool = False) -> None:
+                    billing_access_key: str = "", billing_secret_key: str = "", billing_console_token: str = "",
+                    billing_cookie: str = "", billing_group_id: str = "", clear_billing: bool = False) -> None:
     from app.services.model_thinking import validate_thinking
     thinking_json = json.dumps(validate_thinking(vendor, model, thinking))
     with get_connection() as connection:
@@ -132,7 +133,7 @@ def save_model_card(card_id: str | None, *, owner_id: int, vendor: str, name: st
                 raise ModelConfigConflict("模型卡已被修改或删除，请重新读取")
             encrypted = row["encrypted_api_key"]
             billing = row["encrypted_billing_credentials"] if row["vendor"] == vendor else ""
-        if vendor not in {"doubao", "zhipu"} or clear_billing:
+        if vendor not in {"doubao", "zhipu", "minimax"} or clear_billing:
             billing = ""
         if billing_access_key or billing_secret_key:
             if vendor != "doubao" or clear_billing or not (billing_access_key and billing_secret_key):
@@ -144,6 +145,14 @@ def save_model_card(card_id: str | None, *, owner_id: int, vendor: str, name: st
             if not billing_console_token.isascii() or any(char.isspace() for char in billing_console_token) or ";" in billing_console_token:
                 raise ValueError("请仅填写控制台 Token 原始值，不要包含 Bearer、完整 Cookie 或空白字符")
             billing = _cipher().encrypt(json.dumps({"token": billing_console_token}).encode()).decode()
+        if billing_cookie or billing_group_id:
+            if vendor != "minimax" or clear_billing or not (billing_cookie and billing_group_id):
+                raise ValueError("MiniMax 财务凭据须同时填写 Cookie 和 Group ID，且不能同时选择清除")
+            if "=" not in billing_cookie or any(ord(char) < 32 or ord(char) >= 127 for char in billing_cookie):
+                raise ValueError("请填写 Cookie 请求头的完整值，不要包含换行或非 ASCII 字符")
+            if not billing_group_id.isascii() or not billing_group_id.isdecimal():
+                raise ValueError("请填写 X-Group-Id 请求头中的数字 Group ID")
+            billing = _cipher().encrypt(json.dumps({"cookie": billing_cookie, "groupId": billing_group_id}).encode()).decode()
         if api_key:
             encrypted = _cipher().encrypt(api_key.encode()).decode()
         if not encrypted:
@@ -232,15 +241,18 @@ def query_model_balance(card_id: str, revision: int, owner_id: int) -> dict:
     capability = balance_capability(row["vendor"], row["api_url"], bool(row["encrypted_billing_credentials"]))
     if not capability["supported"]:
         raise ValueError(capability["reason"])
-    if row["vendor"] in {"doubao", "zhipu"}:
+    if row["vendor"] in {"doubao", "zhipu", "minimax"}:
         from app.services.volc_billing import fetch_volc_balance
         from app.services.zhipu_billing import fetch_zhipu_balance
+        from app.services.minimax_billing import fetch_minimax_balance
         try:
             credentials = json.loads(_cipher().decrypt(row["encrypted_billing_credentials"].encode()).decode())
         except (InvalidToken, ValueError, UnicodeError):
             raise RuntimeError("财务凭据无法解密，请重新保存") from None
         if row["vendor"] == "zhipu":
             return fetch_zhipu_balance(credentials["token"])
+        if row["vendor"] == "minimax":
+            return fetch_minimax_balance(credentials["cookie"], credentials["groupId"])
         return fetch_volc_balance(credentials["ak"], credentials["sk"])
     if not row["encrypted_api_key"]:
         raise ValueError("请先配置 API Key")
