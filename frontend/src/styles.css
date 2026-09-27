@@ -13870,9 +13870,9 @@ td {
 .review-step-detail { border-top: 1px solid #edf0f5; padding: 12px; font-size: 13px; }
 .review-annotation { border-bottom: 1px solid #edf0f5; padding: 10px 0; }
 .review-annotation:last-child { border-bottom: 0; }
-.review-annotation > summary { cursor: pointer; font-size: 13px; }
+.review-annotation > header { font-size: 13px; }
 .review-annotation time { margin: 0 12px; }
-.review-annotation > summary > span { color: #64748b; font-size: 12px; }
+.review-annotation > header > span { color: #64748b; font-size: 12px; }
 .review-feedback-file { display: flex; align-items: center; gap: 8px; background: #f7f9fc; padding: 8px; border-radius: 6px; margin-top: 8px; }
 .review-feedback-file > span:not(.file-format-icon) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .review-feedback-file small { display: block; margin-top: 3px; }

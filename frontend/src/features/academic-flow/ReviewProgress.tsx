@@ -39,11 +39,11 @@ function Steps({ attempt, onPreviewReview }: { attempt: Attempt; onPreviewReview
       <div className="review-step-detail">
         {step.kind === "score" && !step.audit?.reason ? <span>{labels[step.status] ?? "待开始"}</span> : null}
         {step.audit?.reason ? <AuditDetail audit={step.audit} /> : null}
-        {annotations.map((item, index) => <details className="review-annotation" key={item.id}>
-          <summary><strong>{item.passed === undefined ? `批注 ${index + 1}` : item.corrected ? "教师已更正" : "最终结论"}</strong><time>{date(item.publishedAt)}</time><span>{item.passed === undefined ? "补充意见" : item.passed ? "通过" : "退回修改"}</span></summary>
+        {annotations.map((item) => <article className="review-annotation" key={item.id}>
+          <header><strong>最新评语</strong><time>{date(item.publishedAt)}</time><span>{item.passed === undefined ? "补充意见" : item.passed ? "通过" : "退回修改"}</span></header>
           <Report value={item.remark} />
           {item.files.map((file) => <div className="review-feedback-file" key={file.id}><FileFormatIcon filename={file.name} /><span title={file.name}>{file.name}<small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} student>下载</FeedbackDownload></div>)}
-        </details>)}
+        </article>)}
         {!step.audit && !annotations.length ? <p className="review-progress-empty">{step.status === "active" ? "暂未发布审核意见。" : step.status === "passed" ? "此步骤已完成，未记录详细意见。" : "此步骤尚无审核结论。"}</p> : null}
       </div>
     </details>
