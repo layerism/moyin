@@ -14502,3 +14502,7 @@ td {
 .runtime-submitted-files .runtime-submitted-scan-list .runtime-submitted-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #475569; font-size: 13px; }
 .runtime-submitted-files li > small { flex-shrink: 0; color: #64748b; font-size: 12px; white-space: nowrap; }
 .runtime-submitted-files li > button { flex-shrink: 0; width: 32px; height: 32px; min-height: 32px; padding: 6px; }
+
+.file-review-docx-preview { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; border: 1px solid #e2e8f0; background: #f1f5f9; }
+.docx-preview-viewport { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.docx-preview-viewport > p { padding: 12px; font-size: 13px; color: #64748b; }
