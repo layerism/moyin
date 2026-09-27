@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as Re
 import Markdown from "react-markdown";
 import { CompletedReviewFeedback, ReviewProgress } from "./ReviewProgress";
 import { AnnouncementMarkdown } from "./AnnouncementMarkdown";
+import { FileFormatIcon } from "./FileFormatIcon";
 
 import type { AcademicFlowNode } from "../../types";
 import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi } from "./api";
@@ -530,6 +531,7 @@ function RuntimeNodeDialog({
       && !fileReady,
   );
   const templateRequired = Boolean(runtime.template);
+  const referenceFiles = nodeReferences(node);
   const uploadUnlocked = !templateRequired || runtime.templateDownloaded;
   const fileBusy = busy || isUploadingFile || !uploadUnlocked;
   const confirmationRequired = node.kind === "confirmation" || node.kind === "announcement";
@@ -736,7 +738,7 @@ function RuntimeNodeDialog({
         {(node.kind === "file" || (node.kind === "confirmation" && Boolean(node.fileReviewSteps?.length))) && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {["file", "confirmation"].includes(node.kind) && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {["file", "confirmation"].includes(node.kind) && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
-        {["file", "confirmation"].includes(node.kind) && writable ? nodeReferences(node).map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label={node.kind === "confirmation" ? "参考示例" : "填写参考"} />) : null}
+        {node.kind === "confirmation" && writable ? referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label="参考示例" />) : null}
         {node.kind === "announcement" ? (
           <section aria-label="公告正文" className="runtime-announcement-body">
             <AnnouncementMarkdown instanceId={instanceId} nodeId={node.id}>{node.requirement}</AnnouncementMarkdown>
@@ -813,19 +815,25 @@ function RuntimeNodeDialog({
           ) : null}
           {node.kind === "file" ? (
             <div className={`runtime-template-steps${templateRequired ? " has-template" : ""}`}>
-            {runtime.template ? (
-              <section className="runtime-template-download">
-                <span>1</span>
-                <div>
-                  <strong>{runtime.templateDownloaded ? "模板已下载" : "下载填写模板"}</strong>
-                  <small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small>
-                </div>
-                <button disabled={busy} onClick={onDownloadTemplate} type="button">
-                  {runtime.templateDownloaded ? "重新下载" : "下载填写模板"}
-                </button>
+            {runtime.template || referenceFiles.length ? (
+              <section className="runtime-materials" aria-label="填写资料">
+                <h3>填写资料</h3>
+                {referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label="填写参考" compact />)}
+                {runtime.template ? <section className="runtime-material-row" aria-label="填写模板">
+                  <FileFormatIcon filename={runtime.template.originalName} />
+                  <div className="runtime-material-copy">
+                    <strong>填写模板</strong>
+                    <p title={`${runtime.template.originalName} · ${formatFileSize(runtime.template.sizeBytes)}`}>{runtime.template.originalName}</p>
+                  </div>
+                  <small className={`runtime-material-status${runtime.templateDownloaded ? " is-downloaded" : ""}`}>{runtime.templateDownloaded ? "已下载" : "待下载"}</small>
+                  <button disabled={busy} onClick={onDownloadTemplate} type="button">
+                    {runtime.templateDownloaded ? "重新下载" : "下载模板"}
+                  </button>
+                </section> : null}
               </section>
             ) : null}
-            {runtime.template ? <strong className="runtime-upload-step-title">2 上传已填写文件</strong> : null}
+            {referenceFiles.length ? <small className="runtime-material-note">填写参考为可选资料，不影响材料提交。</small> : null}
+            <strong className="runtime-upload-step-title">上传已填写文件</strong>
             <div
               className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${needsFileReplacement ? " is-rejected" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
               onDragEnter={(event) => {
@@ -1354,7 +1362,7 @@ function getDraftFileName(file: unknown): string {
 }
 
 
-function NodeReferenceCard({ asset, nodeInstanceId, label }: { asset: NodeTemplateAsset; nodeInstanceId: string; label: string }) {
+function NodeReferenceCard({ asset, nodeInstanceId, label, compact = false }: { asset: NodeTemplateAsset; nodeInstanceId: string; label: string; compact?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const download = async () => {
@@ -1364,8 +1372,10 @@ function NodeReferenceCard({ asset, nodeInstanceId, label }: { asset: NodeTempla
     } catch (reason) { setError(reason instanceof Error ? reason.message : "参考文件下载失败"); }
     finally { setBusy(false); }
   };
-  return <section className="runtime-node-reference" aria-label={label}>
-    <div><strong>{label}</strong><p>{asset.originalName}</p><small>可选参考资料，不影响材料提交。</small></div>
+  return <section className={compact ? "runtime-material-row" : "runtime-node-reference"} aria-label={label}>
+    {compact ? <FileFormatIcon filename={asset.originalName} /> : null}
+    <div className={compact ? "runtime-material-copy" : undefined}><strong>{label}</strong><p title={asset.originalName}>{asset.originalName}</p>{compact ? null : <small>可选参考资料，不影响材料提交。</small>}</div>
+    {compact ? <small className="runtime-material-status">可选</small> : null}
     <button type="button" disabled={busy} onClick={() => void download()}>{busy ? "正在下载…" : "下载参考"}</button>
     {error ? <p role="alert" className="dialog-error">{error}</p> : null}
   </section>;
