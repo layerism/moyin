@@ -8,6 +8,11 @@ type Attempt = NonNullable<RuntimeNodeInstance["reviewTimeline"]>[number];
 const labels: Record<string, string> = { passed: "通过", rejected: "未通过", active: "审核中", waiting: "待开始", stopped: "未执行" };
 const date = (value: string) => new Date(value).toLocaleString("zh-CN");
 
+function latestAnnotations(items: Attempt["steps"][number]["annotations"]) {
+  return items.reduce<typeof items>((latest, item) =>
+    !latest.length || new Date(item.publishedAt).getTime() >= new Date(latest[0].publishedAt).getTime() ? [item] : latest, []);
+}
+
 export function ReviewProgress({ runtime, onPreviewReview }: { runtime: RuntimeNodeInstance; onPreviewReview?: () => void }) {
   const attempts = runtime.reviewTimeline ?? [];
   if (!attempts.length) return <AuditHistory runtime={{ ...runtime, auditHistory: (runtime.auditHistory ?? []).filter((entry) => entry.attemptNo === runtime.attemptNo) }} />;
@@ -20,11 +25,13 @@ export function ReviewProgress({ runtime, onPreviewReview }: { runtime: RuntimeN
 }
 
 function Steps({ attempt, onPreviewReview }: { attempt: Attempt; onPreviewReview?: () => void }) {
-  return <ol className="review-progress-steps">{attempt.steps.map((step) => <li key={step.index}>
+  return <ol className="review-progress-steps">{attempt.steps.map((step) => {
+    const annotations = latestAnnotations(step.annotations);
+    return <li key={step.index}>
     <span className="review-step-number">{step.index + 1}</span>
     <details className="review-step-disclosure">
       <summary><span className="review-step-heading"><strong>{step.kind === "manual" ? "人工审核" : step.kind === "score" ? "AI 评分审核" : "AI 审核"}</strong><small className={`review-step-description${step.kind === "manual" ? " is-manual" : ""}`}>{step.kind === "manual" ? "由教师复核材料并给出最终结论" : step.kind === "score" ? "依据评分标准评估提交内容并给出分数" : step.audit?.scriptName.replace(/^第 \d+ 步 · /, "") || "按配置的规则检查提交文件"}</small>
-        {step.kind === "manual" ? <small className="review-step-feedback-count">{step.annotations.length} 条反馈 · {step.annotations.reduce((count, item) => count + item.files.length, 0)} 个附件</small> : null}</span><span className={`review-status is-${step.status}`}>{labels[step.status] ?? "待开始"}</span>{step.kind === "manual" && (step.status === "active" || (step.index === attempt.steps.length - 1 && ["passed", "rejected"].includes(step.status))) && onPreviewReview ? <button type="button" className="review-preview-action" onClick={(event) => {
+        {step.kind === "manual" ? <small className="review-step-feedback-count">{annotations.length} 条反馈 · {annotations.reduce((count, item) => count + item.files.length, 0)} 个附件</small> : null}</span><span className={`review-status is-${step.status}`}>{labels[step.status] ?? "待开始"}</span>{step.kind === "manual" && (step.status === "active" || (step.index === attempt.steps.length - 1 && ["passed", "rejected"].includes(step.status))) && onPreviewReview ? <button type="button" className="review-preview-action" onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
         onPreviewReview();
@@ -32,15 +39,15 @@ function Steps({ attempt, onPreviewReview }: { attempt: Attempt; onPreviewReview
       <div className="review-step-detail">
         {step.kind === "score" && !step.audit?.reason ? <span>{labels[step.status] ?? "待开始"}</span> : null}
         {step.audit?.reason ? <AuditDetail audit={step.audit} /> : null}
-        {step.annotations.map((item, index) => <details className="review-annotation" key={item.id}>
+        {annotations.map((item, index) => <details className="review-annotation" key={item.id}>
           <summary><strong>{item.passed === undefined ? `批注 ${index + 1}` : item.corrected ? "教师已更正" : "最终结论"}</strong><time>{date(item.publishedAt)}</time><span>{item.passed === undefined ? "补充意见" : item.passed ? "通过" : "退回修改"}</span></summary>
           <Report value={item.remark} />
           {item.files.map((file) => <div className="review-feedback-file" key={file.id}><FileFormatIcon filename={file.name} /><span title={file.name}>{file.name}<small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} student>下载</FeedbackDownload></div>)}
         </details>)}
-        {!step.audit && !step.annotations.length ? <p className="review-progress-empty">{step.status === "active" ? "暂未发布审核意见。" : step.status === "passed" ? "此步骤已完成，未记录详细意见。" : "此步骤尚无审核结论。"}</p> : null}
+        {!step.audit && !annotations.length ? <p className="review-progress-empty">{step.status === "active" ? "暂未发布审核意见。" : step.status === "passed" ? "此步骤已完成，未记录详细意见。" : "此步骤尚无审核结论。"}</p> : null}
       </div>
     </details>
-  </li>)}</ol>;
+  </li>; })}</ol>;
 }
 
 function AuditDetail({ audit }: { audit: NonNullable<Attempt["steps"][number]["audit"]> }) {
@@ -54,14 +61,13 @@ function AuditDetail({ audit }: { audit: NonNullable<Attempt["steps"][number]["a
 
 export function CompletedReviewFeedback({ runtime }: { runtime: RuntimeNodeInstance }) {
   const current = runtime.reviewTimeline?.find((attempt) => attempt.attemptNo === runtime.attemptNo);
-  const annotations = current?.steps.filter((step) => step.kind === "manual").flatMap((step) => step.annotations) ?? [];
+  const annotations = latestAnnotations(current?.steps.filter((step) => step.kind === "manual").flatMap((step) => step.annotations) ?? []);
   if (!annotations.length) return null;
-  const latest = annotations[annotations.length - 1];
   return <section className="completed-review-feedback" aria-label="教师评语与评阅附件">
     <header><h3>教师评语与评阅附件</h3><small>可下载评阅文件查看</small></header>
     {annotations.map((item) => <article key={item.id}>
       <time>{date(item.publishedAt)}</time><Report value={item.remark} />
-      {(item === latest ? item.files : []).map((file) => <div className="review-feedback-file" key={file.id}>
+      {item.files.map((file) => <div className="review-feedback-file" key={file.id}>
         <FileFormatIcon filename={file.name} /><span>{file.name}<small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span>
         <FeedbackDownload fileId={file.id} filename={file.name} student iconOnly />
       </div>)}
