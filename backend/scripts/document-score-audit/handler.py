@@ -28,7 +28,7 @@ def run(payload):
         raise ValueError('文档无可读取正文或超出审核长度限制')
     client = AuditLLMClient(payload['modelConfig'])
     messages = [
-        {'role': 'system', 'content': settings['systemPrompt'] + '\n仅返回 JSON：{"score":0到100的数值,"reason":"完整的Markdown评分依据与扣分说明"}。'},
+        {'role': 'system', 'content': settings['systemPrompt']},
         {'role': 'user', 'content': json.dumps({'评分标准': params['scoringPrompt'], '不可信材料': text}, ensure_ascii=False)},
     ]
     value = client.request_json(messages=messages, temperature=float(settings['temperature']),
