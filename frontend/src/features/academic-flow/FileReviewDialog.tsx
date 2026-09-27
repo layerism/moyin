@@ -7,7 +7,7 @@ import { workflowApi } from "./api";
 import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
 import type { ManualReviewDetail, ManualReviewQueue, ManualReviewStudent } from "./runtimeTypes";
 
-const labels = { all: "全部", waiting: "未就绪", pending: "待人工审核", returned: "已退回", approved: "已通过" };
+const labels = { all: "全部", waiting: "未就绪", pending: "待审核", returned: "已退回", approved: "已通过" };
 type Filter = keyof typeof labels;
 const category = (student: ManualReviewStudent): Exclude<Filter, "all"> => student.status === "approved" ? "approved"
   : student.status === "rejected" ? "returned" : student.canReview ? "pending" : "waiting";
@@ -159,34 +159,42 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
       event.preventDefault();
       if (!actionInFlight.current && !downloading) onClose();
     }}>
-    <header><div><h2>{queue?.title ?? "材料节点"} · 人工审核</h2></div><button type="button" disabled={busy || downloading} aria-label="关闭人工审核" onClick={onClose}>×</button></header>
+    <header><div><h2>人工审核</h2><p>{queue?.title ?? "材料节点"}</p></div><button type="button" disabled={busy || downloading} aria-label="关闭人工审核" onClick={onClose}>×</button></header>
     {error ? <p className="dialog-error" role="alert">{error}</p> : null}
     <div className="manual-review-layout">
       <aside className="file-review-sidebar">
         <header><strong>学生列表</strong><button type="button" disabled={busy} onClick={() => setRefresh((value) => value + 1)}>刷新</button></header>
         {allowBulkDownload ? <button className="file-review-batch-download" type="button" disabled={downloading || !(queue?.students.length)} onClick={() => void downloadAll()}>{downloading ? "正在打包…" : "批量下载文件 ZIP"}</button> : null}
         <input aria-label="搜索学生" disabled={busy} placeholder="搜索姓名、学号" value={query} onChange={(event) => setQuery(event.target.value)} />
-        <select aria-label="审核状态筛选" disabled={busy} value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
-          {(Object.keys(labels) as Filter[]).map((key) => <option key={key} value={key}>{labels[key]} · {(queue?.students ?? []).filter((student) => key === "all" || category(student) === key).length}</option>)}
-        </select>
+        <div className="file-review-status-filters" aria-label="审核状态筛选">
+          {(["pending", "approved", "returned", "all", "waiting"] as Filter[]).map((key) => <button key={key} type="button" disabled={busy} aria-pressed={filter === key} onClick={() => { setFilter(key); setSelected(null); }}>
+            <span>{labels[key]}</span><strong>{(queue?.students ?? []).filter((student) => key === "all" || category(student) === key).length}</strong>
+          </button>)}
+        </div>
+        <small className="file-review-list-count">{labels[filter]} · {students.length} 人</small>
         <nav aria-label="学生审核列表">{students.map((student) => <button key={student.id} type="button" disabled={busy}
           aria-current={active?.id === student.id ? "true" : undefined}
           aria-label={`${student.studentNo}－${student.name}，${labels[category(student)]}`}
           onClick={() => setSelected(student.id)}>
-          <strong title={`${student.studentNo}－${student.name}`}>{student.studentNo}－{student.name}</strong>
+          <span className="file-review-student-avatar" aria-hidden="true">{student.name.slice(0, 1)}</span>
+          <span className="file-review-student-identity"><strong>{student.name}</strong><small>{student.studentNo}</small></span>
+          <span className={`file-review-status is-${category(student)}`}>{labels[category(student)]}</span>
         </button>)}{queue && !students.length ? <p className="file-review-muted">暂无符合条件的学生</p> : null}</nav>
       </aside>
       <section className="manual-review-detail" aria-busy={loading}>
         {loading ? <p className="file-review-empty">正在读取材料……</p> : current ? <>
-          <div className="manual-review-student-heading"><h3>{current.student.name}<small>{current.student.studentNo}</small></h3><span>{active ? labels[category(active)] : ""}</span></div>
           <div className="file-review-body">
           <div className="manual-review-content">
-            <section className="manual-review-source"><header><h4>本次提交</h4><small>{current.sources[0]?.submittedAt ? new Date(current.sources[0].submittedAt).toLocaleString("zh-CN") : "尚未提交"}</small></header>
-              {current.sources.flatMap((source) => source.files).map((file) => <div key={file.id}>
+            <div className="manual-review-student-heading"><h3>{current.student.name}<small>学号 {current.student.studentNo}</small></h3><span className={`file-review-status is-${active ? category(active) : "waiting"}`}>{active ? labels[category(active)] : ""}</span></div>
+            <section className="manual-review-source" aria-label="本次提交原件">
+              {current.sources.flatMap((source) => source.files).map((file) => <div className="file-review-document" key={file.id}>
                 <div className="file-review-original"><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span><OriginalDownload nodeId={current.nodeInstanceId} fileId={file.id} filename={file.original_name} /></div>
-                {current.sources.some((source) => source.kind === "confirmation") && /\.(jpe?g|png)$/i.test(file.original_name)
+                {/\.(jpe?g|png)$/i.test(file.original_name)
                   ? <img className="file-review-image-preview" loading="lazy" alt={file.original_name} src={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download?preview=true`} /> : null}
+                {/\.pdf$/i.test(file.original_name) ? <iframe className="file-review-pdf-preview" title={`原件预览：${file.original_name}`} src={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download?preview=true`} /> : null}
+                {!/\.(pdf|jpe?g|png)$/i.test(file.original_name) ? <p className="file-review-muted">此格式请下载原件查看。</p> : null}
               </div>)}
+              {!current.sources.some((source) => source.files.length) ? <p className="file-review-muted">暂无已提交原件。</p> : null}
             </section>
             {current.priorAiResults?.length ? <section className="file-review-prior-ai" aria-label="前序 AI 结论"><h4>前序 AI 结论</h4>{current.priorAiResults.map((result) => <article key={result.step}><strong>第 {result.step} 步 · {result.scriptName}：{result.passed ? "通过" : "未通过"}</strong><p>{result.reason}</p></article>)}</section> : null}
             <details className="file-review-secondary"><summary>材料要求与历史记录</summary>

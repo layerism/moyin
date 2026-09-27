@@ -186,8 +186,8 @@ def download_review_original(node_instance_id: str, file_id: str, preview: bool 
     if record is None:
         raise HTTPException(404, '原件不存在或已不属于本次审核，请刷新后重试')
     image_type = str(record.get('content_type') or '')
-    if preview and image_type not in {'image/jpeg', 'image/png'}:
-        raise HTTPException(415, '此原件不支持图片预览')
+    if preview and image_type not in {'image/jpeg', 'image/png', 'application/pdf'}:
+        raise HTTPException(415, '此原件不支持在线预览')
     with tempfile.NamedTemporaryFile(prefix='moyin-review-download-', delete=False) as temporary:
         path = Path(temporary.name)
     try:

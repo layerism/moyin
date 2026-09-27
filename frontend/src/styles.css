@@ -13971,7 +13971,7 @@ td {
 .file-manual-review-dialog { width: min(1520px, calc(100vw - 32px)); height: min(880px, calc(100dvh - 32px)); }
 .file-manual-review-dialog > header { padding: 16px 22px; }
 .file-manual-review-dialog > header h2 { font-size: 18px; }
-.file-manual-review-dialog .manual-review-layout { grid-template-columns: 230px minmax(0, 1fr); }
+.file-manual-review-dialog .manual-review-layout { grid-template-columns: 250px minmax(0, 1fr); }
 .file-review-sidebar { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 16px 12px; background: #f8fafc; border-right: 1px solid #e2e8f0; }
 .file-review-sidebar > header { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
 .file-review-sidebar > header button { border: 0; background: transparent; padding: 4px; color: #64748b; font-size: 12px; }
@@ -13983,9 +13983,9 @@ td {
 .file-review-sidebar > nav button { display: block; width: 100%; margin-bottom: 6px; text-align: left; padding: 8px 10px; border-color: transparent; background: transparent; }
 .file-review-sidebar > nav button[aria-current="true"] { background: #eaf2ff; border-color: #bad0ff; box-shadow: inset 3px 0 #2563eb; }
 .file-review-sidebar > nav strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.file-manual-review-dialog .manual-review-student-heading { padding: 16px 22px; }
-.file-review-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; flex: 1; min-height: 0; }
-.file-manual-review-dialog .manual-review-content { padding: 8px 22px 20px; }
+.file-manual-review-dialog .manual-review-student-heading { padding: 0 0 10px; margin-bottom: 4px; gap: 12px; justify-content: flex-start; }
+.file-review-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; flex: 1; min-height: 0; height: 100%; }
+.file-manual-review-dialog .manual-review-content { padding: 12px 14px; min-width: 0; }
 .file-review-decision-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid #e2e8f0; background: #fbfcfe; }
 .file-review-decision-scroll { flex: 1; min-height: 0; overflow: auto; }
 .file-review-decision-pane > .file-review-muted { padding: 18px; }
@@ -14439,3 +14439,40 @@ td {
 .runtime-node-dialog .runtime-node-description > p { margin: 0; color: #344054; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
 .runtime-description-content { min-width: 0; flex: 1; }
 .runtime-node-dialog .runtime-announcement-body.runtime-node-description { margin: 14px 24px; padding: 12px 14px; }
+
+/* Compact manual-review workspace: original materials have priority. */
+.file-manual-review-dialog > header p { margin: 4px 0 0; color: #64748b; font-size: 12px; }
+.file-review-status-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.file-review-status-filters > button { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 9px 10px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #475569; font-size: 12px; }
+.file-review-status-filters > button:last-child { grid-column: 1 / -1; padding: 5px 10px; }
+.file-review-status-filters > button[aria-pressed="true"] { background: #2563eb; border-color: #2563eb; color: #fff; }
+.file-review-list-count { color: #64748b; font-size: 12px; }
+.file-review-sidebar > nav button { display: flex; align-items: center; gap: 8px; padding: 10px 6px; margin: 0; border-radius: 0; border-bottom: 1px solid #edf0f5; }
+.file-review-student-avatar { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 30px; height: 30px; border-radius: 50%; background: #e2e8f0; color: #334155; font-weight: 600; }
+.file-review-student-identity { flex: 1; min-width: 0; }
+.file-review-sidebar .file-review-student-identity small { display: block; color: #64748b; font-size: 11px; margin-top: 3px; }
+.file-review-status { flex-shrink: 0; padding: 3px 6px; border-radius: 5px; font-size: 11px; color: #64748b; background: #f1f5f9; white-space: nowrap; }
+.file-review-status.is-pending { color: #b45309; background: #fff3df; }
+.file-review-status.is-approved { color: #15803d; background: #eaf8ef; }
+.file-review-status.is-returned { color: #b91c1c; background: #fff1f2; }
+.file-manual-review-dialog .manual-review-student-heading h3 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin: 0; font-size: 15px; }
+.file-manual-review-dialog .manual-review-student-heading h3 small { margin: 0; font-size: 12px; font-weight: 400; }
+.file-manual-review-dialog .manual-review-source { padding: 0; border: 0; background: transparent; }
+.file-manual-review-dialog .file-review-original { margin: 0; padding: 8px 0; border: 0; border-radius: 0; background: #fff; border-bottom: 1px solid #e2e8f0; }
+.file-review-original .file-review-filename { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.file-review-original .file-review-filename small { margin: 0; }
+.file-review-pdf-preview { display: block; width: 100%; height: max(420px, calc(100dvh - 210px)); border: 1px solid #e2e8f0; background: #f1f5f9; }
+.file-review-document + .file-review-document { margin-top: 16px; }
+.file-manual-review-dialog .file-review-image-preview { max-width: 100%; max-height: none; margin: 0 auto 12px; }
+.file-review-status-filters > button:focus-visible, .file-review-sidebar > nav button:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+@media (max-width: 720px) {
+  .file-review-status-filters { grid-column: 1 / -1; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .file-review-status-filters > button { padding: 5px; flex-wrap: wrap; justify-content: center; }
+  .file-review-status-filters > button:last-child { grid-column: auto; padding: 5px; }
+  .file-review-list-count { display: none; }
+  .file-review-sidebar { display: flex; padding: 10px; gap: 6px; overflow: auto; }
+  .file-review-sidebar > nav { flex-shrink: 0; }
+  .file-review-sidebar > nav button { min-width: 210px; }
+  .file-manual-review-dialog .manual-review-student-heading { padding: 0 0 8px; }
+  .file-review-pdf-preview { height: 65dvh; }
+}
