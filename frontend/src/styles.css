@@ -14493,3 +14493,12 @@ td {
 .file-review-file-navigation { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e2e8f0; }
 .file-review-file-navigation > span { color: #64748b; font-size: 12px; white-space: nowrap; }
 .file-manual-review-dialog .file-review-file-navigation > button { padding: 5px 9px; font-size: 12px; }
+
+.runtime-node-dialog .runtime-submitted-files { display: block; padding: 0; overflow: hidden; border: 1px solid #dce3ed; border-radius: 8px; background: #f8fafc; color: #344054; }
+.runtime-submitted-files > h3 { margin: 0; padding: 10px 12px; font-size: 14px; color: #172033; }
+.runtime-submitted-files .runtime-submitted-scan-list { gap: 0; margin: 0; }
+.runtime-submitted-files .runtime-submitted-scan-list > li { display: flex; flex-direction: row; align-items: center; gap: 10px; margin: 0; padding: 10px 12px; border: 0; border-top: 1px solid #e7ecf3; border-radius: 0; background: #fff; min-width: 0; }
+.runtime-submitted-files .file-format-icon { flex: 0 0 24px; width: 24px; height: 24px; }
+.runtime-submitted-files .runtime-submitted-scan-list .runtime-submitted-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #475569; font-size: 13px; }
+.runtime-submitted-files li > small { flex-shrink: 0; color: #64748b; font-size: 12px; white-space: nowrap; }
+.runtime-submitted-files li > button { flex-shrink: 0; width: 32px; height: 32px; min-height: 32px; padding: 6px; }

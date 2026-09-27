@@ -1207,12 +1207,12 @@ function ReadonlySubmission({
 
   if (node.kind === "confirmation" && Array.isArray(payload.scans)) {
     const scans = Array.isArray(payload.scans) ? payload.scans : [];
-    return <section className="runtime-readonly-submission runtime-readonly-confirmation">
-      <strong>已提交</strong>
+    return <section className="runtime-readonly-submission runtime-readonly-confirmation runtime-submitted-files">
+      <h3>已提交文件</h3>
       <ul className="runtime-submitted-scan-list">{scans.map((value, index) => {
         const scan = value && typeof value === "object" ? value as Record<string, unknown> : {};
         const fileId = typeof scan.fileId === "string" ? scan.fileId : "";
-        return <li key={fileId || index}><span>{formatSubmittedValue(scan.name)} · {formatSubmittedValue(scan.pageCount)} 页</span>{fileId && onDownloadFile ? <SubmissionDownloadButton filename={formatSubmittedValue(scan.name)} onDownload={() => onDownloadFile(fileId)} /> : null}</li>;
+        return <li key={fileId || index}><FileFormatIcon filename={formatSubmittedValue(scan.name)} /><span className="runtime-submitted-file-name" title={formatSubmittedValue(scan.name)}>{formatSubmittedValue(scan.name)}</span><small>{formatSubmittedValue(scan.pageCount)} 页</small>{fileId && onDownloadFile ? <SubmissionDownloadButton filename={formatSubmittedValue(scan.name)} onDownload={() => onDownloadFile(fileId)} /> : null}</li>;
       })}</ul>
     </section>;
   }
