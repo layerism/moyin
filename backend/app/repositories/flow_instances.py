@@ -27,7 +27,7 @@ from app.repositories.manual_review_state import review_evidence, current_reject
 from app.repositories.branch_state import sync_branch_states
 from app.repositories.audit_policies import (
     AuditPolicyConflictError,
-    resolve_effective_audit_policy,
+    resolve_effective_audit_binding,
 )
 from app.repositories.answer_sheet_grades import (
     get_answer_sheet_grade,
@@ -54,13 +54,8 @@ from app.repositories.flow_runtime_state import (
     version_deadlines,
 )
 from app.repositories.workflows import canonical_json
-from app.services.audit_script_catalog import AuditScriptCatalogError, find_audit_script
-from app.services.audit_script_parameters import (
-    AuditScriptParameterError,
-    default_script_settings,
-    validate_script_params,
-    validate_script_settings,
-)
+from app.services.audit_script_catalog import AuditScriptCatalogError
+from app.services.audit_script_parameters import AuditScriptParameterError
 from app.services.security import utc_now_iso
 
 
@@ -618,35 +613,9 @@ def submit_node(
             audit_binding: dict[str, object] | None = None
             if has_audit_script:
                 try:
-                    policy = resolve_effective_audit_policy(
-                        connection, str(row["flow_id"]), str(row["node_key"])
+                    audit_binding = resolve_effective_audit_binding(
+                        connection, str(row["flow_id"]), str(row["node_key"]), str(script_id)
                     )
-                    if policy["scriptId"] != script_id:
-                        raise AuditPolicyConflictError("当前节点审核脚本不一致")
-                    record = find_audit_script(str(script_id))
-                    state = connection.execute(
-                        "SELECT * FROM audit_script_runtime_states WHERE script_id = ?",
-                        (script_id,),
-                    ).fetchone()
-                    if (
-                        state is None
-                        or state["status"] != "ready"
-                        or state["content_hash"] != record.content_hash
-                    ):
-                        raise AuditPolicyConflictError("审核程序正在更新，请稍后重新提交")
-                    params = validate_script_params(record.config, policy["params"])
-                    settings = validate_script_settings(
-                        record.config, default_script_settings(record.config)
-                    )
-                    audit_binding = {
-                        "scriptId": script_id,
-                        "scriptGeneration": int(state["generation"]),
-                        "scriptContentHash": state["content_hash"],
-                        "policyGeneration": int(policy["generation"]),
-                        "policyHash": policy["policyHash"],
-                        "params": params,
-                        "settings": settings,
-                    }
                 except (
                     AuditPolicyConflictError,
                     AuditScriptCatalogError,

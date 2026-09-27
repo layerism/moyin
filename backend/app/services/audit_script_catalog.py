@@ -100,8 +100,6 @@ def get_audit_script_config(script_id: str, owner_id: int) -> dict[str, object]:
     state = _ensure_runtime_state(record)
     return {
         **_designer_response(record),
-        "runtimeSettings": [item for item in record.runtime_settings
-                            if not (script_id in SCRIPT_PROVIDERS and item["key"] in {"modelName", "thinkingEnabled"})],
         "editorHash": record.editor_hash,
         "generation": int(state["generation"]),
         "status": state["status"],
@@ -124,11 +122,6 @@ def update_audit_script_config(
         if record.editor_hash != expected_editor_hash:
             raise AuditScriptConfigConflictError("审核脚本已被其他管理员修改，请重新加载")
         parameter_keys = {str(item["key"]) for item in record.parameters}
-        runtime_settings = dict(runtime_settings)
-        if script_id in SCRIPT_PROVIDERS:
-            for item in record.runtime_settings:
-                if item["key"] in {"modelName", "thinkingEnabled"}:
-                    runtime_settings[item["key"]] = item["value"]
         setting_keys = {str(item["key"]) for item in record.runtime_settings}
         if set(parameter_defaults) != parameter_keys or set(runtime_settings) != setting_keys:
             raise AuditScriptParameterError("审核脚本配置项不完整")
@@ -311,8 +304,7 @@ def _management_summary(record: AuditScriptRecord) -> dict[str, object]:
         "usesAi": record.manifest_data.get("usesAi", False),
         "acceptedExtensions": list(record.accepted_extensions),
         "language": record.language, "parameterCount": len(record.parameters),
-        "runtimeSettingCount": sum(1 for item in record.runtime_settings
-                                   if not (record.id in SCRIPT_PROVIDERS and item["key"] in {"modelName", "thinkingEnabled"})),
+        "runtimeSettingCount": len(record.runtime_settings),
         "updatedAt": record.updated_at,
         "generation": int(state["generation"]), "status": state["status"],
         "maxConcurrency": record.config.max_concurrency, **_job_counts(record.id),
@@ -404,6 +396,13 @@ def _record_for_manifest(manifest: _AuditScriptManifest) -> AuditScriptRecord:
             client_modified_at = client_path.stat().st_mtime
         except OSError as exc:
             raise AuditScriptCatalogError("审核模型客户端不可用") from exc
+    if manifest.id in {"image-visual-audit", "image-visual-score-audit"}:
+        image_path = Path(__file__).with_name("audit_image_materials.py")
+        try:
+            content_identity["imagePreparationHash"] = hashlib.sha256(image_path.read_bytes()).hexdigest()
+            client_modified_at = max(client_modified_at, image_path.stat().st_mtime)
+        except OSError as exc:
+            raise AuditScriptCatalogError("审核图片处理模块不可用") from exc
     content_hash = _hash_json(content_identity)
     editor_hash = _hash_json({"name": manifest.name, "description": manifest.description,
         "contentHash": content_hash})

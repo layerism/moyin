@@ -16,16 +16,20 @@ def count_words(text: str) -> int:
 
 def document_text(path: Path) -> str:
     document = Document(path)
-    parts = [paragraph.text for paragraph in document.paragraphs]
-    seen_cells: set[int] = set()
-    for table in document.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                identity = id(cell._tc)
-                if identity in seen_cells:
-                    continue
-                seen_cells.add(identity)
-                parts.append(cell.text)
+    parts: list[str] = []
+    seen_cells = set()
+
+    def visit(container) -> None:
+        parts.extend(paragraph.text for paragraph in container.paragraphs)
+        for table in container.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell._tc in seen_cells:
+                        continue
+                    seen_cells.add(cell._tc)
+                    visit(cell)
+
+    visit(document)
     return "\n".join(parts)
 
 

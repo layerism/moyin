@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import re
 import sys
 from dataclasses import dataclass, replace
@@ -21,19 +20,9 @@ MAX_CORRECTION_CHARACTERS = 1000
 MAX_REASON_CHARACTERS = 16_000
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 TABLE_SEPARATOR_CELL_PATTERN = re.compile(r":?-{3,}:?")
-UNCERTAIN_PATTERN = re.compile(
-    r"无法判断|无法确定|不能判断|不能确定|不确定|建议人工|人工判断|人工审核|需要人工"
-)
 ALLOWED_ISSUE_CODES = {
     "REQUIRED_CONTENT_MISSING",
     "CONTENT_REQUIREMENT_NOT_MET",
-}
-EXPECTED_SETTING_KEYS = {
-    "systemPrompt",
-    "thinkingEnabled",
-    "temperature",
-    "requestTimeoutSeconds",
-    "maximumInputCharacters",
 }
 
 
@@ -463,8 +452,6 @@ def validate_model_result(
         correction = _bounded_model_text(
             issue_value["correction"], "修改方法", MAX_CORRECTION_CHARACTERS
         )
-        if UNCERTAIN_PATTERN.search(f"{target}\n{evidence}\n{correction}"):
-            raise ValueError("模型返回不确定结论")
         duplicate_key = (rule_id, chunk_id, code, target)
         if duplicate_key in seen_issues:
             raise ValueError("模型返回重复问题")
@@ -503,41 +490,6 @@ def merge_issues_to_markdown(issues: list[dict[str, object]]) -> str:
     return reason
 
 
-def _validated_settings(value: object) -> dict[str, object]:
-    if not isinstance(value, dict) or set(value) != EXPECTED_SETTING_KEYS:
-        raise ValueError("DOCX LLM 审核运行配置无效")
-    system_prompt = value["systemPrompt"]
-    thinking_enabled = value["thinkingEnabled"]
-    temperature = value["temperature"]
-    timeout = value["requestTimeoutSeconds"]
-    maximum_input = value["maximumInputCharacters"]
-    if not isinstance(system_prompt, str) or not 1 <= len(system_prompt.strip()) <= 4000:
-        raise ValueError("DOCX LLM 审核系统提示词无效")
-    if not isinstance(thinking_enabled, bool):
-        raise TypeError("DOCX LLM 审核思考配置无效")
-    if (
-        isinstance(temperature, bool)
-        or not isinstance(temperature, (int, float))
-        or not math.isfinite(float(temperature))
-        or not 0 <= float(temperature) <= 1
-    ):
-        raise ValueError("DOCX LLM 审核温度无效")
-    if (
-        isinstance(timeout, bool)
-        or not isinstance(timeout, (int, float))
-        or not math.isfinite(float(timeout))
-        or not 5 <= float(timeout) <= 300
-    ):
-        raise ValueError("DOCX LLM 审核超时无效")
-    if (
-        isinstance(maximum_input, bool)
-        or not isinstance(maximum_input, int)
-        or not 1000 <= maximum_input <= 500000
-    ):
-        raise ValueError("DOCX LLM 审核输入限制无效")
-    return dict(value)
-
-
 def run(payload: object) -> dict[str, object]:
     if not isinstance(payload, dict) or payload.get("schemaVersion") != "1.0":
         raise ValueError("不支持的输入协议版本")
@@ -566,7 +518,7 @@ def run(payload: object) -> dict[str, object]:
     prompt = params.get("documentReviewPrompt") if isinstance(params, dict) else None
     if not isinstance(prompt, str) or not 1 <= len(prompt.strip()) <= 4000:
         raise ValueError("文档审核要求无效")
-    settings = _validated_settings(context.get("scriptSettings"))
+    settings = context["scriptSettings"]
 
     markdown = convert_docx(path)
     review_rules = split_review_rules(prompt)

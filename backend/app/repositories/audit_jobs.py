@@ -4,10 +4,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from app.core.database import get_connection
+from app.repositories.audit_policies import AuditPolicyConflictError, resolve_effective_audit_binding
 from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready, version_config
 from app.repositories.workflows import canonical_json
 from app.services.audit_script_executor import AuditMaterial
+from app.services.audit_script_catalog import AuditScriptCatalogError
+from app.services.audit_script_parameters import AuditScriptParameterError
 from app.services.security import utc_now_iso
 
 
@@ -480,7 +483,8 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
         row = connection.execute(
             """
             SELECT n.id, n.status, n.flow_instance_id, i.student_account_id, v.flow_id,
-                   s.id AS submission_id, j.id AS job_id, j.status AS job_status
+                   s.id AS submission_id, j.id AS job_id, j.status AS job_status,
+                   j.script_id, j.node_key
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
@@ -495,12 +499,24 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
         assert_student_roster_access(connection, row["flow_id"], student_id)
         if row["status"] != "audit_error" or row["job_status"] != "failed":
             raise AuditJobConflictError("当前节点不可重新审核")
+        try:
+            binding = resolve_effective_audit_binding(
+                connection, row["flow_id"], row["node_key"], row["script_id"]
+            )
+        except (AuditPolicyConflictError, AuditScriptCatalogError, AuditScriptParameterError) as exc:
+            raise AuditJobConflictError(str(exc)) from exc
         connection.execute(
             """UPDATE audit_jobs SET status = 'pending', attempt_count = 0,
                next_attempt_at = ?, result_json = NULL, error_message = NULL,
                cancellation_reason = NULL, claimed_at = NULL, finished_at = NULL,
+               script_generation = ?, script_content_hash = ?,
+               policy_generation = ?, policy_hash = ?,
+               effective_params_json = ?, effective_settings_json = ?,
                updated_at = ? WHERE id = ?""",
-            (now, now, row["job_id"]),
+            (now, binding["scriptGeneration"], binding["scriptContentHash"],
+             binding["policyGeneration"], binding["policyHash"],
+             canonical_json(binding["params"]), canonical_json(binding["settings"]),
+             now, row["job_id"]),
         )
         connection.execute("UPDATE submissions SET status = 'reviewing' WHERE id = ?", (row["submission_id"],))
         connection.execute("UPDATE node_instances SET status = 'reviewing', approved_at = NULL WHERE id = ?", (node_instance_id,))

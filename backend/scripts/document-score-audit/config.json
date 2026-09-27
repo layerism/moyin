@@ -34,12 +34,6 @@
       "multiline": true
     },
     {
-      "key": "thinkingEnabled",
-      "label": "模型思考",
-      "type": "boolean",
-      "value": true
-    },
-    {
       "key": "temperature",
       "label": "模型温度",
       "type": "number",

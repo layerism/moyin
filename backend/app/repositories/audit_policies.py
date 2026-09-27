@@ -4,7 +4,7 @@ from typing import Any
 
 from app.core.database import get_connection
 from app.services.audit_script_catalog import find_audit_script
-from app.services.audit_script_parameters import validate_script_params
+from app.services.audit_script_parameters import default_script_settings, validate_script_params, validate_script_settings
 from app.services.security import utc_now_iso
 
 
@@ -195,6 +195,29 @@ def resolve_effective_audit_policy(connection, flow_id: str, node_key: str) -> d
         "generation": int(row["generation"]),
         "policyHash": row["policy_hash"],
         "updatedAt": row["updated_at"],
+    }
+
+
+def resolve_effective_audit_binding(
+    connection, flow_id: str, node_key: str, script_id: str,
+) -> dict[str, object]:
+    policy = resolve_effective_audit_policy(connection, flow_id, node_key)
+    if policy["scriptId"] != script_id:
+        raise AuditPolicyConflictError("当前节点审核脚本不一致，请重新提交")
+    record = find_audit_script(script_id)
+    state = connection.execute(
+        "SELECT * FROM audit_script_runtime_states WHERE script_id = ?", (script_id,),
+    ).fetchone()
+    if state is None or state["status"] != "ready" or state["content_hash"] != record.content_hash:
+        raise AuditPolicyConflictError("审核程序正在更新，请稍后重试")
+    return {
+        "scriptId": script_id,
+        "scriptGeneration": int(state["generation"]),
+        "scriptContentHash": state["content_hash"],
+        "policyGeneration": int(policy["generation"]),
+        "policyHash": policy["policyHash"],
+        "params": validate_script_params(record.config, policy["params"]),
+        "settings": validate_script_settings(record.config, default_script_settings(record.config)),
     }
 
 

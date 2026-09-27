@@ -47,7 +47,17 @@ def run_next_task(stopping=None):
             JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
+            LEFT JOIN audit_script_runtime_states script
+              ON script.script_id = json_extract(t.snapshot_json, '$.auditScriptId')
             WHERE t.status = 'pending' AND n.status = 'reviewing'
+              AND (script.script_id IS NULL OR (
+                (SELECT COUNT(*) FROM file_review_ai_tasks active
+                 WHERE active.status = 'running'
+                   AND json_extract(active.snapshot_json, '$.auditScriptId') = script.script_id)
+                + (SELECT COUNT(*) FROM audit_jobs active
+                   WHERE active.status = 'running' AND active.script_id = script.script_id)
+                < script.max_concurrency
+              ))
               AND (v.status != 'preview' OR EXISTS (SELECT 1 FROM flow_preview_sessions p
                 WHERE p.flow_instance_id = i.id AND p.status = 'active' AND p.expires_at > ?))
             ORDER BY t.created_at, t.step_index LIMIT 1''', (utc_now_iso(),)).fetchone()
@@ -55,12 +65,6 @@ def run_next_task(stopping=None):
             return False
         task = dict(task)
         snapshot = json.loads(task['snapshot_json'])
-        state = connection.execute('SELECT max_concurrency FROM audit_script_runtime_states WHERE script_id = ?',
-                                   (snapshot['auditScriptId'],)).fetchone()
-        running = connection.execute("SELECT COUNT(*) FROM file_review_ai_tasks WHERE status = 'running' AND json_extract(snapshot_json, '$.auditScriptId') = ?", (snapshot['auditScriptId'],)).fetchone()[0]
-        running += connection.execute("SELECT COUNT(*) FROM audit_jobs WHERE status = 'running' AND script_id = ?", (snapshot['auditScriptId'],)).fetchone()[0]
-        if state and running >= state['max_concurrency']:
-            return False
         connection.execute("UPDATE file_review_ai_tasks SET status = 'running', attempt_count = attempt_count + 1 WHERE id = ?", (task['id'],))
         files = connection.execute('SELECT * FROM uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at', (task['submission_id'],)).fetchall()
         materials = [AuditMaterial(id=f['id'], name=f['original_name'], storage_key=f['storage_key'], content_type=f['content_type'], size=f['size_bytes'], sha256=f['sha256'], page_count=f['page_count']) for f in files]

@@ -158,7 +158,11 @@ def _run_process(
     _raise_if_cancelled(cancelled)
     command = _command_for(descriptor)
     runtime_settings = validate_script_settings(descriptor.config, payload["context"]["scriptSettings"])
-    timeout_seconds = float(runtime_settings.get("executionTimeoutSeconds", settings.audit_script_timeout_seconds))
+    # Single-request scripts need time for both file processing and the model request.
+    timeout_seconds = float(runtime_settings.get(
+        "executionTimeoutSeconds",
+        settings.audit_script_timeout_seconds + runtime_settings.get("requestTimeoutSeconds", 0),
+    ))
     environment = _script_environment()
     environment.update({"TMPDIR": str(execution_root), "TMP": str(execution_root), "TEMP": str(execution_root)})
     from app.services.audit_model_connections import model_config

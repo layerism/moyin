@@ -43,7 +43,6 @@ def _block(
 def _settings() -> dict[str, object]:
     return {
         "systemPrompt": "只依据审核规则检查文档。",
-        "thinkingEnabled": False,
         "temperature": 0,
         "requestTimeoutSeconds": 60,
         "maximumInputCharacters": 120000,
@@ -254,7 +253,6 @@ def test_validate_model_result_accepts_failed_issue(handler: ModuleType) -> None
         lambda value: value["issues"][0].update(ruleId="rule-999"),
         lambda value: value["issues"][0].update(code="REVIEW_UNCERTAIN"),
         lambda value: value["issues"][0].update(correction=""),
-        lambda value: value["issues"][0].update(correction="建议人工判断"),
         lambda value: value["issues"][0].update(chunkId=None),
     ],
 )
