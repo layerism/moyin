@@ -65,6 +65,6 @@
     }
   ],
   "execution": {
-    "maxConcurrency": 8
+    "maxConcurrency": 4
   }
 }

@@ -88,6 +88,6 @@
     }
   ],
   "execution": {
-    "maxConcurrency": 2
+    "maxConcurrency": 4
   }
 }
