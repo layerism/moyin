@@ -647,8 +647,6 @@ def submit_node(
                     "type": uploaded_file["content_type"],
                 }
             if confirmation_requires_scans(node):
-                if payload.get("confirmed") is not True:
-                    raise RuntimeConflictError("请先确认承诺内容")
                 uploaded_scans = get_pending_scans_for_submit(
                     connection, node_instance_id, student_id
                 )
@@ -667,7 +665,6 @@ def submit_node(
                 except ValueError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
                 submission_payload = {
-                    "confirmed": True,
                     "scans": [
                         {
                             "fileId": item["id"],

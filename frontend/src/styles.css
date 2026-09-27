@@ -14433,8 +14433,9 @@ td {
 }
 
 .runtime-material-dialog > header > div { min-width: 0; }
-.runtime-description-confirmation { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; }
-.runtime-description-confirmation > p { min-width: 0; overflow-wrap: anywhere; }
-.runtime-description-confirmation .runtime-confirmation { padding: 0; }
-.runtime-node-dialog > header .runtime-confirmation span { color: #344054; font-size: 14px; font-weight: 600; }
-.runtime-node-dialog > header .runtime-confirmation-field > p { color: #d92d20; font-size: 13px; }
+
+.runtime-node-description { display: flex; align-items: flex-start; gap: 12px; margin-top: 12px; padding: 12px 14px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; }
+.runtime-node-dialog .runtime-node-description .runtime-description-icon { display: inline-flex; flex: 0 0 22px; align-items: center; justify-content: center; width: 22px; height: 22px; border: 2px solid #2563eb; border-radius: 50%; color: #2563eb; font-size: 16px; line-height: 1; font-weight: 700; box-sizing: border-box; }
+.runtime-node-dialog .runtime-node-description > p { margin: 0; color: #344054; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+.runtime-description-content { min-width: 0; flex: 1; }
+.runtime-node-dialog .runtime-announcement-body.runtime-node-description { margin: 14px 24px; padding: 12px 14px; }

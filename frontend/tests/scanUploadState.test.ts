@@ -7,15 +7,13 @@ import {
   shouldPromptTemplateDownload,
 } from "../src/features/academic-flow/ScanUploadWorkspace.tsx";
 
-test("scan submission requires template, confirmation and an uploaded file", () => {
+test("scan submission requires template and an uploaded file", () => {
   const base = {
-    confirmed: true,
     scanRequired: true,
     scans: [],
     templateDownloaded: true,
     uploading: false,
   };
-  assert.match(getScanSubmitBlocker({ ...base, confirmed: false }) ?? "", /确认/);
   assert.match(getScanSubmitBlocker({ ...base, templateDownloaded: false }) ?? "", /模板/);
   assert.match(getScanSubmitBlocker(base) ?? "", /上传/);
 });
@@ -49,7 +47,6 @@ test("scan filename error identifies the first file that does not match the temp
     filenames: ["安全责任书第1页.jpg", "扫描件2.jpg"],
   }) ?? "", /文件“扫描件2\.jpg”.*安全责任书/);
   assert.equal(getScanSubmitBlocker({
-    confirmed: true,
     scanRequired: true,
     scans: [scan("2", "扫描件2.jpg")],
     templateDownloaded: true,
@@ -77,7 +74,6 @@ test("scan filename validation allows arbitrary image names without a template",
 
 test("confirmation without a signing template does not require scans", () => {
   assert.equal(getScanSubmitBlocker({
-    confirmed: true,
     scanRequired: false,
     scans: [],
     templateDownloaded: false,

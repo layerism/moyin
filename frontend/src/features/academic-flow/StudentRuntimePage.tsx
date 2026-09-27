@@ -472,9 +472,7 @@ function RuntimeNodeDialog({
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const gradeDialogRef = useRef<HTMLDialogElement>(null);
   const submitConfirmationRef = useRef<HTMLDialogElement>(null);
-  const [confirmationAttempted, setConfirmationAttempted] = useState(false);
   const [templateDownloadAttention, setTemplateDownloadAttention] = useState(false);
-  const confirmationInputRef = useRef<HTMLInputElement>(null);
   const templateDownloadButtonRef = useRef<HTMLButtonElement>(null);
   const templateDownloadAttentionFrameRef = useRef<number | null>(null);
   const templateDownloadAttentionTimerRef = useRef<number | null>(null);
@@ -534,14 +532,10 @@ function RuntimeNodeDialog({
   const referenceFiles = nodeReferences(node);
   const uploadUnlocked = !templateRequired || runtime.templateDownloaded;
   const fileBusy = busy || isUploadingFile || !uploadUnlocked;
-  const confirmationRequired = node.kind === "confirmation" || node.kind === "announcement";
-  const confirmationMissing = confirmationRequired && draft.confirmed !== true;
-  const confirmationInvalid = confirmationAttempted && confirmationMissing;
   const scanRequired = node.kind === "confirmation" && (
     Boolean(runtime.template) || node.scanAuditEnabled === true || Boolean(node.fileReviewSteps?.length)
   );
   const scanBlocker = getScanSubmitBlocker({
-    confirmed: draft.confirmed === true,
     scanRequired,
     scans: scanState.scans,
     templateDownloaded: !runtime.template || runtime.templateDownloaded,
@@ -670,38 +664,12 @@ function RuntimeNodeDialog({
       });
       return;
     }
-    if (confirmationMissing) {
-      setConfirmationAttempted(true);
-      window.requestAnimationFrame(() => confirmationInputRef.current?.focus());
-      return;
-    }
     if (scanFilenameError) {
       setFileWarning({ message: scanFilenameError, title: "文件提交未通过" });
       return;
     }
     submitConfirmationRef.current?.showModal();
   };
-  const confirmationField = (
-    <div className="runtime-confirmation-field">
-      <label className={`runtime-confirmation${confirmationInvalid ? " is-invalid" : ""}`}>
-        <input
-          aria-describedby={confirmationInvalid ? "runtime-confirmation-error" : undefined}
-          aria-invalid={confirmationInvalid || undefined}
-          checked={Boolean(draft.confirmed)}
-          ref={confirmationInputRef}
-          type="checkbox"
-          onChange={(event) => {
-            if (event.target.checked) setConfirmationAttempted(false);
-            onUpdate("confirmed", event.target.checked);
-          }}
-        />
-        <span>我已阅读并确认以上内容</span>
-      </label>
-      {confirmationInvalid ? (
-        <p id="runtime-confirmation-error" role="alert">请先勾选确认</p>
-      ) : null}
-    </div>
-  );
   const materialsSection = <>
     {runtime.template || referenceFiles.length ? (
       <section className="runtime-materials" aria-label="填写资料">
@@ -734,11 +702,11 @@ function RuntimeNodeDialog({
           <div>
             {completedBranch ? null : <span>{statusLabels[runtime.status]}</span>}
             <h2>{node.title}</h2>
-            {scanRequired ? <div className="runtime-description-confirmation">
+            {node.kind !== "announcement" && node.requirement?.trim() ? <div className="runtime-node-description">
+              <span className="runtime-description-icon" aria-hidden="true">!</span>
               <p>{node.requirement}</p>
-              {effectivelyWritable ? confirmationField : null}
-            </div> : node.kind === "announcement" ? null : <p>{completedBranch ? "分支选择已完成，可返回流程查看对应任务。" : node.requirement}</p>}
-            {completedBranch && node.requirement && node.requirement !== "请选择一个分支，提交后将开放对应任务，选择不可更改。" ? <p className="runtime-branch-requirement">{node.requirement}</p> : null}
+            </div> : null}
+            {completedBranch ? <p className="runtime-branch-requirement">分支选择已完成，可返回流程查看对应任务。</p> : null}
             {node.kind === "answer_sheet" ? (
               <div className="runtime-answer-sheet-header-meta">
                 <span>
@@ -783,9 +751,12 @@ function RuntimeNodeDialog({
         {["file", "confirmation"].includes(node.kind) && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {["file", "confirmation"].includes(node.kind) && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
         {node.kind === "confirmation" && !scanRequired && writable ? referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label="参考示例" />) : null}
-        {node.kind === "announcement" ? (
-          <section aria-label="公告正文" className="runtime-announcement-body">
+        {node.kind === "announcement" && node.requirement?.trim() ? (
+          <section aria-label="公告正文" className="runtime-announcement-body runtime-node-description">
+            <span className="runtime-description-icon" aria-hidden="true">!</span>
+            <div className="runtime-description-content">
             <AnnouncementMarkdown instanceId={instanceId} nodeId={node.id}>{node.requirement}</AnnouncementMarkdown>
+            </div>
           </section>
         ) : null}
         {completedBranch ? (
@@ -931,7 +902,6 @@ function RuntimeNodeDialog({
             </div>
             </div>
           ) : null}
-          {!scanRequired && confirmationRequired ? confirmationField : null}
           {node.kind === "confirmation" && scanRequired ? (
             <div className={`runtime-template-steps${runtime.template ? " has-template" : ""}`}>
               {materialsSection}
@@ -1238,7 +1208,7 @@ function ReadonlySubmission({
   if (node.kind === "confirmation" && Array.isArray(payload.scans)) {
     const scans = Array.isArray(payload.scans) ? payload.scans : [];
     return <section className="runtime-readonly-submission runtime-readonly-confirmation">
-      <strong>{payload.confirmed === true ? "已阅读并确认" : "未记录确认状态"}</strong>
+      <strong>已提交</strong>
       <ul className="runtime-submitted-scan-list">{scans.map((value, index) => {
         const scan = value && typeof value === "object" ? value as Record<string, unknown> : {};
         const fileId = typeof scan.fileId === "string" ? scan.fileId : "";
@@ -1248,7 +1218,7 @@ function ReadonlySubmission({
   }
   return (
     <section className="runtime-readonly-submission runtime-readonly-confirmation">
-      <strong>{payload.confirmed === true ? "已阅读并确认" : "未记录确认状态"}</strong>
+      <strong>已提交</strong>
     </section>
   );
 }

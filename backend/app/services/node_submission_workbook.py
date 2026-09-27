@@ -131,7 +131,6 @@ def _headers(selection: TeacherNodeExportSelection) -> list[str]:
     elif kind == "file":
         headers.extend(["文件名", "文件大小（MB）", "文件类型"])
     elif kind in {"announcement", "confirmation"}:
-        headers.append("是否确认")
         if confirmation_requires_scans(node):
             if node.get("templateAsset") is not None:
                 headers.append("模板下载时间")
@@ -181,7 +180,6 @@ def _row_values(
             ]
         )
     elif kind in {"announcement", "confirmation"}:
-        values.append("是" if submitted and student.payload.get("confirmed") is True else None)
         if confirmation_requires_scans(node):
             if node.get("templateAsset") is not None:
                 values.append(_excel_datetime(student.template_downloaded_at))

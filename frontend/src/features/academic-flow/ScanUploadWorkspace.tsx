@@ -5,7 +5,6 @@ import type { RuntimeScanFile } from "./runtimeTypes";
 
 
 export function getScanSubmitBlocker(input: {
-  confirmed: boolean;
   scanRequired: boolean;
   scans: RuntimeScanFile[];
   templateDownloaded: boolean;
@@ -13,7 +12,6 @@ export function getScanSubmitBlocker(input: {
 }): string | null {
   if (!input.scanRequired) return null;
   if (!input.templateDownloaded) return "请先下载签署文件模板";
-  if (!input.confirmed) return "请先确认承诺内容";
   if (input.uploading) return "扫描件正在上传";
   if (!input.scans.length) return "请至少上传一个扫描件";
   return null;

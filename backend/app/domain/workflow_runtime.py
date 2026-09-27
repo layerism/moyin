@@ -75,11 +75,6 @@ def validate_submission(node: dict[str, Any], payload: dict[str, Any]) -> None:
         normalize_form_answers(node, payload, strict=True)
         return
 
-    if kind in {"announcement", "confirmation"}:
-        if payload.get("confirmed") is not True:
-            raise ValueError("请完成确认后再提交")
-        return
-
     if kind != "file":
         return
 
