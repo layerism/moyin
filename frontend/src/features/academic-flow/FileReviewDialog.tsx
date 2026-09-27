@@ -197,7 +197,6 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
               </div>)}
               {!current.sources.some((source) => source.files.length) ? <p className="file-review-muted">暂无已提交原件。</p> : null}
             </section>
-            {current.priorAiResults?.length ? <section className="file-review-prior-ai" aria-label="前序 AI 结论"><h4>前序 AI 结论</h4>{current.priorAiResults.map((result) => <article key={result.step}><strong>第 {result.step} 步 · {result.scriptName}：{result.passed ? "通过" : "未通过"}</strong><p>{result.reason}</p></article>)}</section> : null}
             <details className="file-review-secondary"><summary>材料要求与历史记录</summary>
               {current.requirement ? <section className="manual-review-instructions"><h4>材料要求</h4><p>{current.requirement}</p></section> : null}
             {current.referenceFiles?.length ? <details className="manual-review-instructions"><summary>填写模板与参考材料</summary>{current.referenceFiles.map((file) => <p key={file.id}>{file.label}：<a href={file.url} target="_blank" rel="noreferrer">{file.original_name}</a></p>)}</details> : null}
