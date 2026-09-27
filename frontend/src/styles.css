@@ -13897,28 +13897,28 @@ td {
   cursor: pointer;
 }
 
-/* Let file dialogs fit their content without reserving an unused scrollbar gutter. */
-.runtime-node-dialog.runtime-file-dialog {
+/* Shared compact layout for file and visual-audit material dialogs. */
+.runtime-node-dialog.runtime-material-dialog {
   box-sizing: border-box;
   max-height: calc(100dvh - 48px);
 }
-.runtime-file-dialog > header { padding: 16px 24px; }
-.runtime-file-dialog > header h2 { font-size: 20px; }
-.runtime-file-dialog > header p { font-size: 14px; }
-.runtime-file-dialog > .runtime-review-progress { margin: 14px 24px 0; }
-.runtime-file-dialog .runtime-review-progress > header { margin-bottom: 8px; }
-.runtime-file-dialog .review-progress-steps { margin: 8px 0 0; }
-.runtime-file-dialog .review-progress-steps > li { padding-bottom: 8px; }
-.runtime-file-dialog .review-progress-steps > li:last-child { padding-bottom: 0; }
-.runtime-file-dialog .review-step-disclosure > summary { min-height: 46px; padding: 8px 12px; }
-.runtime-file-dialog .review-step-heading { display: flex; align-items: center; gap: 12px; }
-.runtime-file-dialog .review-step-heading strong { flex-shrink: 0; }
-.runtime-file-dialog .review-step-heading small { margin: 0; padding-left: 12px; border-left: 1px solid #dce3ed; }
-.runtime-file-dialog .review-step-description.is-manual { display: none; }
-.runtime-file-dialog .review-step-number { margin-top: 12px; }
-.runtime-file-dialog .review-progress-steps > li:not(:last-child)::before { top: 38px; bottom: -4px; }
-.runtime-file-dialog .review-progress-steps > li:not(:last-child)::after { bottom: -5px; }
-.runtime-node-dialog.runtime-file-dialog .runtime-node-form { padding: 14px 24px 18px; border-top: 0; gap: 12px; }
+.runtime-material-dialog > header { padding: 16px 24px; }
+.runtime-material-dialog > header h2 { font-size: 20px; }
+.runtime-material-dialog > header p { font-size: 14px; }
+.runtime-material-dialog > .runtime-review-progress { margin: 14px 24px 0; }
+.runtime-material-dialog .runtime-review-progress > header { margin-bottom: 8px; }
+.runtime-material-dialog .review-progress-steps { margin: 8px 0 0; }
+.runtime-material-dialog .review-progress-steps > li { padding-bottom: 8px; }
+.runtime-material-dialog .review-progress-steps > li:last-child { padding-bottom: 0; }
+.runtime-material-dialog .review-step-disclosure > summary { min-height: 46px; padding: 8px 12px; }
+.runtime-material-dialog .review-step-heading { display: flex; align-items: center; gap: 12px; }
+.runtime-material-dialog .review-step-heading strong { flex-shrink: 0; }
+.runtime-material-dialog .review-step-heading small { margin: 0; padding-left: 12px; border-left: 1px solid #dce3ed; }
+.runtime-material-dialog .review-step-description.is-manual { display: none; }
+.runtime-material-dialog .review-step-number { margin-top: 12px; }
+.runtime-material-dialog .review-progress-steps > li:not(:last-child)::before { top: 38px; bottom: -4px; }
+.runtime-material-dialog .review-progress-steps > li:not(:last-child)::after { bottom: -5px; }
+.runtime-node-dialog.runtime-material-dialog .runtime-node-form { padding: 14px 24px 18px; border-top: 0; gap: 12px; }
 .runtime-materials { min-width: 0; border: 1px solid #dce3ed; border-radius: 8px; background: #f8fafc; overflow: hidden; }
 .runtime-materials h3 { margin: 0; padding: 10px 12px; font-size: 14px; }
 .runtime-material-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 10px 12px; background: #fff; border-top: 1px solid #e7ecf3; }
@@ -13934,28 +13934,33 @@ td {
 .runtime-material-row button:disabled { opacity: .55; cursor: not-allowed; }
 .runtime-material-row > .dialog-error { grid-column: 2 / -1; margin: 0; color: #b91c1c; }
 .runtime-material-note { margin-top: -4px; color: #64748b; font-size: 12px; }
-.runtime-file-dialog .runtime-upload-step-title { margin-top: 4px; font-size: 14px; }
-.runtime-file-dialog .runtime-file-workspace { min-height: 80px; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; padding: 12px; }
-.runtime-file-dialog .runtime-file-workspace-icon { width: 34px; height: 34px; font-size: 21px !important; }
-.runtime-file-dialog .runtime-file-workspace-select > span { margin: 0; }
-.runtime-file-dialog .runtime-file-workspace-copy strong { white-space: normal; }
-.runtime-file-dialog .runtime-file-workspace-action { background: #1d4ed8; color: #fff; }
-.runtime-file-dialog .runtime-node-form > .runtime-node-actions { border-top: 1px solid #edf0f4; padding-top: 12px; }
-.runtime-file-dialog .runtime-node-actions button { min-height: 36px; }
+.runtime-material-dialog .runtime-upload-step-title { margin-top: 4px; font-size: 14px; }
+.runtime-material-dialog .runtime-file-workspace { min-height: 80px; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; padding: 12px; }
+.runtime-material-dialog .runtime-file-workspace-icon { width: 34px; height: 34px; font-size: 21px !important; }
+.runtime-material-dialog .runtime-file-workspace-select > span { margin: 0; }
+.runtime-material-dialog .runtime-file-workspace-copy strong { white-space: normal; }
+.runtime-material-dialog .runtime-file-workspace-action { background: #1d4ed8; color: #fff; }
+.runtime-material-dialog .runtime-node-form > .runtime-node-actions { border-top: 1px solid #edf0f4; padding-top: 12px; }
+.runtime-material-dialog .runtime-node-actions button { min-height: 36px; }
 @media (max-width: 600px) {
-  .runtime-file-dialog > header { padding: 14px 16px; }
-  .runtime-file-dialog > .runtime-review-progress { margin: 12px 16px 0; }
-  .runtime-node-dialog.runtime-file-dialog .runtime-node-form { padding: 12px 16px 16px; }
-  .runtime-file-dialog .review-step-disclosure > summary { flex-wrap: wrap; }
-  .runtime-file-dialog .review-step-heading { flex-basis: 50%; display: block; }
-  .runtime-file-dialog .review-step-heading small { margin-top: 3px; padding-left: 0; border: 0; }
+  .runtime-material-dialog > header { padding: 14px 16px; }
+  .runtime-material-dialog > .runtime-review-progress { margin: 12px 16px 0; }
+  .runtime-node-dialog.runtime-material-dialog .runtime-node-form { padding: 12px 16px 16px; }
+  .runtime-material-dialog .review-step-disclosure > summary { flex-wrap: wrap; }
+  .runtime-material-dialog .review-step-heading { flex-basis: 50%; display: block; }
+  .runtime-material-dialog .review-step-heading small { margin-top: 3px; padding-left: 0; border: 0; }
   .runtime-material-row { grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; }
   .runtime-material-copy { display: block; }
   .runtime-material-copy p { margin-top: 3px; padding-left: 0; border: 0; }
   .runtime-material-status { grid-column: 2; justify-self: start; }
   .runtime-material-row button { grid-column: 3; grid-row: 1 / 3; }
-  .runtime-file-dialog .runtime-file-workspace { grid-template-columns: 34px minmax(0, 1fr); }
+  .runtime-material-dialog .runtime-file-workspace { grid-template-columns: 34px minmax(0, 1fr); }
 }
+.runtime-material-row.needs-attention { outline: 2px solid #2563eb; outline-offset: -2px; background: #eff6ff; }
+.runtime-material-dialog .runtime-confirmation { padding: 4px 0; font-size: 14px; }
+.runtime-material-dialog .runtime-scan-dropzone { min-height: 80px; align-content: center; padding: 12px; box-sizing: border-box; }
+.runtime-material-dialog .runtime-scan-dropzone strong { font-size: 14px; }
+.runtime-material-dialog .runtime-scan-dropzone small { font-size: 12px; color: #64748b; }
 .runtime-file-dialog .review-reason-scroll,
 .runtime-file-dialog .review-annotation > .runtime-audit-markdown,
 .runtime-audit-report-body {

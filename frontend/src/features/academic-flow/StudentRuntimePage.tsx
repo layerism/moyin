@@ -681,11 +681,31 @@ function RuntimeNodeDialog({
     }
     submitConfirmationRef.current?.showModal();
   };
+  const materialsSection = <>
+    {runtime.template || referenceFiles.length ? (
+      <section className="runtime-materials" aria-label="填写资料">
+        <h3>填写资料</h3>
+        {referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label={node.kind === "confirmation" ? "参考示例" : "填写参考"} compact />)}
+        {runtime.template ? <section className={`runtime-material-row${templateDownloadAttention ? " needs-attention" : ""}`} aria-label="填写模板">
+          <FileFormatIcon filename={runtime.template.originalName} />
+          <div className="runtime-material-copy">
+            <strong>{node.kind === "confirmation" ? "签署模板" : "填写模板"}</strong>
+            <p title={`${runtime.template.originalName} · ${formatFileSize(runtime.template.sizeBytes)}`}>{runtime.template.originalName}</p>
+          </div>
+          <small className={`runtime-material-status${runtime.templateDownloaded ? " is-downloaded" : ""}`}>{runtime.templateDownloaded ? "已下载" : "待下载"}</small>
+          <button disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
+            {runtime.templateDownloaded ? "重新下载" : "下载模板"}
+          </button>
+        </section> : null}
+      </section>
+    ) : null}
+    {referenceFiles.length ? <small className="runtime-material-note">填写参考为可选资料，不影响材料提交。</small> : null}
+  </>;
   return (
     <div className="runtime-node-dialog-backdrop" onMouseDown={onClose}>
       <section
         aria-modal="true"
-        className={`runtime-node-dialog ${runtime.status}${node.kind === "file" ? " runtime-file-dialog" : ""}${completedBranch ? " runtime-branch-completed-dialog" : ""}`}
+        className={`runtime-node-dialog ${runtime.status}${node.kind === "file" ? " runtime-file-dialog" : ""}${node.kind === "file" || (node.kind === "confirmation" && scanRequired) ? " runtime-material-dialog" : ""}${completedBranch ? " runtime-branch-completed-dialog" : ""}`}
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
@@ -738,7 +758,7 @@ function RuntimeNodeDialog({
         {(node.kind === "file" || (node.kind === "confirmation" && Boolean(node.fileReviewSteps?.length))) && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {["file", "confirmation"].includes(node.kind) && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {["file", "confirmation"].includes(node.kind) && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
-        {node.kind === "confirmation" && writable ? referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label="参考示例" />) : null}
+        {node.kind === "confirmation" && !scanRequired && writable ? referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label="参考示例" />) : null}
         {node.kind === "announcement" ? (
           <section aria-label="公告正文" className="runtime-announcement-body">
             <AnnouncementMarkdown instanceId={instanceId} nodeId={node.id}>{node.requirement}</AnnouncementMarkdown>
@@ -815,24 +835,7 @@ function RuntimeNodeDialog({
           ) : null}
           {node.kind === "file" ? (
             <div className={`runtime-template-steps${templateRequired ? " has-template" : ""}`}>
-            {runtime.template || referenceFiles.length ? (
-              <section className="runtime-materials" aria-label="填写资料">
-                <h3>填写资料</h3>
-                {referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label="填写参考" compact />)}
-                {runtime.template ? <section className="runtime-material-row" aria-label="填写模板">
-                  <FileFormatIcon filename={runtime.template.originalName} />
-                  <div className="runtime-material-copy">
-                    <strong>填写模板</strong>
-                    <p title={`${runtime.template.originalName} · ${formatFileSize(runtime.template.sizeBytes)}`}>{runtime.template.originalName}</p>
-                  </div>
-                  <small className={`runtime-material-status${runtime.templateDownloaded ? " is-downloaded" : ""}`}>{runtime.templateDownloaded ? "已下载" : "待下载"}</small>
-                  <button disabled={busy} onClick={onDownloadTemplate} type="button">
-                    {runtime.templateDownloaded ? "重新下载" : "下载模板"}
-                  </button>
-                </section> : null}
-              </section>
-            ) : null}
-            {referenceFiles.length ? <small className="runtime-material-note">填写参考为可选资料，不影响材料提交。</small> : null}
+            {materialsSection}
             <strong className="runtime-upload-step-title">上传已填写文件</strong>
             <div
               className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${needsFileReplacement ? " is-rejected" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
@@ -927,22 +930,9 @@ function RuntimeNodeDialog({
           ) : null}
           {node.kind === "confirmation" && scanRequired ? (
             <div className={`runtime-template-steps${runtime.template ? " has-template" : ""}`}>
-              {runtime.template ? (
-                <section
-                  className={`runtime-template-download${templateDownloadAttention ? " needs-attention" : ""}`}
-                >
-                  <span>1</span>
-                  <div>
-                    <strong>{runtime.templateDownloaded ? "模板已下载" : "下载签署文件模板"}</strong>
-                    <small>{runtime.template.originalName} · {formatFileSize(runtime.template.sizeBytes)}</small>
-                  </div>
-                  <button disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
-                    {runtime.templateDownloaded ? "重新下载" : "下载模板"}
-                  </button>
-                </section>
-              ) : null}
+              {materialsSection}
               <strong className="runtime-upload-step-title">
-                {runtime.template ? "2 上传签署后的扫描件" : "上传图片材料"}
+                {runtime.template ? "上传签署后的扫描件" : "上传图片材料"}
               </strong>
               <ScanUploadWorkspace
                 disabled={busy}
