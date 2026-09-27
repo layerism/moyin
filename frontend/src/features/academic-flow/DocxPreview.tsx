@@ -24,9 +24,11 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       if (!active) return;
       const body = document.createElement("div");
       const styles = document.createElement("div");
-      await renderAsync(data, body, styles, { useBase64URL: true, renderAltChunks: false });
+      await renderAsync(data, body, styles, { useBase64URL: true, renderAltChunks: false, ignoreWidth: true, ignoreHeight: true });
       if (!active) return;
-      root.replaceChildren(styles, body);
+      const pageSize = document.createElement("style");
+      pageSize.textContent = "section.docx { width: 210mm; min-height: 297mm; box-sizing: border-box; }";
+      root.replaceChildren(styles, pageSize, body);
       setLoading(false);
     })().catch((reason: unknown) => {
       if (!active) return;
