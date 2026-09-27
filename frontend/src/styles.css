@@ -14474,10 +14474,24 @@ td {
 
 }
 
-.pdf-preview-toolbar { position: sticky; top: -12px; z-index: 1; flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 10px; border-bottom: 1px solid #dce3ed; background: #f8fafc; font-size: 12px; }
+.pdf-preview-toolbar { flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 6px 10px; border-bottom: 1px solid #dce3ed; background: #f8fafc; font-size: 12px; }
 .file-manual-review-dialog .pdf-preview-toolbar button { padding: 4px 8px; min-width: 28px; background: #fff; color: #334155; }
-.pdf-preview-viewport { min-width: 0; }
+.pdf-preview-viewport { flex: 1; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .pdf-preview-page { position: relative; margin: 12px auto; background: #fff; scroll-margin-top: 48px; }
 .pdf-preview-page canvas { display: block; width: 100%; height: 100%; }
 .pdf-preview-page > span, .pdf-preview-page > p { position: absolute; top: 12px; left: 12px; color: #64748b; font-size: 12px; }
 .pdf-preview-viewport > p { padding: 12px; color: #64748b; font-size: 13px; }
+
+/* Keep review metadata fixed; only original pages scroll. */
+.file-manual-review-dialog .manual-review-content { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.file-manual-review-dialog .manual-review-student-heading,
+.file-manual-review-dialog .file-review-original { flex-shrink: 0; }
+.file-manual-review-dialog .manual-review-source { display: flex; flex-direction: column; flex: 1; min-height: 0; margin: 0; overflow: hidden; }
+.file-review-document { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.file-review-pdf-preview { flex: 1; min-height: 0; overflow: hidden; }
+.file-manual-review-dialog .file-review-image-preview { min-height: 0; object-fit: contain; }
+.file-review-secondary { flex-shrink: 0; padding: 8px 0; }
+.file-review-secondary[open] { max-height: 30%; overflow: auto; }
+@media (max-width: 850px) {
+  .file-manual-review-dialog .manual-review-content { height: 70dvh; flex: none; }
+}

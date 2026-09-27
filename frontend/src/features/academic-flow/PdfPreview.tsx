@@ -31,7 +31,9 @@ export function PdfPreview({ url, filename }: { url: string; filename: string })
   }, []);
 
   const goToPage = (number: number) => {
-    viewport.current?.querySelector(`[data-pdf-page="${number}"]`)?.scrollIntoView({ block: "start" });
+    const scroller = viewport.current;
+    const page = scroller?.querySelector<HTMLElement>(`[data-pdf-page="${number}"]`);
+    if (scroller && page) scroller.scrollTo({ top: scroller.scrollTop + page.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12 });
     setPageNumber(number);
   };
 
