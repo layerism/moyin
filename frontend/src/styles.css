@@ -14454,7 +14454,6 @@ td {
 .file-review-original .file-review-filename { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
 .file-review-original .file-review-filename small { margin: 0; }
 .file-review-pdf-preview { display: flex; flex-direction: column; width: 100%; height: auto; border: 1px solid #e2e8f0; background: #f1f5f9; }
-.file-review-document + .file-review-document { margin-top: 16px; }
 .file-manual-review-dialog .file-review-image-preview { max-width: 100%; max-height: none; margin: 0 auto 12px; }
 .file-review-status-filters > button:focus-visible, .file-review-sidebar > nav button:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 @media (max-width: 720px) {
@@ -14490,3 +14489,7 @@ td {
 @media (max-width: 850px) {
   .file-manual-review-dialog .manual-review-content { height: 70dvh; flex: none; }
 }
+
+.file-review-file-navigation { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 8px; padding: 6px 0; border-bottom: 1px solid #e2e8f0; }
+.file-review-file-navigation > span { color: #64748b; font-size: 12px; white-space: nowrap; }
+.file-manual-review-dialog .file-review-file-navigation > button { padding: 5px 9px; font-size: 12px; }
