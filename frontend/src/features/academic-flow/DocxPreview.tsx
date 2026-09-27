@@ -20,11 +20,27 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
         ? "登录已失效或无权查看此文件，请重新登录后重试。"
         : "DOCX 加载失败，请重新打开审核页或下载原件查看。");
       const data = await response.blob();
-      const { renderAsync } = await import("docx-preview");
+      const { parseAsync, renderDocument } = await import("docx-preview");
       if (!active) return;
       const body = document.createElement("div");
       const styles = document.createElement("div");
-      await renderAsync(data, body, styles, { useBase64URL: true, renderAltChunks: false, breakPages: true, ignoreLastRenderedPageBreak: false, ignoreWidth: true, ignoreHeight: true });
+      const options = { useBase64URL: true, renderAltChunks: false, breakPages: true, ignoreLastRenderedPageBreak: false, ignoreWidth: true, ignoreHeight: true };
+      const parsed = await parseAsync(data, options);
+      // docx-preview 0.4.1 merges equal-sized sections when saved page breaks
+      // are enabled. Preserve next-page section boundaries explicitly; an
+      // omitted section type means nextPage in WordprocessingML.
+      for (const paragraph of parsed.documentPart.body.children) {
+        if (paragraph.type !== "paragraph" || !paragraph.sectionProps) continue;
+        const sectionType = paragraph.sectionProps.type ?? "nextPage";
+        if (!["nextPage", "evenPage", "oddPage"].includes(sectionType)) continue;
+        const hasBreak = paragraph.children?.some((run: { children?: { type: string; break?: string }[] }) =>
+          run.children?.some((child) => child.type === "break" && ["page", "lastRenderedPageBreak"].includes(child.break ?? "")));
+        if (!hasBreak) {
+          (paragraph.children ??= []).push({ type: "run", children: [{ type: "break", break: "page" }] });
+        }
+      }
+      const nodes = await renderDocument(parsed, options);
+      for (const node of nodes) (node.nodeName === "STYLE" ? styles : body).appendChild(node);
       if (!active) return;
       const pageSize = document.createElement("style");
       pageSize.textContent = "section.docx { width: 210mm; min-height: 297mm; box-sizing: border-box; }";
