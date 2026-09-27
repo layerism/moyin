@@ -14019,10 +14019,6 @@ td {
 .file-review-auto-advance { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #475569; }
 .file-review-auto-advance input { margin: 0; }
 .file-manual-review-dialog .manual-review-action > small { color: #94a3b8; font-size: 11px; }
-.file-review-more { position: relative; margin-right: auto; font-size: 12px; color: #64748b; }
-.file-review-more > summary { cursor: pointer; padding: 8px 0; }
-.file-review-more > div { position: absolute; bottom: calc(100% + 8px); left: 0; width: 240px; padding: 14px; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; box-shadow: 0 8px 24px #1720331a; z-index: 2; }
-.file-review-more p { margin: 0 0 10px; line-height: 1.6; }
 .completed-review-feedback { margin: 16px 24px; padding: 16px; border: 1px solid #dce3ed; border-radius: 10px; }
 .completed-review-feedback > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: center; }
 .completed-review-feedback h3 { margin: 0; font-size: 14px; }
@@ -14053,7 +14049,6 @@ td {
   .file-manual-review-dialog .manual-review-detail { overflow: hidden; }
   .file-manual-review-dialog .manual-review-content { flex: none; overflow: visible; }
   .file-manual-review-dialog .manual-review-content, .file-manual-review-dialog .manual-review-action { padding: 12px; }
-  .file-review-more > div { width: min(240px, calc(100vw - 64px)); }
 }
 
 /* Phone binding: scoped controls also cover optional account binding. */

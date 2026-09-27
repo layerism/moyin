@@ -223,12 +223,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
                 </section>
               </section>
             </div>
-            <footer className="manual-review-action"><label className="file-review-auto-advance"><input type="checkbox" checked={autoAdvance} onChange={(event) => setAutoAdvance(event.target.checked)} />完成后自动切换下一位</label><div className="manual-review-action-buttons"><details className="file-review-more"><summary>更多操作</summary><div><p>发布批注可补充评语和附件，不结束本次审核。</p><button type="button" disabled={!canReview || !remark.trim()} onClick={() => void act(async () => {
-                if (!current) return;
-                await workflowApi.saveManualFeedback(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision);
-                localRemarks.current.delete(current.nodeInstanceId);
-                setRefresh((value) => value + 1);
-              })}>发布批注</button></div></details><button type="button" className="file-review-reject" disabled={!canReview} onClick={() => decide(false)}>退回修改</button><button type="button" className="file-review-approve" disabled={!canReview} onClick={() => decide(true)}>{busy ? "处理中…" : "审核通过"}</button></div><small>↑ / ↓ 切换学生</small></footer>
+            <footer className="manual-review-action"><label className="file-review-auto-advance"><input type="checkbox" checked={autoAdvance} onChange={(event) => setAutoAdvance(event.target.checked)} />完成后自动切换下一位</label><div className="manual-review-action-buttons"><button type="button" className="file-review-reject" disabled={!canReview} onClick={() => decide(false)}>退回修改</button><button type="button" className="file-review-approve" disabled={!canReview} onClick={() => decide(true)}>{busy ? "处理中…" : "审核通过"}</button></div><small>↑ / ↓ 切换学生</small></footer>
           </> : <p className="file-review-muted">{current.status === "approved" ? "本节点已通过。" : current.status === "rejected" ? "本次材料已退回，等待学生重新提交。" : "当前未轮到人工审核，请刷新查看最新状态。"}</p>}
           </aside>
           </div>
