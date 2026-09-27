@@ -563,7 +563,7 @@ function RuntimeNodeDialog({
   const submitDisabled = busy
     || (node.kind === "branch" && !node.branches?.some((option) => option.id === draft.branchId))
     || (node.kind === "file" && (!uploadUnlocked || !fileReady || isUploadingFile))
-    || Boolean(scanBlocker && !confirmationMissing);
+    || Boolean(scanBlocker);
   const clientFieldErrors = node.kind === "form"
     ? validateFormAnswers(node.infoFields, draft)
     : node.kind === "answer_sheet" && node.answerSheet
