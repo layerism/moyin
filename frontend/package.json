@@ -12,6 +12,7 @@
   "dependencies": {
     "fflate": "0.8.3",
     "katex": "0.16.47",
+    "pdfjs-dist": "6.3.289",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-markdown": "^10.1.0",
