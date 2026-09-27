@@ -681,6 +681,27 @@ function RuntimeNodeDialog({
     }
     submitConfirmationRef.current?.showModal();
   };
+  const confirmationField = (
+    <div className="runtime-confirmation-field">
+      <label className={`runtime-confirmation${confirmationInvalid ? " is-invalid" : ""}`}>
+        <input
+          aria-describedby={confirmationInvalid ? "runtime-confirmation-error" : undefined}
+          aria-invalid={confirmationInvalid || undefined}
+          checked={Boolean(draft.confirmed)}
+          ref={confirmationInputRef}
+          type="checkbox"
+          onChange={(event) => {
+            if (event.target.checked) setConfirmationAttempted(false);
+            onUpdate("confirmed", event.target.checked);
+          }}
+        />
+        <span>我已阅读并确认以上内容</span>
+      </label>
+      {confirmationInvalid ? (
+        <p id="runtime-confirmation-error" role="alert">请先勾选确认</p>
+      ) : null}
+    </div>
+  );
   const materialsSection = <>
     {runtime.template || referenceFiles.length ? (
       <section className="runtime-materials" aria-label="填写资料">
@@ -713,7 +734,10 @@ function RuntimeNodeDialog({
           <div>
             {completedBranch ? null : <span>{statusLabels[runtime.status]}</span>}
             <h2>{node.title}</h2>
-            {node.kind === "announcement" ? null : <p>{completedBranch ? "分支选择已完成，可返回流程查看对应任务。" : node.requirement}</p>}
+            {scanRequired ? <div className="runtime-description-confirmation">
+              <p>{node.requirement}</p>
+              {effectivelyWritable ? confirmationField : null}
+            </div> : node.kind === "announcement" ? null : <p>{completedBranch ? "分支选择已完成，可返回流程查看对应任务。" : node.requirement}</p>}
             {completedBranch && node.requirement && node.requirement !== "请选择一个分支，提交后将开放对应任务，选择不可更改。" ? <p className="runtime-branch-requirement">{node.requirement}</p> : null}
             {node.kind === "answer_sheet" ? (
               <div className="runtime-answer-sheet-header-meta">
@@ -907,27 +931,7 @@ function RuntimeNodeDialog({
             </div>
             </div>
           ) : null}
-          {node.kind === "confirmation" || node.kind === "announcement" ? (
-            <div className="runtime-confirmation-field">
-              <label className={`runtime-confirmation${confirmationInvalid ? " is-invalid" : ""}`}>
-                <input
-                  aria-describedby={confirmationInvalid ? "runtime-confirmation-error" : undefined}
-                  aria-invalid={confirmationInvalid || undefined}
-                  checked={Boolean(draft.confirmed)}
-                  ref={confirmationInputRef}
-                  type="checkbox"
-                  onChange={(event) => {
-                    if (event.target.checked) setConfirmationAttempted(false);
-                    onUpdate("confirmed", event.target.checked);
-                  }}
-                />
-                <span>我已阅读并确认以上内容</span>
-              </label>
-              {confirmationInvalid ? (
-                <p id="runtime-confirmation-error" role="alert">请先勾选确认</p>
-              ) : null}
-            </div>
-          ) : null}
+          {!scanRequired && confirmationRequired ? confirmationField : null}
           {node.kind === "confirmation" && scanRequired ? (
             <div className={`runtime-template-steps${runtime.template ? " has-template" : ""}`}>
               {materialsSection}

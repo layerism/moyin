@@ -14431,3 +14431,10 @@ td {
   .audit-test-upload.has-file > button:first-child { padding: 6px; }
   .audit-test-file-name { font-size: 12px; }
 }
+
+.runtime-material-dialog > header > div { min-width: 0; }
+.runtime-description-confirmation { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; }
+.runtime-description-confirmation > p { min-width: 0; overflow-wrap: anywhere; }
+.runtime-description-confirmation .runtime-confirmation { padding: 0; }
+.runtime-node-dialog > header .runtime-confirmation span { color: #344054; font-size: 14px; font-weight: 600; }
+.runtime-node-dialog > header .runtime-confirmation-field > p { color: #d92d20; font-size: 13px; }
