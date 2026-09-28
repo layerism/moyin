@@ -707,16 +707,10 @@ export const workflowApi = {
       `/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/submission-detail`,
     );
   },
-  downloadTeacherMaterials(versionId: string, nodeKey: string | null) {
-    const query = nodeKey ? `?nodeKey=${encodeURIComponent(nodeKey)}` : "";
+  downloadTeacherVersionPackage(versionId: string) {
     return downloadRequest(
-      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/materials/download${query}`,
-    );
-  },
-  exportTeacherNodeSubmissions(versionId: string, nodeKey: string) {
-    return downloadRequest(
-      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/nodes/${encodeURIComponent(nodeKey)}/submissions/export`,
-      "节点填写数据.xlsx",
+      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/package/download`,
+      "全部节点资料.zip",
     );
   },
   getTeacherNodePackageOptions(versionId: string, nodeKey: string) {

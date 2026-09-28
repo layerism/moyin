@@ -9310,29 +9310,17 @@ button {
 .progress-summary-item[aria-pressed="true"] { background: #edf3ff; color: #175cd3; }
 
 .progress-operations {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
   flex-shrink: 0;
   padding: 10px 20px;
   border-bottom: 1px solid #e4e7ec;
   background: #f8fafc;
 }
 
-.progress-operation-grid { display: flex; flex-wrap: wrap; gap: 10px 20px; }
-.progress-operation-group { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.progress-operation-group label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.progress-operation-group label span { color: #667085; font-size: 12px; white-space: nowrap; }
-.teacher-progress-panel .progress-operation-group select {
-  width: 180px;
-  min-width: 0;
-  height: 32px;
-  padding: 4px 8px;
-  border-color: #d7dee8;
-  font-size: 12px;
-}
+.progress-export-hint { color: #667085; font-size: 12px; }
 .progress-operation-button {
   min-height: 32px;
   padding: 4px 10px;
@@ -9436,9 +9424,6 @@ button {
   .progress-panel-heading { flex-wrap: wrap; gap: 2px 10px; }
   .progress-summary { padding: 0 12px 10px; gap: 2px; }
   .progress-operations { padding: 10px 12px; }
-  .progress-operation-group { flex: 1 1 300px; }
-  .progress-operation-group label { flex: 1; }
-  .teacher-progress-panel .progress-operation-group select { width: 100%; }
   .progress-table { min-width: 560px; }
   .progress-table th, .progress-table td { padding-left: 12px; padding-right: 12px; }
 }
@@ -9446,7 +9431,6 @@ button {
 .progress-summary-item:focus-visible,
 .progress-activity-sort:focus-visible,
 .progress-panel-close:focus-visible,
-.progress-operation-group select:focus-visible,
 .progress-operation-button:focus-visible,
 .progress-action-menu-trigger:focus-visible,
 .progress-row-action-menu button:focus-visible,

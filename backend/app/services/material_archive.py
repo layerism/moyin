@@ -10,6 +10,7 @@ from app.repositories.teacher_node_exports import (
     TeacherNodeExportFile,
     TeacherNodeExportSelection,
     TeacherNodeExportStudent,
+    TeacherVersionExportSelection,
 )
 from app.services.node_submission_workbook import build_node_submission_workbook
 from app.services.object_storage import get_object_storage
@@ -162,6 +163,39 @@ def build_node_submission_archive(
         suffix = "节点资料包" if include_workbook else "学生文件"
         filename = f"{_safe_component(selection.flow_name)}-{_safe_component(node_title)}-{suffix}.zip"
         return MaterialArchive(directory, filename, archive_path)
+    except Exception:
+        shutil.rmtree(directory, ignore_errors=True)
+        raise
+
+
+def build_version_submission_archive(selection: TeacherVersionExportSelection) -> MaterialArchive:
+    if not selection.nodes:
+        raise MaterialArchiveEmptyError("当前流程没有可导出的节点")
+    directory = Path(tempfile.mkdtemp(prefix="moyin-version-package-"))
+    archive_path = directory / "version-package.zip"
+    local_path = directory / "downloaded-file"
+    root = PurePosixPath(_safe_component(selection.flow_name))
+    used_paths: set[str] = set()
+    storage = None
+    try:
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for index, node in enumerate(selection.nodes, start=1):
+                title = str(node.node.get("title") or node.node["id"])
+                folder = root / f"{index:02d}-{_safe_component(title)}"
+                content, _filename = build_node_submission_workbook(node)
+                workbook_name = "作答数据.xlsx" if node.node.get("kind") == "answer_sheet" else "提交记录.xlsx"
+                archive.writestr(str(_unique_path(folder / workbook_name, used_paths)), content)
+                for student in node.students:
+                    for material in student.files:
+                        if storage is None:
+                            storage = get_object_storage()
+                        storage.download_to_file(material.storage_key, local_path)
+                        destination = folder / _node_package_material_path(
+                            student, material, include_workbook=False,
+                        )
+                        archive.write(local_path, arcname=str(_unique_path(destination, used_paths)))
+                        local_path.unlink()
+        return MaterialArchive(directory, f"{root.name}-全部节点资料.zip", archive_path)
     except Exception:
         shutil.rmtree(directory, ignore_errors=True)
         raise

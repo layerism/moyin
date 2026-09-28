@@ -41,10 +41,7 @@ export function TeacherProgressPanel({
   const [submissionDetail, setSubmissionDetail] = useState<TeacherSubmissionDetail | null>(null);
   const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null);
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
-  const [downloadScope, setDownloadScope] = useState("");
-  const [downloadingScope, setDownloadingScope] = useState(false);
-  const [exportNodeKey, setExportNodeKey] = useState(nodes[0]?.id ?? "");
-  const [exportingNodeKey, setExportingNodeKey] = useState<string | null>(null);
+  const [downloadingPackage, setDownloadingPackage] = useState(false);
   const [downloadingNodeId, setDownloadingNodeId] = useState<string | null>(null);
   const [fileReview, setFileReview] = useState<{ nodeKey: string; studentNo: string } | null>(null);
   const [manualApprovalOpen, setManualApprovalOpen] = useState(false);
@@ -72,9 +69,6 @@ export function TeacherProgressPanel({
       && node.answerSheet?.gradingPolicy.feedback === "full_after_deadline"
     )).map((node) => node.id),
   );
-  const selectedExportNodeKey = nodes.some((node) => node.id === exportNodeKey)
-    ? exportNodeKey
-    : nodes[0]?.id ?? "";
   const canExtendNode = (node: WorkflowProgressNode) => Boolean(
     node.effectiveDeadline
       && !(
@@ -194,19 +188,16 @@ export function TeacherProgressPanel({
     setDetailNotice("");
   };
 
-  const downloadVersionMaterials = async () => {
-    setDownloadingScope(true);
+  const downloadVersionPackage = async () => {
+    setDownloadingPackage(true);
     setNotice("");
     try {
-      const download = await workflowApi.downloadTeacherMaterials(
-        versionId,
-        downloadScope || null,
-      );
+      const download = await workflowApi.downloadTeacherVersionPackage(versionId);
       saveDownload(download.blob, download.filename);
     } catch (reason) {
       setNotice(reason instanceof Error ? reason.message : "材料下载失败");
     } finally {
-      setDownloadingScope(false);
+      setDownloadingPackage(false);
     }
   };
 
@@ -220,23 +211,6 @@ export function TeacherProgressPanel({
       setDetailNotice(reason instanceof Error ? reason.message : "材料下载失败");
     } finally {
       setDownloadingNodeId(null);
-    }
-  };
-
-  const exportNodeSubmissions = async () => {
-    if (!selectedExportNodeKey) return;
-    setExportingNodeKey(selectedExportNodeKey);
-    setNotice("");
-    try {
-      const download = await workflowApi.exportTeacherNodeSubmissions(
-        versionId,
-        selectedExportNodeKey,
-      );
-      saveDownload(download.blob, download.filename);
-    } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "节点填写数据导出失败");
-    } finally {
-      setExportingNodeKey(null);
     }
   };
 
@@ -451,51 +425,17 @@ export function TeacherProgressPanel({
             </section>
 
             {nodes.length > 0 ? (
-              <section className="progress-operations" aria-label="数据导出与材料下载">
-                <div className="progress-operation-grid">
-                  <div className="progress-operation-group">
-                    <label>
-                      <span>节点</span>
-                      <select
-                        value={selectedExportNodeKey}
-                        onChange={(event) => setExportNodeKey(event.target.value)}
-                      >
-                        {nodes.map((node) => (
-                          <option key={node.id} value={node.id}>{node.title}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      className="progress-operation-button"
-                      disabled={exportingNodeKey !== null}
-                      onClick={() => void exportNodeSubmissions()}
-                      type="button"
-                    >
-                      <span aria-hidden="true">↓ </span>{exportingNodeKey ? "正在导出…" : "导出 Excel"}
-                    </button>
-                  </div>
-                  {materialNodes.length > 0 ? (
-                    <div className="progress-operation-group">
-                      <label>
-                        <span>材料</span>
-                        <select value={downloadScope} onChange={(event) => setDownloadScope(event.target.value)}>
-                          <option value="">全部节点（按层级整理）</option>
-                          {materialNodes.map((node) => (
-                            <option key={node.id} value={node.id}>{node.title}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <button
-                        className="progress-operation-button"
-                        disabled={downloadingScope}
-                        onClick={() => void downloadVersionMaterials()}
-                        type="button"
-                      >
-                        <span aria-hidden="true">↓ </span>{downloadingScope ? "正在打包…" : "下载材料"}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+              <section className="progress-operations" aria-label="全部节点资料导出">
+                <button
+                  className="progress-operation-button"
+                  disabled={downloadingPackage}
+                  onClick={() => void downloadVersionPackage()}
+                  type="button"
+                >
+                  <span aria-hidden="true">↓ </span>
+                  {downloadingPackage ? "正在打包全部材料…" : "打包导出全部材料"}
+                </button>
+                <span className="progress-export-hint">按流程层级整理 · 含 Excel 和已提交附件</span>
               </section>
             ) : null}
             <section className="progress-table-wrap" onScroll={() => setOpenActionMenuId(null)}>

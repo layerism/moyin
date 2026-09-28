@@ -1,9 +1,10 @@
 import json
 from dataclasses import dataclass
+from graphlib import TopologicalSorter
 from typing import Any
 
 from app.core.database import get_connection
-from app.domain.workflow_runtime import node_by_key
+from app.domain.workflow_runtime import incoming_nodes, node_by_key
 from app.repositories.answer_sheet_keys import get_version_answer_key
 
 CURRENT_SUBMISSION_STATUSES = ("reviewing", "approved", "rejected", "audit_error")
@@ -49,6 +50,44 @@ class TeacherNodeExportSelection:
     flow_name: str
     node: dict[str, Any]
     students: tuple[TeacherNodeExportStudent, ...]
+
+
+@dataclass(frozen=True)
+class TeacherVersionExportSelection:
+    flow_name: str
+    nodes: tuple[TeacherNodeExportSelection, ...]
+
+
+def get_version_submission_export(
+    version_id: str, teacher_id: int,
+) -> TeacherVersionExportSelection:
+    with get_connection() as connection:
+        version = connection.execute(
+            """
+            SELECT v.config_snapshot, f.name
+            FROM flow_versions v JOIN flows f ON f.id = v.flow_id
+            WHERE v.id = ? AND v.status = 'published' AND f.owner_id = ?
+            """,
+            (version_id, str(teacher_id)),
+        ).fetchone()
+        if version is None:
+            raise KeyError(version_id)
+        config = json.loads(version["config_snapshot"])
+    # Register snapshot order first, then dependencies, for stable sibling ordering.
+    predecessors = incoming_nodes(config)
+    sorter = TopologicalSorter()
+    for node_key in predecessors:
+        sorter.add(node_key)
+    for node_key, parents in predecessors.items():
+        sorter.add(node_key, *parents)
+    node_keys = sorter.static_order()
+    return TeacherVersionExportSelection(
+        flow_name=str(version["name"]),
+        nodes=tuple(
+            get_node_submission_export(version_id, node_key, teacher_id)
+            for node_key in node_keys
+        ),
+    )
 
 
 def _json_object(value: object) -> dict[str, Any]:
