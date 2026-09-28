@@ -23,6 +23,16 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
   const [jobs, setJobs] = useState<ExportJob[]>([]);
   const [submitting, setSubmitting] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"notifications" | "chat" | "companions">("notifications");
+  const openTasks = () => { setTab("notifications"); setOpen(true); };
+  useEffect(() => {
+    if (!open || !visible) return;
+    const close = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.stopPropagation(); setOpen(false); }
+    };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, [open, visible]);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState<string | null>(null);
   const activeRequests = useRef(new Set<string>());
@@ -50,7 +60,7 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
   }, [teacherId]);
   const start = async (versionId: string) => {
     if (teacherId === null || activeRequests.current.has(versionId)) return;
-    setOpen(true);
+    openTasks();
     setError("");
     if (jobs.some((job) => job.versionId === versionId && ["pending", "running"].includes(job.status))) return;
     activeRequests.current.add(versionId);
@@ -73,7 +83,7 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
   };
   const download = async (job: ExportJob) => {
     if (downloading) return;
-    setOpen(true);
+    openTasks();
     setDownloading(job.id);
     setError("");
     try {
@@ -89,11 +99,15 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
   const unread = jobs.filter((job) => !job.seen && ["completed", "failed"].includes(job.status));
   const notice = unread[0];
   const labels = { pending: "排队中", running: "正在打包", completed: "已完成", failed: "失败", expired: "已过期" };
-  return <ExportTasksContext.Provider value={{ jobs, submitting, start: (id) => void start(id), openTasks: () => setOpen(true) }}>
+  return <ExportTasksContext.Provider value={{ jobs, submitting, start: (id) => void start(id), openTasks }}>
     {children}
     {teacherId !== null && visible && <div className="export-task-center">
-      <button type="button" className="export-task-launcher" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
-        <span aria-hidden="true">↓</span> 导出任务 {running ? `· ${running} 进行中` : unread.length ? `· ${unread.length} 条提醒` : ""}
+      <button type="button" className="export-task-launcher" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="work-assistant-panel" aria-label={`工作助手，${running} 个任务进行中，${unread.length} 条未读通知`} title="工作助手">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="4" y="7" width="16" height="13" rx="4" /><path d="M12 3v4M2 12v4m20-4v4M9 16h6" /><circle cx="9" cy="12" r=".8" /><circle cx="15" cy="12" r=".8" />
+        </svg>
+        {unread.length > 0 && <span className="assistant-unread" aria-hidden="true">{unread.length > 99 ? "99+" : unread.length}</span>}
+        {running > 0 && <span className="assistant-running" aria-hidden="true" />}
       </button>
       {notice && !open && <section className="export-task-toast" role="status">
         <strong>{notice.status === "completed" ? "材料已打包" : "材料打包失败"}</strong>
@@ -104,8 +118,18 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
           <button type="button" onClick={() => void seen(notice.id)}>知道了</button>
         </div>
       </section>}
-      {open && <section className="export-task-panel" aria-label="导出任务">
-        <header><strong>导出任务</strong><button type="button" onClick={() => setOpen(false)} aria-label="关闭导出任务">×</button></header>
+      {open && <section id="work-assistant-panel" className="export-task-panel" aria-label="工作助手">
+        <header><div><strong>工作助手</strong><small>通知与交互入口</small></div><button type="button" onClick={() => setOpen(false)} aria-label="收起工作助手">−</button></header>
+        <nav className="assistant-tabs" aria-label="助手栏目">
+          <button type="button" aria-pressed={tab === "notifications"} onClick={() => setTab("notifications")}>通知{unread.length > 0 ? ` · ${unread.length}` : ""}</button>
+          <button type="button" aria-pressed={tab === "chat"} onClick={() => setTab("chat")}>Chat</button>
+          <button type="button" aria-pressed={tab === "companions"} onClick={() => setTab("companions")}>伙伴</button>
+        </nav>
+        {tab !== "notifications" ? <div className="assistant-placeholder">
+          <strong>{tab === "chat" ? "Chat" : "伙伴"}</strong>
+          <span>暂未开放</span>
+          <p>{tab === "chat" ? "未来在这里与助手对话。" : "未来在这里与宠物和 Agent 互动。"}</p>
+        </div> : <>
         <p className="export-task-help">退出流程后继续打包 · 文件保留 7 天</p>
         {error && <p role="alert" className="export-task-error">{error} <button type="button" onClick={() => void refresh().then(() => setError("")).catch(() => {})}>刷新</button></p>}
         {!jobs.length && <p className="export-task-help">暂无导出任务</p>}
@@ -120,6 +144,7 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
             {!job.seen && ["completed", "failed"].includes(job.status) && <button type="button" onClick={() => void seen(job.id)}>标为已读</button>}
           </div>
         </article>)}</div>
+        </>}
       </section>}
     </div>}
   </ExportTasksContext.Provider>;

@@ -14418,3 +14418,33 @@ td {
   .export-task-center { right: 12px; bottom: 12px; }
   .export-task-panel, .export-task-toast { width: calc(100vw - 24px); }
 }
+
+.export-task-center .export-task-launcher {
+  position: relative; display: grid; place-items: center;
+  width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%;
+  background: #2563eb; color: #fff; cursor: pointer;
+  box-shadow: 0 6px 20px rgb(37 99 235 / 28%);
+}
+.export-task-center .export-task-launcher:hover { background: #1d4ed8; }
+.export-task-center button:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+.assistant-unread {
+  position: absolute; top: -3px; right: -3px; min-width: 20px; height: 20px;
+  padding: 0 4px; border: 2px solid #fff; border-radius: 12px;
+  background: #dc2626; color: #fff; font-size: 10px; line-height: 16px;
+}
+.assistant-running {
+  position: absolute; bottom: 1px; right: 1px; width: 12px; height: 12px;
+  border: 2px solid #fff; border-radius: 50%; background: #f59e0b;
+}
+.export-task-panel { width: min(360px, calc(100vw - 40px)); border-radius: 18px; max-height: calc(100dvh - 110px); }
+.export-task-panel > header { flex-shrink: 0; padding-bottom: 12px; }
+.export-task-panel > header strong { font-size: 15px; }
+.export-task-panel > header small { display: block; margin-top: 4px; font-size: 11px; color: #667085; }
+.export-task-panel > header > button { border: 0; font-size: 20px; color: #667085; }
+.assistant-tabs { display: flex; flex-shrink: 0; gap: 4px; padding: 4px; border-radius: 9px; background: #f1f5f9; }
+.export-task-center .assistant-tabs button { flex: 1; border: 0; background: transparent; color: #64748b; cursor: pointer; }
+.export-task-center .assistant-tabs button[aria-pressed="true"] { background: #fff; color: #175cd3; box-shadow: 0 1px 3px rgb(16 24 40 / 8%); }
+.assistant-placeholder { min-height: 220px; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 20px; color: #667085; text-align: center; }
+.assistant-placeholder strong { font-size: 18px; color: #344054; }
+.assistant-placeholder span { border-radius: 20px; padding: 3px 10px; background: #f1f5f9; font-size: 11px; }
+.assistant-placeholder p { margin: 0; font-size: 12px; }
