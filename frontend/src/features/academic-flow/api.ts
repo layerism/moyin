@@ -665,6 +665,9 @@ export const workflowApi = {
   listReviewRemarks() {
     return request<{ id: number; content: string }[]>("/api/workflow-admin/review-remarks");
   },
+  deleteReviewRemark(id: number) {
+    return request<{ deleted: boolean }>(`/api/workflow-admin/review-remarks/${id}`, { method: "DELETE" });
+  },
   saveReviewRemark(content: string, id?: number) {
     return request<{ id: number; content: string }>(
       `/api/workflow-admin/review-remarks${id === undefined ? "" : `/${id}`}`,

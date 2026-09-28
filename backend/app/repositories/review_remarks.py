@@ -16,7 +16,7 @@ def list_review_remarks(teacher_id: int):
                 (teacher_id, index, text),
             )
         return [dict(row) for row in connection.execute(
-            "SELECT id, content FROM teacher_review_remarks WHERE teacher_id = ? ORDER BY id", (teacher_id,)
+            "SELECT id, content FROM teacher_review_remarks WHERE teacher_id = ? AND content != '' ORDER BY id", (teacher_id,)
         )]
 
 
@@ -28,9 +28,20 @@ def save_review_remark(teacher_id: int, content: str, remark_id: int | None = No
             ).lastrowid
         else:
             changed = connection.execute(
-                "UPDATE teacher_review_remarks SET content = ? WHERE id = ? AND teacher_id = ?",
+                "UPDATE teacher_review_remarks SET content = ? WHERE id = ? AND teacher_id = ? AND content != ''",
                 (content, remark_id, teacher_id),
             )
             if changed.rowcount != 1:
                 raise KeyError(remark_id)
     return {"id": remark_id, "content": content}
+
+
+def delete_review_remark(teacher_id: int, remark_id: int):
+    with get_connection() as connection:
+        # Retain the default slot so a deleted built-in remark is not seeded again.
+        changed = connection.execute(
+            "UPDATE teacher_review_remarks SET content = '' WHERE id = ? AND teacher_id = ? AND content != ''",
+            (remark_id, teacher_id),
+        )
+        if changed.rowcount != 1:
+            raise KeyError(remark_id)

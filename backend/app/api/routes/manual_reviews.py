@@ -224,3 +224,13 @@ def edit_quick_remark(remark_id: int, payload: QuickRemarkRequest, teacher=Depen
         return save_review_remark(int(teacher['id']), payload.content, remark_id)
     except KeyError as exc:
         raise HTTPException(404, '常用评语不存在') from exc
+
+
+@router.delete('/review-remarks/{remark_id}')
+def remove_quick_remark(remark_id: int, teacher=Depends(get_current_teacher)):
+    from app.repositories.review_remarks import delete_review_remark
+    try:
+        delete_review_remark(int(teacher['id']), remark_id)
+        return {'deleted': True}
+    except KeyError as exc:
+        raise HTTPException(404, '常用评语不存在') from exc

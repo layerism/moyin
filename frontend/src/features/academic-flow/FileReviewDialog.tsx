@@ -56,6 +56,17 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
     });
     return () => { cancelled = true; };
   }, []);
+  const deleteQuickRemark = async (id: number) => {
+    if (savingQuickRemark) return;
+    setSavingQuickRemark(true); setQuickRemarkError("");
+    try {
+      await workflowApi.deleteReviewRemark(id);
+      setQuickRemarks((current) => current.filter((item) => item.id !== id));
+      setEditingQuickRemark((current) => current?.id === id ? null : current);
+    } catch (reason) {
+      setQuickRemarkError(reason instanceof Error ? reason.message : "删除失败");
+    } finally { setSavingQuickRemark(false); }
+  };
   const saveQuickRemark = async () => {
     if (!editingQuickRemark?.content.trim() || savingQuickRemark) return;
     setSavingQuickRemark(true); setQuickRemarkError("");
@@ -245,12 +256,11 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
               <section className="file-review-workspace" aria-label="填写审核意见">
                 <label className="file-review-remark">审核评语（选填）<textarea disabled={busy} maxLength={1000} value={remark} onChange={(event) => changeRemark(event.target.value)} placeholder="填写评阅意见或需要修改的内容…" /></label>
                 <div className="file-review-quick-remarks" aria-label="常用评语">
-                  <small>常用评语</small>
+                  <div className="review-remarks-heading"><small>常用评语</small><button type="button" disabled={savingQuickRemark} aria-label="新增常用评语" title="新增常用评语" onClick={() => setEditingQuickRemark({ content: "" })}>＋</button></div>
                   {quickRemarks.map((item) => <span className="review-remark-choice" key={item.id}>
-                    <button type="button" disabled={busy} onClick={() => appendRemark(item.content)}>{item.content}</button>
-                    <button type="button" disabled={savingQuickRemark} aria-label={`编辑评语：${item.content}`} onClick={() => setEditingQuickRemark(item)}>编辑</button>
+                    <button className="review-remark-text" type="button" disabled={busy} title={`${item.content}（右键编辑）`} onContextMenu={(event) => { event.preventDefault(); if (!savingQuickRemark) setEditingQuickRemark(item); }} onKeyDown={(event) => { if (event.key === "F2" && !savingQuickRemark) { event.preventDefault(); setEditingQuickRemark(item); } }} onClick={() => appendRemark(item.content)}>{item.content}</button>
+                    <button className="review-remark-remove" type="button" disabled={savingQuickRemark} aria-label={`删除评语：${item.content}`} onClick={() => void deleteQuickRemark(item.id)}>×</button>
                   </span>)}
-                  <button type="button" disabled={savingQuickRemark} onClick={() => setEditingQuickRemark({ content: "" })}>＋ 新增评语</button>
                   {editingQuickRemark && <div className="review-remark-editor">
                     <label>{editingQuickRemark.id === undefined ? "新增常用评语" : "修改常用评语"}<textarea maxLength={1000} disabled={savingQuickRemark} value={editingQuickRemark.content} onChange={(event) => setEditingQuickRemark({ ...editingQuickRemark, content: event.target.value })} /></label>
                     <button type="button" disabled={savingQuickRemark || !editingQuickRemark.content.trim()} onClick={() => void saveQuickRemark()}>{savingQuickRemark ? "保存中…" : "保存评语"}</button>

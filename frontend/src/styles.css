@@ -14565,20 +14565,34 @@ td {
   flex-shrink: 0;
 }
 
+.file-review-quick-remarks .review-remarks-heading {
+  flex-basis: 100%; display: flex; align-items: center; justify-content: space-between;
+}
+.file-review-quick-remarks .review-remarks-heading > small { color: #64748b; }
+.file-manual-review-dialog .review-remarks-heading > button {
+  padding: 0; width: 26px; height: 26px; min-height: 0; border: 0; background: transparent; color: #2563eb; font-size: 18px;
+}
 .file-review-quick-remarks .review-remark-choice {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 4px;
-  max-width: 100%;
+  display: inline-flex; align-items: center; flex: 0 1 auto; min-width: 0;
+  max-width: min(240px, 100%); border: 1px solid #d6dfec; border-radius: 6px; background: #fff;
 }
-.file-review-quick-remarks .review-remark-choice > button:first-child {
-  min-width: 0;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  text-align: left;
+.file-manual-review-dialog .review-remark-choice > button {
+  border: 0; background: transparent; min-height: 0; box-shadow: none;
+  padding: 5px 8px; color: #475569; font-size: 12px;
 }
-.file-review-quick-remarks .review-remark-choice > button:last-child {
-  flex-shrink: 0;
+.file-manual-review-dialog .review-remark-choice > .review-remark-text {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
+}
+.file-manual-review-dialog .review-remark-choice > .review-remark-remove {
+  flex: 0 0 24px; padding: 4px; opacity: 0; pointer-events: none;
+}
+.file-manual-review-dialog .review-remark-choice:hover > .review-remark-remove,
+.file-manual-review-dialog .review-remark-choice:focus-within > .review-remark-remove {
+  opacity: 1; pointer-events: auto;
+}
+.file-manual-review-dialog .review-remark-choice > .review-remark-remove:hover { color: #b42318; }
+@media (hover: none), (pointer: coarse) {
+  .file-manual-review-dialog .review-remark-choice > .review-remark-remove { opacity: 1; pointer-events: auto; }
 }
 .file-review-quick-remarks .review-remark-editor {
   flex-basis: 100%;
