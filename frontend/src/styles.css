@@ -14599,16 +14599,24 @@ td {
   flex-basis: 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
 }
 .review-remark-editor > label { flex-basis: 100%; }
 .review-remark-editor textarea {
   display: block;
   width: 100%;
-  min-height: 80px;
-  padding: 8px;
+  height: 40px;
+  min-height: 40px;
+  padding: 4px 6px;
   border: 1px solid #ccd7e6;
   border-radius: 7px;
   font: inherit;
   resize: vertical;
+}
+.file-manual-review-dialog .review-remark-editor > button {
+  min-height: 0;
+  padding: 3px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 5px;
 }
