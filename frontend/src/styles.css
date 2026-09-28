@@ -10829,38 +10829,38 @@ button {
   color: #667085;
 }
 
-.student-account-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 26px;
+.student-flow-list-heading {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 22px; margin-bottom: 8px; color: #667085; font-size: 12px;
 }
-
+.student-flow-list-heading > button { border: 0; background: transparent; color: inherit; font: inherit; padding: 4px; }
+.student-account-list { display: grid; gap: 6px; }
 .student-account-list > button {
-  display: flex;
-  min-height: 76px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border: 1px solid #d8dee8;
-  border-radius: 7px;
-  background: #fff;
-  text-align: left;
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) 112px 76px 16px;
+  min-height: 52px; align-items: center; gap: 12px; padding: 9px 12px;
+  border: 1px solid #d8dee8; border-radius: 7px; background: #fff; text-align: left;
 }
-
-.student-account-list strong,
-.student-account-list small {
-  display: block;
+.student-account-list > button:hover:not(:disabled) { border-color: #76a7fa; background: #f5f9ff; }
+.student-flow-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 6px; background: #edf3ff; color: #3973c9; }
+.student-flow-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.student-flow-time { color: #667085; font-size: 12px; font-variant-numeric: tabular-nums; }
+.student-flow-chevron { color: #98a2b3; }
+.student-flow-chevron svg { width: 16px; height: 16px; }
+.student-account-list .student-flow-status {
+  justify-self: end; display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px;
+  border-radius: 5px; font-size: 11px; font-style: normal; font-weight: 500; white-space: nowrap;
 }
-
-.student-account-list small {
-  margin-top: 5px;
-  color: #667085;
-}
-
-.student-account-list em {
-  color: #175cd3;
-  font-style: normal;
-  font-weight: 700;
+.student-flow-status::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.student-flow-status.is-in_progress { color: #245fce; background: #edf3ff; }
+.student-flow-status.is-completed { color: #16734b; background: #eaf8f0; }
+.student-flow-status.is-not_started { color: #667085; background: #edf0f5; }
+@media (max-width: 600px) {
+  .student-account-list > button { grid-template-columns: 30px minmax(0, 1fr) 72px 12px; column-gap: 8px; row-gap: 0; min-height: 58px; }
+  .student-flow-icon { grid-row: 1 / 3; }
+  .student-flow-name { grid-column: 2; grid-row: 1; }
+  .student-flow-time { grid-column: 2; grid-row: 2; }
+  .student-flow-status { grid-column: 3; grid-row: 1 / 3; }
+  .student-flow-chevron { grid-column: 4; grid-row: 1 / 3; }
 }
 
 .student-account-empty {
