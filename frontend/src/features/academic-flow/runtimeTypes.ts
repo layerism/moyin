@@ -219,3 +219,16 @@ export type ManualReviewDetail = {
   }>;
   history: Array<{ id: string; remark: string; reviewedAt: string; teacherName: string; passed?: boolean }>;
 };
+
+export type ExportJob = {
+  id: string;
+  versionId: string;
+  flowName: string;
+  status: "pending" | "running" | "completed" | "failed" | "expired";
+  error: string | null;
+  filename: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+  expiresAt: string | null;
+  seen: boolean;
+};

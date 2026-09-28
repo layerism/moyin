@@ -1,3 +1,4 @@
+import { ExportTasksProvider } from "./features/academic-flow/ExportTasks";
 import { mapServerFlow } from "./features/academic-flow/flowMapping";
 import { RequiredPhoneBinding } from "./features/auth/SmsPasswordRecovery";
 import { ProfilePage } from "./features/auth/ProfilePage";
@@ -590,6 +591,7 @@ export function App() {
     setTab("stats");
   };
 
+  const renderScreen = () => {
   if (screen === "authLogin") {
     // Finish initial session restoration before clearing this role's session.
     if (!authReady) return <main className="auth-loading-page"><strong>正在准备登录…</strong></main>;
@@ -994,5 +996,12 @@ export function App() {
         />
       )}
     </div>
+  );
+  };
+  return (
+    <ExportTasksProvider key={teacherIdentity?.id ?? "anonymous"} teacherId={teacherIdentity?.id ?? null}
+      visible={TEACHER_AUTHENTICATED_SCREENS.includes(screen)}>
+      {renderScreen()}
+    </ExportTasksProvider>
   );
 }

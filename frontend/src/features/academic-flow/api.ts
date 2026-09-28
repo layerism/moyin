@@ -1,3 +1,4 @@
+import type { ExportJob } from "./runtimeTypes";
 import type { AcademicFlowConfig, AcademicFlowNode, AcademicProcess, AnswerSheetPrivateKey, FileReviewStep } from "../../types";
 import { createFileUploadBody, type UploadedFile } from "./fileUpload";
 import type { AuditScriptSummary, NodeAuditPolicy } from "./auditScripts";
@@ -707,11 +708,17 @@ export const workflowApi = {
       `/api/workflow-admin/node-instances/${encodeURIComponent(nodeInstanceId)}/submission-detail`,
     );
   },
-  downloadTeacherVersionPackage(versionId: string) {
-    return downloadRequest(
-      `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/package/download`,
-      "全部节点资料.zip",
-    );
+  createExportJob(versionId: string) {
+    return request<ExportJob>(`/api/workflow-admin/versions/${encodeURIComponent(versionId)}/export-jobs`, { method: "POST" });
+  },
+  listExportJobs() {
+    return request<ExportJob[]>("/api/workflow-admin/export-jobs");
+  },
+  markExportJobSeen(jobId: string) {
+    return request<{ ok: boolean }>(`/api/workflow-admin/export-jobs/${encodeURIComponent(jobId)}/seen`, { method: "POST" });
+  },
+  downloadExportJob(jobId: string) {
+    return downloadRequest(`/api/workflow-admin/export-jobs/${encodeURIComponent(jobId)}/download`, "全部节点资料.zip");
   },
   getTeacherNodePackageOptions(versionId: string, nodeKey: string) {
     return request<NodePackageOptions>(

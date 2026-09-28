@@ -24,14 +24,14 @@ function minimumExtensionValue(effectiveDeadline: string) {
 
 export function TeacherProgressPanel({
   downloadingPackage,
-  packageError,
+  onOpenExportTasks,
   onDownloadPackage,
   nodes,
   onClose,
   versionId,
 }: {
   downloadingPackage: boolean;
-  packageError: string;
+  onOpenExportTasks: () => void;
   onDownloadPackage: (versionId: string) => void;
   nodes: AcademicFlowNode[];
   onClose: () => void;
@@ -391,15 +391,15 @@ export function TeacherProgressPanel({
             </button>
           </header>
           <div className="progress-panel-content">
-            {[notice, packageError].map((message, index) => message ? (
-              <div className="progress-notice" role="alert" key={index}>
+            {notice ? (
+              <div className="progress-notice" role="alert">
                 <svg aria-hidden="true" viewBox="0 0 20 20">
                   <circle cx="10" cy="10" r="8" />
                   <path d="M10 5.8v5.1M10 14.1v.1" />
                 </svg>
-                <span>{message}</span>
+                <span>{notice}</span>
               </div>
-            ) : null)}
+            ) : null}
 
             <section className="progress-summary" aria-label="学生进度概览">
               {progressSummary.map((item) => (
@@ -427,7 +427,8 @@ export function TeacherProgressPanel({
                   <span aria-hidden="true">↓ </span>
                   {downloadingPackage ? "正在打包全部材料…" : "打包导出全部材料"}
                 </button>
-                <span className="progress-export-hint">按流程层级整理 · 含 Excel 和已提交附件</span>
+                <button className="progress-operation-button" type="button" onClick={onOpenExportTasks}>查看导出任务</button>
+                <span className="progress-export-hint">后台打包 · 退出流程后可在导出任务中下载</span>
               </section>
             ) : null}
             <section className="progress-table-wrap" onScroll={() => setOpenActionMenuId(null)}>

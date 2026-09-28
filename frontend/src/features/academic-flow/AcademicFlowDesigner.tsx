@@ -81,7 +81,7 @@ import { NodePackageDownloadDialog } from "./NodePackageDownloadDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
-import { saveDownload } from "./download";
+import { useExportTasks } from "./ExportTasks";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 
 import { branchPort, branchPortFraction, nodePorts } from "./branch";
@@ -225,23 +225,10 @@ export function AcademicFlowDesigner({
   const [activeNodeId, setActiveNodeId] = useState(process.draftConfig.nodes[0]?.id ?? "");
   const [inspectorNodeId, setInspectorNodeId] = useState<string | null>(null);
   const [showProgress, setShowProgress] = useState(false);
-  const [packageDownloads, setPackageDownloads] = useState<Record<string, { pending: boolean; error: string }>>({});
-  const pendingPackageVersions = useRef(new Set<string>());
-  const downloadVersionPackage = async (versionId: string) => {
-    if (pendingPackageVersions.current.has(versionId)) return;
-    pendingPackageVersions.current.add(versionId);
-    setPackageDownloads((current) => ({ ...current, [versionId]: { pending: true, error: "" } }));
-    let error = "";
-    try {
-      const download = await workflowApi.downloadTeacherVersionPackage(versionId);
-      saveDownload(download.blob, download.filename);
-    } catch (reason) {
-      error = reason instanceof Error ? reason.message : "全部节点资料打包失败，请重试";
-    } finally {
-      pendingPackageVersions.current.delete(versionId);
-      setPackageDownloads((current) => ({ ...current, [versionId]: { pending: false, error } }));
-    }
-  };
+  const exportTasks = useExportTasks();
+  const packagePending = exportTasks.submitting.includes(workingProcess.publishedVersionId ?? "")
+    || exportTasks.jobs.some((job) => job.versionId === workingProcess.publishedVersionId
+      && (job.status === "pending" || job.status === "running"));
   const [showRoster, setShowRoster] = useState(false);
   const [rosterActiveCount, setRosterActiveCount] = useState<number | null>(null);
   const [actionNotice, setActionNotice] = useState("");
@@ -1015,9 +1002,9 @@ export function AcademicFlowDesigner({
         )}
         {showProgress && workingProcess.publishedVersionId ? (
           <TeacherProgressPanel
-            downloadingPackage={packageDownloads[workingProcess.publishedVersionId]?.pending ?? false}
-            packageError={packageDownloads[workingProcess.publishedVersionId]?.error ?? ""}
-            onDownloadPackage={(versionId) => void downloadVersionPackage(versionId)}
+            downloadingPackage={packagePending}
+            onDownloadPackage={exportTasks.start}
+            onOpenExportTasks={exportTasks.openTasks}
             nodes={publishedRuntimeNodes}
             onClose={() => setShowProgress(false)}
             versionId={workingProcess.publishedVersionId}

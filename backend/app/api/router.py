@@ -20,7 +20,10 @@ from app.api.routes import (
     workflow_blueprints,
 )
 
+from app.api.routes import export_jobs
+
 api_router = APIRouter()
+api_router.include_router(export_jobs.router, prefix="/workflow-admin", tags=["export-jobs"])
 api_router.include_router(user_admin.router, prefix="/admin", tags=["user-admin"])
 api_router.include_router(health.router, tags=["health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])

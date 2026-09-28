@@ -6,6 +6,22 @@ from app.core.config import settings
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS material_export_jobs (
+    id TEXT PRIMARY KEY,
+    teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,
+    version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
+    flow_name TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'completed', 'failed', 'expired')),
+    filename TEXT,
+    error TEXT,
+    created_at TEXT NOT NULL,
+    finished_at TEXT,
+    expires_at TEXT,
+    seen_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS active_material_export_job
+    ON material_export_jobs(teacher_id, version_id) WHERE status IN ('pending', 'running');
+
 CREATE TABLE IF NOT EXISTS teacher_review_remarks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,

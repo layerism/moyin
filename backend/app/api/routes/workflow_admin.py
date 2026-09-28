@@ -32,7 +32,6 @@ from app.repositories.teacher_node_exports import (
     TeacherNodeExportConflictError,
     TeacherNodeExportError,
     get_node_submission_export,
-    get_version_submission_export,
 )
 from app.services.audit_job_worker import signal_audit_job_cancellations
 from app.services.audit_script_catalog import (
@@ -53,7 +52,6 @@ from app.services.material_archive import (
     MaterialArchiveEmptyError,
     build_material_archive,
     build_node_submission_archive,
-    build_version_submission_archive,
     cleanup_material_archive,
 )
 from app.services.node_submission_workbook import build_node_submission_workbook
@@ -330,30 +328,6 @@ def download_version_materials(
         raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
     except ObjectStorageError as exc:
         raise HTTPException(status_code=503, detail="材料下载失败") from exc
-
-
-@router.get("/versions/{version_id}/package/download")
-def download_version_submission_package(
-    version_id: str,
-    teacher: dict[str, object] = Depends(get_current_teacher),
-) -> FileResponse:
-    try:
-        selection = get_version_submission_export(version_id, int(teacher["id"]))
-        archive = build_version_submission_archive(selection)
-        return FileResponse(
-            archive.path,
-            filename=archive.filename,
-            media_type="application/zip",
-            background=BackgroundTask(cleanup_material_archive, archive),
-        )
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="流程版本不存在") from exc
-    except (TeacherNodeExportError, MaterialArchiveEmptyError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except ObjectStorageNotConfigured as exc:
-        raise HTTPException(status_code=503, detail="文件存储服务未配置") from exc
-    except ObjectStorageError as exc:
-        raise HTTPException(status_code=503, detail="全部节点资料打包失败，请重试") from exc
 
 
 @router.get("/versions/{version_id}/nodes/{node_key}/submissions/export")

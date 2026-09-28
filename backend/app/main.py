@@ -8,6 +8,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import initialize_database
 from app.services.audit_job_worker import start_audit_worker_pool, stop_audit_worker_pool
+from app.services.export_job_worker import run_export_worker
 
 
 @asynccontextmanager
@@ -17,10 +18,14 @@ async def lifespan(_: FastAPI):
     from app.services.user_deletion_worker import run_cleanup
     cleanup_stop = asyncio.Event()
     cleanup_task = asyncio.create_task(run_cleanup(cleanup_stop))
+    export_stop = asyncio.Event()
+    export_task = asyncio.create_task(run_export_worker(export_stop))
     try:
         yield
     finally:
         cleanup_stop.set()
+        export_stop.set()
+        await export_task
         await cleanup_task
         await stop_audit_worker_pool(worker_pool)
 

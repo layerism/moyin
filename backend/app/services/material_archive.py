@@ -168,10 +168,15 @@ def build_node_submission_archive(
         raise
 
 
-def build_version_submission_archive(selection: TeacherVersionExportSelection) -> MaterialArchive:
+def build_version_submission_archive(
+    selection: TeacherVersionExportSelection, *, directory: Path | None = None,
+) -> MaterialArchive:
     if not selection.nodes:
         raise MaterialArchiveEmptyError("当前流程没有可导出的节点")
-    directory = Path(tempfile.mkdtemp(prefix="moyin-version-package-"))
+    if directory is None:
+        directory = Path(tempfile.mkdtemp(prefix="moyin-version-package-"))
+    else:
+        directory.mkdir(parents=True, exist_ok=True)
     archive_path = directory / "version-package.zip"
     local_path = directory / "downloaded-file"
     root = PurePosixPath(_safe_component(selection.flow_name))
