@@ -14003,9 +14003,10 @@ td {
 .file-review-filename small { display: block; color: #78849a; font-size: 11px; margin-top: 3px; }
 .file-manual-review-dialog .file-format-icon { flex: 0 0 32px; }
 .file-review-workspace { display: grid; gap: 18px; padding: 18px; }
-.file-review-workspace .file-review-remark { margin: 0; gap: 10px; font-weight: 600; }
+.file-review-workspace .file-review-remark { margin: 0; gap: 6px; font-weight: 600; }
 .file-review-workspace textarea { min-height: 170px; line-height: 1.6; font-weight: 400; }
-.file-review-quick-remarks { display: flex; flex-wrap: wrap; gap: 6px; }
+.file-review-workspace .file-review-remark textarea { height: 85px; min-height: 85px; }
+.file-review-quick-remarks { display: flex; flex-wrap: wrap; gap: 4px; }
 .file-review-quick-remarks > small { flex-basis: 100%; color: #64748b; }
 .file-manual-review-dialog .file-review-quick-remarks > button { padding: 5px 8px; font-size: 11px; color: #475569; background: #fff; }
 .file-review-attachments { min-width: 0; padding-top: 16px; border-top: 1px solid #e7ecf3; }
@@ -14578,13 +14579,13 @@ td {
 }
 .file-manual-review-dialog .review-remark-choice > button {
   border: 0; background: transparent; min-height: 0; box-shadow: none;
-  padding: 5px 8px; color: #475569; font-size: 12px;
+  padding: 3px 6px; color: #475569; font-size: 11px; line-height: 1.4;
 }
 .file-manual-review-dialog .review-remark-choice > .review-remark-text {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
 }
 .file-manual-review-dialog .review-remark-choice > .review-remark-remove {
-  flex: 0 0 24px; padding: 4px; opacity: 0; pointer-events: none;
+  flex: 0 0 18px; padding: 2px; opacity: 0; pointer-events: none;
 }
 .file-manual-review-dialog .review-remark-choice:hover > .review-remark-remove,
 .file-manual-review-dialog .review-remark-choice:focus-within > .review-remark-remove {
