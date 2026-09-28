@@ -23,10 +23,16 @@ function minimumExtensionValue(effectiveDeadline: string) {
 }
 
 export function TeacherProgressPanel({
+  downloadingPackage,
+  packageError,
+  onDownloadPackage,
   nodes,
   onClose,
   versionId,
 }: {
+  downloadingPackage: boolean;
+  packageError: string;
+  onDownloadPackage: (versionId: string) => void;
   nodes: AcademicFlowNode[];
   onClose: () => void;
   versionId: string;
@@ -41,7 +47,6 @@ export function TeacherProgressPanel({
   const [submissionDetail, setSubmissionDetail] = useState<TeacherSubmissionDetail | null>(null);
   const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null);
   const [openActionMenuId, setOpenActionMenuId] = useState<string | null>(null);
-  const [downloadingPackage, setDownloadingPackage] = useState(false);
   const [downloadingNodeId, setDownloadingNodeId] = useState<string | null>(null);
   const [fileReview, setFileReview] = useState<{ nodeKey: string; studentNo: string } | null>(null);
   const [manualApprovalOpen, setManualApprovalOpen] = useState(false);
@@ -186,19 +191,6 @@ export function TeacherProgressPanel({
     setManualReason("");
     setManualError("");
     setDetailNotice("");
-  };
-
-  const downloadVersionPackage = async () => {
-    setDownloadingPackage(true);
-    setNotice("");
-    try {
-      const download = await workflowApi.downloadTeacherVersionPackage(versionId);
-      saveDownload(download.blob, download.filename);
-    } catch (reason) {
-      setNotice(reason instanceof Error ? reason.message : "材料下载失败");
-    } finally {
-      setDownloadingPackage(false);
-    }
   };
 
   const downloadNodeMaterials = async (nodeInstanceId: string) => {
@@ -399,15 +391,15 @@ export function TeacherProgressPanel({
             </button>
           </header>
           <div className="progress-panel-content">
-            {notice ? (
-              <div className="progress-notice" role="alert">
+            {[notice, packageError].map((message, index) => message ? (
+              <div className="progress-notice" role="alert" key={index}>
                 <svg aria-hidden="true" viewBox="0 0 20 20">
                   <circle cx="10" cy="10" r="8" />
                   <path d="M10 5.8v5.1M10 14.1v.1" />
                 </svg>
-                <span>{notice}</span>
+                <span>{message}</span>
               </div>
-            ) : null}
+            ) : null)}
 
             <section className="progress-summary" aria-label="学生进度概览">
               {progressSummary.map((item) => (
@@ -429,7 +421,7 @@ export function TeacherProgressPanel({
                 <button
                   className="progress-operation-button"
                   disabled={downloadingPackage}
-                  onClick={() => void downloadVersionPackage()}
+                  onClick={() => onDownloadPackage(versionId)}
                   type="button"
                 >
                   <span aria-hidden="true">↓ </span>
