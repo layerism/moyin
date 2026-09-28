@@ -14373,9 +14373,8 @@ td {
 .export-task-center {
   position: fixed;
   z-index: 180;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 20px;
+  bottom: 20px;
   color: #172033;
   font-size: 13px;
 }
@@ -14390,18 +14389,17 @@ td {
 .export-task-center button:disabled { opacity: .55; cursor: wait; }
 .export-task-launcher { box-shadow: 0 2px 8px rgb(16 24 40 / 10%); }
 .export-task-panel, .export-task-toast {
-  width: min(400px, calc(100vw - 24px));
+  width: min(400px, calc(100vw - 40px));
   position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: calc(100% + 8px);
+  right: 0;
   border: 1px solid #d7dee8;
   border-radius: 10px;
   background: #fff;
   box-shadow: 0 12px 36px rgb(16 24 40 / 18%);
   padding: 14px;
 }
-.export-task-panel { max-height: calc(100dvh - 70px); display: flex; flex-direction: column; }
+.export-task-panel { max-height: calc(100dvh - 90px); display: flex; flex-direction: column; }
 .export-task-panel > header { display: flex; align-items: center; justify-content: space-between; }
 .export-task-help, .export-task-list small { color: #667085; font-size: 12px; }
 .export-task-list { overflow-y: auto; min-height: 0; }
@@ -14415,3 +14413,8 @@ td {
 .export-task-state.is-expired { color: #667085; }
 .export-task-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .export-task-toast p { margin: 6px 0; }
+
+@media (max-width: 480px) {
+  .export-task-center { right: 12px; bottom: 12px; }
+  .export-task-panel, .export-task-toast { width: calc(100vw - 24px); }
+}
