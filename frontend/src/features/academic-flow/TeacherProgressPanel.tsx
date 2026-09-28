@@ -1,11 +1,13 @@
 import { FileReviewDialog } from "./FileReviewDialog";
 import { hasSequentialManualReview } from "./FileReviewStepsEditor";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 
 import type { AcademicFlowNode } from "../../types";
 import { workflowApi } from "./api";
 import { saveDownload } from "./download";
 import type { TeacherSubmissionDetail, WorkflowProgress, WorkflowProgressNode, WorkflowProgressStudent } from "./runtimeTypes";
+
+type ProgressFilter = "all" | "completed" | "in_progress" | "overdue";
 
 function toLocalDateTimeInput(timestamp: number) {
   const date = new Date(timestamp);
@@ -30,6 +32,9 @@ export function TeacherProgressPanel({
   versionId: string;
 }) {
   const [progress, setProgress] = useState<WorkflowProgress | null>(null);
+  const [progressFilter, setProgressFilter] = useState<ProgressFilter>("all");
+  const [activityDescending, setActivityDescending] = useState(true);
+  const [menuPosition, setMenuPosition] = useState<CSSProperties>({});
   const [notice, setNotice] = useState("");
   const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
   const [savingExtension, setSavingExtension] = useState(false);
@@ -134,9 +139,12 @@ export function TeacherProgressPanel({
       setOpenActionMenuId(null);
       window.requestAnimationFrame(() => trigger?.focus());
     };
+    const closeOnResize = () => setOpenActionMenuId(null);
+    window.addEventListener("resize", closeOnResize);
     document.addEventListener("pointerdown", closeOnPointerDown);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
+      window.removeEventListener("resize", closeOnResize);
       document.removeEventListener("pointerdown", closeOnPointerDown);
       document.removeEventListener("keydown", closeOnEscape);
     };
@@ -341,15 +349,26 @@ export function TeacherProgressPanel({
   const overdueStudentCount = progressStudents.filter(
     (student) => student.expiredCount > 0,
   ).length;
-  const progressSummary = [
-    { label: "学生总数", tone: "neutral", value: progress ? progressStudents.length : "—" },
-    { label: "已完成", tone: "success", value: progress ? completedStudentCount : "—" },
+  const visibleStudents = progressStudents.filter((student) => (
+    progressFilter === "all"
+    || (progressFilter === "overdue" ? student.expiredCount > 0
+      : progressFilter === "completed" ? student.status === "completed"
+        : student.status !== "completed")
+  )).sort((a, b) => {
+    const difference = new Date(a.lastActiveAt).getTime() - new Date(b.lastActiveAt).getTime();
+    return (activityDescending ? -difference : difference) || a.studentNo.localeCompare(b.studentNo);
+  });
+  const progressSummary: { filter: ProgressFilter; label: string; tone: string; value: number | string }[] = [
+    { filter: "all", label: "全部", tone: "neutral", value: progress ? progressStudents.length : "—" },
+    { filter: "completed", label: "已完成", tone: "success", value: progress ? completedStudentCount : "—" },
     {
+      filter: "in_progress",
       label: "进行中",
       tone: "accent",
       value: progress ? progressStudents.length - completedStudentCount : "—",
     },
     {
+      filter: "overdue",
       label: "有逾期",
       tone: overdueStudentCount > 0 ? "danger" : "neutral",
       value: progress ? overdueStudentCount : "—",
@@ -391,8 +410,8 @@ export function TeacherProgressPanel({
         >
           <header className="progress-panel-header">
             <div className="progress-panel-heading">
-              <span>流程运行管理</span>
               <h2>学生填写进度</h2>
+              {progress ? <span title={progress.name}>{progress.name}</span> : null}
             </div>
             <button
               aria-label="关闭进度面板"
@@ -418,22 +437,25 @@ export function TeacherProgressPanel({
 
             <section className="progress-summary" aria-label="学生进度概览">
               {progressSummary.map((item) => (
-                <div className={`progress-summary-item is-${item.tone}`} key={item.label}>
+                <button
+                  aria-pressed={progressFilter === item.filter}
+                  className={`progress-summary-item is-${item.tone}`}
+                  key={item.filter}
+                  onClick={() => { setProgressFilter(item.filter); setOpenActionMenuId(null); }}
+                  type="button"
+                >
                   <span>{item.label}</span>
                   <strong>{item.value}</strong>
-                </div>
+                </button>
               ))}
             </section>
 
             {nodes.length > 0 ? (
-              <section className="progress-operations" aria-labelledby="progress-operations-title">
-                <header>
-                  <h3 id="progress-operations-title">数据操作</h3>
-                </header>
-                <div className={`progress-operation-grid${materialNodes.length > 0 ? "" : " is-single"}`}>
+              <section className="progress-operations" aria-label="数据导出与材料下载">
+                <div className="progress-operation-grid">
                   <div className="progress-operation-group">
                     <label>
-                      <span>节点填写数据</span>
+                      <span>节点</span>
                       <select
                         value={selectedExportNodeKey}
                         onChange={(event) => setExportNodeKey(event.target.value)}
@@ -444,18 +466,18 @@ export function TeacherProgressPanel({
                       </select>
                     </label>
                     <button
-                      className="primary-action progress-operation-button"
+                      className="progress-operation-button"
                       disabled={exportingNodeKey !== null}
                       onClick={() => void exportNodeSubmissions()}
                       type="button"
                     >
-                      {exportingNodeKey ? "正在导出…" : "导出 Excel"}
+                      <span aria-hidden="true">↓ </span>{exportingNodeKey ? "正在导出…" : "导出 Excel"}
                     </button>
                   </div>
                   {materialNodes.length > 0 ? (
                     <div className="progress-operation-group">
                       <label>
-                        <span>下载范围</span>
+                        <span>材料</span>
                         <select value={downloadScope} onChange={(event) => setDownloadScope(event.target.value)}>
                           <option value="">全部节点（按层级整理）</option>
                           {materialNodes.map((node) => (
@@ -464,25 +486,34 @@ export function TeacherProgressPanel({
                         </select>
                       </label>
                       <button
-                        className="primary-action progress-operation-button"
+                        className="progress-operation-button"
                         disabled={downloadingScope}
                         onClick={() => void downloadVersionMaterials()}
                         type="button"
                       >
-                        {downloadingScope ? "正在打包…" : "下载材料"}
+                        <span aria-hidden="true">↓ </span>{downloadingScope ? "正在打包…" : "下载材料"}
                       </button>
                     </div>
                   ) : null}
                 </div>
               </section>
             ) : null}
-            <section className="progress-table-wrap">
+            <section className="progress-table-wrap" onScroll={() => setOpenActionMenuId(null)}>
               <table className="progress-table">
               <thead>
-                <tr><th>学生</th><th>状态</th><th>完成</th><th>逾期</th><th>最后活动</th><th>操作</th></tr>
+                <tr>
+                  <th>学生 / 学号</th><th>状态</th><th>完成进度</th>
+                  <th aria-sort={activityDescending ? "descending" : "ascending"}>
+                    <button className="progress-activity-sort" type="button"
+                      onClick={() => { setActivityDescending((current) => !current); setOpenActionMenuId(null); }}>
+                      最后活动 <span aria-hidden="true">{activityDescending ? "↓" : "↑"}</span>
+                    </button>
+                  </th>
+                  <th>操作</th>
+                </tr>
               </thead>
               <tbody>
-                {progress?.students.map((student) => {
+                {visibleStudents.map((student) => {
                   const availableMaterialNodes = student.nodes.filter(
                     (node) => materialNodeKeys.has(node.nodeKey)
                       && ["reviewing", "approved", "rejected", "audit_error"].includes(node.status),
@@ -502,9 +533,12 @@ export function TeacherProgressPanel({
                         <span className={`progress-status-tag ${completed ? "is-completed" : "is-active"}`}>
                           {completed ? "已完成" : "进行中"}
                         </span>
+                        {student.expiredCount > 0 ? (
+                          <span className="progress-overdue-count">逾期 {student.expiredCount} 个节点</span>
+                        ) : null}
                       </td>
                       <td>
-                        <div className="progress-completion">
+                        <div className={`progress-completion${completed ? " is-completed" : ""}`}>
                           <strong>{student.approvedCount}/{student.totalCount}</strong>
                           <span
                             aria-label={`完成度 ${completionPercent}%`}
@@ -519,13 +553,11 @@ export function TeacherProgressPanel({
                         </div>
                       </td>
                       <td>
-                        <span className={`progress-overdue-count${student.expiredCount > 0 ? " is-overdue" : ""}`}>
-                          {student.expiredCount}
-                        </span>
-                      </td>
-                      <td>
-                        <time className="progress-last-active" dateTime={student.lastActiveAt}>
-                          {new Date(student.lastActiveAt).toLocaleString("zh-CN")}
+                        <time className="progress-last-active" dateTime={student.lastActiveAt}
+                          title={new Date(student.lastActiveAt).toLocaleString("zh-CN")}>
+                          {new Date(student.lastActiveAt).toLocaleString("zh-CN", {
+                            month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
+                          })}
                         </time>
                       </td>
                       <td className="progress-actions-cell">
@@ -535,9 +567,17 @@ export function TeacherProgressPanel({
                             aria-haspopup="menu"
                             aria-label={`${student.name}的操作`}
                             className="progress-action-menu-trigger"
-                            onClick={() => setOpenActionMenuId((current) => (
-                              current === student.instanceId ? null : student.instanceId
-                            ))}
+                            onClick={(event) => {
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              const openAbove = rect.bottom > window.innerHeight / 2;
+                              setMenuPosition({
+                                right: Math.max(12, window.innerWidth - rect.right),
+                                top: openAbove ? undefined : rect.bottom + 6,
+                                bottom: openAbove ? window.innerHeight - rect.top + 6 : undefined,
+                                maxHeight: Math.max(80, Math.min(320, openAbove ? rect.top - 18 : window.innerHeight - rect.bottom - 18)),
+                              });
+                              setOpenActionMenuId((current) => current === student.instanceId ? null : student.instanceId);
+                            }}
                             ref={(element) => {
                               if (element) {
                                 triggerRefs.current.set(student.instanceId, element);
@@ -549,13 +589,14 @@ export function TeacherProgressPanel({
                             type="button"
                           >
                             <svg aria-hidden="true" viewBox="0 0 16 16">
-                              <path d="M2 4h12M2 8h12M2 12h12" />
+                              <circle cx="3" cy="8" r="1" /><circle cx="8" cy="8" r="1" /><circle cx="13" cy="8" r="1" />
                             </svg>
                           </button>
                           {menuOpen ? (
                             <div
                               aria-label={`${student.name}的操作`}
                               className="progress-row-action-menu"
+                              style={menuPosition}
                               role="menu"
                             >
                               <button onClick={() => openExtension(student)} role="menuitem" type="button">
@@ -588,12 +629,18 @@ export function TeacherProgressPanel({
                     </tr>
                   );
                 })}
-                {progress?.students.length === 0 ? (
-                  <tr className="progress-table-empty"><td colSpan={6}>尚无学生进入该流程</td></tr>
+                {visibleStudents.length === 0 ? (
+                  <tr className="progress-table-empty"><td colSpan={5}>
+                    {!progress ? (notice ? "进度加载失败" : "正在加载学生进度…")
+                      : progressStudents.length === 0 ? "尚无学生进入该流程" : "当前筛选下暂无学生"}
+                  </td></tr>
                 ) : null}
               </tbody>
               </table>
             </section>
+            <footer className="progress-panel-footer" aria-live="polite">
+              {progress ? `显示 ${visibleStudents.length} / ${progressStudents.length} 位学生` : notice ? "进度加载失败" : "正在读取进度"}
+            </footer>
           </div>
         </aside>
       </div>
