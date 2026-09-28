@@ -1,8 +1,10 @@
 import hashlib
+from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Any
 
 from app.repositories.node_copy import copy_node
+from app.services.reference_images import compress_reference_image
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
@@ -320,10 +322,19 @@ def _upload_node_asset(
         size_bytes += len(chunk)
         digest.update(chunk)
     file.file.seek(0)
+    upload_stream = file.file
+    content_type = file.content_type or "application/octet-stream"
     try:
         if reference:
             validate_reference_metadata(filename, size_bytes)
             _validate_reference_content(file, filename)
+            if PurePosixPath(filename).suffix.lower() not in {".docx", ".pdf"}:
+                compressed = compress_reference_image(file.file)
+                upload_stream = BytesIO(compressed)
+                filename = str(PurePosixPath(filename).with_suffix(".jpg"))
+                content_type = "image/jpeg"
+                size_bytes = len(compressed)
+                digest = hashlib.sha256(compressed)
         elif node.get("kind") == "confirmation":
             if not filename.lower().endswith(".docx"):
                 raise ValueError("确认承诺模板必须为 DOCX 文件")
@@ -331,7 +342,6 @@ def _upload_node_asset(
             validate_file_metadata(node, filename, size_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    content_type = file.content_type or "application/octet-stream"
     sha256 = digest.hexdigest()
     storage_key = object_key(
         settings.oss_prefix,
@@ -341,7 +351,7 @@ def _upload_node_asset(
     )
     try:
         storage = get_object_storage()
-        uploaded = storage.put_object(storage_key, file.file, content_type)
+        uploaded = storage.put_object(storage_key, upload_stream, content_type)
         metadata, old_id, draft_hash = save_template_asset(
             flow_id=flow_id, node_key=node_key, teacher_id=teacher_id,
             storage_key=storage_key, original_name=filename, content_type=content_type,
