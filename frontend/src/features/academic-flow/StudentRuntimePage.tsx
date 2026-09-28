@@ -97,14 +97,11 @@ export function StudentRuntimePage({
       for (const node of instance.nodeInstances) {
         if (!(node.id in next) || newlyRejected.has(node.id)) {
           const configNode = instance.config.nodes.find((item) => item.id === node.nodeKey);
-          next[node.id] = configNode?.kind === "branch" && node.submission.branchId ? node.submission : (
-            configNode?.kind === "answer_sheet"
-            && node.status === "rejected"
-            && Object.keys(node.draft).length === 0
-          ) ? node.submission : configNode?.kind === "answer_sheet"
-            && Object.keys(node.draft).length === 0
-            ? { answers: {} }
-            : node.draft;
+          next[node.id] = configNode?.kind === "branch" && node.submission.branchId
+            ? node.submission
+            : configNode?.kind === "answer_sheet" && Object.keys(node.draft).length === 0
+              ? node.submission
+              : node.draft;
         }
       }
       return next;
@@ -245,10 +242,12 @@ export function StudentRuntimePage({
       setFieldErrorsByNode((current) => ({ ...current, [runtime.id]: {} }));
       const submittedNode = next.nodeInstances.find((node) => node.id === runtime.id);
       const submittedConfigNode = next.config.nodes.find((node) => node.id === runtime.nodeKey);
-      if (submittedConfigNode?.kind === "answer_sheet") {
+      if (submittedConfigNode?.kind === "answer_sheet" && submittedNode) {
         setDrafts((current) => ({
           ...current,
-          [runtime.id]: { answers: {} },
+          [runtime.id]: Object.keys(submittedNode.draft).length > 0
+            ? submittedNode.draft
+            : submittedNode.submission,
         }));
       }
       if (submittedNode?.status === "approved") {
