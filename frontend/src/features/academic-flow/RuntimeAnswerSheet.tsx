@@ -57,11 +57,11 @@ export function RuntimeAnswerSheet({
   const update = (questionId: string, answer: Record<string, unknown>, fieldId?: string) => {
     onChange?.({ ...answers, [questionId]: answer }, fieldId ?? questionId);
   };
-  const moveToStep = (step: number) => {
+  const moveToStep = (step: number, focusContent: boolean) => {
     setActiveStep(Math.max(0, Math.min(step, questionCount - 1)));
     window.requestAnimationFrame(() => {
       activeContentRef.current?.scrollTo({ top: 0 });
-      activeContentRef.current?.focus({ preventScroll: true });
+      if (focusContent) activeContentRef.current?.focus({ preventScroll: true });
     });
   };
 
@@ -76,7 +76,7 @@ export function RuntimeAnswerSheet({
               aria-label={`第 ${index + 1} 题，${answered ? "已答" : "未答"}`}
               className={answered ? "is-answered" : ""}
               key={question.id}
-              onClick={() => moveToStep(index)}
+              onClick={(event) => moveToStep(index, event.detail === 0)}
               type="button"
             >
               {index + 1}

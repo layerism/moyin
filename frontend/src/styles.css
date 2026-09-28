@@ -1077,13 +1077,22 @@
   color: #027a48;
 }
 
-.runtime-answer-numbers button[aria-current="step"] {
-  border-color: #1d6feb;
-  box-shadow: 0 0 0 1px #1d6feb;
+.runtime-answer-numbers button:hover {
+  border-color: #98a2b3;
 }
 
-.runtime-answer-numbers button:hover {
-  border-color: #1d6feb;
+.runtime-answer-numbers button.is-answered:hover {
+  border-color: #039855;
+}
+
+.runtime-answer-numbers button[aria-current="step"] {
+  border-color: #667085;
+  box-shadow: inset 0 0 0 1px #667085;
+}
+
+.runtime-answer-numbers button.is-answered[aria-current="step"] {
+  border-color: #039855;
+  box-shadow: inset 0 0 0 1px #039855;
 }
 
 .runtime-answer-numbers button:focus-visible {
