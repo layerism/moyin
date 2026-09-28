@@ -10,6 +10,7 @@ from openpyxl.utils import get_column_letter
 
 from app.domain.form_fields import OTHER_OPTION_ID, normalize_form_fields
 from app.domain.workflow import confirmation_requires_scans
+from app.repositories.review_step_exports import ReviewStepKey, review_step_key
 from app.repositories.teacher_node_exports import (
     TeacherNodeExportSelection,
     TeacherNodeExportStudent,
@@ -117,7 +118,60 @@ def _audit_values(student: TeacherNodeExportStudent, node: dict[str, object]) ->
     ]
 
 
-def _headers(selection: TeacherNodeExportSelection) -> list[str]:
+def _review_columns(selection: TeacherNodeExportSelection) -> list[ReviewStepKey]:
+    keys = {
+        step.key for student in selection.students for step in student.review_steps
+    }
+    keys.update(
+        review_step_key(step, index, selection.node)
+        for index, step in enumerate(selection.node.get("fileReviewSteps") or [])
+    )
+    return sorted(keys)
+
+
+def _review_headers(columns: list[ReviewStepKey]) -> list[str]:
+    labels = {"ai": "AI检查", "score": "AI评分", "manual": "人工审核"}
+    headers = []
+    for index, step_id, kind in columns:
+        prefix = f"第{index + 1}步-{labels[kind]}"
+        if sum(key[0] == index and key[2] == kind for key in columns) > 1:
+            prefix += f"（{step_id}）"
+        fields = ["状态", "结论"]
+        if kind == "score":
+            fields.append("分数")
+        fields.append("评语" if kind == "manual" else "说明")
+        headers.extend(f"{prefix}-{field}" for field in fields)
+    return headers
+
+
+def _review_values(student: TeacherNodeExportStudent, columns: list[ReviewStepKey]) -> list[object]:
+    results = {step.key: step for step in student.review_steps}
+    values: list[object] = []
+    for key in columns:
+        result = results.get(key)
+        if result is None:
+            values.extend([
+                "未提交" if student.submission_status is None else "不适用（当前提交无此步骤）",
+                *([None] * (3 if key[2] == "score" else 2)),
+            ])
+            continue
+        values.extend([
+            result.status,
+            "通过" if result.passed is True else "不通过" if result.passed is False else None,
+        ])
+        if key[2] == "score":
+            values.append(result.score)
+        values.append(result.reason)
+    return values
+
+
+def _has_legacy_audit(selection: TeacherNodeExportSelection, columns: list[ReviewStepKey]) -> bool:
+    return bool(selection.node.get("auditScriptId")) and (
+        not columns or any(student.audit_job_status and not student.review_steps for student in selection.students)
+    )
+
+
+def _headers(selection: TeacherNodeExportSelection, columns: list[ReviewStepKey]) -> list[str]:
     node = selection.node
     headers = ["序号", "学号", "姓名", "提交状态", "提交时间"]
     kind = node.get("kind")
@@ -139,7 +193,8 @@ def _headers(selection: TeacherNodeExportSelection) -> list[str]:
         for index, _question in enumerate(node.get("answerSheet", {}).get("questions", []), start=1):
             headers.extend([f"第{index}题作答", f"第{index}题得分"])
         headers.extend(["总分", "满分", "是否及格"])
-    if isinstance(node.get("auditScriptId"), str) and node.get("auditScriptId"):
+    headers.extend(_review_headers(columns))
+    if _has_legacy_audit(selection, columns):
         headers.extend(["审核状态", "审核方式", "审核结论", "审核分数", "审核说明"])
     return headers
 
@@ -148,6 +203,7 @@ def _row_values(
     selection: TeacherNodeExportSelection,
     student: TeacherNodeExportStudent,
     index: int,
+    columns: list[ReviewStepKey],
 ) -> list[object]:
     node = selection.node
     submitted = student.submission_status is not None
@@ -220,8 +276,9 @@ def _row_values(
                 if student.grade.get("passed") is False else None
             ) if submitted else None,
         ])
-    if isinstance(node.get("auditScriptId"), str) and node.get("auditScriptId"):
-        values.extend(_audit_values(student, node))
+    values.extend(_review_values(student, columns))
+    if _has_legacy_audit(selection, columns):
+        values.extend([None] * 5 if student.review_steps else _audit_values(student, node))
     return values
 
 
@@ -262,11 +319,12 @@ def build_node_submission_workbook(
     else:
         sheet = workbook.active
         sheet.title = "节点填写数据"
-        headers = _headers(selection)
+        columns = _review_columns(selection)
+        headers = _headers(selection, columns)
         sheet.append([_excel_cell(header) for header in headers])
         for index, student in enumerate(selection.students, start=1):
             sheet.append(
-                [_excel_cell(value) for value in _row_values(selection, student, index)]
+                [_excel_cell(value) for value in _row_values(selection, student, index, columns)]
             )
         _format_sheet(sheet, headers)
 

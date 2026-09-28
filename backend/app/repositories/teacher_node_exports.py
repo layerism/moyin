@@ -6,6 +6,7 @@ from typing import Any
 from app.core.database import get_connection
 from app.domain.workflow_runtime import incoming_nodes, node_by_key
 from app.repositories.answer_sheet_keys import get_version_answer_key
+from app.repositories.review_step_exports import ReviewStepExport, get_review_step_exports
 
 CURRENT_SUBMISSION_STATUSES = ("reviewing", "approved", "rejected", "audit_error")
 
@@ -42,6 +43,7 @@ class TeacherNodeExportStudent:
     submission_status: str | None
     submitted_at: str | None
     template_downloaded_at: str | None
+    review_steps: tuple[ReviewStepExport, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -181,6 +183,7 @@ def get_node_submission_export(
                 raise TeacherNodeExportConflictError("学生名单已发生变化，请刷新后重新选择")
 
         submission_ids = [str(row["submission_id"]) for row in rows if row["submission_id"]]
+        review_steps = get_review_step_exports(connection, submission_ids, node)
         files_by_submission: dict[str, list[TeacherNodeExportFile]] = {}
         if submission_ids:
             placeholders = ", ".join("?" for _ in submission_ids)
@@ -218,6 +221,7 @@ def get_node_submission_export(
             attempt_no=int(row["attempt_no"]) if row["submission_id"] else None,
             files=tuple(files_by_submission.get(str(row["submission_id"]), [])),
             grade=_json_object(row["answer_sheet_grade"]),
+            review_steps=review_steps.get(str(row["submission_id"]), ()),
             name=str(row["name"]),
             payload=_json_object(row["payload_snapshot"]),
             roster_entry_id=int(row["roster_entry_id"]),
