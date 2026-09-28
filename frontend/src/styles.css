@@ -14513,3 +14513,54 @@ td {
 .file-review-docx-preview { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; border: 1px solid #e2e8f0; background: #f1f5f9; }
 .docx-preview-viewport { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .docx-preview-viewport > p { padding: 12px; font-size: 13px; color: #64748b; }
+
+/* Keep answer navigation and actions stable while question content scrolls. */
+.runtime-node-dialog-backdrop:has(.runtime-answer-sheet) {
+  padding: 12px;
+}
+
+.runtime-node-dialog:has(.runtime-answer-sheet) {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
+}
+
+.runtime-node-dialog:has(.runtime-answer-sheet) > header {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow-y: auto;
+}
+
+.runtime-node-dialog:has(.runtime-answer-sheet) .runtime-node-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 16px;
+}
+
+.runtime-node-dialog .runtime-answer-sheet {
+  flex: 1;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.runtime-node-dialog .runtime-answer-question {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  align-content: start;
+}
+
+.runtime-node-dialog .runtime-answer-numbers {
+  max-height: 15dvh;
+  overflow-y: auto;
+}
+
+.runtime-node-dialog:has(.runtime-answer-sheet) .runtime-node-form > .runtime-node-actions {
+  position: static;
+  flex-shrink: 0;
+}

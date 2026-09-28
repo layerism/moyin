@@ -46,7 +46,10 @@ export function RuntimeAnswerSheet({
   useEffect(() => {
     if (firstErrorQuestionIndex < 0) return;
     setActiveStep(firstErrorQuestionIndex);
-    window.requestAnimationFrame(() => activeContentRef.current?.focus());
+    window.requestAnimationFrame(() => {
+      activeContentRef.current?.scrollTo({ top: 0 });
+      activeContentRef.current?.focus({ preventScroll: true });
+    });
   }, [firstErrorId, firstErrorQuestionIndex]);
 
   if (!config) return null;
@@ -56,7 +59,10 @@ export function RuntimeAnswerSheet({
   };
   const moveToStep = (step: number) => {
     setActiveStep(Math.max(0, Math.min(step, questionCount - 1)));
-    window.requestAnimationFrame(() => activeContentRef.current?.focus());
+    window.requestAnimationFrame(() => {
+      activeContentRef.current?.scrollTo({ top: 0 });
+      activeContentRef.current?.focus({ preventScroll: true });
+    });
   };
 
   return (
