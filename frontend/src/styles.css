@@ -867,10 +867,17 @@
 }
 
 .answer-sheet-markdown {
-  color: inherit;
+  color: #1f2937;
   font-size: var(--answer-sheet-markdown-font-size, 15px);
   line-height: 1.55;
   min-width: 0;
+}
+
+.answer-sheet-markdown p {
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  margin: 8px 0 0;
 }
 
 .answer-sheet-markdown > :first-child,
@@ -4137,7 +4144,7 @@ button {
   font-size: 14px;
 }
 
-.flow-panel p,
+.flow-panel p:not(:where(.answer-sheet-markdown *)),
 .muted-line {
   margin: 8px 0 0;
   color: #7b8494;
