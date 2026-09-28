@@ -9183,7 +9183,7 @@ button {
 
 /* Teacher progress: fixed controls with a compact, independently scrolling list. */
 .teacher-progress-panel {
-  width: min(1180px, 96vw);
+  width: min(960px, 96vw);
   height: 100dvh;
   display: flex;
   flex-direction: column;
