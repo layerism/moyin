@@ -4,10 +4,10 @@ from typing import BinaryIO
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 
-MAX_REFERENCE_IMAGE_BYTES = 1_000_000
+MAX_JPEG_BYTES = 1_000_000
 
 
-def compress_reference_image(stream: BinaryIO) -> bytes:
+def compress_image_to_jpeg(stream: BinaryIO) -> bytes:
     """Produce a single-page JPEG strictly below the archive size limit."""
     try:
         stream.seek(0)
@@ -23,7 +23,7 @@ def compress_reference_image(stream: BinaryIO) -> bytes:
                 with BytesIO() as output:
                     image.save(output, format="JPEG", quality=quality, optimize=True)
                     data = output.getvalue()
-                if len(data) < MAX_REFERENCE_IMAGE_BYTES:
+                if len(data) < MAX_JPEG_BYTES:
                     return data
             image = image.resize(
                 (max(1, int(image.width * 0.8)), max(1, int(image.height * 0.8))),

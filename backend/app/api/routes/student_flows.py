@@ -1,4 +1,5 @@
 import hashlib
+from io import BytesIO
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -6,6 +7,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
+from app.services.image_compression import compress_image_to_jpeg
 from app.domain.form_fields import FormAnswerValidationError
 from app.domain.answer_sheet import AnswerSheetSubmissionError
 from app.domain.workflow_runtime import (
@@ -51,7 +53,7 @@ from app.services.object_storage import (
     timestamped_object_name,
 )
 from app.services.security import get_current_runtime_student, get_current_student
-from app.services.scan_materials import ScanMaterialError, inspect_scan_material
+from app.services.scan_materials import inspect_scan_material
 
 router = APIRouter()
 
@@ -305,7 +307,16 @@ def upload_node_scan(
     file.file.seek(0)
     try:
         inspection = inspect_scan_material(file.file, filename, size_bytes)
-    except ScanMaterialError as exc:
+        upload_stream = file.file
+        content_type = inspection.content_type
+        if content_type.startswith("image/"):
+            compressed = compress_image_to_jpeg(file.file)
+            upload_stream = BytesIO(compressed)
+            filename = str(PurePosixPath(filename).with_suffix(".jpg"))
+            content_type = "image/jpeg"
+            size_bytes = len(compressed)
+            digest = hashlib.sha256(compressed)
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     sha256 = digest.hexdigest()
     storage_key = object_key(
@@ -314,9 +325,9 @@ def upload_node_scan(
     )
     try:
         storage = get_object_storage()
-        uploaded = storage.put_object(storage_key, file.file, inspection.content_type)
+        uploaded = storage.put_object(storage_key, upload_stream, content_type)
         return add_pending_scan(
-            node_instance_id, student_id, storage_key, filename, inspection.content_type,
+            node_instance_id, student_id, storage_key, filename, content_type,
             size_bytes, sha256, uploaded.etag, inspection.page_count,
         )
     except FileContextError as exc:

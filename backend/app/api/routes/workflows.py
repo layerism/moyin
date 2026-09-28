@@ -4,7 +4,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from app.repositories.node_copy import copy_node
-from app.services.reference_images import compress_reference_image
+from app.services.image_compression import compress_image_to_jpeg
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
@@ -329,7 +329,7 @@ def _upload_node_asset(
             validate_reference_metadata(filename, size_bytes)
             _validate_reference_content(file, filename)
             if PurePosixPath(filename).suffix.lower() not in {".docx", ".pdf"}:
-                compressed = compress_reference_image(file.file)
+                compressed = compress_image_to_jpeg(file.file)
                 upload_stream = BytesIO(compressed)
                 filename = str(PurePosixPath(filename).with_suffix(".jpg"))
                 content_type = "image/jpeg"
