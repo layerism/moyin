@@ -13,7 +13,6 @@ const labels = { all: "全部", waiting: "未就绪", pending: "待审核", retu
 type Filter = keyof typeof labels;
 const category = (student: ManualReviewStudent): Exclude<Filter, "all"> => student.status === "approved" ? "approved"
   : student.status === "rejected" ? "returned" : student.canReview ? "pending" : "waiting";
-const quickRemarks = ["材料齐全，符合要求。", "请按模板补全后重新提交。", "请核对签名与日期后重新提交。"];
 
 function OriginalDownload({ nodeId, fileId, filename }: { nodeId: string; fileId: string; filename: string }) {
   const [busy, setBusy] = useState(false);
@@ -44,6 +43,31 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   const [filter, setFilter] = useState<Filter>(initialStudentNo ? "all" : "pending");
   const [query, setQuery] = useState(initialStudentNo);
   const [remark, setRemark] = useState("");
+  const [quickRemarks, setQuickRemarks] = useState<{ id: number; content: string }[]>([]);
+  const [editingQuickRemark, setEditingQuickRemark] = useState<{ id?: number; content: string } | null>(null);
+  const [quickRemarkError, setQuickRemarkError] = useState("");
+  const [savingQuickRemark, setSavingQuickRemark] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    workflowApi.listReviewRemarks().then((items) => {
+      if (!cancelled) setQuickRemarks(items);
+    }).catch((reason) => {
+      if (!cancelled) setQuickRemarkError(reason instanceof Error ? reason.message : "常用评语加载失败");
+    });
+    return () => { cancelled = true; };
+  }, []);
+  const saveQuickRemark = async () => {
+    if (!editingQuickRemark?.content.trim() || savingQuickRemark) return;
+    setSavingQuickRemark(true); setQuickRemarkError("");
+    try {
+      const item = await workflowApi.saveReviewRemark(editingQuickRemark.content.trim(), editingQuickRemark.id);
+      setQuickRemarks((current) => editingQuickRemark.id === undefined
+        ? [...current, item] : current.map((old) => old.id === item.id ? item : old));
+      setEditingQuickRemark(null);
+    } catch (reason) {
+      setQuickRemarkError(reason instanceof Error ? reason.message : "常用评语保存失败");
+    } finally { setSavingQuickRemark(false); }
+  };
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -95,7 +119,6 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   };
   const decide = (passed: boolean) => {
     if (!current || !canReview) return;
-    if (!remark.trim()) { setError("请填写审核评语"); dialog.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus(); return; }
     if (current.canAmend && current.status === "approved" && !passed && !window.confirm("改为退回将暂停依赖此节点的所有后续节点，已有材料保留并需重新确认。确定修改？")) return;
     void act(async () => {
       if (passed) await workflowApi.approveManualReview(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision, null, "");
@@ -220,8 +243,21 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
           {current.canReview || current.canAmend ? <>
             <div className="file-review-decision-scroll">
               <section className="file-review-workspace" aria-label="填写审核意见">
-                <label className="file-review-remark">审核评语 *<textarea disabled={busy} maxLength={1000} value={remark} onChange={(event) => changeRemark(event.target.value)} placeholder="填写评阅意见或需要修改的内容…" /></label>
-                <div className="file-review-quick-remarks" aria-label="常用评语"><small>常用评语</small>{quickRemarks.map((value) => <button key={value} type="button" disabled={busy} onClick={() => appendRemark(value)}>{value}</button>)}</div>
+                <label className="file-review-remark">审核评语（选填）<textarea disabled={busy} maxLength={1000} value={remark} onChange={(event) => changeRemark(event.target.value)} placeholder="填写评阅意见或需要修改的内容…" /></label>
+                <div className="file-review-quick-remarks" aria-label="常用评语">
+                  <small>常用评语</small>
+                  {quickRemarks.map((item) => <span className="review-remark-choice" key={item.id}>
+                    <button type="button" disabled={busy} onClick={() => appendRemark(item.content)}>{item.content}</button>
+                    <button type="button" disabled={savingQuickRemark} aria-label={`编辑评语：${item.content}`} onClick={() => setEditingQuickRemark(item)}>编辑</button>
+                  </span>)}
+                  <button type="button" disabled={savingQuickRemark} onClick={() => setEditingQuickRemark({ content: "" })}>＋ 新增评语</button>
+                  {editingQuickRemark && <div className="review-remark-editor">
+                    <label>{editingQuickRemark.id === undefined ? "新增常用评语" : "修改常用评语"}<textarea maxLength={1000} disabled={savingQuickRemark} value={editingQuickRemark.content} onChange={(event) => setEditingQuickRemark({ ...editingQuickRemark, content: event.target.value })} /></label>
+                    <button type="button" disabled={savingQuickRemark || !editingQuickRemark.content.trim()} onClick={() => void saveQuickRemark()}>{savingQuickRemark ? "保存中…" : "保存评语"}</button>
+                    <button type="button" disabled={savingQuickRemark} onClick={() => setEditingQuickRemark(null)}>取消</button>
+                  </div>}
+                  {quickRemarkError && <small role="alert" className="dialog-error">{quickRemarkError}</small>}
+                </div>
                 <section className="file-review-attachments" aria-label="评阅附件">
                   <header><strong>评阅附件 <small>（选填）</small></strong>
                     <label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>＋ 添加文件<input aria-label="上传评阅附件" disabled={busy} type="file" multiple onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>

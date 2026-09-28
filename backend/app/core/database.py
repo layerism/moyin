@@ -6,6 +6,14 @@ from app.core.config import settings
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS teacher_review_remarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,
+    default_index INTEGER,
+    content TEXT NOT NULL,
+    UNIQUE (teacher_id, default_index)
+);
+
 CREATE TABLE IF NOT EXISTS user_deletion_jobs (
     id TEXT PRIMARY KEY,
     status TEXT NOT NULL CHECK(status IN ('pending', 'running', 'failed', 'completed')),

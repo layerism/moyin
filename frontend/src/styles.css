@@ -14564,3 +14564,36 @@ td {
   position: static;
   flex-shrink: 0;
 }
+
+.file-review-quick-remarks .review-remark-choice {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
+  max-width: 100%;
+}
+.file-review-quick-remarks .review-remark-choice > button:first-child {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.file-review-quick-remarks .review-remark-choice > button:last-child {
+  flex-shrink: 0;
+}
+.file-review-quick-remarks .review-remark-editor {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.review-remark-editor > label { flex-basis: 100%; }
+.review-remark-editor textarea {
+  display: block;
+  width: 100%;
+  min-height: 80px;
+  padding: 8px;
+  border: 1px solid #ccd7e6;
+  border-radius: 7px;
+  font: inherit;
+  resize: vertical;
+}

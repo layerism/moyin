@@ -104,8 +104,6 @@ def approve_manual_review(node_instance_id, teacher_id, evidence_hash, remark, f
 
 
 def reject_manual_source(node_instance_id, teacher_id, evidence_hash, feedback_revision, source_node_key, source_remark):
-    if not source_remark.strip():
-        raise ValueError('审核不通过时必须填写审核意见')
     from app.repositories.file_reviews import decide_file_review
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')

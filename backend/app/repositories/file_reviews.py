@@ -131,8 +131,8 @@ def file_review_detail(connection, row, config, node, status):
 def decide_file_review(connection, row, config, node, status, teacher_id, evidence_hash, remark, revision, passed):
     from app.repositories.manual_reviews import ManualReviewConflict
     from app.repositories.manual_feedback import publish_feedback
-    if not remark.strip() or len(remark) > 1000:
-        raise ValueError('请填写 1–1000 字的审核评语')
+    if len(remark) > 1000:
+        raise ValueError('审核评语不能超过 1000 字')
     evidence, fingerprint = file_review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
     submission_id = evidence['sources'][0]['submissionId']
     amending = can_amend_review(connection, submission_id, status)

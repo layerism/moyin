@@ -198,3 +198,29 @@ def download_review_original(node_instance_id: str, file_id: str, preview: bool 
     return FileResponse(path, filename=None if preview else str(record['original_name']),
                         media_type=image_type if preview else 'application/octet-stream',
                         headers={'Cache-Control': 'no-store'}, background=BackgroundTask(path.unlink, missing_ok=True))
+
+
+class QuickRemarkRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    content: str = Field(min_length=1, max_length=1000)
+
+
+@router.get('/review-remarks')
+def list_quick_remarks(teacher=Depends(get_current_teacher)):
+    from app.repositories.review_remarks import list_review_remarks
+    return list_review_remarks(int(teacher['id']))
+
+
+@router.post('/review-remarks')
+def create_quick_remark(payload: QuickRemarkRequest, teacher=Depends(get_current_teacher)):
+    from app.repositories.review_remarks import save_review_remark
+    return save_review_remark(int(teacher['id']), payload.content)
+
+
+@router.put('/review-remarks/{remark_id}')
+def edit_quick_remark(remark_id: int, payload: QuickRemarkRequest, teacher=Depends(get_current_teacher)):
+    from app.repositories.review_remarks import save_review_remark
+    try:
+        return save_review_remark(int(teacher['id']), payload.content, remark_id)
+    except KeyError as exc:
+        raise HTTPException(404, '常用评语不存在') from exc
