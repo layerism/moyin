@@ -14448,3 +14448,20 @@ td {
 .assistant-placeholder strong { font-size: 18px; color: #344054; }
 .assistant-placeholder span { border-radius: 20px; padding: 3px 10px; background: #f1f5f9; font-size: 11px; }
 .assistant-placeholder p { margin: 0; font-size: 12px; }
+
+.export-task-panel {
+  box-sizing: border-box;
+  max-width: calc(100vw - 40px);
+  overflow: hidden;
+}
+.export-task-panel .export-task-list { flex: 1; }
+.export-task-panel .assistant-placeholder { flex: 1; min-height: 0; }
+.export-task-center .assistant-resize {
+  position: absolute; top: 0; left: 0; width: 24px; height: 24px;
+  border: 0; padding: 0; border-radius: 0; background: transparent;
+  color: #94a3b8; cursor: nwse-resize; touch-action: none;
+  font-size: 16px; line-height: 24px;
+}
+.export-task-panel > header { padding-left: 10px; }
+.export-task-panel > .export-task-help,
+.export-task-panel > .export-task-error { flex-shrink: 0; }

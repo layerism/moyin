@@ -17,12 +17,18 @@ export function useExportTasks() {
   return value;
 }
 
-export function ExportTasksProvider({ teacherId, visible, children }: {
-  teacherId: number | string | null; visible: boolean; children: ReactNode;
+export function ExportTasksProvider({ teacherId, audience, visible, children }: {
+  teacherId: number | string | null; audience: "teacher" | "student"; visible: boolean; children: ReactNode;
 }) {
   const [jobs, setJobs] = useState<ExportJob[]>([]);
   const [submitting, setSubmitting] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
+  const [size, setSize] = useState({ width: 360, height: 440 });
+  const resizeOrigin = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  const resize = (width: number, height: number) => setSize({
+    width: Math.min(Math.max(280, width), Math.max(0, window.innerWidth - 40)),
+    height: Math.min(Math.max(280, height), Math.max(0, window.innerHeight - 110)),
+  });
   const [tab, setTab] = useState<"notifications" | "chat" | "companions">("notifications");
   const openTasks = () => { setTab("notifications"); setOpen(true); };
   useEffect(() => {
@@ -101,7 +107,7 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
   const labels = { pending: "排队中", running: "正在打包", completed: "已完成", failed: "失败", expired: "已过期" };
   return <ExportTasksContext.Provider value={{ jobs, submitting, start: (id) => void start(id), openTasks }}>
     {children}
-    {teacherId !== null && visible && <div className="export-task-center">
+    {visible && <div className="export-task-center">
       <button type="button" className="export-task-launcher" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-controls="work-assistant-panel" aria-label={`工作助手，${running} 个任务进行中，${unread.length} 条未读通知`} title="工作助手">
         <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <rect x="4" y="7" width="16" height="13" rx="4" /><path d="M12 3v4M2 12v4m20-4v4M9 16h6" /><circle cx="9" cy="12" r=".8" /><circle cx="15" cy="12" r=".8" />
@@ -118,8 +124,27 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
           <button type="button" onClick={() => void seen(notice.id)}>知道了</button>
         </div>
       </section>}
-      {open && <section id="work-assistant-panel" className="export-task-panel" aria-label="工作助手">
-        <header><div><strong>工作助手</strong><small>通知与交互入口</small></div><button type="button" onClick={() => setOpen(false)} aria-label="收起工作助手">−</button></header>
+      {open && <section id="work-assistant-panel" className="export-task-panel" aria-label="工作助手" style={{ width: size.width, height: size.height }}>
+        <button type="button" className="assistant-resize" aria-label="调整弹窗大小，使用方向键或拖动" title="拖动调整大小"
+          onPointerDown={(event) => {
+            const bounds = event.currentTarget.parentElement!.getBoundingClientRect();
+            resizeOrigin.current = { x: event.clientX, y: event.clientY, width: bounds.width, height: bounds.height };
+            event.currentTarget.setPointerCapture(event.pointerId);
+          }}
+          onPointerMove={(event) => {
+            const origin = resizeOrigin.current;
+            if (origin) resize(origin.width + origin.x - event.clientX, origin.height + origin.y - event.clientY);
+          }}
+          onPointerUp={() => { resizeOrigin.current = null; }}
+          onPointerCancel={() => { resizeOrigin.current = null; }}
+          onLostPointerCapture={() => { resizeOrigin.current = null; }}
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+            event.preventDefault();
+            resize(size.width + (event.key === "ArrowLeft" ? 20 : event.key === "ArrowRight" ? -20 : 0),
+              size.height + (event.key === "ArrowUp" ? 20 : event.key === "ArrowDown" ? -20 : 0));
+          }}>⤢</button>
+        <header><div><strong>工作助手</strong><small>{audience === "teacher" ? "教师工作空间" : "学生工作空间"}</small></div><button type="button" onClick={() => setOpen(false)} aria-label="收起工作助手">−</button></header>
         <nav className="assistant-tabs" aria-label="助手栏目">
           <button type="button" aria-pressed={tab === "notifications"} onClick={() => setTab("notifications")}>通知{unread.length > 0 ? ` · ${unread.length}` : ""}</button>
           <button type="button" aria-pressed={tab === "chat"} onClick={() => setTab("chat")}>Chat</button>
@@ -129,6 +154,9 @@ export function ExportTasksProvider({ teacherId, visible, children }: {
           <strong>{tab === "chat" ? "Chat" : "伙伴"}</strong>
           <span>暂未开放</span>
           <p>{tab === "chat" ? "未来在这里与助手对话。" : "未来在这里与宠物和 Agent 互动。"}</p>
+        </div> : audience === "student" ? <div className="assistant-placeholder">
+          <strong>学生通知</strong><span>尚未接入</span>
+          <p>提交与审核结果请在对应流程中查看。</p>
         </div> : <>
         <p className="export-task-help">退出流程后继续打包 · 文件保留 7 天</p>
         {error && <p role="alert" className="export-task-error">{error} <button type="button" onClick={() => void refresh().then(() => setError("")).catch(() => {})}>刷新</button></p>}

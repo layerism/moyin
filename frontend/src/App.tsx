@@ -998,9 +998,18 @@ export function App() {
     </div>
   );
   };
+  const assistantStudent = STUDENT_AUTHENTICATED_SCREENS.includes(screen);
+  const assistantPreview = screen === "academicFlowStudentRuntime"
+    && new URLSearchParams(window.location.search).get("preview") === "1";
+  const assistantIdentity = assistantStudent ? studentIdentity : teacherIdentity;
   return (
-    <ExportTasksProvider key={teacherIdentity?.id ?? "anonymous"} teacherId={teacherIdentity?.id ?? null}
-      visible={TEACHER_AUTHENTICATED_SCREENS.includes(screen)}>
+    <ExportTasksProvider
+      key={`${assistantStudent ? "student" : "teacher"}:${assistantIdentity?.id ?? "anonymous"}:${assistantPreview}`}
+      teacherId={assistantStudent ? null : teacherIdentity?.id ?? null}
+      audience={assistantStudent ? "student" : "teacher"}
+      visible={authReady && !assistantPreview && !!assistantIdentity
+        && !assistantIdentity.mustChangePassword
+        && (assistantStudent || TEACHER_AUTHENTICATED_SCREENS.includes(screen))}>
       {renderScreen()}
     </ExportTasksProvider>
   );
