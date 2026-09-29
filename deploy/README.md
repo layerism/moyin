@@ -141,12 +141,11 @@ Nginx :8888
         └─ 静态前端 /var/www/moyin/prod + 后端 127.0.0.1:8000
 ```
 
-编辑当前仓库的 `backend/.env`。以下为本机 HTTP 访问示例，`CORS_ORIGINS` 按实际浏览器访问源填写（协议、主机、端口）：
+编辑当前仓库的 `backend/.env`。前端与 `/api` 通过同一个 Nginx 入口访问，属于同源部署，无需配置 `CORS_ORIGINS`。以下为 HTTP 部署配置：
 
 ```dotenv
 APP_ENV=production
 SESSION_COOKIE_SECURE=false
-CORS_ORIGINS=["http://localhost:8888"]
 ```
 
 `SESSION_COOKIE_SECURE=false` 只适用于当前明文 HTTP 入口。如果以后恢复 HTTPS，必须改为 `true`。未配置该变量时，代码保留原有行为：`APP_ENV=production` 自动使用 Secure Cookie。

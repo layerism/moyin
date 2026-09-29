@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     session_cookie_secure: bool | None = None
     storage_root: str = "storage"
-    cors_origins: list[str] = ["http://localhost:5173", "http://localhost"]
+    cors_origins: list[str] = Field(default_factory=list)
     database_path: str = "storage/app.db"
     super_admins: list[SuperAdminConfig] = Field(default_factory=list)
     audit_config_encryption_key: str = ""
