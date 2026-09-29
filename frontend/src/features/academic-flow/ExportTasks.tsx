@@ -30,7 +30,7 @@ export function ExportTasksProvider({ teacherId, audience, visible, children }: 
     height: Math.min(Math.max(280, height), Math.max(0, window.innerHeight - 110)),
   });
   const [tab, setTab] = useState<"notifications" | "chat" | "companions">("notifications");
-  const openTasks = () => { setTab("notifications"); setOpen(true); };
+  const openTasks = useCallback(() => { setTab("notifications"); setOpen(true); }, []);
   useEffect(() => {
     if (!open || !visible) return;
     const close = (event: KeyboardEvent) => {
@@ -42,6 +42,8 @@ export function ExportTasksProvider({ teacherId, audience, visible, children }: 
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState<string | null>(null);
   const activeRequests = useRef(new Set<string>());
+  const downloadBusy = useRef(false);
+  const attemptedDownloads = useRef(new Set<string>());
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const refresh = useCallback(async () => {
@@ -81,15 +83,17 @@ export function ExportTasksProvider({ teacherId, audience, visible, children }: 
       if (alive.current) setSubmitting((current) => current.filter((id) => id !== versionId));
     }
   };
-  const seen = async (id: string) => {
+  const seen = useCallback(async (id: string) => {
     try {
       await workflowApi.markExportJobSeen(id);
       if (alive.current) setJobs((current) => current.map((job) => job.id === id ? { ...job, seen: true } : job));
     } catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : "更新提醒失败"); }
-  };
-  const download = async (job: ExportJob) => {
-    if (downloading) return;
-    openTasks();
+  }, []);
+  const download = useCallback(async (job: ExportJob, automatic = false) => {
+    if (downloadBusy.current || teacherId === null) return;
+    downloadBusy.current = true;
+    attemptedDownloads.current.add(job.id);
+    if (!automatic) openTasks();
     setDownloading(job.id);
     setError("");
     try {
@@ -98,9 +102,21 @@ export function ExportTasksProvider({ teacherId, audience, visible, children }: 
       saveDownload(result.blob, result.filename);
       await seen(job.id);
     } catch (reason) {
-      if (alive.current) setError(reason instanceof Error ? reason.message : "下载失败，请重试");
-    } finally { if (alive.current) setDownloading(null); }
-  };
+      if (alive.current) {
+        setError(reason instanceof Error ? reason.message : "下载失败，请重试");
+        openTasks();
+      }
+    } finally {
+      downloadBusy.current = false;
+      if (alive.current) setDownloading(null);
+    }
+  }, [teacherId, openTasks, seen]);
+  useEffect(() => {
+    if (!visible || teacherId === null || downloading) return;
+    const next = jobs.find((job) => job.status === "completed" && !job.seen
+      && !attemptedDownloads.current.has(job.id));
+    if (next) void download(next, true);
+  }, [jobs, downloading, visible, teacherId, download]);
   const running = jobs.filter((job) => ["pending", "running"].includes(job.status)).length;
   const unread = jobs.filter((job) => !job.seen && ["completed", "failed"].includes(job.status));
   const notice = unread[0];
@@ -158,7 +174,7 @@ export function ExportTasksProvider({ teacherId, audience, visible, children }: 
           <strong>学生通知</strong><span>尚未接入</span>
           <p>提交与审核结果请在对应流程中查看。</p>
         </div> : <>
-        <p className="export-task-help">退出流程后继续打包 · 文件保留 7 天</p>
+        <p className="export-task-help">打包完成自动下载 · 文件保留 7 天</p>
         {error && <p role="alert" className="export-task-error">{error} <button type="button" onClick={() => void refresh().then(() => setError("")).catch(() => {})}>刷新</button></p>}
         {!jobs.length && <p className="export-task-help">暂无导出任务</p>}
         <div className="export-task-list">{jobs.map((job) => <article key={job.id}>
