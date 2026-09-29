@@ -322,9 +322,9 @@ export function StudentRuntimePage({
 
   return (
     <main className="student-runtime-page">
-      <header className="student-runtime-header">
+      <header className="student-runtime-header runtime-header-redesign">
         <button
-          aria-label="返回首页"
+          aria-label={preview ? "关闭预览" : "返回我的流程"}
           className="runtime-home-button"
           onClick={() => {
             if (!preview) {
@@ -341,25 +341,29 @@ export function StudentRuntimePage({
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <div className="runtime-flow-summary">
-          <span className="oa-brand-mark">OA</span>
-          <div className="runtime-flow-copy">
-            <small>流程说明</small>
-            <strong>{instance.name}</strong>
-            <p>{instance.description}</p>
+        <nav className="runtime-header-path" aria-label="当前位置">我的流程 <span aria-hidden="true">›</span> {preview ? "流程预览" : "流程办理"}</nav>
+        <details className="runtime-header-account">
+          <summary>
+            <span aria-hidden="true" className="runtime-student-avatar">{instance.student.name.slice(0, 1) || "学"}</span>
+            <span className="runtime-header-user"><strong>{instance.student.name}</strong><small>{instance.student.studentNo}</small></span>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
+          </summary>
+          <div className="runtime-header-account-panel">
+            <strong>{instance.student.name} · {preview ? "学生预览" : "学生"}</strong>
+            <p>学号 {instance.student.studentNo}</p>
+            <p>{preview ? "当前为教师预览模式" : "当前以本人身份填写流程"}</p>
           </div>
-          <strong className={`runtime-overall-status ${instance.status}`}>
-            {instance.status === "completed" ? "全部完成" : "填写中"}
-          </strong>
+        </details>
+        <div className="runtime-header-title">
+          <h1>{instance.name}</h1>
+          <strong className={`runtime-overall-status ${instance.status}`}>{instance.status === "completed" ? "全部完成" : "填写中"}</strong>
         </div>
-        <div className="runtime-student-identity">
-          <span aria-hidden="true" className="runtime-student-avatar">
-            {instance.student.name.slice(0, 1) || "学"}
-          </span>
-          <div className="runtime-student-details">
-            <strong>{instance.student.name}</strong>
-            <small>{instance.student.studentNo}</small>
-          </div>
+        <div className="runtime-header-meta">
+          <span>{instance.nodeInstances.filter(node => node.status === "approved").length} / {instance.nodeInstances.filter(node => node.status !== "skipped").length} 节点已通过</span>
+          {instance.description && <details className="runtime-header-description">
+            <summary><span aria-hidden="true">ⓘ</span> 流程说明 <span aria-hidden="true">⌄</span></summary>
+            <p>{instance.description}</p>
+          </details>}
         </div>
       </header>
       {notice ? (
