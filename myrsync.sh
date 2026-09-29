@@ -21,10 +21,10 @@ if ! command -v mutagen >/dev/null 2>&1; then
   rm -rf "$INSTALL_TMP"
 fi
 
-# 单向同步：本地 → aliweb，远端修改不会回传；冲突不强制覆盖。
+# 双向同步：本地 ↔ aliweb；冲突不强制覆盖。
 # 数据库同步前停止两端后端；不要让两端同时写入数据库。
 mutagen sync create "$SCRIPT_DIR" "aliweb:/root/webapp/moyin/$VERSION" \
-  --name "$SESSION_NAME" --mode one-way-safe --no-global-configuration \
+  --name "$SESSION_NAME" --mode two-way-safe --no-global-configuration \
   --ignore-vcs \
   --ignore '/backend/.venv' \
   --ignore '/frontend/node_modules' \
