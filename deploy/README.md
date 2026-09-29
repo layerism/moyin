@@ -1,22 +1,19 @@
-# 部署：Nginx 自定义 HTTP 端口 8888
+# 本地进程部署
 
-适用：Ubuntu 22.04/24.04、域名 ainami.tech，项目通过 tmux 手动运行。
+适用：Ubuntu 22.04/24.04，项目通过 tmux 手动运行。访问地址和站点配置由部署者按实际环境确定。
 本文沿用 deploy/nginx.conf：Nginx 通过稳定符号链接读取当前仓库的 `frontend/dist`，API 转发至本机 8000。无需安装 moyin.service.template。
-正式站点使用公网 TCP 8888。本方案不使用 80、443 或 TLS，浏览器入口必须显式包含 `http://` 和 `:8888`。
+以下示例使用 HTTP 端口 8888；实际入口以部署者的 Nginx 配置为准。
 以下命令是操作教程，不代表服务器已经执行过。除安装系统软件外，项目命令均在实际仓库根目录执行。
 
-## 1. 确认域名和端口
+## 1. 确认端口
 
-在阿里云 DNS 添加 ainami.tech 的 A 记录：主机记录为 @，记录值为实际服务器公网 IP。
-当前 Nginx 配置仅监听 IPv4；如果存在 AAAA 记录，先删除，避免客户端优先连接未配置的 IPv6 地址。
-安全组及服务器防火墙允许公网 TCP 8888；有路由器时需转发该端口。正式部署不启动 Vite，不需要对公网开放后端 8000 或开发端口 6173、9000。
+检查准备使用的 Web 端口是否空闲，并按实际访问范围配置安全组与防火墙。正式部署不启动 Vite，无须对公网开放后端 8000 或开发端口 6173、9000。
 
 ```bash
-getent ahosts ainami.tech
 sudo ss -ltnp '( sport = :8888 )'
 ```
 
-域名解析结果应与服务器一致。若端口被其他服务使用，先确认用途，不要直接终止。
+若端口被其他服务使用，先确认用途，不要直接终止。
 
 ## 2. 安装 Nginx
 
@@ -27,7 +24,7 @@ sudo systemctl enable --now nginx
 sudo systemctl status nginx --no-pager
 ```
 
-若已安装，无须重复安装。本部署始终使用 8888 上的明文 HTTP。
+若已安装，无须重复安装。
 
 ## 3. 启动项目进程
 
@@ -79,7 +76,6 @@ Nginx 只通过链接读取 `dist`，不读取源码。前端修改后只须重�
 
 ```nginx
 listen 8888;
-server_name ainami.tech;
 root "/var/www/moyin/prod";
 index index.html;
 ```
@@ -106,7 +102,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-此处复制配置到系统目录，再用系统内部软链接启用；不将仓库文件直接链接为站点。避免其他配置在 8888 上重复声明 ainami.tech。
+此处复制配置到系统目录，再用系统内部软链接启用；不将仓库文件直接链接为站点。避免与已有站点配置冲突。
 `run_server.sh` 每次启动都会用当前仓库的 `deploy/nginx.conf` 覆盖系统站点配置，然后执行 `nginx -t`，成功后 reload。修改端口、root 等应直接修改仓库配置；若使用 Certbot，须将其生成的 HTTPS 配置同步回仓库 conf（只引用证书路径，不提交私钥），否则下次启动会覆盖系统中的 HTTPS 设置。
 
 如果只想手动同步 Nginx 而不启动项目，可先备份再执行：
@@ -125,13 +121,13 @@ sudo cp /etc/nginx/sites-available/moyin.bak /etc/nginx/sites-available/moyin
 sudo nginx -t
 ```
 
-站点配置生效后，检查正式发布目录的 `index.html`，并通过本机 Nginx 验证 HTTP：
+站点配置生效后，检查正式发布目录的 `index.html`，并通过 Nginx 验证 HTTP。以下请求适用于本机入口；有多个站点时使用实际配置的访问地址：
 
 ```bash
 sudo test -f /var/www/moyin/prod/index.html
 readlink -f /var/www/moyin/prod
-curl -I -H 'Host: ainami.tech' http://127.0.0.1:8888/
-curl -i -H 'Host: ainami.tech' http://127.0.0.1:8888/api/health
+curl -I http://127.0.0.1:8888/
+curl -i http://127.0.0.1:8888/api/health
 ```
 
 页面和健康检查均应返回 `200`。如果页面返回 `500` 且错误日志出现 `rewrite or internal redirection cycle`，通常是对应静态目录或 `index.html` 尚未发布。
@@ -142,23 +138,22 @@ curl -i -H 'Host: ainami.tech' http://127.0.0.1:8888/api/health
 浏览器 HTTP :8888
         ↓
 Nginx :8888
-        └─ ainami.tech → /var/www/moyin/prod + 127.0.0.1:8000
+        └─ 静态前端 /var/www/moyin/prod + 后端 127.0.0.1:8000
 ```
 
-编辑当前仓库的 `backend/.env`：
+编辑当前仓库的 `backend/.env`。以下为本机 HTTP 访问示例，`CORS_ORIGINS` 按实际浏览器访问源填写（协议、主机、端口）：
 
 ```dotenv
 APP_ENV=production
 SESSION_COOKIE_SECURE=false
-CORS_ORIGINS=["http://ainami.tech:8888"]
+CORS_ORIGINS=["http://localhost:8888"]
 ```
 
 `SESSION_COOKIE_SECURE=false` 只适用于当前明文 HTTP 入口。如果以后恢复 HTTPS，必须改为 `true`。未配置该变量时，代码保留原有行为：`APP_ENV=production` 自动使用 Secure Cookie。
 
-在 tmux 会话中按 Ctrl+C 停止项目，再执行 `bash deploy/run_server.sh` 加载配置。访问地址为 `http://ainami.tech:8888`。
+在 tmux 会话中按 Ctrl+C 停止项目，再执行 `bash deploy/run_server.sh` 加载配置。通过实际配置的 Web 地址访问。
 
-域名与 IP 的登录会话不通用，切换入口后重新登录。
-安全组只需对公网开放 8888；8000 及开发端口均不应对公网开放。
+切换访问入口后需重新登录。只开放实际使用的 Web 端口；后端及开发端口不应对公网开放。
 
 本方案中的登录密码、Cookie 和业务数据均通过明文 HTTP 传输，不适合作为长期敏感生产环境。若以后具备反向隧道或其他 TLS 入口，应恢复 HTTPS 和 Secure Cookie。
 
@@ -169,15 +164,14 @@ CORS_ORIGINS=["http://ainami.tech:8888"]
 - 前端更新：重新构建当前 clone 的 `frontend/dist`，无须 reload Nginx。
 - 后端更新：在 tmux 中重启；不要重复启动多个同端口进程。
 - 修改系统站点后，先 nginx -t，再 reload。
-- 新服务器：部署代码和数据、安装 Nginx、修改 DNS，并开放公网 TCP 8888。
+- 新服务器：部署代码和数据、安装 Nginx，并按实际环境配置访问入口。
 
 ## 8. 常见故障
 
 | 现象 | 检查方向 |
 | --- | --- |
-| 浏览器连接超时 | A 记录、残留 AAAA 记录、安全组、防火墙及路由器的公网 8888 转发 |
-| 找不到域名对应站点 | server_name 是否正确，配置是否已启用，nginx -t 是否通过 |
-| 默认欢迎页 | URL 是否包含 `:8888`、站点是否启用、是否有重复 server_name |
+| 浏览器连接超时 | 访问地址、监听端口、安全组、防火墙及端口转发 |
+| 默认欢迎页 | 访问端口是否正确、站点是否启用、是否命中其他站点 |
 | 页面 500，日志包含 internal redirection cycle | 对应仓库是否已生成 `frontend/dist/index.html`，以及 `/var/www/moyin/prod` 链接是否正确 |
 | 页面 403 | root 是否存在、是否有 index.html、Nginx 用户是否有读取和目录访问权限 |
 | API 502 | tmux 中后端是否运行，proxy_pass 的端口是否匹配 |
@@ -235,5 +229,5 @@ sudo systemctl start moyin
 备份失败也需检查并恢复服务。执行备份的用户必须能读取数据文件。
 另行安全保存 backend/.env（特别是加密密钥）、代码版本；OSS 对象须单独保留或备份。
 
-迁移：克隆同一版本 → 安装依赖 → 恢复 .env 和完整 backend/storage 并设置运行用户权限 → 修改两份配置中的域名、项目路径和用户 → 构建发布 → 启动服务 → 切换 DNS 并开放公网 TCP 8888。
+迁移：克隆同一版本 → 安装依赖 → 恢复 .env 和完整 backend/storage 并设置运行用户权限 → 核对站点配置、项目路径和用户 → 构建发布 → 启动服务 → 切换访问入口。
 不复制虚拟环境或 node_modules。切换时停止旧服务器写入，避免两份 SQLite 数据分叉。新站验收前保留旧服务器和备份。
