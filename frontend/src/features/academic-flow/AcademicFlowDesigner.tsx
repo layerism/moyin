@@ -57,7 +57,6 @@ import {
 } from "./flowRevision";
 import {
   getPublishButtonState,
-  getRevisionEditing,
   getScanAuditConfigError,
 } from "./publishButtonState";
 import { FlowRosterDialog } from "./FlowRosterDialog";
@@ -248,17 +247,12 @@ export function AcademicFlowDesigner({
   const [previewCreating, setPreviewCreating] = useState(false);
   const [manualReviewNodeId, setManualReviewNodeId] = useState<string | null>(null);
   const [nodePackageDialogNodeId, setNodePackageDialogNodeId] = useState<string | null>(null);
-  const [revisionEditingRequested, setRevisionEditingRequested] = useState(false);
   const [revisionDirty, setRevisionDirty] = useState(false);
-  const revisionEditing = getRevisionEditing(
-    workingProcess.published,
-    revisionEditingRequested,
-    workingProcess.hasUnpublishedChanges,
-  );
+  const hasPendingRevision = workingProcess.hasUnpublishedChanges || revisionDirty;
   const baseOperationLocked = copyingNode || saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
-  const announcementEditingLocked = baseOperationLocked || (workingProcess.published && !revisionEditing);
+  const announcementEditingLocked = baseOperationLocked;
   const operationLocked = baseOperationLocked || announcementUploads > 0;
-  const editorLocked = operationLocked || (workingProcess.published && !revisionEditing);
+  const editorLocked = operationLocked;
   const processEdges = workingProcess.edges ?? [];
   const schedule = resolveFlowSchedule(workingProcess.nodes, processEdges);
   const timeIssues = getFlowTimeIssues(workingProcess.nodes, processEdges);
@@ -295,10 +289,9 @@ export function AcademicFlowDesigner({
     [process.nodes, process.publishedNodeIds],
   );
   const publishButtonState = getPublishButtonState({
-    hasUnpublishedChanges: workingProcess.hasUnpublishedChanges || revisionDirty,
+    hasUnpublishedChanges: hasPendingRevision,
     operationLocked,
     published: workingProcess.published,
-    revisionEditing,
     rosterActiveCount,
     nodes: workingProcess.nodes,
   });
@@ -334,7 +327,6 @@ export function AcademicFlowDesigner({
     persistedNodeIds.current = new Set(process.draftConfig.nodes.map((node) => node.id));
     pendingAnnouncementNodeSave.current = null;
     setActiveNodeId(process.draftConfig.nodes[0]?.id ?? "");
-    setRevisionEditingRequested(false);
     setRevisionDirty(false);
     setRevisionImpact(null);
     setPendingPublishProcess(null);
@@ -419,7 +411,6 @@ export function AcademicFlowDesigner({
       );
       onProcessChange(nextProcess);
       setWorkingProcess(createDraftWorkingProcess(nextProcess));
-      setRevisionEditingRequested(false);
       setRevisionDirty(false);
       setRevisionImpact(null);
       setPendingPublishProcess(null);
@@ -513,19 +504,6 @@ export function AcademicFlowDesigner({
 
   const handlePublishButtonClick = () => {
     if (templateMode) { void publishProcess(workingProcess); return; }
-    if (publishButtonState.action === "begin-revision") {
-      setRevisionEditingRequested(true);
-      return;
-    }
-    if (publishButtonState.action === "finish-revision") {
-      setWorkingProcess(createDraftWorkingProcess(process));
-      setRevisionEditingRequested(false);
-      setRevisionDirty(false);
-      setRevisionImpact(null);
-      setPendingPublishProcess(null);
-      setActionNotice("未检测到改动，已退出编辑");
-      return;
-    }
     void preparePublish();
   };
 
@@ -897,14 +875,14 @@ export function AcademicFlowDesigner({
               <span
                 className={
                   workingProcess.published
-                    ? revisionEditing
+                    ? hasPendingRevision
                       ? "status-pill revision"
                       : "status-pill ok"
                     : "status-pill"
                 }
               >
                 {workingProcess.published
-                  ? revisionEditing
+                  ? hasPendingRevision
                     ? "修订中"
                     : "已发布"
                   : "草稿"}
@@ -997,7 +975,7 @@ export function AcademicFlowDesigner({
             onAuditPolicySaved={(policy) => applyPublishedAuditPolicy(inspectorNode.id, policy)}
             onAnswerKeyPolicySaved={(policy) => applyPublishedAnswerKeyPolicy(inspectorNode.id, policy)}
             publishedAuditPolicy={workingProcess.published && protectedNodeIds.includes(inspectorNode.id)}
-            publishedRevision={workingProcess.published && revisionEditing}
+            publishedRevision={workingProcess.published}
           />
         )}
         {showProgress && workingProcess.publishedVersionId ? (
@@ -2338,11 +2316,11 @@ function FlowNodeCanvas({
                 onOpenInspector(nodeContextMenu.nodeId);
               }}
               role="menuitem"
-              title={locked ? "请先解锁编辑" : "设置节点"}
+              title={locked ? "当前操作中，请稍候" : "设置节点"}
               type="button"
             >
               <span aria-hidden="true">⚙</span><strong>设置</strong>
-              {locked ? <small>请先解锁编辑</small> : null}
+              {locked ? <small>当前操作中，请稍候</small> : null}
             </button>
             <button
               className="is-destructive"
