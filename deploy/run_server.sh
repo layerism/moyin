@@ -15,7 +15,6 @@ if [[ "$EUID" -ne 0 ]]; then
   privileged=(sudo)
 fi
 
-frontend_dist="$project_dir/frontend/dist"
 nginx_config="$script_dir/nginx.conf"
 # Read literal settings from the single-site repository configuration.
 deployment_settings="$(awk '
@@ -40,29 +39,24 @@ deployment_settings="$(awk '
     print port
   }
 ' "$nginx_config")"
-publish_link="${deployment_settings%$'\n'*}"
+publish_root="${deployment_settings%$'\n'*}"
 backend_port="${deployment_settings##*$'\n'}"
-publish_root="$(dirname -- "$publish_link")"
-expected_target="$(realpath -m -- "$frontend_dist")"
 
-# Build this checkout before changing links or starting services.
-echo "正在构建正式前端……"
-npm --prefix "$project_dir/frontend" run build
-if [[ ! -f "$frontend_dist/index.html" ]]; then
-  echo "前端构建未生成 $frontend_dist/index.html。" >&2
-  exit 1
+# Convert the old publication symlink into a real output directory.
+if [[ -L "$publish_root" ]]; then
+  "${privileged[@]}" unlink "$publish_root"
 fi
-
-# Let Nginx traverse the frontend directory and read the fresh build.
-chmod o+x "$project_dir/frontend"
-chmod -R a+rX "$frontend_dist"
-
 "${privileged[@]}" mkdir -p "$publish_root"
-if [[ -e "$publish_link" && ! -L "$publish_link" ]]; then
-  echo "$publish_link 已存在且不是符号链接，请先人工确认现有发布目录。" >&2
+"${privileged[@]}" chown "$(id -u):$(id -g)" "$publish_root"
+
+# Keep existing assets so browsers with an older page can still load them.
+echo "正在构建正式前端……"
+npm --prefix "$project_dir/frontend" run build -- --outDir "$publish_root" --emptyOutDir false
+if [[ ! -f "$publish_root/index.html" ]]; then
+  echo "前端构建未生成 $publish_root/index.html。" >&2
   exit 1
 fi
-"${privileged[@]}" ln -sfnT -- "$expected_target" "$publish_link"
+chmod -R a+rX "$publish_root"
 
 if ! command -v nginx >/dev/null 2>&1 && [[ ! -x /usr/sbin/nginx ]]; then
   "${privileged[@]}" apt-get update

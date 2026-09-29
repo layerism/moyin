@@ -1,7 +1,7 @@
 # 本地进程部署
 
 适用：Ubuntu 22.04/24.04，项目通过 tmux 手动运行。访问地址和站点配置由部署者按实际环境确定。
-本文沿用 deploy/nginx.conf：Nginx 通过稳定符号链接读取当前仓库的 `frontend/dist`，API 转发至本机 8000。无需安装 moyin.service.template。
+本文沿用 deploy/nginx.conf：前端直接构建到配置中的 `root` 目录，Nginx 从该目录读取静态文件，API 转发至本机 8000。无需安装 moyin.service.template。
 以下示例使用 HTTP 端口 8888；实际入口以部署者的 Nginx 配置为准。
 以下命令是操作教程，不代表服务器已经执行过。除安装系统软件外，项目命令均在实际仓库根目录执行。
 
@@ -31,7 +31,7 @@ sudo systemctl status nginx --no-pager
 项目依赖尚未安装时，先执行 bash deploy/install.sh，并配置 backend/.env。
 若项目已在运行，不要重复启动，以免端口冲突。
 
-`run_server.sh` 每次启动都会先构建当前仓库前端，构建成功后创建或更新 `/var/www/moyin/prod → 当前仓库/frontend/dist` 符号链接，再以前台方式启动正式 Uvicorn 后端。Nginx 直接提供构建后的静态前端，因此脚本不启动 Vite。构建失败时脚本立即退出，不启动后端。启动前应核对第 5—6 节的站点及环境配置。
+`run_server.sh` 每次启动都会先构建当前仓库前端，构建产物直接写入 `deploy/nginx.conf` 指定的 `root` 目录，再以前台方式启动正式 Uvicorn 后端。Nginx 直接提供构建后的静态前端，因此脚本不启动 Vite。构建失败时脚本立即退出，不启动后端。启动前应核对第 5—6 节的站点及环境配置。
 
 在项目根目录创建 tmux 会话：
 
@@ -40,7 +40,7 @@ tmux new -s moyin
 bash deploy/run_server.sh
 ```
 
-脚本从 `deploy/nginx.conf` 读取完整 `root` 路径作为前端发布软链接，并从 `proxy_pass` 读取后端端口。当前配置对应 `/var/www/moyin/prod` 和 `127.0.0.1:8000`；以后修改路径或端口只需修改该配置。
+脚本从 `deploy/nginx.conf` 读取完整 `root` 路径作为前端构建输出目录，并从 `proxy_pass` 读取后端端口。下文以 `/var/www/moyin/v1` 和 `127.0.0.1:8000` 为例，实际值以配置文件为准；以后修改路径或端口只需修改该配置。
 
 配置须包含唯一的 `root` 和 `proxy_pass`，每条指令独占一行，以分号结束；支持行尾注释及双引号。`root` 必须是直接写出的绝对路径，`proxy_pass` 必须为 `http://127.0.0.1:端口`，端口范围为 1–65535。不解析变量或 `include` 中的指令。配置不符合要求时，脚本在构建和修改系统配置之前退出。
 
@@ -50,25 +50,26 @@ bash deploy/run_server.sh
 
 ## 4. 自动构建与发布前端
 
-执行启动命令时，脚本会在当前仓库自动执行一次 `npm --prefix frontend run build`：
+执行启动命令时，脚本会在当前仓库自动执行一次 `npm --prefix frontend run build -- --outDir "$PUBLISH_ROOT" --emptyOutDir false`（`PUBLISH_ROOT` 来自配置中的 `root`）：
 
 ```bash
 bash deploy/run_server.sh
 ```
 
-脚本只构建当前仓库。构建产物保留在 `frontend/dist`，不复制到 `/var/www`。
+脚本只构建当前仓库，直接输出到配置中的 `root`，不创建指向仓库的发布软链接。该目录应专用于前端静态文件。
 
 如果服务已经运行，只想更新静态前端而不重启后端，可以在当前仓库根目录手动执行：
 
 ```bash
 export PATH="$PWD/.local/node/bin:$PATH"
-npm --prefix frontend run build
-chmod -R a+rX frontend/dist
+PUBLISH_ROOT=/var/www/moyin/v1  # 填写 nginx.conf 中实际的 root
+npm --prefix frontend run build -- --outDir "$PUBLISH_ROOT" --emptyOutDir false
+chmod -R a+rX "$PUBLISH_ROOT"
 ```
 
-`run_server.sh` 每次启动都会把 `nginx.conf` 的 `root` 所指定的符号链接更新为当前仓库的 `frontend/dist`；将项目拷贝到新位置后，从新位置运行脚本即可更新正式发布路径。若发布路径已存在且是实际目录或普通文件，脚本会中止并保留原内容。构建失败不会更新链接。`/var/www/moyin` 中不保存构建文件或 `node_modules`。
+若 `root` 仍是旧版发布软链接，启动脚本只移除链接，再创建实际目录，不删除链接原来指向的仓库文件。已有实际目录会直接用于构建。脚本保留旧静态资源，避免仍打开旧页面的浏览器找不到资源；构建失败时不会启动后端，但直接输出不是原子发布，可能留下部分更新。
 
-Nginx 只通过链接读取 `dist`，不读取源码。前端修改后只须重新构建，无须复制文件或 reload Nginx。需要 Vite 热更新时，应执行 `bash deploy/run_dev.sh` 启动前后端。
+Nginx 直接读取 `root` 下的构建文件，无需访问源码目录。前端修改后重新构建即可，无须 reload Nginx。需要 Vite 热更新时，执行 `bash deploy/run_dev.sh`。
 
 ## 5. 安装 HTTP 站点配置
 
@@ -76,11 +77,11 @@ Nginx 只通过链接读取 `dist`，不读取源码。前端修改后只须重�
 
 ```nginx
 listen 8888;
-root "/var/www/moyin/prod";
+root "/var/www/moyin/v1";
 index index.html;
 ```
 
-正式站点的 `/api/` 代理到 `127.0.0.1:8000`，root 为 `/var/www/moyin/prod`。root 是前端发布目录，不是后端或整个仓库目录。
+正式站点的 `/api/` 代理到 `127.0.0.1:8000`，root 为 `/var/www/moyin/v1`。root 是前端发布目录，不是后端或整个仓库目录。
 
 首次安装站点前检查：
 
@@ -124,8 +125,7 @@ sudo nginx -t
 站点配置生效后，检查正式发布目录的 `index.html`，并通过 Nginx 验证 HTTP。以下请求适用于本机入口；有多个站点时使用实际配置的访问地址：
 
 ```bash
-sudo test -f /var/www/moyin/prod/index.html
-readlink -f /var/www/moyin/prod
+sudo test -f /var/www/moyin/v1/index.html
 curl -I http://127.0.0.1:8888/
 curl -i http://127.0.0.1:8888/api/health
 ```
@@ -138,7 +138,7 @@ curl -i http://127.0.0.1:8888/api/health
 浏览器 HTTP :8888
         ↓
 Nginx :8888
-        └─ 静态前端 /var/www/moyin/prod + 后端 127.0.0.1:8000
+        └─ 静态前端 /var/www/moyin/v1 + 后端 127.0.0.1:8000
 ```
 
 编辑当前仓库的 `backend/.env`。前端与 `/api` 通过同一个 Nginx 入口访问，属于同源部署，无需配置 `CORS_ORIGINS`。以下为 HTTP 部署配置：
@@ -160,7 +160,7 @@ SESSION_COOKIE_SECURE=false
 
 依赖清单或锁文件有变化时，先停止使用本仓库的正式及开发进程，按第 10 节备份数据、`.env` 和代码版本，再更新代码并执行 `bash deploy/install.sh`。安装脚本会同步 Python 与两套 npm 依赖，并安装 DOCX 版式审核所需的 LibreOffice Writer 和中文字体。核对新增环境变量后再启动；不能只重启或构建。完整步骤见 `INSTALL.md` 第 11 节。
 
-- 前端更新：重新构建当前 clone 的 `frontend/dist`，无须 reload Nginx。
+- 前端更新：重新构建到配置中的 `root` 目录，无须 reload Nginx。
 - 后端更新：在 tmux 中重启；不要重复启动多个同端口进程。
 - 修改系统站点后，先 nginx -t，再 reload。
 - 新服务器：部署代码和数据、安装 Nginx，并按实际环境配置访问入口。
@@ -171,11 +171,11 @@ SESSION_COOKIE_SECURE=false
 | --- | --- |
 | 浏览器连接超时 | 访问地址、监听端口、安全组、防火墙及端口转发 |
 | 默认欢迎页 | 访问端口是否正确、站点是否启用、是否命中其他站点 |
-| 页面 500，日志包含 internal redirection cycle | 对应仓库是否已生成 `frontend/dist/index.html`，以及 `/var/www/moyin/prod` 链接是否正确 |
+| 页面 500，日志包含 internal redirection cycle | 配置中的 `root/index.html` 是否存在且可被 Nginx 读取 |
 | 页面 403 | root 是否存在、是否有 index.html、Nginx 用户是否有读取和目录访问权限 |
 | API 502 | tmux 中后端是否运行，proxy_pass 的端口是否匹配 |
 | 登录成功后仍显示未登录 | `SESSION_COOKIE_SECURE` 是否在 HTTP 环境中误设为 `true`，后端是否已重启 |
-| 页面没有更新 | 是否在当前仓库中重新构建 `frontend/dist` |
+| 页面没有更新 | 是否已将当前代码重新构建到配置中的 `root` 目录 |
 
 诊断命令：
 
