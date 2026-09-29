@@ -8,13 +8,14 @@ export PATH="$script_dir/.local/bin:$PATH"
 if ! command -v mutagen >/dev/null 2>&1; then
   sudo apt-get update
   sudo apt-get install -y curl ca-certificates tar openssh-client
-  mkdir -p "$script_dir/.local/bin" "$script_dir/.local/mutagen"
-  curl -fL -o "$script_dir/.local/mutagen/release.tar.gz" \
+  install_tmp="$(mktemp -d /tmp/moyin-mutagen.XXXXXX)"
+  mkdir -p "$script_dir/.local/bin"
+  curl -fL -o "$install_tmp/release.tar.gz" \
     https://github.com/mutagen-io/mutagen/releases/download/v0.18.1/mutagen_linux_amd64_v0.18.1.tar.gz
-  tar -xzf "$script_dir/.local/mutagen/release.tar.gz" -C "$script_dir/.local/mutagen"
-  install -m 755 "$script_dir/.local/mutagen/mutagen" "$script_dir/.local/bin/"
-  install -m 644 "$script_dir/.local/mutagen/mutagen-agents.tar.gz" "$script_dir/.local/bin/"
-  rm -rf "$script_dir/.local/mutagen"
+  tar -xzf "$install_tmp/release.tar.gz" -C "$install_tmp"
+  install -m 755 "$install_tmp/mutagen" "$script_dir/.local/bin/"
+  install -m 644 "$install_tmp/mutagen-agents.tar.gz" "$script_dir/.local/bin/"
+  rm -rf "$install_tmp"
 fi
 
 # 数据库同步前停止两端后端；不要让两端同时写入数据库。
