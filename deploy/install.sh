@@ -8,64 +8,37 @@ npm_version="11.16.0"
 python_index="https://mirrors.aliyun.com/pypi/simple"
 npm_registry="https://registry.npmmirror.com"
 
-deploy_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-project_dir="$(cd -- "$deploy_dir/.." && pwd)"
-local_dir="$project_dir/.local"
-local_bin="$local_dir/bin"
-node_dir="$local_dir/node"
-python_dir="$local_dir/python"
-uv_cache_dir="$local_dir/uv-cache"
-backend_dir="$project_dir/backend"
-frontend_dir="$project_dir/frontend"
-audit_runtime_dir="$backend_dir/runtime/javascript"
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
+export PATH="$PWD/.local/node/bin:$PWD/.local/bin:$PATH"
+export UV_PYTHON_INSTALL_DIR="$PWD/.local/python"
+export UV_PYTHON_BIN_DIR="$PWD/.local/bin"
+export UV_CACHE_DIR="$PWD/.local/uv-cache"
 
 if [[ "$(uname -s)" != "Linux" || "$(uname -m)" != "x86_64" ]]; then
   echo "仅支持 Linux x86_64。" >&2
   exit 1
 fi
 
-for command in curl tar grep sha256sum mktemp; do
-  if ! command -v "$command" >/dev/null 2>&1; then
-    echo "缺少基础命令：$command" >&2
-    exit 1
-  fi
-done
-
-# DOCX 版式审核通过 LibreOffice 渲染，不能由 pip/npm 安装替代。
-if ! command -v apt-get >/dev/null 2>&1; then
-  echo "系统依赖自动安装需要 Debian/Ubuntu 的 apt-get。" >&2
-  exit 1
-fi
 privileged=()
 if [[ "$EUID" -ne 0 ]]; then
   privileged=(sudo)
 fi
 "${privileged[@]}" apt-get update
-"${privileged[@]}" apt-get install -y libreoffice-writer fonts-noto-cjk xz-utils
+"${privileged[@]}" apt-get install -y curl ca-certificates xz-utils libreoffice-writer fonts-noto-cjk
 
-mkdir -p "$local_bin" "$node_dir" "$python_dir" "$uv_cache_dir"
+mkdir -p .local/bin .local/node .local/python .local/uv-cache
 
-uv_executable="$local_bin/uv"
+uv_executable="$PWD/.local/bin/uv"
 if [[ ! -x "$uv_executable" ]] || [[ "$($uv_executable --version 2>/dev/null || true)" != "uv $uv_version"* ]]; then
   curl -LsSf "https://astral.sh/uv/$uv_version/install.sh" \
-    | env UV_UNMANAGED_INSTALL="$local_bin" sh
+    | env UV_UNMANAGED_INSTALL="$PWD/.local/bin" sh
 fi
 
-if [[ "$($uv_executable --version)" != "uv $uv_version"* ]]; then
-  echo "uv 版本校验失败。" >&2
-  exit 1
-fi
+[[ "$($uv_executable --version)" == "uv $uv_version"* ]]
 
-export PATH="$node_dir/bin:$local_bin:$PATH"
-node_ok=false
-if [[ -x "$node_dir/bin/node" ]] \
-  && [[ "$($node_dir/bin/node --version 2>/dev/null || true)" == "v$node_version" ]] \
-  && [[ "$(npm --version 2>/dev/null || true)" == "$npm_version" ]]; then
-  node_ok=true
-fi
-
-if [[ "$node_ok" != true ]]; then
-  install_tmp="$(mktemp -d "$local_dir/install.XXXXXX")"
+if [[ "$(.local/node/bin/node --version 2>/dev/null || true)" != "v$node_version" ]] \
+  || [[ "$(.local/node/bin/npm --version 2>/dev/null || true)" != "$npm_version" ]]; then
+  install_tmp="$(mktemp -d .local/install.XXXXXX)"
   archive="node-v$node_version-linux-x64.tar.xz"
   curl --fail --location --output "$install_tmp/$archive" \
     "https://nodejs.org/dist/v$node_version/$archive"
@@ -78,54 +51,36 @@ if [[ "$node_ok" != true ]]; then
   mkdir -p "$install_tmp/node"
   tar --extract --file="$install_tmp/$archive" --strip-components=1 \
     --directory="$install_tmp/node"
-  rm -rf "$node_dir"
-  mv "$install_tmp/node" "$node_dir"
+  rm -rf .local/node
+  mv "$install_tmp/node" .local/node
   rm -rf "$install_tmp"
 fi
 
-export PATH="$node_dir/bin:$local_bin:$PATH"
 [[ "$(node --version)" == "v$node_version" ]]
 [[ "$(npm --version)" == "$npm_version" ]]
 
-export UV_PYTHON_INSTALL_DIR="$python_dir"
-export UV_PYTHON_BIN_DIR="$local_bin"
-export UV_CACHE_DIR="$uv_cache_dir"
+"$uv_executable" python install "$python_version" --managed-python
 
-"$uv_executable" python install "$python_version" \
-  --install-dir "$python_dir" --managed-python
-
-venv_python="$backend_dir/.venv/bin/python"
-venv_ok=false
-if [[ -x "$venv_python" ]] \
-  && [[ "$($venv_python --version 2>&1)" == "Python $python_version" ]] \
-  && grep -Fq "home = $python_dir/" "$backend_dir/.venv/pyvenv.cfg"; then
-  venv_ok=true
+venv_python="$PWD/backend/.venv/bin/python"
+if [[ "$($venv_python --version 2>/dev/null || true)" != "Python $python_version" ]] \
+  || ! grep -Fq "home = $UV_PYTHON_INSTALL_DIR/" backend/.venv/pyvenv.cfg; then
+  "$uv_executable" venv --clear --python "$python_version" --managed-python backend/.venv
 fi
-
-if [[ "$venv_ok" != true ]]; then
-  "$uv_executable" venv --clear --python "$python_version" \
-    --managed-python "$backend_dir/.venv"
-fi
+[[ "$($venv_python --version)" == "Python $python_version" ]]
 
 "$uv_executable" pip install \
   --python "$venv_python" \
   --index-url "$python_index" \
-  --editable "$backend_dir[dev]"
+  --editable "backend[dev]"
 
-npm --prefix "$frontend_dir" ci --registry="$npm_registry"
-npm --prefix "$audit_runtime_dir" ci --registry="$npm_registry"
+npm --prefix frontend ci --registry="$npm_registry"
+npm --prefix backend/runtime/javascript ci --registry="$npm_registry"
 
-if [[ ! -f "$backend_dir/.env" ]]; then
-  cp "$backend_dir/.env.example" "$backend_dir/.env"
-fi
+[[ -f backend/.env ]] || cp backend/.env.example backend/.env
 
-[[ "$($uv_executable --version)" == "uv $uv_version"* ]]
-[[ "$($venv_python --version 2>&1)" == "Python $python_version" ]]
-[[ "$(node --version)" == "v$node_version" ]]
-[[ "$(npm --version)" == "$npm_version" ]]
 "$uv_executable" pip check --python "$venv_python"
-npm --prefix "$frontend_dir" ls --depth=0
-npm --prefix "$audit_runtime_dir" ls --depth=0
+npm --prefix frontend ls --depth=0
+npm --prefix backend/runtime/javascript ls --depth=0
 
 echo "依赖安装完成。首次启动前请替换 backend/.env 中的示例管理员，并配置 OSS 和模型加密主密钥，见 INSTALL.md。"
 echo "本地开发：bash deploy/run_dev.sh"
