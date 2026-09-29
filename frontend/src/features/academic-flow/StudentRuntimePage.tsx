@@ -341,29 +341,16 @@ export function StudentRuntimePage({
             <path d="M15 18l-6-6 6-6" />
           </svg>
         </button>
-        <nav className="runtime-header-path" aria-label="当前位置">我的流程 <span aria-hidden="true">›</span> {preview ? "流程预览" : "流程办理"}</nav>
-        <details className="runtime-header-account">
-          <summary>
-            <span aria-hidden="true" className="runtime-student-avatar">{instance.student.name.slice(0, 1) || "学"}</span>
-            <span className="runtime-header-user"><strong>{instance.student.name}</strong><small>{instance.student.studentNo}</small></span>
-            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></svg>
-          </summary>
-          <div className="runtime-header-account-panel">
-            <strong>{instance.student.name} · {preview ? "学生预览" : "学生"}</strong>
-            <p>学号 {instance.student.studentNo}</p>
-            <p>{preview ? "当前为教师预览模式" : "当前以本人身份填写流程"}</p>
-          </div>
-        </details>
-        <div className="runtime-header-title">
-          <h1>{instance.name}</h1>
-          <strong className={`runtime-overall-status ${instance.status}`}>{instance.status === "completed" ? "全部完成" : "填写中"}</strong>
-        </div>
-        <div className="runtime-header-meta">
-          <span>{instance.nodeInstances.filter(node => node.status === "approved").length} / {instance.nodeInstances.filter(node => node.status !== "skipped").length} 节点已通过</span>
-          {instance.description && <details className="runtime-header-description">
-            <summary><span aria-hidden="true">ⓘ</span> 流程说明 <span aria-hidden="true">⌄</span></summary>
-            <p>{instance.description}</p>
-          </details>}
+        <h1 className="runtime-inline-title" title={instance.name}>{instance.name}</h1>
+        <strong className={`runtime-overall-status ${instance.status}`}>{instance.status === "completed" ? "全部完成" : "填写中"}</strong>
+        <span className="runtime-inline-progress">{instance.nodeInstances.filter(node => node.status === "approved").length} / {instance.nodeInstances.filter(node => node.status !== "skipped").length}<span> 已通过</span></span>
+        {instance.description && <details className="runtime-header-description">
+          <summary aria-label="流程说明"><span aria-hidden="true">ⓘ</span><span className="runtime-description-label">说明</span></summary>
+          <p>{instance.description}</p>
+        </details>}
+        <div className="runtime-inline-identity" aria-label={preview ? "学生预览身份" : "学生身份"}>
+          <span aria-hidden="true" className="runtime-student-avatar">{instance.student.name.slice(0, 1) || "学"}</span>
+          <strong>{instance.student.name}</strong><small>{instance.student.studentNo}</small>
         </div>
       </header>
       {notice ? (

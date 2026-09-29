@@ -14534,33 +14534,24 @@ td {
 .password-security-dialog .phone-binding-actions > .primary-action:not(:disabled):hover { background: #1d4ed8; }
 .password-security-dialog .phone-binding-actions > .sms-binding-button { background: #fff; color: #172033; }
 
-.student-runtime-header.runtime-header-redesign {
-  grid-template-columns: 32px minmax(0, 1fr) auto;
-  gap: 8px 12px; padding: 16px clamp(20px, 4vw, 56px);
-  box-shadow: none; min-height: 0; position: relative; z-index: 2;
+ .student-runtime-header.runtime-header-redesign {
+  display: flex; align-items: center; gap: 12px; height: 60px; min-height: 60px;
+  padding: 0 20px; box-shadow: none; position: relative; z-index: 2;
 }
-.runtime-header-redesign .runtime-home-button { width: 32px; height: 32px; background: #fff; border-radius: 8px; }
-.runtime-header-path { display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 12px; }
-.runtime-header-account { position: relative; }
-.runtime-header-account > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; }
-.runtime-header-account > summary::-webkit-details-marker,
+.runtime-header-redesign .runtime-home-button { flex: 0 0 30px; width: 30px; height: 30px; background: #fff; border-radius: 7px; }
+.runtime-inline-title { flex: 1; min-width: 0; margin: 0; font-size: 15px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.runtime-header-redesign .runtime-overall-status { flex-shrink: 0; font-size: 11px; padding: 4px 7px; border: 0; border-radius: 5px; white-space: nowrap; }
+.runtime-inline-progress { flex-shrink: 0; font-size: 12px; color: #64748b; white-space: nowrap; }
+.runtime-header-description { flex-shrink: 0; }
+.runtime-header-description > summary { display: flex; gap: 5px; list-style: none; color: #2563eb; cursor: pointer; font-size: 12px; padding: 6px 0; }
 .runtime-header-description > summary::-webkit-details-marker { display: none; }
-.runtime-header-account svg { width: 14px; height: 14px; fill: none; stroke: #64748b; stroke-width: 1.8; }
-.runtime-header-account .runtime-student-avatar { width: 30px; height: 30px; font-size: 12px; }
-.runtime-header-user { display: grid; gap: 2px; font-size: 12px; }
-.runtime-header-user small { color: #64748b; font-size: 11px; }
-.runtime-header-account-panel { position: absolute; top: calc(100% + 12px); right: 0; width: 220px; padding: 14px; background: #fff; border: 1px solid #e5eaf1; border-radius: 10px; box-shadow: 0 8px 24px #17203312; font-size: 12px; z-index: 3; }
-.runtime-header-account-panel p { margin: 6px 0 0; color: #64748b; }
-.runtime-header-title { grid-column: 2 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 6px; min-width: 0; }
-.runtime-header-title h1 { margin: 0; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
-.runtime-header-title .runtime-overall-status { font-size: 11px; padding: 4px 9px; border: 0; border-radius: 6px; }
-.runtime-header-meta { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; font-size: 12px; color: #64748b; }
-.runtime-header-description { display: contents; }
-.runtime-header-description > summary { display: inline-flex; gap: 5px; align-items: center; list-style: none; color: #2563eb; cursor: pointer; }
-.runtime-header-description > p { flex-basis: 100%; margin: 4px 0 0; padding: 12px 14px; border-radius: 8px; background: #f7f9fc; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.runtime-header-description > p { position: absolute; top: calc(100% + 8px); right: 20px; width: min(320px, calc(100vw - 40px)); max-height: 50dvh; overflow: auto; margin: 0; padding: 15px; border: 1px solid #e5eaf1; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px #17203318; color: #64748b; font-size: 12px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.runtime-inline-identity { flex-shrink: 0; display: flex; align-items: center; gap: 7px; border-left: 1px solid #e5eaf1; padding-left: 12px; white-space: nowrap; font-size: 12px; }
+.runtime-inline-identity .runtime-student-avatar { width: 28px; height: 28px; font-size: 11px; }
+.runtime-inline-identity small { color: #64748b; font-size: 11px; }
 @media (max-width: 600px) {
-  .student-runtime-header.runtime-header-redesign { padding: 14px; }
-  .runtime-header-title, .runtime-header-meta { grid-column: 1 / -1; }
-  .runtime-header-title h1 { font-size: 18px; }
-  .runtime-header-user { display: none; }
+  .student-runtime-header.runtime-header-redesign { padding: 0 10px; gap: 7px; }
+  .runtime-inline-title { font-size: 13px; }
+  .runtime-inline-progress > span, .runtime-description-label { display: none; }
+  .runtime-inline-identity { padding-left: 7px; }
 }
