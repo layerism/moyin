@@ -19,8 +19,6 @@ rm -rf "$script_dir/.local/mutagen"
 mutagen sync create "$script_dir" aliweb:/root/webapp/moyin/v1 \
   --name moyin-aliweb-v1 --mode two-way-safe --no-global-configuration \
   --ignore-vcs \
-  --ignore '.local,.venv,node_modules' \
-  --ignore '.env,.env.*,!.env.example' \
   --ignore '/outputs' \
   --ignore 'dist,__pycache__,*.pyc,.pytest_cache,.ruff_cache,*.egg-info' \
   --ignore '.vite,*.tsbuildinfo,*.log'
