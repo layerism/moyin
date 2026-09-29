@@ -223,6 +223,8 @@ export function PasswordChangeButton({ role, onChanged }: {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
@@ -237,7 +239,7 @@ export function PasswordChangeButton({ role, onChanged }: {
   }, [open]);
   const show = async () => {
     setOpen(true); setLoading(true); setPhone(null); setChallengeId("");
-    setCode(""); setPassword(""); setConfirm(""); setNotice(""); setError("");
+    setCode(""); setPassword(""); setConfirm(""); setShowPassword(false); setShowConfirm(false); setNotice(""); setError("");
     try { setPhone((await call<{ phone: string | null }>(role, "phone")).phone); }
     catch (reason) { setError(reason instanceof Error ? reason.message : "读取失败"); }
     finally { setLoading(false); }
@@ -273,17 +275,18 @@ export function PasswordChangeButton({ role, onChanged }: {
       if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
-  }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card" role="dialog" aria-modal="true" aria-label="修改密码">
-    <div className="sms-dialog-heading"><h2>修改密码</h2><button type="button" aria-label="关闭" disabled={busy} onClick={() => setOpen(false)}>×</button></div>
+  }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card phone-security-dialog password-security-dialog" role="dialog" aria-modal="true" aria-label="修改密码">
+    <div className="sms-dialog-heading"><span className="phone-security-icon"><BindingIcon name="lock" /></span><div><h2>修改密码</h2><p>通过安全手机号验证身份</p></div><button type="button" aria-label="关闭" disabled={busy} onClick={() => setOpen(false)}>×</button></div>
     {loading ? <p>正在读取安全设置…</p> : error && !phone ? <p className="role-auth-error" role="alert">{error}</p> : !phone ? <><p className="sms-auth-note password-change-unbound">修改密码前，请先绑定安全手机号。</p><button type="button" className="sms-binding-button" onClick={() => setOpen(false)}>返回</button></> : <form className="sms-auth-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
-      <p className="sms-auth-note">验证码将发送至已绑定手机号 <strong>{phone}</strong>。</p>
+      <div className="phone-binding-status"><div><small>验证码接收号码</small><strong>{phone}</strong></div><span><BindingIcon name="shield" />已绑定</span></div>
       <label><span className="binding-field-label"><BindingIcon name="code" />短信验证码</span><div className="sms-code-row"><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} disabled={busy} onChange={(event) => setCode(event.target.value)} /><button type="button" disabled={busy || remaining > 0} onClick={() => void send()}><BindingIcon name="message" />{remaining ? `${remaining} 秒后重发` : "获取验证码"}</button></div></label>
-      <label><span className="binding-field-label"><BindingIcon name="lock" />新密码</span><input required type="password" autoComplete="new-password" minLength={8} maxLength={128} value={password} disabled={busy} onChange={(event) => setPassword(event.target.value)} /></label>
-      <label><span className="binding-field-label"><BindingIcon name="lock" />确认新密码</span><input required type="password" autoComplete="new-password" minLength={8} maxLength={128} value={confirm} disabled={busy} onChange={(event) => setConfirm(event.target.value)} /></label>
+      <label><span className="binding-field-label"><BindingIcon name="lock" />新密码</span><div className="password-security-input"><input required type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} maxLength={128} value={password} disabled={busy} onChange={(event) => setPassword(event.target.value)} /><button type="button" disabled={busy} aria-label={showPassword ? "隐藏新密码" : "显示新密码"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? "隐藏" : "显示"}</button></div><small className="password-security-hint">至少 8 位，建议使用字母、数字和符号组合</small></label>
+      <label><span className="binding-field-label"><BindingIcon name="lock" />确认新密码</span><div className="password-security-input"><input required type={showConfirm ? "text" : "password"} autoComplete="new-password" minLength={8} maxLength={128} value={confirm} disabled={busy} onChange={(event) => setConfirm(event.target.value)} /><button type="button" disabled={busy} aria-label={showConfirm ? "隐藏确认新密码" : "显示确认新密码"} aria-pressed={showConfirm} onClick={() => setShowConfirm(value => !value)}>{showConfirm ? "隐藏" : "显示"}</button></div></label>
+      {confirm && <p className={password === confirm ? "password-security-match" : "role-auth-error"} aria-live="polite">{password === confirm ? "两次密码输入一致" : "两次密码输入不一致"}</p>}
       {notice && <p className="sms-auth-note" role="status">{notice}</p>}
       {error && <p className="role-auth-error" role="alert">{error}</p>}
-      <button className="primary-action" disabled={busy || !challengeId}>{busy ? "处理中…" : "验证并修改密码"}</button>
-      <p className="sms-auth-note">修改成功后，所有登录设备都会退出，请使用新密码重新登录。</p>
+      <p className="sms-auth-note password-security-warning">修改成功后，所有设备将退出登录。请使用新密码重新登录。</p>
+      <div className="phone-binding-actions"><button type="button" className="sms-binding-button" disabled={busy} onClick={() => setOpen(false)}>取消</button><button className="primary-action" disabled={busy || !challengeId}>{busy ? "处理中…" : "验证并修改"}</button></div>
     </form>}
   </section></div>, document.body)}</>;
 }
