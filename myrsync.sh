@@ -25,7 +25,10 @@ fi
 mutagen sync create "$script_dir" "aliweb:/root/webapp/moyin/$version" \
   --name "$session_name" --mode two-way-safe --no-global-configuration \
   --ignore-vcs \
-  --ignore '.venv,node_modules,.local' \
+  --ignore '/backend/.venv' \
+  --ignore '/frontend/node_modules' \
+  --ignore '/backend/runtime/javascript/node_modules' \
+  --ignore '/.local' \
   --ignore '/outputs' \
   --ignore '/frontend/dist,__pycache__,*.pyc,.pytest_cache,.ruff_cache,*.egg-info' \
   --ignore '.vite,*.tsbuildinfo,*.log'
