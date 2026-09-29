@@ -31,6 +31,18 @@ for command in curl tar grep sha256sum mktemp; do
   fi
 done
 
+# DOCX 版式审核通过 LibreOffice 渲染，不能由 pip/npm 安装替代。
+if ! command -v apt-get >/dev/null 2>&1; then
+  echo "系统依赖自动安装需要 Debian/Ubuntu 的 apt-get。" >&2
+  exit 1
+fi
+privileged=()
+if [[ "$EUID" -ne 0 ]]; then
+  privileged=(sudo)
+fi
+"${privileged[@]}" apt-get update
+"${privileged[@]}" apt-get install -y libreoffice-writer fonts-noto-cjk xz-utils
+
 mkdir -p "$local_bin" "$node_dir" "$python_dir" "$uv_cache_dir"
 
 uv_executable="$local_bin/uv"
@@ -115,6 +127,6 @@ fi
 npm --prefix "$frontend_dir" ls --depth=0
 npm --prefix "$audit_runtime_dir" ls --depth=0
 
-echo "安装完成。请检查 backend/.env。"
+echo "依赖安装完成。首次启动前请替换 backend/.env 中的示例管理员，并配置 OSS 和模型加密主密钥，见 INSTALL.md。"
 echo "本地开发：bash deploy/run_dev.sh"
 echo "正式部署：bash deploy/run_server.sh，完整步骤见 deploy/README.md"
