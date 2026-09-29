@@ -14519,3 +14519,17 @@ td {
   .sms-binding-backdrop .password-security-dialog { padding: 16px; }
   .password-security-dialog .phone-binding-actions { padding: 12px 16px; margin-bottom: -16px; }
 }
+
+.password-security-dialog .binding-field-label > .binding-icon { display: none; }
+.password-security-dialog .password-security-input,
+.password-security-dialog .sms-code-row { padding-left: 12px; gap: 9px; background: #fff; }
+.password-security-dialog .password-security-input > .binding-icon,
+.password-security-dialog .sms-code-row > .binding-icon { flex-shrink: 0; width: 16px; height: 16px; color: #69768b; }
+.password-security-dialog .password-security-input input,
+.password-security-dialog .sms-code-row input { padding-left: 0; }
+.password-security-input > button { display: grid; place-items: center; width: 32px; height: 32px; margin-right: 6px; padding: 4px; }
+.password-security-input > button .binding-icon { width: 16px; height: 16px; }
+.password-security-dialog .phone-binding-actions > .primary-action { background: #2563eb; color: #fff; border: 1px solid transparent; }
+.password-security-dialog .phone-binding-actions > .primary-action:disabled { background: #e7edf6; color: #8391a6; opacity: 1; cursor: not-allowed; }
+.password-security-dialog .phone-binding-actions > .primary-action:not(:disabled):hover { background: #1d4ed8; }
+.password-security-dialog .phone-binding-actions > .sms-binding-button { background: #fff; color: #172033; }

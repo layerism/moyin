@@ -38,7 +38,7 @@ function useSmsCooldown(phone: string) {
   return { remaining, coolDown };
 }
 
-type BindingIconName = "shield" | "phone" | "lock" | "code" | "message" | "check";
+type BindingIconName = "shield" | "phone" | "lock" | "code" | "message" | "check" | "eye" | "eyeOff";
 function BindingIcon({ name }: { name: BindingIconName }) {
   const paths: Record<BindingIconName, ReactNode> = {
     shield: <><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6l-8-3Z" /><path d="m8 12 3 3 5-6" /></>,
@@ -46,6 +46,8 @@ function BindingIcon({ name }: { name: BindingIconName }) {
     lock: <><rect x="4" y="10" width="16" height="11" rx="3" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" /></>,
     code: <><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M7 10h10M7 14h2m3 0h1m3 0h1" /></>,
     message: <><path d="M21 11a8 8 0 0 1-8 8H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" /><path d="M7 8h10M7 12h6" /></>,
+    eye: <><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></>,
+    eyeOff: <><path d="m3 3 18 18M10.6 5.1 12 5c7 0 10 7 10 7a18 18 0 0 1-3 4M6.5 6.5A20 20 0 0 0 2 12s3 7 10 7a12 12 0 0 0 5.5-1.5M10 10a3 3 0 0 0 4 4" /></>,
     check: <path d="m5 12 4 4L19 6" />,
   };
   return <svg className="binding-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
@@ -279,9 +281,9 @@ export function PasswordChangeButton({ role, onChanged }: {
     <div className="sms-dialog-heading"><span className="phone-security-icon"><BindingIcon name="lock" /></span><div><h2>修改密码</h2><p>通过安全手机号验证身份</p></div><button type="button" aria-label="关闭" disabled={busy} onClick={() => setOpen(false)}>×</button></div>
     {loading ? <p>正在读取安全设置…</p> : error && !phone ? <p className="role-auth-error" role="alert">{error}</p> : !phone ? <><p className="sms-auth-note password-change-unbound">修改密码前，请先绑定安全手机号。</p><button type="button" className="sms-binding-button" onClick={() => setOpen(false)}>返回</button></> : <form className="sms-auth-form" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <div className="phone-binding-status"><div><small>验证码接收号码</small><strong>{phone}</strong></div><span><BindingIcon name="shield" />已绑定</span></div>
-      <label><span className="binding-field-label"><BindingIcon name="code" />短信验证码</span><div className="sms-code-row"><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} disabled={busy} onChange={(event) => setCode(event.target.value)} /><button type="button" disabled={busy || remaining > 0} onClick={() => void send()}><BindingIcon name="message" />{remaining ? `${remaining} 秒后重发` : "获取验证码"}</button></div></label>
-      <label><span className="binding-field-label"><BindingIcon name="lock" />新密码</span><div className="password-security-input"><input required type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} maxLength={128} value={password} disabled={busy} onChange={(event) => setPassword(event.target.value)} /><button type="button" disabled={busy} aria-label={showPassword ? "隐藏新密码" : "显示新密码"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>{showPassword ? "隐藏" : "显示"}</button></div><small className="password-security-hint">至少 8 位，建议使用字母、数字和符号组合</small></label>
-      <label><span className="binding-field-label"><BindingIcon name="lock" />确认新密码</span><div className="password-security-input"><input required type={showConfirm ? "text" : "password"} autoComplete="new-password" minLength={8} maxLength={128} value={confirm} disabled={busy} onChange={(event) => setConfirm(event.target.value)} /><button type="button" disabled={busy} aria-label={showConfirm ? "隐藏确认新密码" : "显示确认新密码"} aria-pressed={showConfirm} onClick={() => setShowConfirm(value => !value)}>{showConfirm ? "隐藏" : "显示"}</button></div></label>
+      <label><span className="binding-field-label"><BindingIcon name="code" />短信验证码</span><div className="sms-code-row"><BindingIcon name="message" /><input placeholder="输入 6 位验证码" required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} disabled={busy} onChange={(event) => setCode(event.target.value)} /><button type="button" disabled={busy || remaining > 0} onClick={() => void send()}><BindingIcon name="message" />{remaining ? `${remaining} 秒后重发` : "获取验证码"}</button></div></label>
+      <label><span className="binding-field-label"><BindingIcon name="lock" />新密码</span><div className="password-security-input"><BindingIcon name="lock" /><input required type={showPassword ? "text" : "password"} autoComplete="new-password" minLength={8} maxLength={128} value={password} disabled={busy} onChange={(event) => setPassword(event.target.value)} /><button type="button" disabled={busy} aria-label={showPassword ? "隐藏新密码" : "显示新密码"} aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}><BindingIcon name={showPassword ? "eyeOff" : "eye"} /></button></div><small className="password-security-hint">至少 8 位，建议使用字母、数字和符号组合</small></label>
+      <label><span className="binding-field-label"><BindingIcon name="lock" />确认新密码</span><div className="password-security-input"><BindingIcon name="lock" /><input required type={showConfirm ? "text" : "password"} autoComplete="new-password" minLength={8} maxLength={128} value={confirm} disabled={busy} onChange={(event) => setConfirm(event.target.value)} /><button type="button" disabled={busy} aria-label={showConfirm ? "隐藏确认新密码" : "显示确认新密码"} aria-pressed={showConfirm} onClick={() => setShowConfirm(value => !value)}><BindingIcon name={showConfirm ? "eyeOff" : "eye"} /></button></div></label>
       {confirm && <p className={password === confirm ? "password-security-match" : "role-auth-error"} aria-live="polite">{password === confirm ? "两次密码输入一致" : "两次密码输入不一致"}</p>}
       {notice && <p className="sms-auth-note" role="status">{notice}</p>}
       {error && <p className="role-auth-error" role="alert">{error}</p>}
