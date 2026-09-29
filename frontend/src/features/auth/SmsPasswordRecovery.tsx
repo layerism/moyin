@@ -51,7 +51,7 @@ function BindingIcon({ name }: { name: BindingIconName }) {
   return <svg className="binding-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function SmsForm({ role, onDone, required = false, replacing = false, onBusyChange }: { role: AuthRole; onDone: () => void; required?: boolean; replacing?: boolean; onBusyChange?: (busy: boolean) => void }) {
+function SmsForm({ role, onDone, required = false, replacing = false, onBusyChange, onCancel }: { role: AuthRole; onDone: () => void; required?: boolean; replacing?: boolean; onBusyChange?: (busy: boolean) => void; onCancel?: () => void }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -90,8 +90,11 @@ function SmsForm({ role, onDone, required = false, replacing = false, onBusyChan
     <label><span className="binding-field-label"><BindingIcon name="code" />短信验证码</span><div className="sms-code-row"><input required inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={code} disabled={busy} onChange={(event) => setCode(event.target.value)} /><button type="button" disabled={busy || remaining > 0 || !/^1[3-9]\d{9}$/.test(phone) || password.length < 3} onClick={() => void send()}><BindingIcon name="message" />{remaining ? `${remaining} 秒后重发` : "获取验证码"}</button></div></label>
     {notice && <p className="sms-auth-note" role="status">{notice}</p>}
     {error && <p className="role-auth-error" role="alert">{error}</p>}
-    <button className="primary-action" disabled={busy || !challengeId}><BindingIcon name="shield" />{busy ? "处理中…" : "验证并绑定"}</button>
     <p className="sms-auth-note">绑定后可通过短信找回密码。更换号码只需验证当前密码和新号码。</p>
+    <div className="phone-binding-actions">
+      {onCancel && <button type="button" className="sms-binding-button" disabled={busy} onClick={onCancel}>取消</button>}
+      <button className="primary-action" disabled={busy || !challengeId}><BindingIcon name="shield" />{busy ? "处理中…" : replacing ? "验证并更换" : "验证并绑定"}</button>
+    </div>
   </form>;
 }
 
@@ -168,11 +171,11 @@ export function SmsPasswordRecovery({ role, onBack }: { role: AuthRole; onBack: 
   </section></main>;
 }
 
-function BoundPhone({ role, phone, onDone, busy, onBusyChange }: { role: AuthRole; phone: string; onDone: () => void; busy: boolean; onBusyChange: (busy: boolean) => void }) {
+function BoundPhone({ role, phone, onDone, onBusyChange }: { role: AuthRole; phone: string; onDone: () => void; onBusyChange: (busy: boolean) => void }) {
   const [editing, setEditing] = useState(false);
   return <div className="profile-phone-bound">
-    <strong>已绑定 {phone}</strong>
-    {editing ? <><SmsForm role={role} replacing onDone={onDone} onBusyChange={onBusyChange} /><button type="button" disabled={busy} className="sms-binding-button" onClick={onDone}>返回</button></> : <><p>可用于短信找回密码。</p><button type="button" className="sms-binding-button" onClick={() => setEditing(true)}>更换手机号</button></>}
+    <div className="phone-binding-status"><div><small>当前绑定</small><strong>{phone}</strong></div><span><BindingIcon name="check" />已验证</span></div>
+    {editing ? <SmsForm role={role} replacing onDone={onDone} onCancel={onDone} onBusyChange={onBusyChange} /> : <><p>可用于短信找回密码。</p><button type="button" className="sms-binding-button" onClick={() => setEditing(true)}>更换手机号</button></>}
   </div>;
 }
 
@@ -207,7 +210,7 @@ export function PhoneBindingButton({ role, label = "安全手机号", editing = 
       if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
-  }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card" role="dialog" aria-modal="true" aria-label={label}><div className="sms-dialog-heading"><h2>{label}</h2><button type="button" aria-label="关闭" disabled={busy} onClick={close}>×</button></div>{loading ? <p>正在读取…</p> : error ? <p role="alert">{error}</p> : phone && !editing ? <BoundPhone role={role} phone={phone} onDone={close} busy={busy} onBusyChange={setBusy} /> : <SmsForm role={role} replacing={!!phone} onDone={close} onBusyChange={setBusy} />}</section></div>, document.body)}</>;
+  }}><section ref={dialogRef} tabIndex={-1} className="sms-recovery-card phone-security-dialog" role="dialog" aria-modal="true" aria-label={label}><div className="sms-dialog-heading"><span className="phone-security-icon"><BindingIcon name="shield" /></span><div><h2>{label}</h2><p>用于账户验证与密码找回</p></div><button type="button" aria-label="关闭" disabled={busy} onClick={close}>×</button></div>{loading ? <p>正在读取…</p> : error ? <p role="alert">{error}</p> : phone && !editing ? <BoundPhone role={role} phone={phone} onDone={close} onBusyChange={setBusy} /> : <SmsForm role={role} replacing={!!phone} onDone={close} onCancel={close} onBusyChange={setBusy} />}</section></div>, document.body)}</>;
 }
 
 export function PasswordChangeButton({ role, onChanged }: {

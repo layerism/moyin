@@ -14465,3 +14465,40 @@ td {
 .export-task-panel > header { padding-left: 10px; }
 .export-task-panel > .export-task-help,
 .export-task-panel > .export-task-error { flex-shrink: 0; }
+
+/* Security phone dialog: shared by teacher and student accounts. */
+.sms-binding-backdrop .phone-security-dialog {
+  width: min(430px, 100%); padding: 24px; border: 1px solid #e5eaf1;
+  border-radius: 20px; background: #fff; box-shadow: 0 18px 48px #24385626;
+}
+.phone-security-dialog .sms-dialog-heading { justify-content: flex-start; gap: 12px; margin-bottom: 20px; }
+.phone-security-icon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 13px; background: #eff5ff; color: #2563eb; }
+.phone-security-icon .binding-icon { width: 22px; height: 22px; }
+.phone-security-dialog .sms-dialog-heading h2 { font-size: 19px; }
+.phone-security-dialog .sms-dialog-heading p { margin: 4px 0 0; font-size: 12px; color: #69768b; }
+.phone-security-dialog .sms-dialog-heading > button { margin-left: auto; align-self: flex-start; border: 0; background: transparent; color: #69768b; }
+.phone-binding-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 13px 14px; background: #f7f9fc; border: 1px solid #e5eaf1; border-radius: 11px; }
+.phone-binding-status small { display: block; margin-bottom: 4px; color: #69768b; font-size: 11px; }
+.phone-binding-status strong { font-size: 15px; font-weight: 500; letter-spacing: .04em; }
+.phone-binding-status > span { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #16805d; white-space: nowrap; }
+.phone-binding-status .binding-icon { width: 14px; height: 14px; }
+.phone-security-dialog .sms-auth-form { margin-top: 20px; gap: 17px; }
+.phone-security-dialog .sms-auth-form label { font-size: 12px; font-weight: 500; gap: 7px; }
+.phone-security-dialog .sms-auth-form input { height: 43px; border-radius: 9px; border-color: #e5eaf1; font-size: 14px; }
+.phone-security-dialog .binding-field-label { display: flex; align-items: center; gap: 6px; }
+.phone-security-dialog .binding-field-label .binding-icon { width: 14px; height: 14px; color: #69768b; }
+.phone-security-dialog .sms-code-row { display: flex; gap: 0; border: 1px solid #e5eaf1; border-radius: 9px; align-items: center; }
+.phone-security-dialog .sms-code-row input { flex: 1; border: 0; }
+.phone-security-dialog .sms-code-row button { flex-shrink: 0; padding: 4px 12px; border: 0; border-left: 1px solid #e5eaf1; border-radius: 0; background: transparent; font-size: 12px; }
+.phone-security-dialog .sms-code-row button .binding-icon { display: none; }
+.phone-security-dialog .sms-auth-note { margin: 0; font-size: 11px; line-height: 1.7; color: #69768b; }
+.phone-binding-actions { display: flex; justify-content: flex-end; gap: 9px; }
+.phone-binding-actions > .primary-action { flex: 1; }
+.phone-security-dialog .phone-binding-actions { margin: 0 -24px -24px; padding: 16px 24px; border-top: 1px solid #e5eaf1; background: #f7f9fc; }
+.phone-security-dialog .phone-binding-actions > button { flex: none; width: auto; min-height: 38px; padding: 8px 18px; border-radius: 8px; font-size: 13px; }
+.phone-security-dialog .phone-binding-actions .primary-action .binding-icon { display: none; }
+@media (max-width: 480px) {
+  .sms-binding-backdrop .phone-security-dialog { padding: 20px 16px; }
+  .phone-security-dialog .phone-binding-actions { margin: 0 -16px -20px; padding: 14px 16px; }
+  .phone-security-dialog .sms-auth-form input { font-size: 16px; }
+}
