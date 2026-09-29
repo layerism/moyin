@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-uv_version="0.11.25"
-python_version="3.11.15"
-node_version="24.18.0"
-npm_version="11.16.0"
-python_index="https://mirrors.aliyun.com/pypi/simple"
-npm_registry="https://registry.npmmirror.com"
+UV_VERSION="0.11.25"
+PYTHON_VERSION="3.11.15"
+NODE_VERSION="24.18.0"
+NPM_VERSION="11.16.0"
+PYTHON_INDEX="https://mirrors.aliyun.com/pypi/simple"
+NPM_REGISTRY="https://registry.npmmirror.com"
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 export PATH="$PWD/.local/node/bin:$PWD/.local/bin:$PATH"
@@ -19,66 +19,66 @@ if [[ "$(uname -s)" != "Linux" || "$(uname -m)" != "x86_64" ]]; then
   exit 1
 fi
 
-privileged=()
+PRIVILEGED=()
 if [[ "$EUID" -ne 0 ]]; then
-  privileged=(sudo)
+  PRIVILEGED=(sudo)
 fi
-"${privileged[@]}" apt-get update
-"${privileged[@]}" apt-get install -y curl ca-certificates xz-utils libreoffice-writer fonts-noto-cjk
+"${PRIVILEGED[@]}" apt-get update
+"${PRIVILEGED[@]}" apt-get install -y curl ca-certificates xz-utils libreoffice-writer fonts-noto-cjk
 
 mkdir -p .local/bin .local/node .local/python .local/uv-cache
 
-uv_executable="$PWD/.local/bin/uv"
-if [[ ! -x "$uv_executable" ]] || [[ "$($uv_executable --version 2>/dev/null || true)" != "uv $uv_version"* ]]; then
-  curl -LsSf "https://astral.sh/uv/$uv_version/install.sh" \
+UV_EXECUTABLE="$PWD/.local/bin/uv"
+if [[ ! -x "$UV_EXECUTABLE" ]] || [[ "$($UV_EXECUTABLE --version 2>/dev/null || true)" != "uv $UV_VERSION"* ]]; then
+  curl -LsSf "https://astral.sh/uv/$UV_VERSION/install.sh" \
     | env UV_UNMANAGED_INSTALL="$PWD/.local/bin" sh
 fi
 
-[[ "$($uv_executable --version)" == "uv $uv_version"* ]]
+[[ "$($UV_EXECUTABLE --version)" == "uv $UV_VERSION"* ]]
 
-if [[ "$(.local/node/bin/node --version 2>/dev/null || true)" != "v$node_version" ]] \
-  || [[ "$(.local/node/bin/npm --version 2>/dev/null || true)" != "$npm_version" ]]; then
-  install_tmp="$(mktemp -d .local/install.XXXXXX)"
-  archive="node-v$node_version-linux-x64.tar.xz"
-  curl --fail --location --output "$install_tmp/$archive" \
-    "https://nodejs.org/dist/v$node_version/$archive"
-  curl --fail --location --output "$install_tmp/SHASUMS256.txt" \
-    "https://nodejs.org/dist/v$node_version/SHASUMS256.txt"
+if [[ "$(.local/node/bin/node --version 2>/dev/null || true)" != "v$NODE_VERSION" ]] \
+  || [[ "$(.local/node/bin/npm --version 2>/dev/null || true)" != "$NPM_VERSION" ]]; then
+  INSTALL_TMP="$(mktemp -d .local/install.XXXXXX)"
+  ARCHIVE="node-v$NODE_VERSION-linux-x64.tar.xz"
+  curl --fail --location --output "$INSTALL_TMP/$ARCHIVE" \
+    "https://nodejs.org/dist/v$NODE_VERSION/$ARCHIVE"
+  curl --fail --location --output "$INSTALL_TMP/SHASUMS256.txt" \
+    "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt"
   (
-    cd "$install_tmp"
-    grep " $archive\$" SHASUMS256.txt | sha256sum --check
+    cd "$INSTALL_TMP"
+    grep " $ARCHIVE\$" SHASUMS256.txt | sha256sum --check
   )
-  mkdir -p "$install_tmp/node"
-  tar --extract --file="$install_tmp/$archive" --strip-components=1 \
-    --directory="$install_tmp/node"
+  mkdir -p "$INSTALL_TMP/node"
+  tar --extract --file="$INSTALL_TMP/$ARCHIVE" --strip-components=1 \
+    --directory="$INSTALL_TMP/node"
   rm -rf .local/node
-  mv "$install_tmp/node" .local/node
-  rm -rf "$install_tmp"
+  mv "$INSTALL_TMP/node" .local/node
+  rm -rf "$INSTALL_TMP"
 fi
 
-[[ "$(node --version)" == "v$node_version" ]]
-[[ "$(npm --version)" == "$npm_version" ]]
+[[ "$(node --version)" == "v$NODE_VERSION" ]]
+[[ "$(npm --version)" == "$NPM_VERSION" ]]
 
-"$uv_executable" python install "$python_version" --managed-python
+"$UV_EXECUTABLE" python install "$PYTHON_VERSION" --managed-python
 
-venv_python="$PWD/backend/.venv/bin/python"
-if [[ "$($venv_python --version 2>/dev/null || true)" != "Python $python_version" ]] \
+VENV_PYTHON="$PWD/backend/.venv/bin/python"
+if [[ "$($VENV_PYTHON --version 2>/dev/null || true)" != "Python $PYTHON_VERSION" ]] \
   || ! grep -Fq "home = $UV_PYTHON_INSTALL_DIR/" backend/.venv/pyvenv.cfg; then
-  "$uv_executable" venv --clear --python "$python_version" --managed-python backend/.venv
+  "$UV_EXECUTABLE" venv --clear --python "$PYTHON_VERSION" --managed-python backend/.venv
 fi
-[[ "$($venv_python --version)" == "Python $python_version" ]]
+[[ "$($VENV_PYTHON --version)" == "Python $PYTHON_VERSION" ]]
 
-"$uv_executable" pip install \
-  --python "$venv_python" \
-  --index-url "$python_index" \
+"$UV_EXECUTABLE" pip install \
+  --python "$VENV_PYTHON" \
+  --index-url "$PYTHON_INDEX" \
   --editable "backend[dev]"
 
-npm --prefix frontend ci --registry="$npm_registry"
-npm --prefix backend/runtime/javascript ci --registry="$npm_registry"
+npm --prefix frontend ci --registry="$NPM_REGISTRY"
+npm --prefix backend/runtime/javascript ci --registry="$NPM_REGISTRY"
 
 [[ -f backend/.env ]] || cp backend/.env.example backend/.env
 
-"$uv_executable" pip check --python "$venv_python"
+"$UV_EXECUTABLE" pip check --python "$VENV_PYTHON"
 npm --prefix frontend ls --depth=0
 npm --prefix backend/runtime/javascript ls --depth=0
 
