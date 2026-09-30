@@ -710,8 +710,8 @@ def submit_node(
             if node.get("kind") == "branch":
                 branch_id = submission_payload["branchId"]
                 previous = connection.execute(
-                    "SELECT payload_snapshot FROM submissions WHERE node_instance_id = ? ORDER BY attempt_no DESC LIMIT 1",
-                    (node_instance_id,),
+                    "SELECT payload_snapshot FROM submissions WHERE node_instance_id = ? AND attempt_no > ? ORDER BY attempt_no DESC LIMIT 1",
+                    (node_instance_id, row["attempt_reset_no"]),
                 ).fetchone()
                 if previous and json.loads(previous["payload_snapshot"]).get("branchId") != branch_id:
                     raise RuntimeConflictError("分支提交后不可更改选择")

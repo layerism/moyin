@@ -97,7 +97,9 @@ export function StudentRuntimePage({
       for (const node of instance.nodeInstances) {
         if (!(node.id in next) || newlyRejected.has(node.id)) {
           const configNode = instance.config.nodes.find((item) => item.id === node.nodeKey);
-          next[node.id] = configNode?.kind === "branch" && node.submission.branchId
+          next[node.id] = configNode?.kind === "branch" && node.requiresResubmission && node.draft.branchId
+            ? node.draft
+            : configNode?.kind === "branch" && node.submission.branchId
             ? node.submission
             : configNode?.kind === "answer_sheet" && Object.keys(node.draft).length === 0
               ? node.submission
@@ -805,11 +807,11 @@ function RuntimeNodeDialog({
             <legend>请选择一个分支</legend>
             {node.branches?.map((option) => <label key={option.id} className={draft.branchId === option.id ? "selected" : ""}>
               <input type="radio" name={`branch-${node.id}`} checked={draft.branchId === option.id}
-                disabled={Boolean(runtime.submission.branchId) && runtime.submission.branchId !== option.id}
+                disabled={!runtime.requiresResubmission && Boolean(runtime.submission.branchId) && runtime.submission.branchId !== option.id}
                 onChange={() => onUpdate("branchId", option.id)} />
               <span>{option.label}</span>
             </label>)}
-            <small>提交后不可更改选择。</small>
+            <small>{runtime.requiresResubmission ? "原选择已撤销，可重新选择分支。" : "提交后不可更改选择。"}</small>
           </fieldset> : null}
           {node.kind === "form" ? (
             <RuntimeFormFields
