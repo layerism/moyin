@@ -14574,11 +14574,11 @@ td {
 .np-filters .active { background: #f0f5ff; border-color: #bbd0f8; color: #286cf0; }
 .np-filters button:last-child { margin-left: auto; }
 .node-progress-dialog input:not([type=checkbox]), .node-progress-dialog textarea { max-width: 100%; padding: 8px 10px; border: 1px solid #dce3ed; border-radius: 6px; font: inherit; background: white; color: #243147; }
-.np-table { overflow-x: auto; margin-top: 12px; }
+.np-table { overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; margin-top: 10px; }
 .np-table table { width: 100%; min-width: 530px; border-collapse: collapse; font-size: 12px; }
-.np-table th { background: #f8fafc; font-weight: 400; color: #8290a3; text-align: left; padding: 9px 10px; }
-.np-table td { padding: 11px 10px; border-bottom: 1px solid #edf0f5; }
-.np-table small { display: block; color: #8b96a6; margin-top: 4px; font-size: 11px; }
+.np-table th { background: #f8fafc; font-weight: 400; color: #8290a3; text-align: left; padding: 7px 10px; position: sticky; top: 0; z-index: 1; }
+.np-table td { padding: 7px 10px; line-height: 20px; border-bottom: 1px solid #edf0f5; }
+.np-table small { display: inline; color: #8b96a6; margin-left: 8px; font-size: 11px; white-space: nowrap; }
 .np-status { border-radius: 4px; background: #f1f3f6; padding: 3px 6px; white-space: nowrap; }
 .np-status.approved { background: #edf8f0; color: #29814d; }
 .np-status.reviewing { background: #eef4ff; color: #286cf0; }
@@ -14606,3 +14606,15 @@ td {
 .np-field textarea { min-height: 68px; resize: vertical; }
 .np-record { padding: 12px 0; border-bottom: 1px solid #edf0f5; line-height: 1.7; }
 .np-record p { font-size: 11px; color: #8792a4; margin: 4px 0; }
+
+.node-progress-dialog[open]:not(.np-confirm) { display: flex; flex-direction: column; height: min(640px, calc(100dvh - 48px)); max-height: calc(100dvh - 48px); overflow: hidden; }
+.node-progress-dialog:not(.np-confirm) > header,
+.node-progress-dialog:not(.np-confirm) > nav,
+.node-progress-dialog:not(.np-confirm) > footer { flex-shrink: 0; }
+.node-progress-dialog:not(.np-confirm) > .np-body { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px 20px; overflow: hidden; }
+.node-progress-dialog:not(.np-confirm) > .np-body > * { flex-shrink: 0; }
+.node-progress-dialog:not(.np-confirm) > .np-body > input { align-self: flex-start; }
+.node-progress-dialog:not(.np-confirm) .np-table,
+.node-progress-dialog:not(.np-confirm) .np-history { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.node-progress-dialog:not(.np-confirm) .np-hint { margin: 8px 0 0; }
+.np-table td:first-child { white-space: nowrap; }
