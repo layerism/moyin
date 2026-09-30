@@ -19,6 +19,7 @@ export type RevisionImpactSource = {
 };
 
 export type RevisionImpact = {
+  hasChanges: boolean;
   addedNodeIds: string[];
   affectedStudentCount: number;
   changedNodeIds: string[];

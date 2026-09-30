@@ -494,6 +494,12 @@ export function AcademicFlowDesigner({
     setActionNotice("");
     try {
       const impact = await workflowApi.getRevisionImpact(serverFlowId, candidate);
+      if (!impact.hasChanges) {
+        await saveWorkingDraft(candidate, "没有需要发布的改动");
+        setPendingPublishProcess(null);
+        setRevisionImpact(null);
+        return;
+      }
       setPendingPublishProcess(candidate);
       setRevisionImpact(impact);
     } catch (reason) {

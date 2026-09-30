@@ -167,6 +167,18 @@ def canonical_json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def _matches_published_version(connection, flow_id, published, config, answer_keys):
+    if published is None:
+        return False
+    baseline = _version_config_with_runtime_deadlines(connection, published)
+    candidate = json.loads(canonical_json(config))
+    apply_published_node_models(connection, flow_id, baseline)
+    apply_published_node_models(connection, flow_id, candidate)
+    keys = {str(node['id']): get_version_answer_key(connection, published['id'], node['id'])['gradingKey']
+            for node in baseline.get('nodes', []) if node.get('kind') == 'answer_sheet'}
+    return canonical_json(candidate) == canonical_json(baseline) and canonical_json(answer_keys) == canonical_json(keys)
+
+
 def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
     from app.domain.file_review_steps import review_config_nodes
     for node in review_config_nodes(config):
@@ -1405,6 +1417,12 @@ def publish_flow(
             )
         except AnswerSheetConfigError as exc:
             raise PublishedNodeMutationError(str(exc)) from exc
+        if _matches_published_version(connection, flow_id, published, config, current_keys):
+            connection.execute('UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?',
+                               (snapshot, now, flow_id))
+            return {'flowId': flow_id, 'flowVersionId': published['id'],
+                    'versionNo': published['version_no'], 'configHash': published['config_hash'],
+                    'draftHash': draft_hash}
         plan = _build_migration_plan(
             connection,
             source_versions,
@@ -1589,6 +1607,7 @@ def get_revision_impact(
             config,
             baseline["id"] if baseline else None,
         )
+        has_changes = not _matches_published_version(connection, flow_id, published, config, current_keys)
         next_version_no = connection.execute(
             """
             SELECT COALESCE(MAX(version_no), 0) + 1 AS value
@@ -1598,6 +1617,7 @@ def get_revision_impact(
         ).fetchone()["value"]
 
     return {
+        "hasChanges": has_changes,
         "currentVersionId": baseline["id"] if baseline else None,
         "currentVersionNo": baseline["version_no"] if baseline else None,
         "nextVersionNo": next_version_no,
