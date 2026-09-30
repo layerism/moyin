@@ -451,6 +451,17 @@ function RuntimeNodeDialog({
   onUpdate: (field: string, value: unknown, fieldId?: string) => void;
   runtime: RuntimeNodeInstance;
 }) {
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+      if (document.querySelector('dialog[open], [role="alertdialog"]')) return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [fileWarning, setFileWarning] = useState<{
@@ -1095,6 +1106,16 @@ function RuntimeWarningDialog({
   onClose: () => void;
   title: string;
 }) {
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || event.isComposing) return;
+      event.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [onClose]);
+
   const messageId = `${idPrefix}-message`;
   const titleId = `${idPrefix}-title`;
   return (
