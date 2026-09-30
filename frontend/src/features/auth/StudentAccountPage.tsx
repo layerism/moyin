@@ -47,7 +47,7 @@ export function StudentAccountPage({
   return (
     <main className="student-account-page">
       <header>
-        <div><span className="oa-brand-mark">OA</span><strong>学生流程中心</strong></div>
+        <div><span className="oa-brand-mark">OA</span><strong>工作流程中心</strong></div>
         <div><span>{identity.name}</span><small>{identity.studentNo}</small><PhoneBindingButton role="student" /><PasswordChangeButton role="student" onChanged={onPasswordChanged} /><button onClick={onLogout}>退出登录</button></div>
       </header>
       <section className="student-account-main">

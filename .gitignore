@@ -34,7 +34,7 @@ dist/
 /backend/storage/backups/*
 !/backend/storage/backups/.gitkeep
 /outputs/
-/assets/
+/assets/*.docx
 
 # System
 .DS_Store

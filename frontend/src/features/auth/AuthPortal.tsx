@@ -130,7 +130,7 @@ export function AuthPortal({
             onSubmit={submit}
           >
             <header className="role-auth-form-header">
-              <h2>{role === "teacher" ? "教师" : "学生"}{mode === "register" ? "注册" : "登录"}</h2>
+              <h2>{role === "teacher" ? "发布者" : "用户"}{mode === "register" ? "注册" : "登录"}</h2>
               <p>{role === "teacher" ? "进入流程设计与管理工作台" : "查看并继续个人填写流程"}</p>
             </header>
             <div
@@ -216,7 +216,7 @@ export function AuthPortal({
             <div className="role-auth-links">
               {role === "student" ? (
                 <button type="button" onClick={() => onNavigate(mode === "login" ? "register" : "login", role)}>
-                  {mode === "login" ? "注册学生账户" : "已有账户，返回登录"}
+                  {mode === "login" ? "注册用户账户" : "已有账户，返回登录"}
                 </button>
               ) : null}
               {mode === "login" ? (
@@ -232,7 +232,7 @@ export function AuthPortal({
                   }
                   type="button"
                 >
-                  {role === "student" ? "教职工用户？教师入口" : "返回学生登录"}
+                  {role === "student" ? "发布者入口" : "返回用户登录"}
                 </button>
               </footer>
             ) : null}
@@ -254,7 +254,7 @@ export function ForgotPasswordPlaceholder({
     <main className="forgot-placeholder-page">
       <section>
         <span className="oa-brand-mark">OA</span>
-        <p>{role === "teacher" ? "教师账户" : "学生账户"}</p>
+        <p>{role === "teacher" ? "发布者账户" : "用户账户"}</p>
         <h1>密码找回功能待开发</h1>
         <div>当前暂不支持在线重置密码，请联系系统管理员处理。</div>
         <button className="primary-action" onClick={onBack}>返回登录</button>
