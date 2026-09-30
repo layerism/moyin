@@ -60,6 +60,8 @@ def _locked_node_snapshot(
         key: value for key, value in node.items() if key not in REVISION_EDITABLE_NODE_FIELDS
     }
     if node.get("kind") == "file":
+        snapshot.pop("fileExtensions", None)
+        snapshot.pop("fileLimitMb", None)
         snapshot.pop("templateAsset", None)
         snapshot.pop("referenceAsset", None)
         snapshot.pop("referenceAssets", None)

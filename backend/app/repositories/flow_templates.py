@@ -180,7 +180,9 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
-        if not supports_template(node, reference) or node_key in _published_node_ids(connection, flow_id):
+        if not supports_template(node, reference) or (
+            node_key in _published_node_ids(connection, flow_id) and node.get("kind") != "file"
+        ):
             raise TemplateMutationError("已发布节点的模板不可修改")
         references = reference_assets(node) if reference else []
         if reference:

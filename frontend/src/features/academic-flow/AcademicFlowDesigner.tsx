@@ -613,7 +613,7 @@ export function AcademicFlowDesigner({
     if (editorLocked) return;
     let nextValue = { ...value };
     if (workingProcess.published && protectedNodeIds.includes(nodeId)) {
-      nextValue = filterPublishedNodeRevisionPatch(nextValue);
+      nextValue = filterPublishedNodeRevisionPatch(nextValue, workingProcess.nodes.find((node) => node.id === nodeId)?.kind);
     }
     if (Object.keys(nextValue).length === 0) {
       return;
@@ -2680,6 +2680,7 @@ function NodeInspector({
 
   const coreSettingsDisabled = editingLocked || nodeCoreLocked;
   const materialSettingsDisabled = editingLocked || (nodeCoreLocked && node.kind !== "file");
+  const materialLimitsDisabled = node.kind === "file" ? editingLocked : coreSettingsDisabled;
   const auditControlsNode: AcademicFlowNode = reviewStepPolicy ? {
     ...node,
     fileReviewSteps: reviewStepDraft,
@@ -2911,7 +2912,7 @@ function NodeInspector({
                       aria-checked={hasFileTypeRestriction}
                       aria-label="启用文件类型限制"
                       className={`restriction-switch ${hasFileTypeRestriction ? "is-enabled" : ""}`}
-                      disabled={coreSettingsDisabled}
+                      disabled={materialLimitsDisabled}
                       onClick={() =>
                         onUpdateNode(node.id, {
                           fileExtensions: hasFileTypeRestriction
@@ -2927,7 +2928,7 @@ function NodeInspector({
                     {hasFileTypeRestriction ? (
                       <select
                         aria-label="文件类型预设"
-                        disabled={coreSettingsDisabled}
+                        disabled={materialLimitsDisabled}
                         value={fileTypeRestrictionPreset}
                         onChange={(event) =>
                           onUpdateNode(node.id, {
@@ -2964,7 +2965,7 @@ function NodeInspector({
                     placeholder="请输入 0.1–300 的数值"
                     step="0.1"
                     type="number"
-                    disabled={coreSettingsDisabled}
+                    disabled={materialLimitsDisabled}
                     value={node.fileLimitMb}
                     onChange={(event) => onUpdateNode(node.id, { fileLimitMb: event.target.value })}
                   />
@@ -2983,9 +2984,9 @@ function NodeInspector({
               </header>
               <NodeFileRow label="文件模板" asset={node.templateAsset}
                 accept={node.fileExtensions.split(",").filter((value) => value.trim()).map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
-                hint="可选；须符合上传限制" disabled={materialSettingsDisabled} removable={!nodeCoreLocked}
+                hint="可选；须符合上传限制" disabled={materialSettingsDisabled} removable={!nodeCoreLocked || node.kind === "file"}
                 onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
-              <NodeReferenceFiles assets={nodeReferences(node)} disabled={materialSettingsDisabled} replaceOnly={nodeCoreLocked}
+              <NodeReferenceFiles assets={nodeReferences(node)} disabled={materialSettingsDisabled} replaceOnly={nodeCoreLocked && node.kind !== "file"}
                 onUpload={onUploadReference} onRemove={onDeleteReference} />
 
               <FileReviewStepsEditor

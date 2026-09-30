@@ -11,10 +11,12 @@ const PUBLISHED_NODE_REVISION_FIELDS = new Set<keyof AcademicFlowNode>([
 
 export function filterPublishedNodeRevisionPatch(
   value: Partial<AcademicFlowNode>,
+  kind?: AcademicFlowNode["kind"],
 ): Partial<AcademicFlowNode> {
   return Object.fromEntries(
     Object.entries(value).filter(([key]) =>
-      PUBLISHED_NODE_REVISION_FIELDS.has(key as keyof AcademicFlowNode),
+      PUBLISHED_NODE_REVISION_FIELDS.has(key as keyof AcademicFlowNode)
+      || (kind === "file" && ["fileExtensions", "fileLimitMb"].includes(key)),
     ),
   ) as Partial<AcademicFlowNode>;
 }

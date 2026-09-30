@@ -1195,18 +1195,22 @@ def _migrate_instance(
     existing = {row["node_key"]: row for row in node_rows}
     current_node_keys = {node["id"] for node in config["nodes"]}
 
+    from app.repositories.manual_review_state import invalidate_nodes
+
     for node_key in impact["invalidatedNodeIds"]:
-        node = existing.pop(node_key, None)
+        node = existing.get(node_key)
         if node is not None:
-            _audit_and_remove_node(
-                connection,
-                node,
-                instance["flow_version_id"],
-                new_version_id,
+            before_data = _node_invalidation_before_data(
+                connection, node, instance["flow_version_id"], new_version_id,
                 _invalidation_reasons(impact, node_key),
-                teacher_id,
-                now,
             )
+            connection.execute(
+                """INSERT INTO audit_logs
+                   (actor_id, action, entity_type, entity_id, before_data, created_at)
+                   VALUES (?, 'node_submission_invalidated', 'node_instance', ?, ?, ?)""",
+                (str(teacher_id), node["id"], canonical_json(before_data), now),
+            )
+    invalidate_nodes(connection, instance["id"], config, impact["invalidatedNodeIds"], now)
 
     for node_key in set(existing) - current_node_keys:
         node = existing.pop(node_key)
