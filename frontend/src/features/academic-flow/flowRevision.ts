@@ -110,3 +110,10 @@ export function filterPublishedRuntimeNodes<T extends IdentifiedNode>(
   const publishedIds = new Set(publishedNodeIds);
   return nodes.filter((node) => publishedIds.has(node.id));
 }
+
+export function draftContentFingerprint(process: AcademicProcess) {
+  return JSON.stringify({ config: createFlowConfig(process), answerSheetKeys: process.answerSheetKeys },
+    (_key, value) => value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+      : value);
+}

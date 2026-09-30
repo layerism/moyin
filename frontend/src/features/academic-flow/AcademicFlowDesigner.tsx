@@ -45,6 +45,7 @@ import {
   type CanvasPanStart,
 } from "./canvasPan";
 import {
+  draftContentFingerprint,
   canAddRevisionEdge,
   canDeleteRevisionEdge,
   canDeleteRevisionNode,
@@ -82,6 +83,7 @@ import type { RevisionImpact } from "./runtimeTypes";
 import { NodeProgressDialog } from "./NodeProgressDialog";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
 import { useExportTasks } from "./ExportTasks";
+import { NoChangesDialog } from "./NoChangesDialog";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 
 import { branchPort, branchPortFraction, nodePorts } from "./branch";
@@ -249,6 +251,7 @@ export function AcademicFlowDesigner({
   const [progressNodeId, setProgressNodeId] = useState<string | null>(null);
   const [manualReviewNodeId, setManualReviewNodeId] = useState<string | null>(null);
   const [nodePackageDialogNodeId, setNodePackageDialogNodeId] = useState<string | null>(null);
+  const [noChangesAction, setNoChangesAction] = useState<"save" | "publish" | null>(null);
   const [revisionDirty, setRevisionDirty] = useState(false);
   const hasPendingRevision = workingProcess.hasUnpublishedChanges || revisionDirty;
   const baseOperationLocked = copyingNode || saving || previewCreating || revisionImpact !== null || pendingNavigation !== null;
@@ -374,7 +377,13 @@ export function AcademicFlowDesigner({
   const saveWorkingDraft = async (
     candidate: AcademicProcess,
     successMessage = "流程已暂存",
+    notifyUnchanged = false,
   ) => {
+    if (draftContentFingerprint(candidate) === draftContentFingerprint(createDraftWorkingProcess(process))) {
+      setRevisionDirty(false);
+      if (notifyUnchanged) setNoChangesAction("save");
+      return candidate;
+    }
     if (!validateTimeSettings(candidate)) return null;
     setSaving(true);
     setDraftSaving(true);
@@ -495,7 +504,7 @@ export function AcademicFlowDesigner({
     try {
       const impact = await workflowApi.getRevisionImpact(serverFlowId, candidate);
       if (!impact.hasChanges) {
-        await saveWorkingDraft(candidate, "没有需要发布的改动");
+        setNoChangesAction("publish");
         setPendingPublishProcess(null);
         setRevisionImpact(null);
         return;
@@ -909,7 +918,7 @@ export function AcademicFlowDesigner({
             ) : null}
             <button
               disabled={editorLocked || !revisionDirty}
-              onClick={() => void saveWorkingDraft(workingProcess)}
+              onClick={() => void saveWorkingDraft(workingProcess, "流程已暂存", true)}
               type="button"
             >
               {draftSaving ? "暂存中" : "暂存"}
@@ -1018,6 +1027,7 @@ export function AcademicFlowDesigner({
             versionId={workingProcess.publishedVersionId}
           />
         ) : null}
+        {noChangesAction ? <NoChangesDialog action={noChangesAction} onClose={() => setNoChangesAction(null)} /> : null}
         {revisionImpact ? (
           <RevisionImpactDialog
             confirming={saving}
