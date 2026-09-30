@@ -2866,10 +2866,10 @@ function NodeInspector({
           <ConfirmationScanSettings
             disabled={coreSettingsDisabled}
             parameterDisabled={hasPublishedReviewStepPolicy ? !reviewStepPolicy || auditPolicySaving : coreSettingsDisabled}
-            templateDisabled={editingLocked || (nodeCoreLocked && !node.templateAsset)}
-            templateRemovable={!nodeCoreLocked}
+            templateDisabled={editingLocked}
+            templateRemovable={true}
             referenceDisabled={editingLocked}
-            referenceReplaceOnly={nodeCoreLocked}
+            referenceReplaceOnly={false}
             publishedMaterialRevision={publishedRevision && nodeCoreLocked}
             node={auditControlsNode}
             onDeleteTemplate={onDeleteTemplate}

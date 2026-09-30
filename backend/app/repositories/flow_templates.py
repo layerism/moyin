@@ -52,21 +52,7 @@ def _published_template_editable(
 ) -> bool:
     if node_key not in _published_node_ids(connection, flow_id):
         return True
-    if node.get("kind") == "file":
-        return True
-    if node.get("kind") != "confirmation":
-        return False
-    if reference:
-        return True
-    if not node.get("templateAsset"):
-        return False
-    row = connection.execute(
-        """SELECT config_snapshot FROM flow_versions
-           WHERE flow_id = ? AND status = 'published' ORDER BY version_no DESC LIMIT 1""",
-        (flow_id,),
-    ).fetchone()
-    published = node_by_key(json.loads(row["config_snapshot"]), node_key) if row else None
-    return bool(published and published.get("kind") == "confirmation" and published.get("templateAsset"))
+    return node.get("kind") in {"file", "confirmation"}
 
 
 def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int, reference: bool = False) -> dict[str, Any]:
@@ -181,7 +167,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
         if not supports_template(node, reference) or (
-            node_key in _published_node_ids(connection, flow_id) and node.get("kind") != "file"
+            node_key in _published_node_ids(connection, flow_id) and node.get("kind") not in {"file", "confirmation"}
         ):
             raise TemplateMutationError("已发布节点的模板不可修改")
         references = reference_assets(node) if reference else []

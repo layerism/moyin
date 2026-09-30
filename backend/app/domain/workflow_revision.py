@@ -52,10 +52,7 @@ BUSINESS_NODE_FIELDS = (
 )
 
 
-def _locked_node_snapshot(
-    node: dict[str, Any], *, visual_template_replacement: bool = False,
-    visual_reference_edit: bool = False,
-) -> dict[str, Any]:
+def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     snapshot = {
         key: value for key, value in node.items() if key not in REVISION_EDITABLE_NODE_FIELDS
     }
@@ -66,11 +63,11 @@ def _locked_node_snapshot(
         snapshot.pop("referenceAsset", None)
         snapshot.pop("referenceAssets", None)
         return snapshot
-    if visual_template_replacement:
+    if node.get("kind") == "confirmation":
         snapshot.pop("templateAsset", None)
-    if visual_reference_edit:
         snapshot.pop("referenceAsset", None)
         snapshot.pop("referenceAssets", None)
+        return snapshot
     if snapshot.get("templateAsset") is None:
         snapshot.pop("templateAsset", None)
     references = reference_assets(snapshot)
@@ -98,28 +95,9 @@ def assert_valid_revision(previous: dict[str, Any] | None, current: dict[str, An
     current_nodes = {node["id"]: node for node in current.get("nodes", [])}
     for node_id, previous_node in previous_nodes.items():
         current_node = current_nodes[node_id]
-        visual_reference_edit = (
-            previous_node.get("kind") == "confirmation"
-            and current_node.get("kind") == "confirmation"
-        )
-        if visual_reference_edit and len(reference_assets(current_node)) < len(reference_assets(previous_node)):
-            raise PublishedNodeMutationError(f"已发布视觉审核节点的参考示例不可直接移除：{node_id}")
-        visual_template_replacement = (
-            visual_reference_edit
-            and previous_node.get("templateAsset") is not None
-            and current_node.get("templateAsset") is not None
-        )
-        if _locked_node_snapshot(
-            previous_node, visual_template_replacement=visual_template_replacement,
-            visual_reference_edit=visual_reference_edit,
-        ) != (
-            _locked_node_snapshot(
-                current_node, visual_template_replacement=visual_template_replacement,
-                visual_reference_edit=visual_reference_edit,
-            )
-        ):
+        if _locked_node_snapshot(previous_node) != _locked_node_snapshot(current_node):
             raise PublishedNodeMutationError(
-                f"已发布节点只能修改标题、描述、起止时间及允许替换的材料：{node_id}"
+                f"已发布节点只能修改标题、描述、起止时间及允许编辑的材料：{node_id}"
             )
 
     previous_edges = {edge_key(edge) for edge in previous.get("edges", [])}
