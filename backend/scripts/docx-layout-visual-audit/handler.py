@@ -74,10 +74,10 @@ def parse_result(value: dict, reviewed_pages: list[int]) -> list[dict]:
 
 def request_audit(images: list[tuple[int, str]], reviewed_pages: list[int], prompt: str,
                   settings: dict, timeout: float, client: AuditLLMClient) -> list[dict]:
-    content = [{"type": "text", "text": f"教师排版要求：\n{prompt}\n本批新审核页码：{reviewed_pages}"}]
+    content = [{"type": "text", "text": f"教师排版要求：\n{prompt}\n全文审核页码：{reviewed_pages}"}]
     for page, data_url in images:
         content.extend([
-            {"type": "text", "text": f"实际第 {page} 页；{'审核页' if page in reviewed_pages else '仅作上下文'}"},
+            {"type": "text", "text": f"实际第 {page} 页"},
             {"type": "image_url", "image_url": {"url": data_url}},
         ])
     messages = [
@@ -121,21 +121,15 @@ def audit(payload: dict) -> dict:
                 raise ValueError("提交文档总页数超过审核上限，未完成全文审核")
             documents.append((item, folder, pdf, count))
         for item, folder, pdf, count in documents:
-            file_issues = []
+            reviewed_pages = list(range(1, count + 1))
+            images = []
             with fitz.open(pdf) as document:
-                next_page = 1
-                previous = None
-                while next_page <= count:
+                for page in reviewed_pages:
                     remaining(deadline, settings['executionTimeoutSeconds'])
-                    end = min(count + 1, next_page + settings['pagesPerBatch'] - (1 if previous else 0))
-                    reviewed_pages = list(range(next_page, end))
-                    images = [previous] if previous else []
-                    for page in reviewed_pages:
-                        images.append((page, page_image(document, page, settings['imageMaximumSide'], folder)))
-                    file_issues.extend(request_audit(images, reviewed_pages, prompt, settings,
-                        remaining(deadline, settings['requestTimeoutSeconds']), client))
-                    previous = images[-1]
-                    next_page = end
+                    images.append((page, page_image(document, page, settings['imageMaximumSide'], folder)))
+            file_issues = request_audit(images, reviewed_pages, prompt, settings,
+                remaining(deadline, settings['requestTimeoutSeconds']), client)
+            del images
             seen = set()
             for issue in file_issues:
                 key = (issue['page'], issue['location'], issue['problem'])
