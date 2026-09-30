@@ -46,3 +46,6 @@ dist/
 # Local agent context
 /MEMORY.md
 /AGENTS.md
+
+# Local synchronization script
+/myrsync.sh
