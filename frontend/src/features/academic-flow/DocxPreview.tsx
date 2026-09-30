@@ -7,6 +7,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(1);
   const [pageCount, setPageCount] = useState(0);
+  const [paper, setPaper] = useState<"A4" | "A3">("A4");
 
   useEffect(() => {
     const element = host.current;
@@ -44,9 +45,10 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       const nodes = await renderDocument(parsed, options);
       for (const node of nodes) (node.nodeName === "STYLE" ? styles : body).appendChild(node);
       if (!active) return;
+      const [width, height] = paper === "A3" ? [297, 420] : [210, 297];
       const pageSize = document.createElement("style");
       pageSize.textContent = `
-        section.docx { width: 210mm; height: 297mm; min-height: 297mm; flex-shrink: 0; box-sizing: border-box; }
+        section.docx { width: ${width}mm; height: ${height}mm; min-height: ${height}mm; flex-shrink: 0; box-sizing: border-box; }
         section.docx > article { flex: none; margin-bottom: 0; }
         section.docx > header, section.docx > footer { flex: none; }
         section.docx > footer { margin-top: auto !important; }
@@ -67,12 +69,16 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       setLoading(false);
     });
     return () => { active = false; controller.abort(); root.replaceChildren(); };
-  }, [url]);
+  }, [url, paper]);
 
   return <section className="file-review-docx-preview" aria-label={`DOCX 预览：${filename}`}>
     <div className="pdf-preview-toolbar">
       <span>DOCX 预览</span>
-      {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">A4 推断 · {pageCount} 页</span> : null}
+      <select aria-label="DOCX 纸张大小" value={paper} onChange={(event) => setPaper(event.target.value === "A3" ? "A3" : "A4")}>
+        <option value="A4">A4</option>
+        <option value="A3">A3</option>
+      </select>
+      {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">{paper} 推断 · {pageCount} 页</span> : null}
       <button type="button" disabled={loading || Boolean(error) || zoom <= 0.5} aria-label="缩小" onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}>−</button>
       <button type="button" disabled={loading || Boolean(error)} title="恢复原始比例" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
       <button type="button" disabled={loading || Boolean(error) || zoom >= 2} aria-label="放大" onClick={() => setZoom((value) => Math.min(2, value + 0.25))}>＋</button>

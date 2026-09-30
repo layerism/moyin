@@ -14261,6 +14261,7 @@ td {
 .runtime-submitted-files li > button { flex-shrink: 0; width: 32px; height: 32px; min-height: 32px; padding: 6px; }
 
 .file-review-docx-preview { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; border: 1px solid #e2e8f0; background: #f1f5f9; }
+.file-review-docx-preview .pdf-preview-toolbar select { width: auto; min-width: 64px; padding: 4px 8px; border: 1px solid #dce3ed; border-radius: 6px; background: #fff; color: #334155; font: inherit; }
 .docx-preview-viewport { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .docx-preview-viewport > p { padding: 12px; font-size: 13px; color: #64748b; }
 
