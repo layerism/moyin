@@ -158,7 +158,7 @@ SESSION_COOKIE_SECURE=false
 
 ## 7. 更新和迁移
 
-依赖清单或锁文件有变化时，先停止使用本仓库的正式及开发进程，按第 10 节备份数据、`.env` 和代码版本，再更新代码并执行 `bash deploy/install.sh`。安装脚本会同步 Python 与两套 npm 依赖，并安装 DOCX 版式审核所需的 LibreOffice Writer 和中文字体。核对新增环境变量后再启动；不能只重启或构建。完整步骤见 `INSTALL.md` 第 11 节。
+依赖清单或锁文件有变化时，先停止使用本仓库的正式及开发进程，按第 10 节备份数据、`.env` 和代码版本，再更新代码并执行 `bash deploy/install.sh`。安装脚本会同步 Python 与两套 npm 依赖，并安装 DOCX 版式审核所需的 LibreOffice Writer 和中文字体。核对新增环境变量后再启动；不能只重启或构建。
 
 - 前端更新：重新构建到配置中的 `root` 目录，无须 reload Nginx。
 - 后端更新：在 tmux 中重启；不要重复启动多个同端口进程。

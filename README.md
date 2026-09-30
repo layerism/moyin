@@ -116,7 +116,7 @@ bash deploy/install.sh
 - 安装 `frontend/node_modules` 和 `backend/runtime/javascript/node_modules`，包括 DOCX 预览与 JavaScript 审核所需依赖。
 - 仅在 `backend/.env` 不存在时，从示例创建配置文件。
 
-完整说明见 [INSTALL.md](./INSTALL.md)。迁移服务器或项目路径后，应重新运行安装脚本，不要直接复用复制来的虚拟环境和依赖目录。
+迁移服务器或项目路径后，应重新运行安装脚本，不要直接复用复制来的虚拟环境和依赖目录。
 
 ### 2. 配置后端
 
@@ -223,8 +223,7 @@ FastAPI 进程内同时运行审核、导出和用户删除清理任务，无需
 ├── docs/                       # 架构、流程和节点设计文档
 ├── assets/                     # 项目业务模板资产
 ├── myrsync.sh                  # 可选的 Mutagen 同步脚本
-├── docker-compose.yml          # 待与当前部署流程对齐的容器配置
-└── INSTALL.md                  # Linux 固定版本安装说明
+└── docker-compose.yml          # 待与当前部署流程对齐的容器配置
 ```
 
 ---

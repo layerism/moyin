@@ -82,6 +82,6 @@ npm --prefix backend/runtime/javascript ci --registry="$NPM_REGISTRY"
 npm --prefix frontend ls --depth=0
 npm --prefix backend/runtime/javascript ls --depth=0
 
-echo "依赖安装完成。首次启动前请替换 backend/.env 中的示例管理员，并配置 OSS 和模型加密主密钥，见 INSTALL.md。"
+echo "依赖安装完成。首次启动前请替换 backend/.env 中的示例管理员，并配置 OSS 和模型加密主密钥，见 README.md。"
 echo "本地开发：bash deploy/run_dev.sh"
 echo "正式部署：bash deploy/run_server.sh，完整步骤见 deploy/README.md"
