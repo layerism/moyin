@@ -5,7 +5,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
   const host = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.5);
   const [pageCount, setPageCount] = useState(0);
   const [paper, setPaper] = useState<"A4" | "A3">("A4");
 
@@ -16,7 +16,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
     const controller = new AbortController();
     let active = true;
     root.replaceChildren();
-    setLoading(true); setError(""); setZoom(1); setPageCount(0);
+    setLoading(true); setError(""); setZoom(0.5); setPageCount(0);
     void (async () => {
       const response = await fetch(url, { credentials: "include", signal: controller.signal });
       if (!response.ok) throw new Error(response.status === 401 || response.status === 403
