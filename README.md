@@ -37,6 +37,7 @@
 - **🔐 名单驱动授权**：教师维护流程名单；学生只有在当前授权有效时才能进入对应流程。
 - **🧑‍🎓 独立学生实例**：每名学生拥有隔离的节点状态、草稿、提交内容和审核历史，互不影响。
 - **🕰️ 版本化发布**：发布时生成不可变流程快照；后续修订会分析受影响节点和学生范围，避免历史运行状态被静默覆盖。
+- **📄 材料修订与预览**：支持已发布流程的文件材料修订并保留学生历史；DOCX 预览支持 A4/A3 纸张选择和缩放，浏览器排版可能与 Word 不同。
 - **📊 教师进度管理**：集中查看学生节点状态、提交材料和审核结果，并支持人工审核、个别延期与 Excel 导出。
 - **☁️ OSS 文件管理**：流程模板和学生材料保存至对象存储，文件下载使用经过权限校验的短期签名地址。
 - **👁️ 真实学生预览**：教师预览与正式学生端复用同一套运行页面和业务配置解释，降低发布前后的体验偏差。
@@ -82,25 +83,18 @@
 
 ## 🚀 部署方式
 
-墨印支持两种运行方式：
+当前采用单机本地进程部署，区分开发与正式运行：
 
-### 本地进程
+| 场景 | 启动命令 | 访问方式 |
+|---|---|---|
+| 本地开发 | `bash deploy/run_dev.sh` | 前端 `http://localhost:6173`，后端 `127.0.0.1:9000` |
+| 正式部署 | `bash deploy/run_server.sh` | Nginx 提供静态页面并代理 `/api`，监听配置以 `deploy/nginx.conf` 为准 |
 
-适合开发、调试和单机使用。前端与后端分别运行，默认监听：
+正式部署将前端直接构建到 Nginx 配置的 `root` 目录，不使用静态目录软链接；后端端口从同一配置的 `proxy_pass` 读取。完整步骤见 [部署说明](./deploy/README.md)。
 
-- Web 前端：<http://localhost:6173>
-- FastAPI：<http://localhost:9000>
-- 健康检查：<http://localhost:9000/api/health>
+仓库保留 Docker 相关文件，但其管理员配置、审核脚本及系统依赖尚未与当前安装流程对齐，暂不作为开箱即用的部署入口。
 
-### Docker Compose
-
-适合需要统一入口的部署环境。Docker Compose 通过 Nginx 暴露 `http://localhost`，并将宿主机 `backend/storage` 挂载到后端容器的 `/app/storage`。
-
-```bash
-docker compose up --build
-```
-
-当前数据库为 SQLite，适合单机部署。多实例或高并发生产环境应迁移至 PostgreSQL，并统一会话、缓存和任务基础设施。
+当前数据库为 SQLite，部署方案面向单机；多实例部署需要另行调整数据库和后台任务架构。
 
 ---
 
@@ -108,30 +102,43 @@ docker compose up --build
 
 ### 1. 安装依赖
 
-项目使用仓库内固定版本的 Node.js、Python 和 uv 环境。首次部署请按照 [INSTALL.md](./INSTALL.md) 完成运行时与依赖安装。
+在使用 APT 的 Linux x86_64 环境中，从项目根目录执行：
+
+```bash
+bash deploy/install.sh
+```
+
+安装脚本负责：
+
+- 安装系统工具、LibreOffice Writer 和中文字体。
+- 在项目 `.local/` 下安装 uv、Python 3.11.15、Node.js 24.18.0 与 npm 11.16.0 等固定版本运行环境。
+- 创建或修复 `backend/.venv`，安装 Python 依赖。
+- 安装 `frontend/node_modules` 和 `backend/runtime/javascript/node_modules`，包括 DOCX 预览与 JavaScript 审核所需依赖。
+- 仅在 `backend/.env` 不存在时，从示例创建配置文件。
+
+完整说明见 [INSTALL.md](./INSTALL.md)。迁移服务器或项目路径后，应重新运行安装脚本，不要直接复用复制来的虚拟环境和依赖目录。
 
 ### 2. 配置后端
 
+编辑安装脚本生成的 `backend/.env`，已有配置无需重新复制覆盖。配置项说明及 OSS 开通步骤见 [环境变量示例](./backend/.env.example)。
+
+**管理员账号**：填写 `SUPER_ADMINS` JSON 数组，例如 `[{"name":"管理员姓名","account":"00001","password":"初始密码至少8字符"}]`。支持多名管理员，工号为保留前导零的 5 位数字字符串。新账号需要 8 至 128 字符的初始密码；已有账号姓名必须匹配，启动时提升权限但不重置密码。从名单移除不会自动降权。管理员通过 `/teacher/login` 登录。
+
+**文件存储**：配置 `OSS_ENDPOINT`、`OSS_BUCKET`、`OSS_ACCESS_KEY_ID` 和 `OSS_ACCESS_KEY_SECRET`，用于模板和学生材料的上传、下载。
+
+**大模型连接**：先生成 `AUDIT_CONFIG_ENCRYPTION_KEY`，从项目根目录执行：
+
 ```bash
-cp backend/.env.example backend/.env
+backend/.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-首次启动前填写 `SUPER_ADMINS` JSON 数组，例如 `[{"name":"管理员姓名","account":"00001","password":"初始密码至少8字符"}]`，支持多名管理员。工号为 5 位数字字符串，保留前导零。已有账号姓名必须匹配，启动时提升权限但不重置密码；新账号需要 8 至 128 字符的初始密码。从名单移除不会自动降权。使用 `/teacher/login` 登录。
+将结果保存到 `.env`。该主密钥用于加密数据库中的模型 API Key，必须备份，不可随意重新生成。
 
-大模型连接在“超级管理员账户菜单 → 大模型配置”中维护，仅超级管理员可修改。API Key 加密保存在数据库，`AUDIT_CONFIG_ENCRYPTION_KEY` 留在服务器 `.env`，可在 backend 目录运行 `./.venv/bin/python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` 生成。主密钥必须备份并与数据库分开保管，不可随意重新生成。旧大模型环境变量仅用于首次导入；迁移后删除，后续以管理端配置为准。保存对新启动的审核脚本生效，已运行的请求继续使用原连接。文档和视觉审核在各自的“配置审核脚本”弹窗中选择模型卡，并随参数统一保存；模型管理页只管理模型卡。模型名称、思考模式及厂商支持的档位/预算统一由模型卡维护，请求超时等参数仍在脚本配置中维护。未知型号或自定义接口不发送思考参数。适配范围及官方依据见 `docs/superpowers/plans/2026-09-08-script-editor-thinking.md`。仅支持 OpenAI Chat Completions：Base URL 后统一添加 `/chat/completions`，不支持 Responses 或 Messages 接口。模型卡支持新增、编辑、删除；被脚本引用时必须先更换引用才能删除。厂商 Logo 为本地静态资源，来源和许可见 `frontend/public/model-providers/README.md`。
+启动后，在“超级管理员账户菜单 → 大模型配置”中维护 API 地址、密钥、模型名称及思考参数，再在节点的“配置审核脚本”弹窗中选择模型卡。连接使用 OpenAI Chat Completions 兼容接口，Base URL 后添加 `/chat/completions`。无需为每个模型另填环境变量；旧模型环境变量仅用于首次导入。
 
-初始化只执行一次：同账号同姓名的已有账户保留 ID，更新初始密码并启用管理员权限、注销旧会话；姓名不一致或配置无效时启动失败。成功后可删除初始密码配置，重启不会覆盖密码或账户状态。密码仅以哈希写入数据库；请勿将真实初始密码写进版本库。
+**访问配置**：同源部署无需填写 `CORS_ORIGINS`。明文 HTTP 使用 `SESSION_COOKIE_SECURE=false`，HTTPS 使用 `true`。若启用短信验证，还需配置示例中的 `ALIYUN_PNVS_*` 字段。
 
-至少按实际环境填写 OSS 配置：
-
-```dotenv
-OSS_ENDPOINT=
-OSS_BUCKET=
-OSS_ACCESS_KEY_ID=
-OSS_ACCESS_KEY_SECRET=
-```
-
-如需启用视觉审核或 DeepSeek 审核脚本，再配置相应的 API 地址、密钥和模型名称。`backend/.env` 包含本地密钥，不得提交到 Git。
+`backend/.env` 包含本地密钥和初始密码，不得提交到 Git。
 
 ### 3. 本地开发
 
@@ -147,17 +154,20 @@ bash deploy/run_dev.sh
 
 ### 常用环境变量
 
-完整示例见 [`backend/.env.example`](./backend/.env.example)。
+常用配置见 [`backend/.env.example`](./backend/.env.example)；数据库路径与 worker 数量可按需覆盖默认值。
 
 | 变量 | 用途 |
 |---|---|
-| `DATABASE_PATH` | SQLite 数据库路径 |
+| `DATABASE_PATH` | SQLite 数据库路径，默认对应 `backend/storage/app.db` |
+| `SESSION_COOKIE_SECURE` | HTTPS 使用 `true`，明文 HTTP 使用 `false` |
+| `CORS_ORIGINS` | 仅前后端跨域时配置，同源部署无需填写 |
 | `OSS_ENDPOINT`、`OSS_BUCKET` | OSS 服务地址和存储桶 |
 | `OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET` | OSS 访问凭据 |
 | `OSS_SIGNED_URL_EXPIRES_SECONDS` | 下载签名地址有效期 |
 | `SUPER_ADMINS` | 超级管理员名单（JSON 数组） |
 | `AUDIT_CONFIG_ENCRYPTION_KEY` | 数据库中大模型密钥的加密主密钥 |
 | `AUDIT_WORKER_COUNT` | 自动审核 worker 数量 |
+| `ALIYUN_PNVS_*` | 阿里云号码认证配置，用于短信验证 |
 
 ---
 
@@ -187,13 +197,18 @@ bash deploy/run_dev.sh
 | 数据库 | SQLite，默认位于 `backend/storage/app.db` |
 | 文件存储 | 阿里云 OSS，数据库保存对象键和文件元数据 |
 | 自动审核 | Python / JavaScript 版本化审核脚本与异步任务 worker |
-| 部署 | 本地进程或 Docker Compose + Nginx |
+| 文档处理 | docx-preview 浏览器预览、LibreOffice 文档转换、中文字体 |
+| 部署 | 项目内运行环境、本地进程与 Nginx |
+
+FastAPI 进程内同时运行审核、导出和用户删除清理任务，无需单独启动这些 worker。
 
 ### 目录结构
 
 ```text
 .
+├── .local/                    # 安装生成的运行环境和缓存
 ├── backend/
+│   ├── .venv/                 # 安装生成的 Python 虚拟环境
 │   ├── app/                    # FastAPI 路由、领域逻辑、仓储和服务
 │   ├── scripts/                # 版本化审核脚本
 │   ├── runtime/javascript/     # JavaScript 审核运行环境
@@ -201,11 +216,14 @@ bash deploy/run_dev.sh
 │   └── tests/                  # 后端测试
 ├── frontend/src/               # React 页面、功能模块和样式
 ├── deploy/
+│   ├── install.sh              # 运行环境与依赖安装
+│   ├── run_dev.sh              # 本地开发启动脚本
 │   ├── run_server.sh           # 正式前端构建与后端启动脚本
 │   └── nginx.conf              # Nginx 配置
 ├── docs/                       # 架构、流程和节点设计文档
 ├── assets/                     # 项目业务模板资产
-├── docker-compose.yml          # 容器部署编排
+├── myrsync.sh                  # 可选的 Mutagen 同步脚本
+├── docker-compose.yml          # 待与当前部署流程对齐的容器配置
 └── INSTALL.md                  # Linux 固定版本安装说明
 ```
 
