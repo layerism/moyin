@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-import fitz
+import pymupdf as fitz
 from PIL import Image, UnidentifiedImageError
 
 

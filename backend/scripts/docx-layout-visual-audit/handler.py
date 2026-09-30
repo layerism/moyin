@@ -9,7 +9,7 @@ import tempfile
 import time
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 
 from app.services.audit_llm_client import AuditLLMClient
 

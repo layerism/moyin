@@ -5,7 +5,7 @@ import zipfile
 from typing import BinaryIO
 from xml.etree import ElementTree
 
-import fitz
+import pymupdf as fitz
 
 from app.repositories.flow_announcement_files import ANNOUNCEMENT_FILE_LIMIT_BYTES
 
