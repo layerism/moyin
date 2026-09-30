@@ -49,7 +49,7 @@ export function NodeProgressDialog({ versionId, nodeKey, onClose }: { versionId:
   const dateFloor = action?.kind === "extend" ? Math.max(Date.now(), new Date(action.student.effectiveDeadline || 0).getTime()) : Date.now();
   const validDate = !requiresDate || (Number.isFinite(new Date(deadline).getTime()) && new Date(deadline).getTime() > dateFloor);
   async function save() {
-    if (!action || busy || !reason.trim() || !validDate || (action.kind === "reset" && !impact)) return;
+    if (!action || busy || (action?.kind === "extend" && !reason.trim()) || !validDate || (action.kind === "reset" && !impact)) return;
     setBusy(true); setActionError("");
     try {
       if (action.kind === "extend") await workflowApi.setStudentDeadline(action.student.instanceId, nodeKey, new Date(deadline).toISOString(), reason.trim());
@@ -93,8 +93,8 @@ export function NodeProgressDialog({ versionId, nodeKey, onClose }: { versionId:
             </div>}</>}
         </> : <p className="np-hint">当前有效截止时间：{dateLabel(action?.student.effectiveDeadline ?? null)}</p>}
         {requiresDate && <label className="np-field">延长至<input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />{!validDate && <span className="np-error">新时间须晚于当前时间及原有效截止时间。</span>}</label>}
-        <label className="np-field">{action?.kind === "extend" ? "延期原因" : "撤销原因"} *<textarea maxLength={500} value={reason} onChange={e => setReason(e.target.value)} placeholder="请填写原因" /></label>
-      </section><footer><span>仅影响该学生</span><div><button type="button" disabled={busy} onClick={closeAction}>取消</button><button type="button" className={action?.kind === "reset" ? "np-danger" : "np-primary"} disabled={busy || !reason.trim() || !validDate || (action?.kind === "reset" && !impact)} onClick={() => void save()}>{busy ? "正在保存…" : action?.kind === "reset" ? "确认撤销通过" : "确认延期"}</button></div></footer>
+        <label className="np-field">{action?.kind === "extend" ? "延期原因 *" : "撤销原因（选填）"}<textarea maxLength={500} value={reason} onChange={e => setReason(e.target.value)} placeholder={action?.kind === "extend" ? "请填写延期原因" : "可补充说明，留空也可撤销"} /></label>
+      </section><footer><span>仅影响该学生</span><div><button type="button" disabled={busy} onClick={closeAction}>取消</button><button type="button" className={action?.kind === "reset" ? "np-danger" : "np-primary"} disabled={busy || (action?.kind === "extend" && !reason.trim()) || !validDate || (action?.kind === "reset" && !impact)} onClick={() => void save()}>{busy ? "正在保存…" : action?.kind === "reset" ? "确认撤销通过" : "确认延期"}</button></div></footer>
     </dialog>
   </>;
 }

@@ -92,8 +92,6 @@ def get_node_progress(version_id, node_key, teacher_id):
 
 
 def reset_progress(instance_id, node_key, teacher_id, fingerprint, reason, deadline_at=None, extend_current=False, extend_downstream=False):
-    if not reason.strip():
-        raise ValueError('请填写撤销原因')
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
@@ -124,7 +122,7 @@ def reset_progress(instance_id, node_key, teacher_id, fingerprint, reason, deadl
             if key != node_key:
                 connection.execute('INSERT OR IGNORE INTO node_redo_dependencies VALUES (?, ?, ?)', (instance_id, node_key, key))
         for key in extension_keys:
-            _set_student_deadline(connection, instance_id, key, deadline_at, reason.strip(), teacher_id, now)
+            _set_student_deadline(connection, instance_id, key, deadline_at, reason.strip() or '撤销通过时同时延期', teacher_id, now)
         node = node_by_key(config, node_key)
         status = pending_node_status(node_is_ready(connection, instance_id, config, node_key), node.get('startAt'),
                                      effective_deadline(connection, instance_id, instance['flow_version_id'], node_key), kind=node.get('kind'))

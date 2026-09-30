@@ -534,7 +534,7 @@ def manual_approve_submission(
 class NodeProgressResetRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     fingerprint: str = Field(min_length=64, max_length=64)
-    reason: str = Field(min_length=1, max_length=500)
+    reason: str = Field(default="", max_length=500)
     deadlineAt: str | None = None
     extendCurrent: bool = False
     extendDownstream: bool = False
