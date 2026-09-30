@@ -6,6 +6,13 @@ from app.core.config import settings
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS node_redo_dependencies (
+    flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
+    source_node_key TEXT NOT NULL,
+    target_node_key TEXT NOT NULL,
+    PRIMARY KEY (flow_instance_id, source_node_key, target_node_key)
+);
+
 CREATE TABLE IF NOT EXISTS material_export_jobs (
     id TEXT PRIMARY KEY,
     teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,

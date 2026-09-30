@@ -223,6 +223,14 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             (instance_id,),
         ).fetchall()
         node_order = {node["id"]: index for index, node in enumerate(config["nodes"])}
+        reset_notices = {}
+        for reset_log in connection.execute(
+            "SELECT after_data, reason FROM audit_logs WHERE action = 'node_progress_reset' AND entity_id LIKE ? ORDER BY id DESC",
+            (instance_id + ':%',),
+        ):
+            reset_data = json.loads(reset_log['after_data'])
+            for key, attempt in reset_data.get('resetAttempts', {}).items():
+                reset_notices.setdefault(key, (attempt, reset_log['reason']))
         nodes = []
         _, _, ready_nodes = resolve_routes(connection, instance_id, config)
         for row in node_rows:
@@ -315,6 +323,9 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "status": status,
                     "attemptNo": row["attempt_no"],
                     "requiresResubmission": requires_resubmission,
+                    "progressResetReason": (reset_notices[row['node_key']][1]
+                        if row['node_key'] in reset_notices and reset_notices[row['node_key']][0] == row['attempt_no']
+                        and status not in {'approved', 'skipped'} else None),
                     "feedback": feedback,
                     "sourceReviews": reviews,
                     "reviewStage": current_review_stage,
@@ -906,115 +917,119 @@ def set_student_deadline(
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
-        exists = connection.execute(
-            """
-            SELECT i.id,
-                   i.flow_version_id,
-                   v.config_snapshot,
-                   n.status AS node_status,
-                   r.deadline_at AS global_deadline,
-                   o.deadline_at AS override_deadline
-            FROM flow_instances i
-            JOIN flow_versions v ON v.id = i.flow_version_id
-            JOIN flows f ON f.id = v.flow_id
-            JOIN node_instances n
-              ON n.flow_instance_id = i.id AND n.node_key = ?
-            LEFT JOIN flow_node_runtime_configs r
-              ON r.flow_version_id = i.flow_version_id AND r.node_key = n.node_key
-            LEFT JOIN student_deadline_overrides o
-              ON o.flow_instance_id = i.id AND o.node_key = n.node_key
-            WHERE i.id = ? AND f.owner_id = ? AND v.status = 'published'
-            """,
-            (node_key, instance_id, str(teacher_id)),
-        ).fetchone()
-        if exists is None:
-            raise KeyError(instance_id)
-        clean_reason = reason.strip()
-        if not clean_reason:
-            raise StudentDeadlineValidationError("请填写延期原因")
-        config = json.loads(exists["config_snapshot"])
-        node = node_by_key(config, node_key)
-        if node.get("kind") in {"branch", "or_gate"}:
-            raise StudentDeadlineValidationError("流程控制节点不设置截止时间")
-        if exists["node_status"] == "approved" and node.get("kind") != "form":
-            raise StudentDeadlineValidationError("已通过的非表单节点不能延期")
-
-        current_deadline_value = effective_deadline(connection, instance_id, exists["flow_version_id"], node_key)
-        if current_deadline_value is None:
-            raise StudentDeadlineValidationError("无截止时间的节点不能设置延期")
-
-        new_deadline = _parse_student_deadline(deadline_at)
-        current_deadline = parse_datetime(current_deadline_value)
-        now_datetime = datetime.now(UTC)
-        if (
-            node.get("kind") == "answer_sheet"
-            and node.get("answerSheet", {}).get("gradingPolicy", {}).get("feedback")
-            == "full_after_deadline"
-            and current_deadline is not None
-            and current_deadline <= now_datetime
-        ):
-            raise StudentDeadlineValidationError(
-                "该答题卡已在截止后展示标准答案，不能再次延期"
-            )
-        if new_deadline <= now_datetime:
-            raise StudentDeadlineValidationError("延期截止时间必须晚于当前时间")
-        if current_deadline is None or new_deadline <= current_deadline:
-            raise StudentDeadlineValidationError("延期截止时间必须晚于当前生效截止时间")
-        normalized_deadline = new_deadline.isoformat()
-        connection.execute(
-            """
-            INSERT INTO student_deadline_overrides
-                (flow_instance_id, node_key, deadline_at, reason, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(flow_instance_id, node_key) DO UPDATE
-            SET deadline_at = excluded.deadline_at, reason = excluded.reason,
-                created_by = excluded.created_by, created_at = excluded.created_at
-            """,
-            (instance_id, node_key, normalized_deadline, clean_reason, str(teacher_id), now),
-        )
-        connection.execute(
-            """
-            UPDATE node_instances SET status = CASE
-                WHEN EXISTS (SELECT 1 FROM node_drafts d WHERE d.node_instance_id = node_instances.id)
-                THEN 'draft' ELSE 'available' END
-            WHERE flow_instance_id = ? AND node_key = ? AND status = 'expired'
-            """,
-            (instance_id, node_key),
-        )
-        node_row = connection.execute(
-            "SELECT id, status FROM node_instances WHERE flow_instance_id = ? AND node_key = ?",
-            (instance_id, node_key),
-        ).fetchone()
-        next_status = pending_node_status(
-            node_is_ready(connection, instance_id, config, node_key),
-            node.get("startAt"),
-            normalized_deadline,
-        )
-        if next_status == "available":
-            draft = connection.execute(
-                "SELECT 1 FROM node_drafts WHERE node_instance_id = ?", (node_row["id"],)
-            ).fetchone()
-            next_status = "draft" if draft else "available"
-        if node_row["status"] in {"expired", "scheduled", "locked", "available", "draft"}:
-            connection.execute(
-                "UPDATE node_instances SET status = ?, opened_at = ? WHERE id = ?",
-                (next_status, now if next_status == "available" else None, node_row["id"]),
-            )
-        connection.execute(
-            """
-            INSERT INTO audit_logs
-                (actor_id, action, entity_type, entity_id, after_data, reason, created_at)
-            VALUES (?, 'deadline_override', 'node_instance', ?, ?, ?, ?)
-            """,
-            (
-                str(teacher_id),
-                f"{instance_id}:{node_key}",
-                canonical_json({"deadlineAt": normalized_deadline}),
-                clean_reason,
-                now,
-            ),
-        )
+        _set_student_deadline(connection, instance_id, node_key, deadline_at, reason, teacher_id, now)
     return get_instance(instance_id)
+
+
+def _set_student_deadline(connection, instance_id, node_key, deadline_at, reason, teacher_id, now):
+    exists = connection.execute(
+        """
+        SELECT i.id,
+               i.flow_version_id,
+               v.config_snapshot,
+               n.status AS node_status,
+               r.deadline_at AS global_deadline,
+               o.deadline_at AS override_deadline
+        FROM flow_instances i
+        JOIN flow_versions v ON v.id = i.flow_version_id
+        JOIN flows f ON f.id = v.flow_id
+        JOIN node_instances n
+          ON n.flow_instance_id = i.id AND n.node_key = ?
+        LEFT JOIN flow_node_runtime_configs r
+          ON r.flow_version_id = i.flow_version_id AND r.node_key = n.node_key
+        LEFT JOIN student_deadline_overrides o
+          ON o.flow_instance_id = i.id AND o.node_key = n.node_key
+        WHERE i.id = ? AND f.owner_id = ? AND v.status = 'published'
+        """,
+        (node_key, instance_id, str(teacher_id)),
+    ).fetchone()
+    if exists is None:
+        raise KeyError(instance_id)
+    clean_reason = reason.strip()
+    if not clean_reason:
+        raise StudentDeadlineValidationError("请填写延期原因")
+    config = json.loads(exists["config_snapshot"])
+    node = node_by_key(config, node_key)
+    if node.get("kind") in {"branch", "or_gate"}:
+        raise StudentDeadlineValidationError("流程控制节点不设置截止时间")
+    if exists["node_status"] == "approved" and node.get("kind") != "form":
+        raise StudentDeadlineValidationError("已通过的非表单节点不能延期")
+
+    current_deadline_value = effective_deadline(connection, instance_id, exists["flow_version_id"], node_key)
+    if current_deadline_value is None:
+        raise StudentDeadlineValidationError("无截止时间的节点不能设置延期")
+
+    new_deadline = _parse_student_deadline(deadline_at)
+    current_deadline = parse_datetime(current_deadline_value)
+    now_datetime = datetime.now(UTC)
+    if (
+        node.get("kind") == "answer_sheet"
+        and node.get("answerSheet", {}).get("gradingPolicy", {}).get("feedback")
+        == "full_after_deadline"
+        and current_deadline is not None
+        and current_deadline <= now_datetime
+    ):
+        raise StudentDeadlineValidationError(
+            "该答题卡已在截止后展示标准答案，不能再次延期"
+        )
+    if new_deadline <= now_datetime:
+        raise StudentDeadlineValidationError("延期截止时间必须晚于当前时间")
+    if current_deadline is None or new_deadline <= current_deadline:
+        raise StudentDeadlineValidationError("延期截止时间必须晚于当前生效截止时间")
+    normalized_deadline = new_deadline.isoformat()
+    connection.execute(
+        """
+        INSERT INTO student_deadline_overrides
+            (flow_instance_id, node_key, deadline_at, reason, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(flow_instance_id, node_key) DO UPDATE
+        SET deadline_at = excluded.deadline_at, reason = excluded.reason,
+            created_by = excluded.created_by, created_at = excluded.created_at
+        """,
+        (instance_id, node_key, normalized_deadline, clean_reason, str(teacher_id), now),
+    )
+    connection.execute(
+        """
+        UPDATE node_instances SET status = CASE
+            WHEN EXISTS (SELECT 1 FROM node_drafts d WHERE d.node_instance_id = node_instances.id)
+            THEN 'draft' ELSE 'available' END
+        WHERE flow_instance_id = ? AND node_key = ? AND status = 'expired'
+        """,
+        (instance_id, node_key),
+    )
+    node_row = connection.execute(
+        "SELECT id, status FROM node_instances WHERE flow_instance_id = ? AND node_key = ?",
+        (instance_id, node_key),
+    ).fetchone()
+    next_status = pending_node_status(
+        node_is_ready(connection, instance_id, config, node_key),
+        node.get("startAt"),
+        normalized_deadline,
+    )
+    if next_status == "available":
+        draft = connection.execute(
+            "SELECT 1 FROM node_drafts WHERE node_instance_id = ?", (node_row["id"],)
+        ).fetchone()
+        next_status = "draft" if draft else "available"
+    if node_row["status"] in {"expired", "scheduled", "locked", "available", "draft"}:
+        connection.execute(
+            "UPDATE node_instances SET status = ?, opened_at = ? WHERE id = ?",
+            (next_status, now if next_status == "available" else None, node_row["id"]),
+        )
+    connection.execute(
+        """
+        INSERT INTO audit_logs
+            (actor_id, action, entity_type, entity_id, after_data, reason, created_at)
+        VALUES (?, 'deadline_override', 'node_instance', ?, ?, ?, ?)
+        """,
+        (
+            str(teacher_id),
+            f"{instance_id}:{node_key}",
+            canonical_json({"deadlineAt": normalized_deadline}),
+            clean_reason,
+            now,
+        ),
+    )
 
 
 def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:

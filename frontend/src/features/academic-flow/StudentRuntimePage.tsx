@@ -746,7 +746,8 @@ function RuntimeNodeDialog({
             <FeedbackDownload fileId={file.id} filename={file.name} student>下载批改件</FeedbackDownload>
           </div>)}
         </section> : null}
-        {runtime.requiresResubmission && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
+        {runtime.progressResetReason ? <p className="runtime-state-hint">教师已撤销通过，需要重新完成。原因：{runtime.progressResetReason}</p> : null}
+        {runtime.requiresResubmission && !runtime.progressResetReason && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
         {runtime.audit && !awaitingReview && !(["file", "confirmation"].includes(node.kind) && runtime.reviewTimeline?.length && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
         {(node.kind === "file" || (node.kind === "confirmation" && Boolean(node.fileReviewSteps?.length))) && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {["file", "confirmation"].includes(node.kind) && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}

@@ -529,3 +529,47 @@ def manual_approve_submission(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ManualApprovalValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+class NodeProgressResetRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    fingerprint: str = Field(min_length=64, max_length=64)
+    reason: str = Field(min_length=1, max_length=500)
+    deadlineAt: str | None = None
+    extendCurrent: bool = False
+    extendDownstream: bool = False
+
+
+@router.get('/versions/{version_id}/nodes/{node_key}/progress')
+def node_progress(version_id: str, node_key: str, teacher: dict = Depends(get_current_teacher)):
+    from app.repositories.node_progress import get_node_progress
+    try:
+        return get_node_progress(version_id, node_key, int(teacher['id']))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail='节点不存在') from exc
+
+
+@router.get('/instances/{instance_id}/nodes/{node_key}/reset-impact')
+def node_reset_impact(instance_id: str, node_key: str, teacher: dict = Depends(get_current_teacher)):
+    from app.repositories.node_progress import get_impact
+    try:
+        return get_impact(instance_id, node_key, int(teacher['id']))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail='节点不存在') from exc
+
+
+@router.post('/instances/{instance_id}/nodes/{node_key}/reset-progress')
+def node_reset_progress(instance_id: str, node_key: str, payload: NodeProgressResetRequest,
+                        teacher: dict = Depends(get_current_teacher)):
+    from app.repositories.node_progress import ProgressConflict, reset_progress
+    try:
+        jobs = reset_progress(instance_id, node_key, int(teacher['id']), payload.fingerprint, payload.reason,
+                              payload.deadlineAt, payload.extendCurrent, payload.extendDownstream)
+        signal_audit_job_cancellations(jobs)
+        return {'status': 'reset'}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail='节点不存在') from exc
+    except ProgressConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

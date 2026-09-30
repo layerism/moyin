@@ -79,6 +79,7 @@ import { NodeDateTimePicker } from "./NodeDateTimePicker";
 import { NodePackageDownloadDialog } from "./NodePackageDownloadDialog";
 import { RevisionImpactDialog } from "./RevisionImpactDialog";
 import type { RevisionImpact } from "./runtimeTypes";
+import { NodeProgressDialog } from "./NodeProgressDialog";
 import { TeacherProgressPanel } from "./TeacherProgressPanel";
 import { useExportTasks } from "./ExportTasks";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
@@ -245,6 +246,7 @@ export function AcademicFlowDesigner({
   const persistedNodeIds = useRef(new Set(process.draftConfig.nodes.map((node) => node.id)));
   const pendingAnnouncementNodeSave = useRef<Promise<void> | null>(null);
   const [previewCreating, setPreviewCreating] = useState(false);
+  const [progressNodeId, setProgressNodeId] = useState<string | null>(null);
   const [manualReviewNodeId, setManualReviewNodeId] = useState<string | null>(null);
   const [nodePackageDialogNodeId, setNodePackageDialogNodeId] = useState<string | null>(null);
   const [revisionDirty, setRevisionDirty] = useState(false);
@@ -941,10 +943,11 @@ export function AcademicFlowDesigner({
             nodes={workingProcess.nodes}
             onAddNode={addNode}
             onCopyNode={copyNode}
-            copyBlocked={inspectorNodeId !== null || showRoster || showProgress || manualReviewNodeId !== null || nodePackageDialogNodeId !== null}
+            copyBlocked={progressNodeId !== null || inspectorNodeId !== null || showRoster || showProgress || manualReviewNodeId !== null || nodePackageDialogNodeId !== null}
             onConnectNodes={connectNodes}
             onDeleteNode={deleteNode}
             onDeleteEdge={deleteEdge}
+            onNodeProgress={setProgressNodeId}
             onManualReview={setManualReviewNodeId}
             onDownloadNodePackage={setNodePackageDialogNodeId}
             onOpenInspector={setInspectorNodeId}
@@ -978,6 +981,9 @@ export function AcademicFlowDesigner({
             publishedRevision={workingProcess.published}
           />
         )}
+        {progressNodeId && workingProcess.publishedVersionId ? <NodeProgressDialog
+          key={`${workingProcess.publishedVersionId}:${progressNodeId}`}
+          versionId={workingProcess.publishedVersionId} nodeKey={progressNodeId} onClose={() => setProgressNodeId(null)} /> : null}
         {showProgress && workingProcess.publishedVersionId ? (
           <TeacherProgressPanel
             downloadingPackage={packagePending}
@@ -1182,6 +1188,7 @@ function FlowNodeCanvas({
   onConnectNodes,
   onDeleteEdge,
   onDeleteNode,
+  onNodeProgress,
   onManualReview,
   onDownloadNodePackage,
   onOpenInspector,
@@ -1220,6 +1227,7 @@ function FlowNodeCanvas({
   ) => void;
   onDeleteEdge: (edgeId: string) => void;
   onDeleteNode: (nodeId: string) => void;
+  onNodeProgress: (nodeId: string) => void;
   onManualReview: (nodeId: string) => void;
   onDownloadNodePackage: (nodeId: string) => void;
   onOpenInspector: (nodeId: string) => void;
@@ -1472,7 +1480,7 @@ function FlowNodeCanvas({
   );
   const openNodeContextMenu = (nodeId: string, clientX: number, clientY: number) => {
     const menuWidth = 190;
-    const menuHeight = 132;
+    const menuHeight = 280;
     setSelectedNodeIds(new Set([nodeId]));
     setSelectedEdgeId(null);
     onSelectNode(nodeId);
@@ -2302,6 +2310,11 @@ function FlowNodeCanvas({
             role="menu"
             style={{ left: nodeContextMenu.left, top: nodeContextMenu.top }}
           >
+            <button disabled={!publishedNodeIdSet.has(nodeContextMenu.nodeId)} role="menuitem" type="button"
+              onClick={() => { onNodeProgress(nodeContextMenu.nodeId); setNodeContextMenu(null); }}>
+              <span aria-hidden="true">☷</span><strong>进度管理</strong>
+              {!publishedNodeIdSet.has(nodeContextMenu.nodeId) ? <small>发布后可管理</small> : null}
+            </button>
             {hasSequentialManualReview(nodeById.get(nodeContextMenu.nodeId)) ? <button
               disabled={!publishedNodeIdSet.has(nodeContextMenu.nodeId)} role="menuitem" type="button"
               onClick={() => { onManualReview(nodeContextMenu.nodeId); setNodeContextMenu(null); }}>

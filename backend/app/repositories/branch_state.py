@@ -48,6 +48,11 @@ def resolve_routes(connection, instance_id, config):
              and (any(statuses.get(source) == 'approved' for source in predecessors[key])
                   if nodes[key].get('kind') == 'or_gate'
                   else all(statuses.get(source) == 'approved' for source in predecessors[key]))}
+    blocked = {row['target_node_key'] for row in connection.execute(
+        'SELECT source_node_key, target_node_key FROM node_redo_dependencies WHERE flow_instance_id = ?',
+        (instance_id,),
+    ) if statuses.get(row['source_node_key']) != 'approved'}
+    ready -= blocked
     return predecessors, skipped, ready
 
 
@@ -56,6 +61,10 @@ def node_is_ready(connection, instance_id, config, node_key):
 
 
 def sync_branch_states(connection, instance_id, config):
+    connection.execute("""DELETE FROM node_redo_dependencies
+        WHERE flow_instance_id = ? AND source_node_key IN
+        (SELECT node_key FROM node_instances WHERE flow_instance_id = ? AND status = 'approved')""",
+        (instance_id, instance_id))
     if not any(node.get('kind') in {'branch', 'or_gate'} for node in config['nodes']):
         return
     gates = {node['id'] for node in config['nodes'] if node.get('kind') == 'or_gate'}

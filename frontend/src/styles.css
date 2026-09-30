@@ -14556,3 +14556,53 @@ td {
   .runtime-inline-progress > span, .runtime-description-label { display: none; }
   .runtime-inline-identity { padding-left: 7px; }
 }
+
+/* Published node context menu: compact per-student progress management. */
+.node-progress-dialog { width: min(740px, calc(100vw - 32px)); max-height: 88vh; padding: 0; border: 1px solid #dce3ed; border-radius: 12px; color: #243147; background: #fff; box-shadow: 0 24px 80px #182b4633; }
+.node-progress-dialog::backdrop { background: #17243c66; }
+.node-progress-dialog header { display: flex; align-items: flex-start; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid #e8edf3; }
+.node-progress-dialog h2 { margin: 0; font-size: 17px; }
+.node-progress-dialog header p { margin: 6px 0 0; color: #7e899b; font-size: 12px; }
+.node-progress-dialog button { padding: 6px 11px; border: 1px solid #dce3ed; border-radius: 6px; background: white; color: #46556b; font-size: 12px; cursor: pointer; }
+.node-progress-dialog button:disabled { opacity: .45; cursor: not-allowed; }
+.node-progress-dialog button:focus-visible { outline: 2px solid #80aaff; outline-offset: 2px; }
+.node-progress-dialog nav { display: flex; gap: 22px; padding: 0 20px; border-bottom: 1px solid #edf0f5; }
+.node-progress-dialog nav button { padding: 12px 0; border: 0; border-radius: 0; }
+.node-progress-dialog nav .active { border-bottom: 2px solid #286cf0; color: #286cf0; }
+.np-body { padding: 16px 20px; font-size: 13px; }
+.np-filters { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.np-filters .active { background: #f0f5ff; border-color: #bbd0f8; color: #286cf0; }
+.np-filters button:last-child { margin-left: auto; }
+.node-progress-dialog input:not([type=checkbox]), .node-progress-dialog textarea { max-width: 100%; padding: 8px 10px; border: 1px solid #dce3ed; border-radius: 6px; font: inherit; background: white; color: #243147; }
+.np-table { overflow-x: auto; margin-top: 12px; }
+.np-table table { width: 100%; min-width: 530px; border-collapse: collapse; font-size: 12px; }
+.np-table th { background: #f8fafc; font-weight: 400; color: #8290a3; text-align: left; padding: 9px 10px; }
+.np-table td { padding: 11px 10px; border-bottom: 1px solid #edf0f5; }
+.np-table small { display: block; color: #8b96a6; margin-top: 4px; font-size: 11px; }
+.np-status { border-radius: 4px; background: #f1f3f6; padding: 3px 6px; white-space: nowrap; }
+.np-status.approved { background: #edf8f0; color: #29814d; }
+.np-status.reviewing { background: #eef4ff; color: #286cf0; }
+.np-status.expired, .np-status.audit_error { color: #c43b4a; background: #fff2f2; }
+.np-actions { display: flex; gap: 12px; white-space: nowrap; }
+.np-actions button { padding: 2px 0; border: 0; color: #286cf0; }
+.np-actions .np-danger-link { color: #ce4654; }
+.np-hint, .np-empty { color: #8792a4; font-size: 11px; line-height: 1.7; }
+.np-empty { text-align: center; padding: 20px; }
+.node-progress-dialog footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-top: 1px solid #e8edf3; background: #fafbfd; color: #8792a4; font-size: 11px; gap: 10px; }
+.node-progress-dialog footer > div { display: flex; gap: 8px; }
+.node-progress-dialog .np-danger { background: #d53e4d; border-color: #d53e4d; color: white; }
+.node-progress-dialog .np-primary { background: #286cf0; border-color: #286cf0; color: white; }
+.np-confirm { width: min(510px, calc(100vw - 32px)); }
+.np-error { color: #c43b4a; font-size: 12px; }
+.np-success, .np-warning { padding: 10px 12px; border-radius: 6px; line-height: 1.7; font-size: 12px; }
+.np-success { background: #edf8f0; color: #29814d; }
+.np-warning { background: #fff5f3; color: #b95656; }
+.np-affected { max-height: 210px; overflow-y: auto; border: 1px solid #e4e9f0; border-radius: 7px; padding: 0 12px; }
+.np-affected > div { display: flex; justify-content: space-between; gap: 14px; padding: 9px 0; border-bottom: 1px solid #edf0f5; font-size: 12px; }
+.np-affected small { color: #8994a5; white-space: nowrap; }
+.np-extension { margin-top: 12px; padding: 10px 12px; background: #f8fafc; border-radius: 7px; }
+.np-extension label { display: flex; align-items: center; gap: 7px; margin: 5px 0; font-size: 12px; }
+.np-field { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; font-size: 12px; }
+.np-field textarea { min-height: 68px; resize: vertical; }
+.np-record { padding: 12px 0; border-bottom: 1px solid #edf0f5; line-height: 1.7; }
+.np-record p { font-size: 11px; color: #8792a4; margin: 4px 0; }

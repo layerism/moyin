@@ -633,6 +633,15 @@ export const workflowApi = {
       { method: "PUT", body: JSON.stringify(payload) },
     );
   },
+  getNodeProgress(versionId: string, nodeKey: string) {
+    return request<NodeProgressData>(`/api/workflow-admin/versions/${encodeURIComponent(versionId)}/nodes/${encodeURIComponent(nodeKey)}/progress`);
+  },
+  getNodeResetImpact(instanceId: string, nodeKey: string) {
+    return request<NodeResetImpact>(`/api/workflow-admin/instances/${encodeURIComponent(instanceId)}/nodes/${encodeURIComponent(nodeKey)}/reset-impact`);
+  },
+  resetNodeProgress(instanceId: string, nodeKey: string, payload: { fingerprint: string; reason: string; deadlineAt: string | null; extendCurrent: boolean; extendDownstream: boolean }) {
+    return request<{ status: string }>(`/api/workflow-admin/instances/${encodeURIComponent(instanceId)}/nodes/${encodeURIComponent(nodeKey)}/reset-progress`, { method: "POST", body: JSON.stringify(payload) });
+  },
   getProgress(versionId: string) {
     return request<WorkflowProgress>(
       `/api/workflow-admin/versions/${encodeURIComponent(versionId)}/progress`,
@@ -758,3 +767,16 @@ export const workflowApi = {
     );
   },
 };
+
+export type NodeProgressStudent = {
+  instanceId: string; name: string; studentNo: string; status: string;
+  effectiveDeadline: string | null; overrideDeadline: string | null;
+  canRevoke: boolean; canExtend: boolean;
+};
+export type NodeProgressData = {
+  title: string; students: NodeProgressStudent[];
+  logs: { action: string; after_data: string; reason: string; created_at: string; actor_id: string; name: string; student_no: string }[];
+};
+export type NodeResetImpact = { fingerprint: string; nodes: {
+  nodeKey: string; title: string; status: string; deadline: string | null; expired: boolean; canExtend: boolean;
+}[] };

@@ -95,6 +95,7 @@ export type RuntimeNodeInstance = {
   attemptNo: number;
   attemptsRemaining: number | null;
   requiresResubmission?: boolean;
+  progressResetReason?: string | null;
   draft: Record<string, unknown>;
   effectiveDeadline: string | null;
   effectiveStartAt: string | null;
