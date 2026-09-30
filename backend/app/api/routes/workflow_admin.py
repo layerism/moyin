@@ -573,3 +573,16 @@ def node_reset_progress(instance_id: str, node_key: str, payload: NodeProgressRe
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post('/instances/{instance_id}/nodes/{node_key}/extend-five-days')
+def extend_student_five_days(instance_id: str, node_key: str, teacher: dict = Depends(get_current_teacher)):
+    from app.repositories.node_progress import ProgressConflict, extend_five_days
+    try:
+        return extend_five_days(instance_id, node_key, int(teacher['id']))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail='学生节点不存在') from exc
+    except ProgressConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except StudentDeadlineValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

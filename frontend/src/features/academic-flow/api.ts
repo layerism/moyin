@@ -760,6 +760,12 @@ export const workflowApi = {
       { method: "POST", body: JSON.stringify({ submissionId, reason }) },
     );
   },
+  extendStudentFiveDays(instanceId: string, nodeKey: string) {
+    return request<{ deadlineAt: string }>(
+      `/api/workflow-admin/instances/${encodeURIComponent(instanceId)}/nodes/${encodeURIComponent(nodeKey)}/extend-five-days`,
+      { method: "POST" },
+    );
+  },
   setStudentDeadline(instanceId: string, nodeKey: string, deadlineAt: string, reason: string) {
     return request<RuntimeFlowInstance>(
       `/api/workflow-admin/instances/${encodeURIComponent(instanceId)}/nodes/${encodeURIComponent(nodeKey)}/deadline`,

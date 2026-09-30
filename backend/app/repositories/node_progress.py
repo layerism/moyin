@@ -1,7 +1,7 @@
 """Teacher-scoped node progress and atomic student redo operations."""
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.core.database import get_connection
 from app.domain.workflow_revision import reachable_successors
@@ -80,7 +80,8 @@ def get_node_progress(version_id, node_key, teacher_id):
                        and node.get('answerSheet', {}).get('gradingPolicy', {}).get('feedback') == 'full_after_deadline')
             students.append({**student, 'nodes': [], **item,
                 'canRevoke': item['status'] == 'approved' and node.get('kind') != 'or_gate',
-                'canExtend': bool(deadline) and node.get('kind') not in {'branch', 'or_gate'}
+                'canExtend': bool(deadline) and parse_datetime(deadline) <= datetime.now(UTC)
+                    and node.get('kind') not in {'branch', 'or_gate'}
                     and (item['status'] != 'approved' or node.get('kind') == 'form') and not exposed})
         logs = connection.execute('''SELECT l.action, l.after_data, l.reason, l.created_at, l.actor_id, a.name, a.student_no FROM audit_logs l
             JOIN flow_instances i ON l.entity_id = i.id || ':' || ?
@@ -139,3 +140,17 @@ def reset_progress(instance_id, node_key, teacher_id, fingerprint, reason, deadl
                          'resetAttempts': {r['node_key']: r['attempt_no'] for r in connection.execute(
                              'SELECT node_key, attempt_no FROM node_instances WHERE flow_instance_id = ?', (instance_id,)) if r['node_key'] in affected}}, ensure_ascii=False), reason.strip(), now))
     return running_jobs
+
+
+def extend_five_days(instance_id, node_key, teacher_id):
+    with get_connection() as connection:
+        connection.execute('BEGIN IMMEDIATE')
+        instance, _ = _context(connection, instance_id, node_key, teacher_id)
+        current = effective_deadline(connection, instance_id, instance['flow_version_id'], node_key)
+        now = datetime.now(UTC)
+        if not current or parse_datetime(current) > now:
+            raise ProgressConflict('仅可为已过有效截止时间的节点开放补交，请刷新进度')
+        deadline = (now + timedelta(days=5)).isoformat()
+        _set_student_deadline(connection, instance_id, node_key, deadline,
+                             '教师开放 5 天补交', teacher_id, now.isoformat())
+    return {'deadlineAt': deadline}
