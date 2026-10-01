@@ -13925,7 +13925,8 @@ td {
 }
 
 
-.student-topology-deadline {
+.student-topology-deadline,
+.designer-node-date-badge {
   position: absolute;
   top: -14px;
   left: 8px;
@@ -14666,3 +14667,6 @@ td {
 
 .node-file-row-actions button { width: 32px; padding: 0; }
 .node-file-row-actions svg { width: 16px; height: 16px; }
+
+/* Leave the top connection port and node title unobstructed. */
+.designer-node-date-badge { top: auto; bottom: calc(100% + 8px); }

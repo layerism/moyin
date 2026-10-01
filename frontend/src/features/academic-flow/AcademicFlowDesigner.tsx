@@ -2219,6 +2219,7 @@ function FlowNodeCanvas({
               ref={(element) => registerNodeElement(node.id, element)}
               style={{ width: nodeSize.width }}
             >
+              <DesignerNodeDateBadge node={node} />
               {timeIssues.has(node.id) && <span className="flow-node-time-warning" role="img" aria-label={timeIssues.get(node.id)} title={timeIssues.get(node.id)}>!</span>}
               {!locked && nodePorts(node).map((port) => (
                 <span
@@ -3330,6 +3331,25 @@ function getTimeSettingsLabel(node: AcademicFlowNode) {
   if (startAt) return `${startAt} 开放`;
   if (deadlineAt) return `${deadlineAt} 截止`;
   return "定时设置";
+}
+
+function DesignerNodeDateBadge({ node }: { node: AcademicFlowNode }) {
+  const value = node.deadlineAt || node.startAt;
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const pad = (part: number) => String(part).padStart(2, "0");
+  const label = `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日 ${node.deadlineAt ? "截止" : "开放"}`;
+  const title = [
+    node.startAt ? `开放时间：${formatNodeScheduleDateTime(node.startAt)}` : null,
+    node.deadlineAt ? `截止时间：${formatNodeScheduleDateTime(node.deadlineAt)}` : null,
+  ].filter(Boolean).join("\n");
+  return <span className="designer-node-date-badge" title={title}>
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+    </svg>
+    {label}
+  </span>;
 }
 
 function formatNodeScheduleDateTime(value: string | null | undefined) {
