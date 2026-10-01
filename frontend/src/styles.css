@@ -13503,9 +13503,10 @@ td {
 .file-review-step-model { display: flex; justify-content: flex-start; align-items: center; gap: 8px; }
 .file-review-step-model .node-model-toggle { min-height: 30px; padding: 5px 10px; font-size: 12px; }
 .file-review-step-model .audit-test-toggle { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 5px 10px; font-size: 12px; color: #2563eb; background: #edf4ff; }
-.audit-test-dialog { width: min(800px, calc(100vw - 32px)); height: auto; max-height: 88dvh; }
+html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflow: hidden; }
+.audit-test-dialog { overflow: hidden; overscroll-behavior: contain; width: min(800px, calc(100vw - 32px)); height: auto; max-height: 88dvh; }
 .audit-test-dialog header button:disabled { opacity: .5; cursor: not-allowed; }
-.audit-test-body { display: flex; flex-direction: column; gap: 16px; min-width: 0; overflow-x: hidden; }
+.audit-test-body { overscroll-behavior-y: contain; display: flex; flex-direction: column; gap: 16px; min-width: 0; overflow-x: hidden; }
 .audit-test-note { margin: 0; color: #667085; font-size: 13px; line-height: 1.6; }
 .audit-test-file-input { display: none; }
 .audit-test-upload { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
