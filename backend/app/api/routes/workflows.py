@@ -61,6 +61,7 @@ from app.repositories.flow_templates import (
     TemplateMutationError,
     delete_unreferenced_asset,
     get_editable_template_node,
+    get_teacher_material_asset,
     remove_template_asset,
     save_template_asset,
     validate_reference_metadata,
@@ -251,6 +252,39 @@ def put_answer_key_policy_route(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AnswerSheetConfigError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/{flow_id}/nodes/{node_key}/materials/{asset_id}/download")
+def download_node_material(flow_id: str, node_key: str, asset_id: str,
+                           preview: bool = False, teacher=Depends(get_current_teacher)):
+    import tempfile
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+
+    try:
+        asset = get_teacher_material_asset(flow_id, node_key, asset_id, int(teacher["id"]))
+    except KeyError as exc:
+        raise HTTPException(404, "文件不存在或无权查看") from exc
+    extension = Path(str(asset["original_name"])).suffix.lower()
+    preview_types = {".pdf": "application/pdf", ".png": "image/png", ".jpg": "image/jpeg",
+                     ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif",
+                     ".bmp": "image/bmp", ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}
+    if preview and extension not in preview_types:
+        raise HTTPException(415, "此格式请下载原件查看")
+    with tempfile.NamedTemporaryFile(prefix="moyin-material-", delete=False) as temporary:
+        path = Path(temporary.name)
+    try:
+        get_object_storage().download_to_file(str(asset["storage_key"]), path)
+    except Exception as exc:
+        path.unlink(missing_ok=True)
+        raise HTTPException(502, "文件读取失败，请稍后重试") from exc
+    return FileResponse(
+        path, filename=None if preview else str(asset["original_name"]),
+        media_type=preview_types[extension] if preview else "application/octet-stream",
+        headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        background=BackgroundTask(path.unlink, missing_ok=True),
+    )
 
 
 @router.post("/{flow_id}/nodes/{node_key}/template")

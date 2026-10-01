@@ -377,3 +377,17 @@ def get_student_reference(node_instance_id: str, student_id: int, asset_id: str 
         if record is None:
             raise KeyError(node_instance_id)
         return dict(record)
+
+
+def get_teacher_material_asset(flow_id: str, node_key: str, asset_id: str, teacher_id: int) -> dict[str, object]:
+    with get_connection() as connection:
+        row = connection.execute(
+            """SELECT a.* FROM flow_template_assets a
+               JOIN flows f ON f.id = a.flow_id
+               WHERE a.id = ? AND a.flow_id = ? AND a.node_key = ?
+                 AND f.owner_id = ? AND f.status != 'archived'""",
+            (asset_id, flow_id, node_key, str(teacher_id)),
+        ).fetchone()
+        if row is None:
+            raise KeyError(asset_id)
+        return dict(row)

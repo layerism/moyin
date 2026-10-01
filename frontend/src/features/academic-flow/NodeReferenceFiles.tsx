@@ -1,8 +1,12 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { NodeTemplateAsset } from "../../types";
 import { FileFormatIcon } from "./FileFormatIcon";
 
-export function NodeReferenceFiles({ assets, disabled, replaceOnly = false, onUpload, onRemove, label = "填写参考" }: {
+import { MaterialFileName } from "./MaterialFileName";
+import { MaterialPreviewDialog, type MaterialPreviewContext } from "./MaterialPreviewDialog";
+
+export function NodeReferenceFiles({ assets, disabled, replaceOnly = false, onUpload, onRemove, label = "填写参考", previewContext }: {
+  previewContext?: MaterialPreviewContext;
   assets: NodeTemplateAsset[];
   disabled: boolean;
   replaceOnly?: boolean;
@@ -10,6 +14,7 @@ export function NodeReferenceFiles({ assets, disabled, replaceOnly = false, onUp
   onRemove: (assetId: string) => void;
   label?: string;
 }) {
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const replacementInput = useRef<HTMLInputElement>(null);
   const replacementAssetId = useRef<string | null>(null);
@@ -26,19 +31,23 @@ export function NodeReferenceFiles({ assets, disabled, replaceOnly = false, onUp
     {assets.map((asset) => <div key={asset.assetId} className="node-file-row">
       <div className="node-file-row-content">
         <FileFormatIcon filename={asset.originalName} />
-        <div className="node-file-row-copy"><strong title={asset.originalName}>{asset.originalName}</strong>
+        <div className="node-file-row-copy"><MaterialFileName name={asset.originalName} />
           <small>{asset.sizeBytes < 1024 * 1024 ? `${Math.max(1, Math.round(asset.sizeBytes / 1024))} KB` : `${(asset.sizeBytes / 1024 / 1024).toFixed(1)} MB`}</small>
         </div>
       </div>
-      {!disabled && <div className="node-file-row-actions">
+      <div className="node-file-row-actions">
+        {previewContext ? <button type="button" onClick={() => setPreviewId(asset.assetId)} aria-label={`预览${label} ${asset.originalName}`}>预览</button> : null}
+        {!disabled ? <>
         <button type="button" aria-label={`替换${label} ${asset.originalName}`} onClick={() => {
           replacementAssetId.current = asset.assetId;
           replacementInput.current?.click();
         }}>替换</button>
         {!replaceOnly ? <button type="button" className="node-file-row-remove"
           aria-label={`移除${label} ${asset.originalName}`} onClick={() => onRemove(asset.assetId)}>移除</button> : null}
-      </div>}
+        </> : null}
+      </div>
     </div>)}
+    {previewId && previewContext ? <MaterialPreviewDialog context={previewContext} assets={assets} initialId={previewId} label={label} onClose={() => setPreviewId(null)} /> : null}
     <input ref={input} hidden multiple disabled={disabled} aria-label={`上传${label}`} type="file"
       accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
         const files = Array.from(event.currentTarget.files ?? []);

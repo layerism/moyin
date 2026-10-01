@@ -2880,6 +2880,7 @@ function NodeInspector({
 
         {settingCapabilities.configuresConfirmationScan ? (
           <ConfirmationScanSettings
+            flowId={flowId}
             disabled={coreSettingsDisabled}
             parameterDisabled={hasPublishedReviewStepPolicy ? !reviewStepPolicy || auditPolicySaving : coreSettingsDisabled}
             templateDisabled={editingLocked}
@@ -3011,11 +3012,11 @@ function NodeInspector({
                 </strong>
                 <small>{publishedRevision && nodeCoreLocked ? "重新发布后学生需重交" : "文件节点"}</small>
               </header>
-              <NodeFileRow label="文件模板" asset={node.templateAsset}
+              <NodeFileRow previewContext={{ flowId, nodeKey }} label="文件模板" asset={node.templateAsset}
                 accept={node.fileExtensions.split(",").filter((value) => value.trim()).map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
                 hint="可选；须符合上传限制" disabled={materialSettingsDisabled} removable={!nodeCoreLocked || node.kind === "file"}
                 onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
-              <NodeReferenceFiles assets={nodeReferences(node)} disabled={materialSettingsDisabled} replaceOnly={nodeCoreLocked && node.kind !== "file"}
+              <NodeReferenceFiles previewContext={{ flowId, nodeKey }} assets={nodeReferences(node)} disabled={materialSettingsDisabled} replaceOnly={nodeCoreLocked && node.kind !== "file"}
                 onUpload={onUploadReference} onRemove={onDeleteReference} />
 
               <FileReviewStepsEditor
@@ -3238,6 +3239,7 @@ function NodeTimeSettingsDialog({
 }
 
 function ConfirmationScanSettings({
+  flowId,
   disabled,
   parameterDisabled,
   templateDisabled,
@@ -3252,6 +3254,7 @@ function ConfirmationScanSettings({
   onUploadTemplate,
   onUploadReference,
 }: {
+  flowId: string;
   disabled: boolean;
   parameterDisabled: boolean;
   templateDisabled: boolean;
@@ -3275,10 +3278,10 @@ function ConfirmationScanSettings({
         </strong>
         <small>{publishedMaterialRevision ? "材料变更后需重新提交" : "视觉审核"}</small>
       </header>
-      <NodeFileRow label="文件模板" asset={node.templateAsset} accept=".docx"
+      <NodeFileRow previewContext={{ flowId, nodeKey: node.id }} label="文件模板" asset={node.templateAsset} accept=".docx"
         hint="可选；DOCX，不提供时直接上传扫描件" disabled={templateDisabled} removable={templateRemovable}
         onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
-      <NodeReferenceFiles label="参考示例" assets={nodeReferences(node)} disabled={referenceDisabled}
+      <NodeReferenceFiles previewContext={{ flowId, nodeKey: node.id }} label="参考示例" assets={nodeReferences(node)} disabled={referenceDisabled}
         replaceOnly={referenceReplaceOnly}
         onUpload={onUploadReference} onRemove={onDeleteReference} />
       <div className="confirmation-audit-row"><span
