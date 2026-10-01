@@ -14677,3 +14677,38 @@ td {
 .runtime-submitted-files-heading small { margin-left: auto; color: #667085; font-size: 12px; font-weight: 400; }
 
 .review-step-disclosure > summary > .review-report-button { flex-shrink: 0; margin: 0; white-space: nowrap; }
+
+.runtime-audit-report-dialog.audit-report-polished { width: min(780px, calc(100vw - 32px)); height: auto; max-height: 85dvh; border-radius: 14px; box-shadow: 0 24px 85px #18294235; }
+.audit-report-polished > header { align-items: flex-start; gap: 14px; padding: 24px 28px 19px; }
+.audit-report-icon { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: 9px; background: #eef4ff; color: #2c69dc; }
+.audit-report-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.audit-report-heading { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.audit-report-polished .audit-report-heading h3 { margin: 0 0 5px; font-size: 19px; line-height: 1.5; color: #1a2941; }
+.audit-report-heading p { margin: 0; color: #7c899d; font-size: 12px; }
+.audit-report-polished button { padding: 7px 13px; border: 1px solid #d7e0ed; border-radius: 7px; background: #fff; color: #52617a; font: inherit; font-size: 13px; cursor: pointer; }
+.audit-report-polished button:hover { background: #f1f6ff; }
+.audit-report-polished button:focus-visible { outline: 2px solid #2670ef; outline-offset: 2px; }
+.audit-report-polished .audit-report-close { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; padding: 0; }
+.audit-report-close svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+.audit-report-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 17px 28px 0; flex-shrink: 0; }
+.audit-report-status { display: inline-flex; padding: 3px 9px; font-size: 12px; line-height: 20px; border-radius: 5px; background: #f1f5f9; color: #64748b; }
+.audit-report-status.is-passed { background: #edf9f1; color: #187444; }
+.audit-report-status.is-rejected { background: #fff0ec; color: #b34430; }
+.audit-report-meta > span:last-child { margin-left: auto; color: #8993a5; font-size: 12px; }
+.audit-report-polished .runtime-audit-report-body { flex: 0 1 auto; padding: 21px 28px 29px; overscroll-behavior: contain; }
+.audit-report-polished .runtime-audit-markdown { font-size: 14px; line-height: 1.9; }
+.audit-report-polished .runtime-audit-markdown h1, .audit-report-polished .runtime-audit-markdown h2, .audit-report-polished .runtime-audit-markdown h3 { font-size: 16px; margin: 22px 0 8px; }
+.audit-report-polished .runtime-audit-markdown > :first-child { margin-top: 0; }
+.audit-report-polished .runtime-audit-markdown > :last-child { margin-bottom: 0; }
+.audit-report-polished > footer { display: flex; align-items: center; gap: 12px; padding: 14px 28px; flex-shrink: 0; background: #fbfcfe; }
+.audit-report-copy-status { margin-right: auto; color: #667085; font-size: 12px; text-align: left; }
+.audit-report-polished .audit-report-return { background: #2869e8; color: #fff; border-color: #2869e8; }
+.audit-report-polished .audit-report-return:hover { background: #205ed8; }
+@media (max-width: 600px) {
+  .audit-report-polished > header { padding: 18px; }
+  .audit-report-polished .audit-report-heading h3 { font-size: 17px; }
+  .audit-report-meta { padding: 15px 18px 0; }
+  .audit-report-meta > span:last-child { margin-left: 0; }
+  .audit-report-polished .runtime-audit-report-body { padding: 18px; }
+  .audit-report-polished > footer { padding: 12px 18px; flex-wrap: wrap; }
+}

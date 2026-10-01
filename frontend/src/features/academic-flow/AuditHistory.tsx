@@ -1,3 +1,4 @@
+import { AuditReportDialog } from "./AuditReportDialog";
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -50,12 +51,8 @@ function HistoryEntry({ entry }: { entry: RuntimeAuditHistoryEntry }) {
       }}>{expanded ? "收起全文" : "展开全文"}</button> : null}
       {entry.reason.trim() ? <button type="button" onClick={() => dialogRef.current?.showModal()}>查看报告 ↗</button> : null}
     </div>
-    <dialog className="runtime-audit-report-dialog" ref={dialogRef} aria-label={`${entry.scriptName}审核报告`}
-      onKeyDown={(event) => event.stopPropagation()}
-      onClick={(event) => { event.stopPropagation(); if (event.target === event.currentTarget) dialogRef.current?.close(); }}>
-      <header><div><h3>{entry.scriptName}</h3><small>第 {entry.attemptNo} 次提交 · {entry.passed ? "通过" : "未通过"} · {reviewedAt}</small></div><button type="button" aria-label="关闭报告" onClick={() => dialogRef.current?.close()}>×</button></header>
-      <div className="runtime-audit-report-body"><Report value={entry.reason} /></div>
-      <footer><button type="button" onClick={() => dialogRef.current?.close()}>返回审核记录</button></footer>
-    </dialog>
+    <AuditReportDialog dialogRef={dialogRef} title={entry.scriptName}
+      subtitle={`第 ${entry.attemptNo} 次提交 · AI 审核报告`} passed={entry.passed} reviewedAt={entry.reviewedAt}
+      reason={entry.reason} returnLabel="返回审核记录"><Report value={entry.reason} /></AuditReportDialog>
   </li>;
 }
