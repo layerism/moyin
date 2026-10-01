@@ -14721,5 +14721,5 @@ td {
   .audit-report-polished > footer { padding: 12px 18px; flex-wrap: wrap; }
 }
 
-.script-card-actions { display: flex; align-items: center; gap: 8px; }
+.script-card-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .audit-test-configuration { display: grid; gap: 16px; margin-bottom: 20px; }
