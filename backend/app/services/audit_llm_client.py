@@ -51,16 +51,22 @@ class AuditLLMClient:
             method="POST",
             headers={"Authorization": "Bearer " + self._api_key, "Content-Type": "application/json"},
         )
+        trace = None
         if self._trace_directory:
             # Only the test runner enables this; never record connection settings or headers.
             path = Path(self._trace_directory) / f"{time.monotonic_ns():020d}-{uuid.uuid4().hex}.json"
             temporary = path.with_suffix(".tmp")
-            temporary.write_text(json.dumps({"messages": body["messages"]}, ensure_ascii=False), encoding="utf-8")
+            trace = {"messages": body["messages"]}
+            temporary.write_text(json.dumps(trace, ensure_ascii=False), encoding="utf-8")
             temporary.replace(path)
         try:
             with urlopen(request, timeout=timeout) as response:
                 raw = response.read(MAX_RESPONSE_BYTES + 1)
         except HTTPError as exc:
+            if trace is not None:
+                trace["httpStatus"] = exc.code
+                temporary.write_text(json.dumps(trace, ensure_ascii=False), encoding="utf-8")
+                temporary.replace(path)
             raise AuditLLMError(f"审核模型接口拒绝请求（HTTP {exc.code}）") from None
         except TimeoutError:
             raise AuditLLMError("审核模型请求超时") from None
@@ -70,6 +76,11 @@ class AuditLLMClient:
             raise AuditLLMError("审核模型连接失败") from None
         except OSError:
             raise AuditLLMError("审核模型连接失败") from None
+        if trace is not None:
+            trace["response"] = raw[:MAX_RESPONSE_BYTES].decode("utf-8", errors="replace").replace(self._api_key, "[REDACTED]")
+            trace["responseTruncated"] = len(raw) > MAX_RESPONSE_BYTES
+            temporary.write_text(json.dumps(trace, ensure_ascii=False), encoding="utf-8")
+            temporary.replace(path)
         if len(raw) > MAX_RESPONSE_BYTES:
             raise AuditLLMError("审核模型响应超出大小限制")
         try:

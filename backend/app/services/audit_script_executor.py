@@ -233,6 +233,13 @@ def _run_process(
         except subprocess.TimeoutExpired:
             raise AuditScriptExecutionError("审核脚本执行超时") from None
         if exit_code != 0:
+            if configuration.get("requestTraceDirectory"):
+                # Expose only known application diagnostics, never a traceback or arbitrary stderr.
+                lines = bytes(stderr).decode("utf-8", errors="replace").splitlines()
+                detail = next((line.split(": ", 1)[1] for line in reversed(lines)
+                               if re.fullmatch(r"(?:ValueError|(?:app\.services\.audit_llm_client\.)?AuditLLMError): (?:模型返回|审核模型|学生修改说明)[\u4e00-\u9fffA-Za-z0-9 ，（）。，–_-]{1,160}", line)), None)
+                diagnostic = {"exitCode": exit_code, "message": detail or "脚本异常退出；未发现可安全展示的应用错误"}
+                (execution_root / "diagnostic.json").write_text(json.dumps(diagnostic, ensure_ascii=False), encoding="utf-8")
             raise AuditScriptExecutionError("审核脚本执行失败")
         return bytes(stdout)
     finally:

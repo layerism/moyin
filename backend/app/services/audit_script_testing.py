@@ -100,4 +100,12 @@ def run_audit_script_test(
         except AuditScriptExecutionError as exc:
             error = str(exc)
         requests = [json.loads(path.read_text(encoding="utf-8")) for path in sorted(trace_directory.glob("*.json"))]
-        return {"result": result, "requests": requests, "error": error}
+        diagnostic = None
+        if error:
+            diagnostic_path = execution_root / "diagnostic.json"
+            diagnostic = json.loads(diagnostic_path.read_text(encoding="utf-8")) if diagnostic_path.exists() else {"message": error}
+            diagnostic["stage"] = (
+                "模型响应解析或脚本结果处理" if any("response" in request for request in requests)
+                else "模型请求" if requests else "脚本准备或材料处理"
+            )
+        return {"result": result, "requests": requests, "error": error, "diagnostic": diagnostic}

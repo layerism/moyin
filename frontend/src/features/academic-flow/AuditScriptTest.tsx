@@ -19,9 +19,10 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
   const [files, setFiles] = useState<File[]>([]);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  const [requests, setRequests] = useState<Array<{ messages: AuditLLMMessage[] }>>([]);
+  const [requests, setRequests] = useState<Array<{ messages: AuditLLMMessage[]; response?: string; responseTruncated?: boolean }>>([]);
   const [view, setView] = useState<"messages" | "result">("messages");
   const [requestIndex, setRequestIndex] = useState(0);
+  const [diagnostic, setDiagnostic] = useState<{ stage: string; message: string; exitCode?: number } | null>(null);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const scans = ["image-visual-audit", "image-visual-score-audit"].includes(step.auditScriptId ?? "");
@@ -30,7 +31,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
   const messages = requests[requestIndex]?.messages;
   const copyText = view === "messages" ? (messages ? JSON.stringify(messages, null, 2) : "") : json;
   const clearOutput = () => {
-    setResult(null); setRequests([]); setRequestIndex(0); setView("messages"); setError(""); setCopied(false);
+    setDiagnostic(null); setResult(null); setRequests([]); setRequestIndex(0); setView("messages"); setError(""); setCopied(false);
   };
   useEffect(() => () => { requestRef.current?.abort(); }, []);
 
@@ -45,6 +46,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
         params: configurable ? params : step.auditScriptParams ?? {}, modelCardId: configurable ? modelId : step.auditModelCardId ?? null,
       }, files, controller.signal);
       if (!controller.signal.aborted) {
+        setDiagnostic(response.diagnostic ?? null);
         setResult(response.result);
         setRequests(response.requests);
         setError(response.error ?? "");
@@ -130,6 +132,13 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
         </li>)}</ul> : null : null}
         {running ? <p className="audit-test-running" role="status">正在执行审核，请稍候…</p> : null}
         {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
+        {diagnostic ? <section className="audit-test-result"><strong>失败诊断 · {diagnostic.stage}</strong>
+          <p>{diagnostic.message}{diagnostic.exitCode !== undefined ? `（退出码 ${diagnostic.exitCode}）` : ""}</p>
+          {requests.filter(request => request.response !== undefined).map((request, index) => <details key={index}>
+            <summary>模型响应 {index + 1}{request.responseTruncated ? "（已截断）" : ""}</summary>
+            <pre><code>{request.response}</code></pre>
+          </details>)}
+        </section> : null}
         {running || result || requests.length || error ? <>
           <div className="audit-test-tabs" role="tablist" aria-label="测试请求与结果">
             {(["messages", "result"] as const).map(tab => <button type="button" key={tab} role="tab"

@@ -182,8 +182,9 @@ export type AuditLLMMessage = {
 };
 
 export type AuditScriptTestResponse = {
+  diagnostic?: { stage: string; message: string; exitCode?: number } | null;
   result: Record<string, unknown> | null;
-  requests: Array<{ messages: AuditLLMMessage[] }>;
+  requests: Array<{ messages: AuditLLMMessage[]; response?: string; responseTruncated?: boolean }>;
   error: string | null;
 };
 
