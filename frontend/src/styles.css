@@ -14663,3 +14663,6 @@ td {
   .material-preview-files .file-format-icon { display: none; }
   .material-preview-footer { flex-wrap: wrap; }
 }
+
+.node-file-row-actions button { width: 32px; padding: 0; }
+.node-file-row-actions svg { width: 16px; height: 16px; }

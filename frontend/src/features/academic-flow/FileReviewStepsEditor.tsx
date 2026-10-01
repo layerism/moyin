@@ -128,11 +128,13 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
     const accepted = next.filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length)
       .map((step) => step.auditScriptAcceptedExtensions!);
     const extensions = accepted.length ? accepted[0].filter((ext) => accepted.every((list) => list.includes(ext))) : null;
+    const selected = node.fileExtensions.split(",").map((ext) => `.${ext.trim().replace(/^\./, "").toLowerCase()}`).filter((ext) => ext !== ".");
+    const selectedExtensions = selected.length && selected.every((ext) => extensions?.includes(ext)) ? selected : extensions;
     onChange({ ...toNodeAuditScriptSelection(null), auditModelCardId: undefined, fileReviewSteps: next,
       fileReviewConfigHistory: rememberReviewSteps(history, next),
       ...(node.kind === "confirmation" ? { scanAuditEnabled: false, scanAuditMode: undefined,
         scanAuditPrompt: "", scanAuditThreshold: undefined } : {}),
-      ...(node.kind === "file" && extensions?.length ? { fileExtensions: extensions.map((ext) => ext.replace(/^\./, "")).join(", ") } : {}),
+      ...(node.kind === "file" && extensions?.length ? { fileExtensions: node.templateAsset ? node.templateAsset.originalName.split(".").pop()!.toLowerCase() : selectedExtensions!.map((ext) => ext.replace(/^\./, "")).join(", ") } : {}),
     });
   };
   const update = (id: string, patch: Partial<Omit<FileReviewStep, "kind" | "id">>) => {

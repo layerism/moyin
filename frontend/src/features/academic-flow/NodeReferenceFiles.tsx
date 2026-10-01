@@ -1,3 +1,4 @@
+import { MaterialActionIcon } from "./MaterialActionIcon";
 import { useRef, useState } from "react";
 import type { NodeTemplateAsset } from "../../types";
 import { FileFormatIcon } from "./FileFormatIcon";
@@ -36,14 +37,14 @@ export function NodeReferenceFiles({ assets, disabled, replaceOnly = false, onUp
         </div>
       </div>
       <div className="node-file-row-actions">
-        {previewContext ? <button type="button" onClick={() => setPreviewId(asset.assetId)} aria-label={`预览${label} ${asset.originalName}`}>预览</button> : null}
+        {previewContext ? <button type="button" onClick={() => setPreviewId(asset.assetId)} title="预览" aria-label={`预览${label} ${asset.originalName}`}><MaterialActionIcon action="preview" /></button> : null}
         {!disabled ? <>
-        <button type="button" aria-label={`替换${label} ${asset.originalName}`} onClick={() => {
+        <button type="button" title="替换" aria-label={`替换${label} ${asset.originalName}`} onClick={() => {
           replacementAssetId.current = asset.assetId;
           replacementInput.current?.click();
-        }}>替换</button>
+        }}><MaterialActionIcon action="replace" /></button>
         {!replaceOnly ? <button type="button" className="node-file-row-remove"
-          aria-label={`移除${label} ${asset.originalName}`} onClick={() => onRemove(asset.assetId)}>移除</button> : null}
+          title="移除" aria-label={`移除${label} ${asset.originalName}`} onClick={() => onRemove(asset.assetId)}><MaterialActionIcon action="remove" /></button> : null}
         </> : null}
       </div>
     </div>)}
@@ -54,7 +55,7 @@ export function NodeReferenceFiles({ assets, disabled, replaceOnly = false, onUp
         event.currentTarget.value = "";
         if (files.length) onUpload(files);
       }} />
-    <input ref={replacementInput} hidden disabled={disabled} aria-label={`替换${label}`} type="file"
+    <input ref={replacementInput} hidden disabled={disabled} title="替换" aria-label={`替换${label}`} type="file"
       accept=".docx,.pdf,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff" onChange={(event) => {
         const file = event.currentTarget.files?.[0];
         const assetId = replacementAssetId.current;

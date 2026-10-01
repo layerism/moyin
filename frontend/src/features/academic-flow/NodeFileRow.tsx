@@ -1,3 +1,4 @@
+import { MaterialActionIcon } from "./MaterialActionIcon";
 import { useRef, useState } from "react";
 import type { NodeTemplateAsset } from "../../types";
 import { FileFormatIcon } from "./FileFormatIcon";
@@ -30,10 +31,10 @@ export function NodeFileRow({ label, asset, accept, hint, disabled, removable = 
       </button>}
     </div>}
     {asset || disabled ? <div className="node-file-row-actions">
-      {asset && previewContext ? <button type="button" onClick={() => setPreviewOpen(true)} aria-label={`预览${label} ${asset.originalName}`}>预览</button> : null}
+      {asset && previewContext ? <button type="button" onClick={() => setPreviewOpen(true)} title="预览" aria-label={`预览${label} ${asset.originalName}`}><MaterialActionIcon action="preview" /></button> : null}
       {disabled ? <span className="node-file-row-lock" title="已发布节点的文件配置不可修改">🔒 已锁定</span> : asset ? <>
-        <button type="button" onClick={() => input.current?.click()} aria-label={`替换${label}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1" /></svg>替换</button>
-        {removable ? <button type="button" className="node-file-row-remove" onClick={onRemove} aria-label={`移除${label}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7" /></svg>移除</button> : null}
+        <button type="button" onClick={() => input.current?.click()} title="替换" aria-label={`替换${label}`}><MaterialActionIcon action="replace" /></button>
+        {removable ? <button type="button" className="node-file-row-remove" onClick={onRemove} title="移除" aria-label={`移除${label}`}><MaterialActionIcon action="remove" /></button> : null}
       </> : null}
     </div> : null}
     {previewOpen && asset && previewContext ? <MaterialPreviewDialog context={previewContext} assets={[asset]} initialId={asset.assetId} label={label} onClose={() => setPreviewOpen(false)} /> : null}

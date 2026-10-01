@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import uuid
+from pathlib import PurePosixPath
 from collections import deque
 from typing import Any, Callable
 from sqlite3 import Connection
@@ -101,9 +102,27 @@ def _bind_confirmation_visual_audits(config: dict[str, Any]) -> None:
             node.pop(key, None)
 
 
+def _apply_file_extensions(node: dict[str, Any], allowed: set[str] | None = None) -> None:
+    if node.get("kind") != "file":
+        return
+    template = node.get("templateAsset")
+    if template:
+        extension = PurePosixPath(template["originalName"]).suffix.lower()
+        if not extension or (allowed is not None and extension not in allowed):
+            raise FlowValidationError("文件模板格式不符合审核脚本要求，请调整模板或审核脚本")
+        node["fileExtensions"] = extension.removeprefix(".")
+    elif allowed is not None:
+        selected = {"." + value.strip().lower().removeprefix(".")
+                    for value in node.get("fileExtensions", "").split(",") if value.strip()}
+        # Keep a teacher's narrower selection instead of resetting to all script formats.
+        selected = selected if selected and selected.issubset(allowed) else allowed
+        node["fileExtensions"] = ", ".join(sorted(ext.removeprefix(".") for ext in selected))
+
+
 def _refresh_file_audit_script_configs(config: dict[str, Any]) -> None:
     from app.domain.file_review_steps import structured_steps
     for node in config.get("nodes", []):
+        _apply_file_extensions(node)
         if structured_steps(node):
             extensions = None
             for step in node["fileReviewSteps"]:
@@ -126,7 +145,7 @@ def _refresh_file_audit_script_configs(config: dict[str, Any]) -> None:
             if extensions is not None:
                 if not extensions:
                     raise FlowValidationError("审核步骤支持的文件格式没有交集")
-                node["fileExtensions"] = ", ".join(sorted(ext.removeprefix(".") for ext in extensions))
+                _apply_file_extensions(node, extensions)
             continue
         if node.get("kind") != "file":
             continue
@@ -146,9 +165,7 @@ def _refresh_file_audit_script_configs(config: dict[str, Any]) -> None:
             params.setdefault(str(definition["key"]), definition["default"])
         node["auditScriptParams"] = params
         if record.accepted_extensions:
-            node["fileExtensions"] = ", ".join(
-                extension.removeprefix(".") for extension in record.accepted_extensions
-            )
+            _apply_file_extensions(node, set(record.accepted_extensions))
 
 
 class ArchivedFlowError(ValueError):

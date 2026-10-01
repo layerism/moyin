@@ -784,7 +784,7 @@ export function AcademicFlowDesigner({
             ? { ...node, referenceAsset: null, referenceAssets: replaceAssetId
               ? nodeReferences(node).map((item) => item.assetId === replaceAssetId ? asset : item)
               : [...nodeReferences(node), asset] }
-            : { ...node, templateAsset: asset }),
+            : { ...node, templateAsset: asset, ...(node.kind === "file" ? { fileExtensions: asset.originalName.split(".").pop()!.toLowerCase() } : {}) }),
         };
         setWorkingProcess(candidate);
         setRevisionDirty(true);
@@ -2743,7 +2743,10 @@ function NodeInspector({
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
   const stepExtensions = node.kind === "file" ? fileReviewSteps(node).filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length).map((step) => step.auditScriptAcceptedExtensions!) : [];
   const effectiveExtensions = stepExtensions.length ? stepExtensions[0].filter((ext) => stepExtensions.every((list) => list.includes(ext))) : node.auditScriptAcceptedExtensions;
-  const scriptLocksFileTypes = Boolean(effectiveExtensions?.length);
+  const templateExtension = node.templateAsset?.originalName.split(".").pop()?.toLowerCase();
+  const scriptLocksFileTypes = effectiveExtensions?.length === 1;
+  const scriptFormatOptions = (effectiveExtensions ?? []).map((ext) => ext.replace(/^\./, "")).sort();
+  const selectedScriptFormats = node.fileExtensions.split(",").map((ext) => ext.trim().replace(/^\./, "").toLowerCase()).filter(Boolean).sort().join(", ");
   const lockedFileTypeLabel = (effectiveExtensions ?? [])
     .map((extension) => extension.replace(/^\./, "").toUpperCase())
     .join(" · ");
@@ -2927,15 +2930,29 @@ function NodeInspector({
                   <i aria-hidden="true">▣</i>
                   文件类型
                 </span>
-                {scriptLocksFileTypes ? (
+                {templateExtension ? (
+                  <span className="locked-file-types" title="文件格式与模板一致；移除模板后可重新选择">
+                    <b>{templateExtension.toUpperCase()}</b><small>模板锁定</small><i aria-hidden="true">🔒</i>
+                  </span>
+                ) : scriptLocksFileTypes ? (
                   <span
                     className="locked-file-types"
-                    title={`文件格式由审核脚本固定为 ${lockedFileTypeLabel}`}
+                    title={`当前审核仅支持 ${lockedFileTypeLabel}，修改格式需先调整审核脚本`}
                   >
                     <b>{lockedFileTypeLabel}</b>
                     <small>脚本锁定</small>
                     <i aria-hidden="true">🔒</i>
                   </span>
+                ) : scriptFormatOptions.length > 1 ? (
+                  <select aria-label="审核允许的文件格式" disabled={materialLimitsDisabled}
+                    title="可选格式由审核脚本支持范围决定"
+                    value={selectedScriptFormats}
+                    onChange={(event) => onUpdateNode(node.id, { fileExtensions: event.target.value })}>
+                    <option value={scriptFormatOptions.join(", ")}>全部支持格式（{lockedFileTypeLabel}）</option>
+                    {!scriptFormatOptions.includes(selectedScriptFormats) && selectedScriptFormats !== scriptFormatOptions.join(", ") ?
+                      <option value={selectedScriptFormats}>当前选择（{selectedScriptFormats.toUpperCase()}）</option> : null}
+                    {scriptFormatOptions.map((ext) => <option key={ext} value={ext}>{ext.toUpperCase()}</option>)}
+                  </select>
                 ) : (
                   <>
                     <button

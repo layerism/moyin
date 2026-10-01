@@ -1,6 +1,7 @@
 import hashlib
 import json
 import uuid
+from pathlib import PurePosixPath
 from typing import Any
 
 from app.domain.node_assets import reference_assets, asset_entries
@@ -136,6 +137,8 @@ def save_template_asset(
             node.pop("referenceAsset", None)
         else:
             node["templateAsset"] = metadata
+            if node.get("kind") == "file":
+                node["fileExtensions"] = PurePosixPath(original_name).suffix.lower().removeprefix(".")
         serialized = _canonical_json(config)
         connection.execute(
             "UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?",
