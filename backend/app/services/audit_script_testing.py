@@ -16,7 +16,7 @@ from app.services.audit_script_executor import (
     execute_staged_audit_script,
     validate_audit_material,
 )
-from app.services.audit_script_parameters import default_script_settings, validate_script_params, validate_script_settings
+from app.services.audit_script_parameters import default_script_settings, validate_script_params
 from app.services.audit_script_runtime import resolve_audit_script
 from app.services.scan_materials import inspect_scan_material
 
@@ -27,7 +27,7 @@ def run_audit_script_test(
     model_card_id: str | None,
     owner_id: int,
     uploads: list[UploadFile],
-    *, runtime_settings_override: dict | None = None, allow_internal: bool = False,
+    *, allow_internal: bool = False,
 ) -> dict[str, object]:
     # Teachers use public scripts; the management page also allows internal scripts.
     if find_audit_script(script_id).visibility != "public" and not allow_internal:
@@ -35,10 +35,6 @@ def run_audit_script_test(
     descriptor = resolve_audit_script(script_id)
     parameters = validate_script_params(descriptor.config, params)
     runtime_settings = default_script_settings(descriptor.config)
-    if runtime_settings_override is not None:
-        if "systemPrompt" in runtime_settings_override:
-            raise ValueError("测试不允许修改系统提示词和输出协议")
-        runtime_settings = validate_script_settings(descriptor.config, {**runtime_settings, **runtime_settings_override})
     model_configuration = test_model_config(script_id, model_card_id, owner_id)
     scans = script_id in {"image-visual-audit", "image-visual-score-audit"}
     if not 1 <= len(uploads) <= (10 if scans else 1):

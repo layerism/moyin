@@ -1,5 +1,4 @@
-import { AuditScriptConfigForm } from "./AuditScriptConfigForm";
-import { createParameterDefaultDraft, createRuntimeSettingDraft, type AuditScriptConfigDetail, type AuditScriptValue } from "./auditScriptConfig";
+import { createParameterDefaultDraft, type AuditScriptConfigDetail, type AuditScriptValue } from "./auditScriptConfig";
 import { modelCardsApi, type ModelCard } from "../admin/modelCardsApi";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -11,7 +10,6 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
   const [configuration, setConfiguration] = useState<AuditScriptConfigDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [params, setParams] = useState<Record<string, AuditScriptValue>>({});
-  const [settings, setSettings] = useState<Record<string, AuditScriptValue>>({});
   const [models, setModels] = useState<ModelCard[]>([]);
   const [modelId, setModelId] = useState<string | null>(null);
   const titleId = useId();
@@ -45,7 +43,6 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
     try {
       const response = await workflowApi.testAuditScript(step.auditScriptId, {
         params: configurable ? params : step.auditScriptParams ?? {}, modelCardId: configurable ? modelId : step.auditModelCardId ?? null,
-        ...(configurable ? { runtimeSettings: settings } : {}),
       }, files, controller.signal);
       if (!controller.signal.aborted) {
         setResult(response.result);
@@ -72,7 +69,6 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
             const detail = await workflowApi.getAuditScriptConfig(step.auditScriptId);
             const cards = detail.usesAi ? (await modelCardsApi.list()).cards : [];
             setConfiguration(detail); setParams(createParameterDefaultDraft(detail));
-            setSettings(Object.fromEntries(Object.entries(createRuntimeSettingDraft(detail)).filter(([key]) => key !== "systemPrompt")));
             setModels(cards);
           } catch (reason) { setError(reason instanceof Error ? reason.message : "读取测试配置失败"); }
           finally { setLoading(false); }
@@ -87,21 +83,26 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
         <button type="button" aria-label="关闭审核测试" disabled={running || loading} onClick={() => dialogRef.current?.close()}>×</button>
       </header>
       <div className="node-script-config-body audit-test-body">
-        <p className="audit-test-note">使用当前审核要点和模型配置，测试结果不写入学生流程。</p>
+        {!configurable ? <p className="audit-test-note">使用当前审核要点和模型配置，测试结果不写入学生流程。</p> : null}
         {loading ? <p role="status">正在读取测试配置…</p> : null}
         {configurable && configuration ? <div className="audit-test-configuration">
-          <p className="audit-test-note">以下修改仅用于本次测试，不保存到正式配置。System 和输出协议不可在此修改。</p>
-          {configuration.usesAi ? <label className="audit-script-config-field"><span>审核模型</span>
+          {configuration.usesAi ? <label className="audit-test-model"><span>审核模型</span>
             <select disabled={running} value={modelId ?? ""} onChange={event => { setModelId(event.target.value || null); clearOutput(); }}>
               <option value="">请选择模型</option>{models.map(model => <option key={model.id} value={model.id}>{model.name} · {model.model}</option>)}
             </select></label> : <p className="audit-test-note">User prompt 不适用：此脚本不调用大模型。</p>}
-          <AuditScriptConfigForm disabled={running} errors={{}} settingValues={params}
-            runtimeSettings={configuration.parameters.map(parameter => ({ ...parameter, value: parameter.default,
-              multiline: parameter.type === "string", label: /prompt/i.test(parameter.key) ? `User prompt · ${parameter.label}` : parameter.label }))}
-            onSettingChange={(key, value) => { setParams(current => ({ ...current, [key]: value })); clearOutput(); }} />
-          <AuditScriptConfigForm disabled={running} errors={{}} settingValues={settings}
-            runtimeSettings={configuration.runtimeSettings.filter(setting => setting.key !== "systemPrompt")}
-            onSettingChange={(key, value) => { setSettings(current => ({ ...current, [key]: value })); clearOutput(); }} />
+          {configuration.parameters.filter(parameter => parameter.type === "string" && /prompt/i.test(parameter.key)).map(parameter =>
+            <label className="audit-test-prompt" key={parameter.key}>
+              <span>{parameter.label}<small>User prompt · 仅用于本次测试</small></span>
+              <textarea disabled={running} rows={4} value={String(params[parameter.key] ?? "")}
+                maxLength={parameter.type === "string" ? parameter.maximumLength : undefined}
+                onChange={event => { setParams(current => ({ ...current, [parameter.key]: event.target.value })); clearOutput(); }} />
+            </label>)}
+          <div className="audit-test-presets"><strong>脚本预设</strong>
+            {configuration.parameters.filter(parameter => !/prompt/i.test(parameter.key)).map(parameter =>
+              <span key={parameter.key}>{parameter.label} {String(parameter.default)}</span>)}
+            {configuration.runtimeSettings.filter(setting => setting.key !== "systemPrompt").map(setting =>
+              <span key={setting.key}>{setting.label} {String(setting.value)}</span>)}
+          </div>
         </div> : null}
         <input ref={inputRef} className="audit-test-file-input" type="file" accept={accept} multiple={scans} disabled={running}
           aria-label="选择审核测试文件" onChange={event => {
@@ -126,7 +127,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
           <button type="button" disabled={running} aria-label={`移除 ${file.name}`} onClick={() => {
             setFiles(files.filter((_, position) => position !== index)); clearOutput();
           }}>×</button>
-        </li>)}</ul> : null : <div className="audit-test-empty">添加文件后即可开始测试</div>}
+        </li>)}</ul> : null : null}
         {running ? <p className="audit-test-running" role="status">正在执行审核，请稍候…</p> : null}
         {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
         {running || result || requests.length || error ? <>
@@ -160,7 +161,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
           </section>
         </> : null}
       </div>
-      <footer><small>文件仅用于本次测试，结束后清理。</small><div>
+      <footer><small>测试不写入学生流程，使用脚本预设配置。</small><div>
         {copyText ? <button type="button" onClick={async () => {
           try { await navigator.clipboard.writeText(copyText); setCopied(true); }
           catch { setError("复制失败，请选中内容手动复制。"); }

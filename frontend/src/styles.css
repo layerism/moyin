@@ -14722,4 +14722,18 @@ td {
 }
 
 .script-card-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.audit-test-configuration { display: grid; gap: 16px; margin-bottom: 20px; }
+.audit-test-configuration { display: grid; gap: 14px; margin-bottom: 6px; }
+.audit-test-dialog .audit-test-body { background: white; padding: 20px 24px; }
+.audit-test-model { display: flex; align-items: center; gap: 16px; font-weight: 600; }
+.audit-test-model select { flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid #d6dfed; border-radius: 7px; background: white; font: inherit; font-weight: 400; }
+.audit-test-prompt { display: grid; gap: 8px; }
+.audit-test-prompt > span { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.audit-test-prompt small { color: #8490a4; font-size: 12px; font-weight: 400; }
+.audit-test-prompt textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid #d6dfed; border-radius: 8px; resize: vertical; font: inherit; color: #26354d; background: white; }
+.audit-test-presets { display: flex; flex-wrap: wrap; gap: 6px 16px; color: #748099; font-size: 12px; }
+.audit-test-presets strong { color: #52627d; font-weight: 500; }
+.audit-test-dialog .audit-test-upload:not(.has-file) { padding: 12px 14px; border: 1px dashed #a8bee3; border-radius: 8px; background: #f9fbff; }
+@media (max-width: 540px) {
+  .audit-test-dialog .audit-test-body { padding: 16px; }
+  .audit-test-prompt > span { flex-wrap: wrap; }
+}

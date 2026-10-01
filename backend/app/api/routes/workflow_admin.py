@@ -88,7 +88,6 @@ class AuditScriptConfigRequest(BaseModel):
 
 
 class AuditScriptTestRequest(BaseModel):
-    runtimeSettings: dict[str, str | int | float | bool] | None = None
     model_config = ConfigDict(extra="forbid")
 
     params: dict[str, str | int | float | bool]
@@ -128,10 +127,8 @@ def test_audit_script(
             payload = AuditScriptTestRequest.model_validate_json(configuration)
         except ValidationError:
             raise HTTPException(status_code=422, detail="测试配置格式无效") from None
-        if payload.runtimeSettings is not None and teacher.get("role") != "super_admin":
-            raise HTTPException(status_code=403, detail="仅超级管理员可调整测试运行参数")
         return run_audit_script_test(script_id, payload.params, payload.modelCardId, int(teacher["id"]), files,
-                                     runtime_settings_override=payload.runtimeSettings, allow_internal=teacher.get("role") == "super_admin")
+                                     allow_internal=teacher.get("role") == "super_admin")
     except (AuditScriptCatalogError, AuditScriptResolutionError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (ValueError, PublisherModelNotConfigured) as exc:

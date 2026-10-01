@@ -560,7 +560,7 @@ export const workflowApi = {
 
   testAuditScript(
     scriptId: string,
-    configuration: { params: Record<string, string | number | boolean>; modelCardId: string | null; runtimeSettings?: Record<string, string | number | boolean> },
+    configuration: { params: Record<string, string | number | boolean>; modelCardId: string | null },
     files: File[],
     signal?: AbortSignal,
   ) {
