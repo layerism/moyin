@@ -87,13 +87,7 @@ export function ScanUploadWorkspace({
   const [scans, setScans] = useState<RuntimeScanFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
-  const [templateReminderVisible, setTemplateReminderVisible] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (templateLocked) return;
-    setTemplateReminderVisible(false);
-  }, [templateLocked]);
 
   useEffect(() => {
     if (disabled) return;
@@ -186,7 +180,6 @@ export function ScanUploadWorkspace({
 
   const promptTemplateDownload = () => {
     if (!shouldPromptTemplateDownload({ disabled, templateLocked })) return false;
-    setTemplateReminderVisible(true);
     onTemplateRequired();
     return true;
   };
@@ -227,11 +220,6 @@ export function ScanUploadWorkspace({
         {templateFilename === null ? "；文件名不限" : ""}
       </small>
     </label>
-    {templateReminderVisible ? (
-      <p className="runtime-scan-prerequisite-error" role="alert">
-        请先下载并填写模板，再上传签署后的扫描件。
-      </p>
-    ) : null}
     {scans.length ? <ol className="runtime-scan-list">
       {scans.map((scan, index) => <li key={scan.fileId}>
         <div><strong title={scan.originalName}>{scan.originalName}</strong><small>{scan.pageCount} 页 · {formatSize(scan.sizeBytes)}</small></div>

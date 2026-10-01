@@ -476,6 +476,7 @@ function RuntimeNodeDialog({
   const gradeDialogRef = useRef<HTMLDialogElement>(null);
   const submitConfirmationRef = useRef<HTMLDialogElement>(null);
   const [templateDownloadAttention, setTemplateDownloadAttention] = useState(false);
+  const templateRowRef = useRef<HTMLElement>(null);
   const templateDownloadButtonRef = useRef<HTMLButtonElement>(null);
   const templateDownloadAttentionFrameRef = useRef<number | null>(null);
   const templateDownloadAttentionTimerRef = useRef<number | null>(null);
@@ -644,14 +645,18 @@ function RuntimeNodeDialog({
       templateDownloadAttentionTimerRef.current = null;
     }
     setTemplateDownloadAttention(false);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    templateRowRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
+    templateDownloadButtonRef.current?.focus({ preventScroll: true });
     templateDownloadAttentionFrameRef.current = window.requestAnimationFrame(() => {
-      templateDownloadAttentionFrameRef.current = null;
-      setTemplateDownloadAttention(true);
-      templateDownloadButtonRef.current?.focus();
-      templateDownloadAttentionTimerRef.current = window.setTimeout(() => {
-        setTemplateDownloadAttention(false);
-        templateDownloadAttentionTimerRef.current = null;
-      }, 600);
+      templateDownloadAttentionFrameRef.current = window.requestAnimationFrame(() => {
+        templateDownloadAttentionFrameRef.current = null;
+        setTemplateDownloadAttention(true);
+        templateDownloadAttentionTimerRef.current = window.setTimeout(() => {
+          setTemplateDownloadAttention(false);
+          templateDownloadAttentionTimerRef.current = null;
+        }, 3000);
+      });
     });
   };
 
@@ -678,13 +683,13 @@ function RuntimeNodeDialog({
       <section className="runtime-materials" aria-label="填写资料">
         <h3>填写资料</h3>
         {referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label={node.kind === "confirmation" ? "参考示例" : "填写参考"} compact />)}
-        {runtime.template ? <section className={`runtime-material-row${templateDownloadAttention ? " needs-attention" : ""}`} aria-label="填写模板">
+        {runtime.template ? <section className={`runtime-material-row${templateDownloadAttention ? " needs-attention" : ""}`} aria-label="填写模板" ref={templateRowRef}>
           <FileFormatIcon filename={runtime.template.originalName} />
           <div className="runtime-material-copy">
             <strong>{node.kind === "confirmation" ? "签署模板" : "填写模板"}</strong>
             <p title={`${runtime.template.originalName} · ${formatFileSize(runtime.template.sizeBytes)}`}>{runtime.template.originalName}</p>
           </div>
-          <small className={`runtime-material-status${runtime.templateDownloaded ? " is-downloaded" : ""}`}>{runtime.templateDownloaded ? "已下载" : "待下载"}</small>
+          <small aria-live="polite" className={`runtime-material-status${runtime.templateDownloaded ? " is-downloaded" : ""}`}>{runtime.templateDownloaded ? "已下载" : templateDownloadAttention ? "请先下载" : "待下载"}</small>
           <button disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
             {runtime.templateDownloaded ? "重新下载" : "下载模板"}
           </button>

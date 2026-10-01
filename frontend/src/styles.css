@@ -6714,13 +6714,6 @@ button {
   opacity: 0;
 }
 
-.runtime-scan-prerequisite-error {
-  margin: 0;
-  color: #d92d20;
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .runtime-scan-list,
 .runtime-submitted-scan-list {
   display: grid;
@@ -13713,6 +13706,11 @@ td {
   .runtime-material-dialog .runtime-file-workspace { grid-template-columns: 34px minmax(0, 1fr); }
 }
 .runtime-material-row.needs-attention { outline: 2px solid #2563eb; outline-offset: -2px; background: #eff6ff; }
+.runtime-material-row.needs-attention > button { animation: runtime-template-download-attention 320ms ease-in-out; }
+.runtime-material-row.needs-attention .runtime-material-status { background: #dbeafe; color: #1d4ed8; }
+@media (prefers-reduced-motion: reduce) {
+  .runtime-material-row.needs-attention > button { animation: none; }
+}
 .runtime-material-dialog .runtime-confirmation { padding: 4px 0; font-size: 14px; }
 .runtime-material-dialog .runtime-scan-dropzone { min-height: 80px; align-content: center; padding: 12px; box-sizing: border-box; }
 .runtime-material-dialog .runtime-scan-dropzone strong { font-size: 14px; }
