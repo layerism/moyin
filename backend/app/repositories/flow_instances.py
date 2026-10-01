@@ -849,7 +849,7 @@ def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[di
             "scriptName": (config_node.get("auditScriptName") or "AI 审核")
                 if record["script_id"] == config_node.get("auditScriptId") else "AI 审核",
             "passed": result["passed"],
-            "reason": "" if record["script_id"] == "document-score-audit" else (result.get("reason") if isinstance(result.get("reason"), str) else ""),
+            "reason": "" if _hide_score_report(record["script_id"], result) else (result.get("reason") if isinstance(result.get("reason"), str) else ""),
             "reviewedAt": record["finished_at"],
         })
     tasks = connection.execute("""SELECT t.*, s.attempt_no FROM file_review_ai_tasks t
@@ -861,9 +861,15 @@ def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[di
         history.append({"id": task["id"], "attemptNo": task["attempt_no"],
                         "stepIndex": task["step_index"],
                         "scriptName": f"第 {task['step_index'] + 1} 步 · {snapshot['scriptName']}",
-                        "passed": result["passed"], "reason": "" if snapshot.get("auditScriptId") == "document-score-audit" else result["reason"],
+                        "passed": result["passed"], "reason": "" if _hide_score_report(snapshot.get("auditScriptId"), result) else result["reason"],
                         "reviewedAt": task["finished_at"]})
     return sorted(history, key=lambda item: (-item["attemptNo"], item.get("stepIndex", 0)))
+
+
+def _hide_score_report(script_id, result):
+    return script_id == "document-score-audit" or (
+        script_id == "image-visual-score-audit" and result.get("passed") is True
+    )
 
 
 def _audit_summary(
@@ -895,7 +901,7 @@ def _audit_summary(
         details = None
     elif config_node.get("kind") == "confirmation" and isinstance(details, dict):
         details = None
-    if config_node.get("auditScriptId") == "document-score-audit" and result:
+    if _hide_score_report(config_node.get("auditScriptId"), result) and result:
         reason = ""
         details = None
     return {
