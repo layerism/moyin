@@ -1,4 +1,4 @@
-import { createParameterDefaultDraft, type AuditScriptConfigDetail, type AuditScriptValue } from "./auditScriptConfig";
+import { createParameterDefaultDraft, type AuditScriptConfigDetail } from "./auditScriptConfig";
 import { modelCardsApi, type ModelCard } from "../admin/modelCardsApi";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -9,7 +9,6 @@ import { AuditMessageViewer } from "./AuditMessageViewer";
 export function AuditScriptTest({ step, disabled, configurable = false }: { step: FileReviewStep; disabled: boolean; configurable?: boolean }) {
   const [configuration, setConfiguration] = useState<AuditScriptConfigDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [params, setParams] = useState<Record<string, AuditScriptValue>>({});
   const [models, setModels] = useState<ModelCard[]>([]);
   const [modelId, setModelId] = useState<string | null>(null);
   const titleId = useId();
@@ -20,7 +19,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [requests, setRequests] = useState<Array<{ messages: AuditLLMMessage[]; response?: string; responseTruncated?: boolean }>>([]);
-  const [view, setView] = useState<"messages" | "result">("messages");
+  const [view, setView] = useState<"messages" | "result">(configurable ? "result" : "messages");
   const [requestIndex, setRequestIndex] = useState(0);
   const [diagnostic, setDiagnostic] = useState<{ stage: string; message: string; exitCode?: number } | null>(null);
   const [error, setError] = useState("");
@@ -31,7 +30,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
   const messages = requests[requestIndex]?.messages;
   const copyText = view === "messages" ? (messages ? JSON.stringify(messages, null, 2) : "") : json;
   const clearOutput = () => {
-    setDiagnostic(null); setResult(null); setRequests([]); setRequestIndex(0); setView("messages"); setError(""); setCopied(false);
+    setDiagnostic(null); setResult(null); setRequests([]); setRequestIndex(0); setView(configurable ? "result" : "messages"); setError(""); setCopied(false);
   };
   useEffect(() => () => { requestRef.current?.abort(); }, []);
 
@@ -43,14 +42,14 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
     clearOutput();
     try {
       const response = await workflowApi.testAuditScript(step.auditScriptId, {
-        params: configurable ? params : step.auditScriptParams ?? {}, modelCardId: configurable ? modelId : step.auditModelCardId ?? null,
+        params: configurable && configuration ? createParameterDefaultDraft(configuration) : step.auditScriptParams ?? {}, modelCardId: configurable ? modelId : step.auditModelCardId ?? null,
       }, files, controller.signal);
       if (!controller.signal.aborted) {
         setDiagnostic(response.diagnostic ?? null);
         setResult(response.result);
         setRequests(response.requests);
         setError(response.error ?? "");
-        if (!response.requests.length) setView("result");
+        if (configurable || !response.requests.length) setView("result");
       }
     } catch (reason) {
       if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "审核测试失败");
@@ -70,7 +69,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
           try {
             const detail = await workflowApi.getAuditScriptConfig(step.auditScriptId);
             const cards = detail.usesAi ? (await modelCardsApi.list()).cards : [];
-            setConfiguration(detail); setParams(createParameterDefaultDraft(detail));
+            setConfiguration(detail);
             setModels(cards);
           } catch (reason) { setError(reason instanceof Error ? reason.message : "读取测试配置失败"); }
           finally { setLoading(false); }
@@ -87,24 +86,12 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
       <div className="node-script-config-body audit-test-body">
         {!configurable ? <p className="audit-test-note">使用当前审核要点和模型配置，测试结果不写入学生流程。</p> : null}
         {loading ? <p role="status">正在读取测试配置…</p> : null}
-        {configurable && configuration ? <div className="audit-test-configuration">
-          {configuration.usesAi ? <label className="audit-test-model"><span>审核模型</span>
+        {configurable && configuration?.usesAi ? <div className="audit-test-configuration">
+          <label className="audit-test-model"><span>审核模型</span>
             <select disabled={running} value={modelId ?? ""} onChange={event => { setModelId(event.target.value || null); clearOutput(); }}>
               <option value="">请选择模型</option>{models.map(model => <option key={model.id} value={model.id}>{model.name} · {model.model}</option>)}
-            </select></label> : <p className="audit-test-note">User prompt 不适用：此脚本不调用大模型。</p>}
-          {configuration.parameters.filter(parameter => parameter.type === "string" && /prompt/i.test(parameter.key)).map(parameter =>
-            <label className="audit-test-prompt" key={parameter.key}>
-              <span>{parameter.label}<small>User prompt · 仅用于本次测试</small></span>
-              <textarea disabled={running} rows={4} value={String(params[parameter.key] ?? "")}
-                maxLength={parameter.type === "string" ? parameter.maximumLength : undefined}
-                onChange={event => { setParams(current => ({ ...current, [parameter.key]: event.target.value })); clearOutput(); }} />
-            </label>)}
-          <div className="audit-test-presets"><strong>脚本预设</strong>
-            {configuration.parameters.filter(parameter => !/prompt/i.test(parameter.key)).map(parameter =>
-              <span key={parameter.key}>{parameter.label} {String(parameter.default)}</span>)}
-            {configuration.runtimeSettings.filter(setting => setting.key !== "systemPrompt").map(setting =>
-              <span key={setting.key}>{setting.label} {String(setting.value)}</span>)}
-          </div>
+            </select>
+          </label>
         </div> : null}
         <input ref={inputRef} className="audit-test-file-input" type="file" accept={accept} multiple={scans} disabled={running}
           aria-label="选择审核测试文件" onChange={event => {
