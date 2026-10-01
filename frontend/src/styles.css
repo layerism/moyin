@@ -14670,3 +14670,8 @@ td {
 
 /* Match the student badge: overlap the top border at the left edge. */
 .designer-node-date-badge { top: -14px; bottom: auto; }
+
+.runtime-submitted-files-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 10px 12px; }
+.runtime-submitted-files-heading h3 { margin: 0; font-size: 14px; color: #172033; }
+.runtime-submission-lock { padding: 2px 6px; border-radius: 4px; background: #ecfdf3; color: #16803c; font-size: 11px; line-height: 16px; }
+.runtime-submitted-files-heading small { margin-left: auto; color: #667085; font-size: 12px; font-weight: 400; }

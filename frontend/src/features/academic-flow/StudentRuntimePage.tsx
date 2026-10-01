@@ -778,13 +778,13 @@ function RuntimeNodeDialog({
           </>
         ) : readonly ? (
           <>
-            {answerSheetGradeCompletion ? null : (
+            {answerSheetGradeCompletion || (node.kind === "confirmation" && Array.isArray(displayedPayload.scans)) ? null : (
               <section className="runtime-completion-banner">
                 <strong>{completionLabel}</strong>
                 <span>提交时间：{formatDateTime(runtime.submittedAt)}</span>
               </section>
             )}
-            <ReadonlySubmission instanceId={instanceId} node={node} onDownloadFile={onDownloadFile} payload={displayedPayload} submittedAt={runtime.submittedAt} />
+            <ReadonlySubmission instanceId={instanceId} node={node} onDownloadFile={onDownloadFile} payload={displayedPayload} submittedAt={runtime.submittedAt} lockedSummary={node.kind === "confirmation"} />
             {canAmendApprovedForm ? (
               <div className="runtime-node-actions runtime-node-actions-readonly">
                 <button
@@ -1166,12 +1166,14 @@ function ReadonlySubmission({
   onDownloadFile,
   payload,
   submittedAt,
+  lockedSummary = false,
 }: {
   instanceId: string;
   node: AcademicFlowNode;
   onDownloadFile?: (fileId: string) => void;
   payload: Record<string, unknown>;
   submittedAt: string | null;
+  lockedSummary?: boolean;
 }) {
   if (node.kind === "answer_sheet") {
     return (
@@ -1222,7 +1224,11 @@ function ReadonlySubmission({
   if (node.kind === "confirmation" && Array.isArray(payload.scans)) {
     const scans = Array.isArray(payload.scans) ? payload.scans : [];
     return <section className="runtime-readonly-submission runtime-readonly-confirmation runtime-submitted-files">
-      <h3>已提交文件</h3>
+      <header className="runtime-submitted-files-heading">
+        <h3>已提交文件</h3>
+        {lockedSummary ? <><span className="runtime-submission-lock">已锁定</span>
+          <small>提交时间：{formatDateTime(submittedAt)}</small></> : null}
+      </header>
       <ul className="runtime-submitted-scan-list">{scans.map((value, index) => {
         const scan = value && typeof value === "object" ? value as Record<string, unknown> : {};
         const fileId = typeof scan.fileId === "string" ? scan.fileId : "";
