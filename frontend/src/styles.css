@@ -13705,9 +13705,9 @@ td {
   .runtime-material-row button { grid-column: 3; grid-row: 1 / 3; }
   .runtime-material-dialog .runtime-file-workspace { grid-template-columns: 34px minmax(0, 1fr); }
 }
-.runtime-material-row.needs-attention { outline: 2px solid #2563eb; outline-offset: -2px; background: #eff6ff; }
+.runtime-material-row.needs-attention { outline: 2px solid #ef4444; outline-offset: -2px; background: #fef2f2; }
 .runtime-material-row.needs-attention > button { animation: runtime-template-download-attention 320ms ease-in-out; }
-.runtime-material-row.needs-attention .runtime-material-status { background: #dbeafe; color: #1d4ed8; }
+.runtime-material-row.needs-attention .runtime-material-status { background: #fee2e2; color: #b91c1c; }
 @media (prefers-reduced-motion: reduce) {
   .runtime-material-row.needs-attention > button { animation: none; }
 }
