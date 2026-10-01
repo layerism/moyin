@@ -1,10 +1,19 @@
+import { AuditScriptConfigForm } from "./AuditScriptConfigForm";
+import { createParameterDefaultDraft, createRuntimeSettingDraft, type AuditScriptConfigDetail, type AuditScriptValue } from "./auditScriptConfig";
+import { modelCardsApi, type ModelCard } from "../admin/modelCardsApi";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { FileReviewStep } from "../../types";
 import { workflowApi, type AuditLLMMessage } from "./api";
 import { AuditMessageViewer } from "./AuditMessageViewer";
 
-export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disabled: boolean }) {
+export function AuditScriptTest({ step, disabled, configurable = false }: { step: FileReviewStep; disabled: boolean; configurable?: boolean }) {
+  const [configuration, setConfiguration] = useState<AuditScriptConfigDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [params, setParams] = useState<Record<string, AuditScriptValue>>({});
+  const [settings, setSettings] = useState<Record<string, AuditScriptValue>>({});
+  const [models, setModels] = useState<ModelCard[]>([]);
+  const [modelId, setModelId] = useState<string | null>(null);
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +44,8 @@ export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disa
     clearOutput();
     try {
       const response = await workflowApi.testAuditScript(step.auditScriptId, {
-        params: step.auditScriptParams ?? {}, modelCardId: step.auditModelCardId ?? null,
+        params: configurable ? params : step.auditScriptParams ?? {}, modelCardId: configurable ? modelId : step.auditModelCardId ?? null,
+        ...(configurable ? { runtimeSettings: settings } : {}),
       }, files, controller.signal);
       if (!controller.signal.aborted) {
         setResult(response.result);
@@ -53,20 +63,46 @@ export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disa
 
   return <>
     <button type="button" className="node-time-settings-toggle audit-test-toggle" disabled={disabled || !step.auditScriptId}
-      aria-haspopup="dialog" onClick={() => {
+      aria-haspopup="dialog" onClick={async () => {
         setFiles([]); clearOutput();
         dialogRef.current?.showModal();
+        if (configurable && step.auditScriptId) {
+          setLoading(true); setConfiguration(null); setModelId(null);
+          try {
+            const detail = await workflowApi.getAuditScriptConfig(step.auditScriptId);
+            const cards = detail.usesAi ? (await modelCardsApi.list()).cards : [];
+            setConfiguration(detail); setParams(createParameterDefaultDraft(detail));
+            setSettings(Object.fromEntries(Object.entries(createRuntimeSettingDraft(detail)).filter(([key]) => key !== "systemPrompt")));
+            setModels(cards);
+          } catch (reason) { setError(reason instanceof Error ? reason.message : "读取测试配置失败"); }
+          finally { setLoading(false); }
+        }
       }}>
       <svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m5 3 7 5-7 5V3Z" strokeLinejoin="round" /></svg>测试
     </button>
     {createPortal(<dialog ref={dialogRef} className="node-script-config-dialog audit-test-dialog" aria-labelledby={titleId}
       onKeyDown={event => event.stopPropagation()}
-      onCancel={event => { event.preventDefault(); if (!running) dialogRef.current?.close(); }}>
+      onCancel={event => { event.preventDefault(); if (!running && !loading) dialogRef.current?.close(); }}>
       <header><div><h2 id={titleId}>审核测试</h2><p>{step.auditScriptName ?? "当前审核步骤"}</p></div>
-        <button type="button" aria-label="关闭审核测试" disabled={running} onClick={() => dialogRef.current?.close()}>×</button>
+        <button type="button" aria-label="关闭审核测试" disabled={running || loading} onClick={() => dialogRef.current?.close()}>×</button>
       </header>
       <div className="node-script-config-body audit-test-body">
         <p className="audit-test-note">使用当前审核要点和模型配置，测试结果不写入学生流程。</p>
+        {loading ? <p role="status">正在读取测试配置…</p> : null}
+        {configurable && configuration ? <div className="audit-test-configuration">
+          <p className="audit-test-note">以下修改仅用于本次测试，不保存到正式配置。System 和输出协议不可在此修改。</p>
+          {configuration.usesAi ? <label className="audit-script-config-field"><span>审核模型</span>
+            <select disabled={running} value={modelId ?? ""} onChange={event => { setModelId(event.target.value || null); clearOutput(); }}>
+              <option value="">请选择模型</option>{models.map(model => <option key={model.id} value={model.id}>{model.name} · {model.model}</option>)}
+            </select></label> : <p className="audit-test-note">User prompt 不适用：此脚本不调用大模型。</p>}
+          <AuditScriptConfigForm disabled={running} errors={{}} settingValues={params}
+            runtimeSettings={configuration.parameters.map(parameter => ({ ...parameter, value: parameter.default,
+              multiline: parameter.type === "string", label: /prompt/i.test(parameter.key) ? `User prompt · ${parameter.label}` : parameter.label }))}
+            onSettingChange={(key, value) => { setParams(current => ({ ...current, [key]: value })); clearOutput(); }} />
+          <AuditScriptConfigForm disabled={running} errors={{}} settingValues={settings}
+            runtimeSettings={configuration.runtimeSettings.filter(setting => setting.key !== "systemPrompt")}
+            onSettingChange={(key, value) => { setSettings(current => ({ ...current, [key]: value })); clearOutput(); }} />
+        </div> : null}
         <input ref={inputRef} className="audit-test-file-input" type="file" accept={accept} multiple={scans} disabled={running}
           aria-label="选择审核测试文件" onChange={event => {
             const selected = Array.from(event.currentTarget.files ?? []);
@@ -129,7 +165,7 @@ export function AuditScriptTest({ step, disabled }: { step: FileReviewStep; disa
           try { await navigator.clipboard.writeText(copyText); setCopied(true); }
           catch { setError("复制失败，请选中内容手动复制。"); }
         }}>{copied ? "已复制" : view === "messages" ? "复制 messages" : "复制 JSON"}</button> : null}
-        <button type="button" className="primary-action" disabled={running || !files.length || (scans && files.length > 10)} onClick={() => void run()}>{running ? "审核中…" : result ? "重新测试" : "开始测试"}</button>
+        <button type="button" className="primary-action" disabled={running || loading || (configurable && (!configuration || (configuration.usesAi && !modelId))) || !files.length || (scans && files.length > 10)} onClick={() => void run()}>{running ? "审核中…" : result ? "重新测试" : "开始测试"}</button>
       </div></footer>
     </dialog>, document.body)}
   </>;

@@ -1,3 +1,4 @@
+import { AuditScriptTest } from "./AuditScriptTest";
 import { useEffect, useRef, useState } from "react";
 
 import { ApiError, workflowApi } from "./api";
@@ -183,7 +184,7 @@ export function AuditScriptManagementPanel() {
           </header>
           <p className="script-card-description" title={script.description}>{script.description}</p>
           <ScriptCapabilityIcons script={script} />
-          <footer><span>{script.status === "error" ? "配置异常" : script.status === "updating" ? "更新中" : `并发上限 ${script.maxConcurrency}`}</span><button type="button" disabled={detailLoading} onClick={() => void openEditor(script)}>编辑配置</button></footer>
+          <footer><span>{script.status === "error" ? "配置异常" : script.status === "updating" ? "更新中" : `并发上限 ${script.maxConcurrency}`}</span><div className="script-card-actions"><AuditScriptTest configurable step={{ id: script.id, kind: "ai", auditScriptId: script.id, auditScriptName: script.name, auditScriptAcceptedExtensions: script.acceptedExtensions }} disabled={detailLoading} /><button type="button" disabled={detailLoading} onClick={() => void openEditor(script)}>编辑配置</button></div></footer>
         </article>)}
       </div>
       {scripts && !loadError && !filteredScripts.length ? <p className="audit-script-metadata-state">{search ? "没有匹配的脚本" : "暂无审核脚本"}</p> : null}

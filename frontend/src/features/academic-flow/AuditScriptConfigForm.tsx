@@ -126,9 +126,9 @@ export function AuditScriptConfigForm({
   />;
   return <div className="audit-script-config-sections">
     {concurrency || common.length ? <section><h3>运行参数</h3><div className="audit-script-config-fields">{concurrency}{common.map(renderSetting)}</div></section> : null}
-    {advanced.length ? <details className="script-advanced-settings" open={advanced.some((setting) => Boolean(errors[`setting:${setting.key}`])) || undefined}>
-      <summary>高级设置 <span>{advanced.length} 项</span></summary>
+    {advanced.length ? <section className="script-advanced-settings">
+      <h3>高级设置 <span>{advanced.length} 项</span></h3>
       <div className="audit-script-config-fields">{advanced.map(renderSetting)}</div>
-    </details> : null}
+    </section> : null}
   </div>;
 }
