@@ -14668,5 +14668,5 @@ td {
 .node-file-row-actions button { width: 32px; padding: 0; }
 .node-file-row-actions svg { width: 16px; height: 16px; }
 
-/* Leave the top connection port and node title unobstructed. */
-.designer-node-date-badge { top: auto; bottom: calc(100% + 8px); }
+/* Match the student badge: overlap the top border at the left edge. */
+.designer-node-date-badge { top: -14px; bottom: auto; }
