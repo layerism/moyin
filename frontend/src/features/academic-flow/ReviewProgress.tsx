@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { createPortal } from "react-dom";
 import { AuditHistory, Report } from "./AuditHistory";
 import { FeedbackDownload } from "./ManualFeedbackList";
 import { FileFormatIcon } from "./FileFormatIcon";
@@ -31,7 +32,7 @@ function Steps({ attempt, onPreviewReview }: { attempt: Attempt; onPreviewReview
     <span className="review-step-number">{step.index + 1}</span>
     <details className="review-step-disclosure">
       <summary><span className="review-step-heading"><strong>{step.kind === "manual" ? "人工审核" : step.kind === "score" ? "AI 评分审核" : "AI 审核"}</strong><small className={`review-step-description${step.kind === "manual" ? " is-manual" : ""}`}>{step.kind === "manual" ? "由教师复核材料并给出最终结论" : step.kind === "score" ? "依据评分标准评估提交内容并给出分数" : step.audit?.scriptName.replace(/^第 \d+ 步 · /, "") || "按配置的规则检查提交文件"}</small>
-        {step.kind === "manual" ? <small className="review-step-feedback-count">{annotations.length} 条反馈 · {annotations.reduce((count, item) => count + item.files.length, 0)} 个附件</small> : null}</span><span className={`review-status is-${step.status}`}>{labels[step.status] ?? "待开始"}</span>{step.kind === "manual" && (step.status === "active" || (step.index === attempt.steps.length - 1 && ["passed", "rejected"].includes(step.status))) && onPreviewReview ? <button type="button" className="review-preview-action" onClick={(event) => {
+        {step.kind === "manual" ? <small className="review-step-feedback-count">{annotations.length} 条反馈 · {annotations.reduce((count, item) => count + item.files.length, 0)} 个附件</small> : null}</span>{step.audit?.reason ? <AuditReportAction audit={step.audit} /> : null}<span className={`review-status is-${step.status}`}>{labels[step.status] ?? "待开始"}</span>{step.kind === "manual" && (step.status === "active" || (step.index === attempt.steps.length - 1 && ["passed", "rejected"].includes(step.status))) && onPreviewReview ? <button type="button" className="review-preview-action" onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
         onPreviewReview();
@@ -51,12 +52,18 @@ function Steps({ attempt, onPreviewReview }: { attempt: Attempt; onPreviewReview
 }
 
 function AuditDetail({ audit }: { audit: NonNullable<Attempt["steps"][number]["audit"]> }) {
+  return <><small>{audit.reviewedAt ? date(audit.reviewedAt) : "时间未记录"}</small><div className="review-reason-scroll"><Report value={audit.reason} /></div></>;
+}
+
+function AuditReportAction({ audit }: { audit: NonNullable<Attempt["steps"][number]["audit"]> }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  return <><small>{audit.reviewedAt ? date(audit.reviewedAt) : "时间未记录"}</small><div className="review-reason-scroll"><Report value={audit.reason} /></div>
-    {audit.reason ? <button type="button" className="review-report-button" onClick={() => dialog.current?.showModal()}>查看完整报告 ↗</button> : null}
+  return <><button type="button" className="review-report-button" onClick={(event) => {
+      event.preventDefault(); event.stopPropagation(); dialog.current?.showModal();
+    }}>查看完整报告 ↗</button>
+    {createPortal(
     <dialog ref={dialog} className="runtime-audit-report-dialog" aria-label="AI 审核报告" onKeyDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
       <header><h3>{audit.scriptName}</h3><button type="button" aria-label="关闭报告" onClick={() => dialog.current?.close()}>×</button></header><div className="runtime-audit-report-body"><Report value={audit.reason} /></div><footer><button type="button" onClick={() => dialog.current?.close()}>返回审核进度</button></footer>
-    </dialog></>;
+    </dialog>, document.body)}</>;
 }
 
 export function CompletedReviewFeedback({ runtime }: { runtime: RuntimeNodeInstance }) {
