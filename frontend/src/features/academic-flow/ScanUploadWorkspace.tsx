@@ -71,6 +71,7 @@ export function ScanUploadWorkspace({
   onDownload,
   onStateChange,
   onTemplateRequired,
+  onFilenameWarning,
   templateFilename,
   templateLocked,
 }: {
@@ -79,6 +80,7 @@ export function ScanUploadWorkspace({
   onDownload: (fileId: string) => void;
   onStateChange: (state: { scans: RuntimeScanFile[]; uploading: boolean }) => void;
   onTemplateRequired: () => void;
+  onFilenameWarning: (message: string) => void;
   templateFilename: string | null;
   templateLocked: boolean;
 }) {
@@ -111,7 +113,8 @@ export function ScanUploadWorkspace({
       templateFilename,
     });
     if (filenameError) {
-      setMessage(filenameError);
+      setMessage("");
+      onFilenameWarning(filenameError);
       return;
     }
     setUploading(true);
@@ -146,7 +149,8 @@ export function ScanUploadWorkspace({
       templateFilename,
     });
     if (filenameError) {
-      setMessage(filenameError);
+      setMessage("");
+      onFilenameWarning(filenameError);
       return;
     }
     setUploading(true);

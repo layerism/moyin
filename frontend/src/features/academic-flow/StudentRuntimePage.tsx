@@ -918,6 +918,7 @@ function RuntimeNodeDialog({
                 onDownload={onDownloadFile}
                 onStateChange={updateScanState}
                 onTemplateRequired={handleTemplateRequired}
+                onFilenameWarning={(message) => setFileWarning({ message, title: "文件名称不符合要求" })}
                 templateFilename={runtime.template?.originalName ?? null}
                 templateLocked={Boolean(runtime.template && !runtime.templateDownloaded)}
               />
