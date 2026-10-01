@@ -13678,6 +13678,8 @@ td {
 .runtime-material-status { padding: 3px 7px; border-radius: 5px; background: #f1f5f9; color: #64748b; font-size: 11px; white-space: nowrap; }
 .runtime-material-status.is-downloaded { color: #158052; background: #eaf8f0; }
 .runtime-material-row button { min-height: 32px; padding: 5px 12px; border: 1px solid #bfdbfe; border-radius: 6px; background: #fff; color: #1d4ed8; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.runtime-material-row button.runtime-material-download, .runtime-node-reference button.runtime-material-download { display: inline-flex; align-items: center; justify-content: center; width: 32px; min-width: 32px; height: 32px; padding: 6px; box-sizing: border-box; }
+.runtime-material-download svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .runtime-material-row button:hover:not(:disabled) { background: #eff6ff; }
 .runtime-material-row button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 .runtime-material-row button:disabled { opacity: .55; cursor: not-allowed; }

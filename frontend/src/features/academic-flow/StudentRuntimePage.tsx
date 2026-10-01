@@ -690,8 +690,8 @@ function RuntimeNodeDialog({
             <p title={`${runtime.template.originalName} · ${formatFileSize(runtime.template.sizeBytes)}`}>{runtime.template.originalName}</p>
           </div>
           <small aria-live="polite" className={`runtime-material-status${runtime.templateDownloaded ? " is-downloaded" : ""}`}>{runtime.templateDownloaded ? "已下载" : templateDownloadAttention ? "请先下载" : "待下载"}</small>
-          <button disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
-            {runtime.templateDownloaded ? "重新下载" : "下载模板"}
+          <button className="runtime-material-download" aria-label={runtime.templateDownloaded ? "重新下载模板" : "下载模板"} title={runtime.templateDownloaded ? "重新下载模板" : "下载模板"} disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg>
           </button>
         </section> : null}
       </section>
@@ -1366,7 +1366,7 @@ function NodeReferenceCard({ asset, nodeInstanceId, label, compact = false }: { 
     {compact ? <FileFormatIcon filename={asset.originalName} /> : null}
     <div className={compact ? "runtime-material-copy" : undefined}><strong>{label}</strong><p title={asset.originalName}>{asset.originalName}</p>{compact ? null : <small>可选参考资料，不影响材料提交。</small>}</div>
     {compact ? <small className="runtime-material-status">可选</small> : null}
-    <button type="button" disabled={busy} onClick={() => void download()}>{busy ? "正在下载…" : "下载参考"}</button>
+    <button className="runtime-material-download" aria-label={busy ? "正在下载参考" : "下载参考"} title={busy ? "正在下载参考" : "下载参考"} aria-busy={busy} type="button" disabled={busy} onClick={() => void download()}><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg></button>
     {error ? <p role="alert" className="dialog-error">{error}</p> : null}
   </section>;
 }
