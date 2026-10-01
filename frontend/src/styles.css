@@ -6738,7 +6738,7 @@ button {
   border-radius: 8px;
 }
 
-.runtime-scan-list li > div:first-child {
+.runtime-scan-copy {
   display: grid;
   min-width: 0;
   gap: 2px;
@@ -6746,13 +6746,17 @@ button {
 
 .runtime-scan-list li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  min-height: 56px;
+  box-sizing: border-box;
+  padding: 7px 10px;
 }
 
 .runtime-scan-list li strong {
+  font-size: 13px;
+  font-weight: 400;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6778,20 +6782,24 @@ button {
 
 .runtime-scan-actions button,
 .runtime-scan-replace {
-  min-height: 32px;
-  padding: 0 9px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.runtime-scan-replace {
-  position: relative;
-  display: inline-flex !important;
+  display: inline-flex;
   align-items: center;
-  border: 1px solid #cbd5e0;
+  justify-content: center;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #64748b;
   cursor: pointer;
 }
-
+.runtime-scan-actions svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.runtime-scan-actions button:hover:not(:disabled), .runtime-scan-replace:hover:not([aria-disabled="true"]) { background: #eff6ff; color: #2563eb; }
+.runtime-scan-actions .danger-text:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+.runtime-scan-actions button:focus-visible, .runtime-scan-replace:focus-within { outline: 2px solid #2563eb; outline-offset: 2px; }
+.runtime-scan-actions button:disabled, .runtime-scan-replace[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.runtime-scan-replace { position: relative; }
 .runtime-scan-replace input {
   position: absolute;
   width: 1px;

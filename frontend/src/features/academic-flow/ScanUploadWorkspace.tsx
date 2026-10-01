@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 
+import { FileFormatIcon } from "./FileFormatIcon";
 import { workflowApi } from "./api";
 import type { RuntimeScanFile } from "./runtimeTypes";
 
@@ -164,21 +165,6 @@ export function ScanUploadWorkspace({
     }
   };
 
-  const move = async (index: number, offset: -1 | 1) => {
-    const target = index + offset;
-    if (target < 0 || target >= scans.length) return;
-    const previous = scans;
-    const next = [...scans];
-    [next[index], next[target]] = [next[target], next[index]];
-    setScans(next.map((item, order) => ({ ...item, order })));
-    try {
-      setScans(await workflowApi.reorderScans(nodeInstanceId, next.map((item) => item.fileId)));
-    } catch (error) {
-      setScans(previous);
-      setMessage(error instanceof Error ? error.message : "扫描件排序失败");
-    }
-  };
-
   const promptTemplateDownload = () => {
     if (!shouldPromptTemplateDownload({ disabled, templateLocked })) return false;
     onTemplateRequired();
@@ -222,18 +208,17 @@ export function ScanUploadWorkspace({
       </small>
     </label>
     {scans.length ? <ol className="runtime-scan-list">
-      {scans.map((scan, index) => <li key={scan.fileId}>
-        <div><strong title={scan.originalName}>{scan.originalName}</strong><small>{scan.pageCount} 页 · {formatSize(scan.sizeBytes)}</small></div>
+      {scans.map((scan) => <li key={scan.fileId}>
+        <FileFormatIcon filename={scan.originalName} />
+        <div className="runtime-scan-copy"><strong title={scan.originalName}>{scan.originalName}</strong><small>{scan.pageCount} 页 · {formatSize(scan.sizeBytes)}</small></div>
         <div className="runtime-scan-actions">
-          <button aria-label={`上移 ${scan.originalName}`} disabled={disabled || index === 0} onClick={() => void move(index, -1)} type="button">↑</button>
-          <button aria-label={`下移 ${scan.originalName}`} disabled={disabled || index === scans.length - 1} onClick={() => void move(index, 1)} type="button">↓</button>
-          <button onClick={() => onDownload(scan.fileId)} type="button">下载</button>
-          <label className="runtime-scan-replace">替换<input accept=".jpg,.jpeg,.png,.pdf" disabled={disabled} type="file" onChange={(event) => {
+          <button aria-label={`下载 ${scan.originalName}`} title="下载" onClick={() => onDownload(scan.fileId)} type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg></button>
+          <label className="runtime-scan-replace" title="替换" aria-disabled={disabled || uploading}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7h-9l3-3M4 17h9l-3 3M20 7l-3 3M4 17l3-3" /></svg><input aria-label={`替换 ${scan.originalName}`} accept=".jpg,.jpeg,.png,.pdf" disabled={disabled || uploading} type="file" onChange={(event) => {
             const file = event.target.files?.[0];
             event.currentTarget.value = "";
             if (file) void replace(scan, file);
           }} /></label>
-          <button className="danger-text" disabled={disabled} onClick={() => void remove(scan.fileId)} type="button">删除</button>
+          <button className="danger-text" aria-label={`删除 ${scan.originalName}`} title="删除" disabled={disabled || uploading} onClick={() => void remove(scan.fileId)} type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7" /></svg></button>
         </div>
       </li>)}
     </ol> : null}
