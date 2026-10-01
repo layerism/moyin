@@ -90,13 +90,14 @@ export function ScanUploadWorkspace({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (disabled) return;
+    if (disabled || templateLocked) return;
+    setMessage("");
     let active = true;
     workflowApi.listScans(nodeInstanceId)
       .then((value) => { if (active) setScans(value); })
       .catch((error: Error) => { if (active) setMessage(error.message); });
     return () => { active = false; };
-  }, [disabled, nodeInstanceId]);
+  }, [disabled, nodeInstanceId, templateLocked]);
 
   useEffect(() => onStateChange({ scans, uploading }), [onStateChange, scans, uploading]);
 
