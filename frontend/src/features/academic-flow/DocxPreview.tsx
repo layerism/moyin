@@ -79,10 +79,12 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
         <option value="A4">A4</option>
         <option value="A3">A3</option>
       </select>
-      {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">{paper} 推断 · {pageCount} 页</span> : null}
+      {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">{toolbarPrefix ? "" : `${paper} 推断 · `}{pageCount} 页</span> : null}
+      <div className="preview-zoom-group" role="group" aria-label="缩放">
       <button className="preview-zoom-start" type="button" disabled={loading || Boolean(error) || zoom <= 0.5} aria-label="缩小" onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}>−</button>
       <button type="button" disabled={loading || Boolean(error)} title="恢复原始比例" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
       <button type="button" disabled={loading || Boolean(error) || zoom >= 2} aria-label="放大" onClick={() => setZoom((value) => Math.min(2, value + 0.25))}>＋</button>
+      </div>
     </div>
     <div className="docx-preview-viewport" aria-busy={loading}>
       {loading ? <p role="status">正在加载 DOCX…</p> : null}

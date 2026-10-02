@@ -43,9 +43,11 @@ export function PdfPreview({ url, filename, toolbarPrefix }: { url: string; file
       <button type="button" disabled={!document || pageNumber <= 1} onClick={() => goToPage(pageNumber - 1)} aria-label="上一页">‹</button>
       <span>{document ? `${pageNumber} / ${document.numPages}` : "加载中…"}</span>
       <button type="button" disabled={!document || pageNumber >= document.numPages} onClick={() => goToPage(pageNumber + 1)} aria-label="下一页">›</button>
+      <div className="preview-zoom-group" role="group" aria-label="缩放">
       <button className="preview-zoom-start" type="button" disabled={!document || zoom <= 0.5} onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))} aria-label="缩小">−</button>
       <button type="button" disabled={!document} onClick={() => setZoom(1)} title="恢复适合宽度">{Math.round(zoom * 100)}%</button>
       <button type="button" disabled={!document || zoom >= 2} onClick={() => setZoom((value) => Math.min(2, value + 0.25))} aria-label="放大">＋</button>
+      </div>
     </div>
     <div className="pdf-preview-viewport" ref={viewport} aria-busy={!error && !document}>
       {error ? <p role="alert">{error}</p> : !document ? <p role="status">正在加载 PDF…</p> : null}
