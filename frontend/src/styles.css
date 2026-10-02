@@ -14731,3 +14731,9 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
 @media (max-width: 540px) {
   .audit-test-dialog .audit-test-body { padding: 16px; }
 }
+
+.review-docx-modes, .review-docx-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
+.review-docx-pane[hidden] { display: none; }
+.review-docx-switch { display: flex; gap: 6px; padding: 8px 10px; background: #f8fafc; border: 1px solid #e2e8f0; flex-shrink: 0; }
+.review-docx-switch button { padding: 6px 12px; border: 1px solid #d6dfed; border-radius: 6px; background: white; color: #52627d; }
+.review-docx-switch button[aria-pressed="true"] { background: #edf4ff; color: #2468e8; border-color: #bad0ff; }

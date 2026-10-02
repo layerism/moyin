@@ -1,4 +1,4 @@
-import { DocxPreview } from "./DocxPreview";
+import { ReviewDocxPreview } from "./ReviewDocxPreview";
 import { PdfPreview } from "./PdfPreview";
 import { saveDownloadFile } from "./saveStudentFile";
 import { saveDownload } from "./download";
@@ -237,7 +237,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
                 {/\.(jpe?g|png)$/i.test(file.original_name)
                   ? <img className="file-review-image-preview" loading="lazy" alt={file.original_name} src={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download?preview=true`} /> : null}
                 {/\.pdf$/i.test(file.original_name) ? <PdfPreview key={`${current.nodeInstanceId}-${file.id}`} filename={file.original_name} url={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download?preview=true`} /> : null}
-                {/\.docx$/i.test(file.original_name) ? <DocxPreview key={`${current.nodeInstanceId}-${file.id}`} filename={file.original_name} url={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download`} /> : null}
+                {/\.docx$/i.test(file.original_name) ? <ReviewDocxPreview key={`${current.nodeInstanceId}-${file.id}`} filename={file.original_name} url={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download`} /> : null}
                 {!/\.(docx|pdf|jpe?g|png)$/i.test(file.original_name) ? <p className="file-review-muted">此格式请下载原件查看。</p> : null}
               </div>)}
               {!originalFiles.length ? <p className="file-review-muted">暂无已提交原件。</p> : null}

@@ -169,7 +169,7 @@ def student_download(file_id: str, student=Depends(get_current_runtime_student))
 
 
 @router.get('/node-instances/{node_instance_id}/manual-review/files/{file_id}/download')
-def download_review_original(node_instance_id: str, file_id: str, preview: bool = Query(False), teacher=Depends(get_current_teacher)):
+def download_review_original(node_instance_id: str, file_id: str, preview: bool = Query(False), pdf: bool = Query(False), teacher=Depends(get_current_teacher)):
     import tempfile
     from pathlib import Path
     from fastapi.responses import FileResponse
@@ -185,6 +185,27 @@ def download_review_original(node_instance_id: str, file_id: str, preview: bool 
                    if file['id'] == file_id), None)
     if record is None:
         raise HTTPException(404, '原件不存在或已不属于本次审核，请刷新后重试')
+    if pdf:
+        import shutil
+        import subprocess
+        from app.services.docx_pdf_preview import convert_docx_preview
+
+        if PurePosixPath(str(record['original_name'])).suffix.lower() != '.docx':
+            raise HTTPException(415, '仅 DOCX 文件支持转换 PDF')
+        directory = Path(tempfile.mkdtemp(prefix='moyin-review-pdf-'))
+        source = directory / 'document.docx'
+        try:
+            get_object_storage().download_to_file(str(record['storage_key']), source)
+            result = convert_docx_preview(source, directory)
+        except Exception as exc:
+            shutil.rmtree(directory, ignore_errors=True)
+            if isinstance(exc, subprocess.TimeoutExpired):
+                raise HTTPException(504, 'PDF 转换超时，请重试或使用 DOCX 预览') from exc
+            if isinstance(exc, FileNotFoundError):
+                raise HTTPException(503, 'PDF 转换服务不可用，请联系管理员检查 LibreOffice') from exc
+            raise HTTPException(502, 'PDF 转换失败，请重试或使用 DOCX 预览') from exc
+        return FileResponse(result, media_type='application/pdf', headers={'Cache-Control': 'no-store'},
+                            background=BackgroundTask(shutil.rmtree, directory, ignore_errors=True))
     image_type = str(record.get('content_type') or '')
     if preview and image_type not in {'image/jpeg', 'image/png', 'application/pdf'}:
         raise HTTPException(415, '此原件不支持在线预览')
