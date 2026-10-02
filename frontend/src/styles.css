@@ -14734,6 +14734,12 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
 
 .review-docx-modes, .review-docx-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
 .review-docx-pane[hidden] { display: none; }
-.review-docx-switch { display: flex; gap: 6px; padding: 8px 10px; background: #f8fafc; border: 1px solid #e2e8f0; flex-shrink: 0; }
-.review-docx-switch button { padding: 6px 12px; border: 1px solid #d6dfed; border-radius: 6px; background: white; color: #52627d; }
-.review-docx-switch button[aria-pressed="true"] { background: #edf4ff; color: #2468e8; border-color: #bad0ff; }
+.review-docx-switch { display: flex; gap: 2px; padding: 2px; background: #eaf0f8; border-radius: 6px; flex-shrink: 0; }
+.file-manual-review-dialog .review-docx-switch button { height: 26px; padding: 0 10px; border: 0; border-radius: 5px; background: transparent; color: #60708a; }
+.file-manual-review-dialog .review-docx-switch button[aria-pressed="true"] { background: white; color: #2467e8; box-shadow: 0 1px 3px #20304018; }
+.pdf-preview-toolbar.is-unified { flex-wrap: nowrap; min-height: 44px; overflow-x: auto; white-space: nowrap; gap: 6px; }
+.pdf-preview-toolbar.is-unified > * { flex-shrink: 0; }
+.pdf-preview-toolbar.is-unified .review-docx-switch { margin-right: 6px; }
+.pdf-preview-toolbar.is-unified .preview-zoom-start { margin-left: auto; }
+.file-manual-review-dialog .pdf-preview-toolbar.is-unified > button { height: 28px; padding: 0 8px; }
+.pdf-preview-toolbar.is-unified select { height: 28px; }

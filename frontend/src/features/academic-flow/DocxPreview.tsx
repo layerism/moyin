@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { paginateDocx } from "./docxPagination";
 
-export function DocxPreview({ url, filename }: { url: string; filename: string }) {
+export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; filename: string; toolbarPrefix?: ReactNode }) {
   const host = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -72,14 +72,15 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
   }, [url, paper]);
 
   return <section className="file-review-docx-preview" aria-label={`DOCX 预览：${filename}`}>
-    <div className="pdf-preview-toolbar">
-      <span>DOCX 预览</span>
+    <div className={`pdf-preview-toolbar${toolbarPrefix ? " is-unified" : ""}`}>
+      {toolbarPrefix}
+      {!toolbarPrefix ? <span>DOCX 预览</span> : null}
       <select aria-label="DOCX 纸张大小" value={paper} onChange={(event) => setPaper(event.target.value === "A3" ? "A3" : "A4")}>
         <option value="A4">A4</option>
         <option value="A3">A3</option>
       </select>
       {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">{paper} 推断 · {pageCount} 页</span> : null}
-      <button type="button" disabled={loading || Boolean(error) || zoom <= 0.5} aria-label="缩小" onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}>−</button>
+      <button className="preview-zoom-start" type="button" disabled={loading || Boolean(error) || zoom <= 0.5} aria-label="缩小" onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}>−</button>
       <button type="button" disabled={loading || Boolean(error)} title="恢复原始比例" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>
       <button type="button" disabled={loading || Boolean(error) || zoom >= 2} aria-label="放大" onClick={() => setZoom((value) => Math.min(2, value + 0.25))}>＋</button>
     </div>

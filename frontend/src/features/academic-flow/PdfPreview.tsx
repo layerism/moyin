@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-export function PdfPreview({ url, filename }: { url: string; filename: string }) {
+export function PdfPreview({ url, filename, toolbarPrefix }: { url: string; filename: string; toolbarPrefix?: ReactNode }) {
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -38,11 +38,12 @@ export function PdfPreview({ url, filename }: { url: string; filename: string })
   };
 
   return <section className="file-review-pdf-preview" aria-label={`原件预览：${filename}`}>
-    <div className="pdf-preview-toolbar">
+    <div className={`pdf-preview-toolbar${toolbarPrefix ? " is-unified" : ""}`}>
+      {toolbarPrefix}
       <button type="button" disabled={!document || pageNumber <= 1} onClick={() => goToPage(pageNumber - 1)} aria-label="上一页">‹</button>
       <span>{document ? `${pageNumber} / ${document.numPages}` : "加载中…"}</span>
       <button type="button" disabled={!document || pageNumber >= document.numPages} onClick={() => goToPage(pageNumber + 1)} aria-label="下一页">›</button>
-      <button type="button" disabled={!document || zoom <= 0.5} onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))} aria-label="缩小">−</button>
+      <button className="preview-zoom-start" type="button" disabled={!document || zoom <= 0.5} onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))} aria-label="缩小">−</button>
       <button type="button" disabled={!document} onClick={() => setZoom(1)} title="恢复适合宽度">{Math.round(zoom * 100)}%</button>
       <button type="button" disabled={!document || zoom >= 2} onClick={() => setZoom((value) => Math.min(2, value + 0.25))} aria-label="放大">＋</button>
     </div>
