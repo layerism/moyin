@@ -11,13 +11,17 @@ from pathlib import Path
 
 import pymupdf as fitz
 
-from app.services.audit_llm_client import AuditLLMClient
+from app.services.audit_llm_client import AuditLLMClient, AuditLLMError
+
+
+class LayoutAuditError(RuntimeError):
+    """Application-authored diagnostics without filenames or provider content."""
 
 
 def remaining(deadline: float, limit: float) -> float:
     seconds = min(limit, deadline - time.monotonic())
     if seconds <= 0:
-        raise RuntimeError("文档视觉审核超过总时限")
+        raise LayoutAuditError("文档视觉审核超过总时限")
     return seconds
 
 
@@ -30,11 +34,18 @@ def render_pdf(source: Path, folder: Path, timeout: float) -> Path:
         "--headless", "--norestore", "--nodefault", "--nofirststartwizard",
         "--convert-to", "pdf:writer_pdf_Export", "--outdir", str(folder), str(source),
     ]
-    with (folder / "conversion.log").open("wb") as log:
-        subprocess.run(command, stdout=log, stderr=log, timeout=timeout, check=True)
+    try:
+        with (folder / "conversion.log").open("wb") as log:
+            subprocess.run(command, stdout=log, stderr=log, timeout=timeout, check=True)
+    except subprocess.TimeoutExpired:
+        raise LayoutAuditError(f"DOCX 转 PDF 超时，限时 {timeout:.0f} 秒") from None
+    except FileNotFoundError:
+        raise LayoutAuditError("DOCX 转 PDF 失败，LibreOffice 转换程序不可用") from None
+    except subprocess.CalledProcessError:
+        raise LayoutAuditError("DOCX 转 PDF 失败，LibreOffice 异常退出") from None
     result = folder / f"{source.stem}.pdf"
     if not result.is_file() or result.stat().st_size == 0:
-        raise RuntimeError("DOCX 未生成有效 PDF")
+        raise LayoutAuditError("DOCX 转换未生成有效 PDF")
     return result
 
 
@@ -85,7 +96,10 @@ def request_audit(images: list[tuple[int, str]], reviewed_pages: list[int], prom
         {"role": "user", "content": content},
     ]
     value = client.request_json(messages=messages, temperature=float(settings['temperature']), timeout=timeout)
-    return parse_result(value, reviewed_pages)
+    try:
+        return parse_result(value, reviewed_pages)
+    except ValueError as error:
+        raise LayoutAuditError(str(error)) from None
 
 
 def markdown_text(value: str) -> str:
@@ -112,21 +126,34 @@ def audit(payload: dict) -> dict:
         for index, item in enumerate(files):
             folder = root / str(index)
             pdf = render_pdf(Path(item['path']), folder, remaining(deadline, settings['renderTimeoutSeconds']))
-            with fitz.open(pdf) as document:
-                count = len(document)
-                if count == 0 or document.needs_pass:
-                    raise ValueError("DOCX 渲染结果不可读")
+            try:
+                with fitz.open(pdf) as document:
+                    count = len(document)
+                    if count == 0 or document.needs_pass:
+                        raise LayoutAuditError("PDF 读取失败，转换结果为空或需要密码")
+            except LayoutAuditError:
+                raise
+            except Exception:
+                raise LayoutAuditError("PDF 读取失败，转换结果无法解析") from None
             total_pages += count
             if total_pages > settings['maximumPages']:
-                raise ValueError("提交文档总页数超过审核上限，未完成全文审核")
+                raise LayoutAuditError(f"文档共 {total_pages} 页，超过审核上限 {settings['maximumPages']} 页，未完成全文审核")
             documents.append((item, folder, pdf, count))
         for item, folder, pdf, count in documents:
             reviewed_pages = list(range(1, count + 1))
             images = []
-            with fitz.open(pdf) as document:
-                for page in reviewed_pages:
-                    remaining(deadline, settings['executionTimeoutSeconds'])
-                    images.append((page, page_image(document, page, settings['imageMaximumSide'], folder)))
+            try:
+                with fitz.open(pdf) as document:
+                    for page in reviewed_pages:
+                        remaining(deadline, settings['executionTimeoutSeconds'])
+                        try:
+                            images.append((page, page_image(document, page, settings['imageMaximumSide'], folder)))
+                        except Exception:
+                            raise LayoutAuditError(f"第 {page} 页图片生成失败") from None
+            except LayoutAuditError:
+                raise
+            except Exception:
+                raise LayoutAuditError("PDF 页面读取失败") from None
             file_issues = request_audit(images, reviewed_pages, prompt, settings,
                 remaining(deadline, settings['requestTimeoutSeconds']), client)
             del images
@@ -155,6 +182,7 @@ if __name__ == '__main__':
         result = audit(json.load(sys.stdin))
     except Exception as error:
         # Do not put provider responses, paths or credentials in script diagnostics.
-        print(f"DOCX 视觉排版审核未完成（{type(error).__name__}）", file=sys.stderr)
+        message = str(error) if isinstance(error, (LayoutAuditError, AuditLLMError)) else f"视觉排版材料处理失败（{type(error).__name__}）"
+        print(f"LayoutAuditError: {message}", file=sys.stderr)
         sys.exit(1)
     json.dump(result, sys.stdout, ensure_ascii=False)

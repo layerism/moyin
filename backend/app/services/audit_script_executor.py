@@ -238,6 +238,9 @@ def _run_process(
                 lines = bytes(stderr).decode("utf-8", errors="replace").splitlines()
                 detail = next((line.split(": ", 1)[1] for line in reversed(lines)
                                if re.fullmatch(r"(?:ValueError|(?:app\.services\.audit_llm_client\.)?AuditLLMError): (?:模型返回|审核模型|学生修改说明)[\u4e00-\u9fffA-Za-z0-9 ，（）。，–_-]{1,160}", line)), None)
+                if descriptor.script_id == "docx-layout-visual-audit":
+                    detail = next((line.split(": ", 1)[1] for line in reversed(lines)
+                                   if re.fullmatch(r"LayoutAuditError: [\u4e00-\u9fffA-Za-z0-9 ，（）。，–_-]{1,160}", line)), detail)
                 diagnostic = {"exitCode": exit_code, "message": detail or "脚本异常退出；未发现可安全展示的应用错误"}
                 (execution_root / "diagnostic.json").write_text(json.dumps(diagnostic, ensure_ascii=False), encoding="utf-8")
             raise AuditScriptExecutionError("审核脚本执行失败")
