@@ -130,12 +130,14 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
   const select = (text: string, style: CSSStyleDeclaration, paragraphMark = false) => {
     const groups: { text: string; selection: Selection }[] = [];
     const names = new Map<string, string>();
+    const language = (region: string) => (paragraphMark ? value(style, `--docx-mark-language-${region}`) : "")
+      || value(style, `--docx-language-${region}`);
+    const languages = { latin: language("latin"), eastAsia: language("eastasia"), cs: language("cs") };
     const configuredName = (scriptSlot: string) => {
       if (names.has(scriptSlot)) return names.get(scriptSlot)!;
       const configured = (paragraphMark ? value(style, `--docx-mark-font-${scriptSlot}`) : value(style, "--docx-font-symbol"))
         || value(style, `--docx-font-${scriptSlot}`);
-      const language = value(style, `--docx-language-${scriptSlot === "eastasia" ? "eastasia" : scriptSlot === "cs" ? "cs" : "latin"}`);
-      const name = configured.startsWith("theme:") ? theme(configured.slice(6), language) : configured;
+      const name = configured.startsWith("theme:") ? theme(configured.slice(6), languages) : configured;
       names.set(scriptSlot, name); return name;
     };
     for (const character of text) {

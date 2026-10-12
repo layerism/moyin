@@ -14,7 +14,7 @@ type Parsed = {
   themePart?: { path: string }; settingsPart?: { path: string };
   numberingPart?: { path: string; domNumberings: Numbering[] };
 };
-export type DocxFontTheme = (name: string, language: string) => string;
+export type DocxFontTheme = (name: string, languages: { latin: string; eastAsia: string; cs: string }) => string;
 const child = (element: Element | null | undefined, name: string) =>
   Array.from(element?.children ?? []).find((entry) => entry.namespaceURI === word && entry.localName === name);
 const attr = (element: Element | null | undefined, name: string) => element?.getAttributeNS(word, name);
@@ -156,12 +156,18 @@ export function prepareDocxFontConfig(data: ArrayBuffer, parsed: Parsed): DocxFo
     }
   }
   const theme = xml(parsed.themePart?.path);
-  return (name, language) => {
+  return (name, languages) => {
     const group = theme?.getElementsByTagNameNS(drawing, name.startsWith("major") ? "majorFont" : "minorFont")[0];
     const slot = name.endsWith("EastAsia") ? "ea" : name.endsWith("Bidi") ? "cs" : "latin";
+    // The theme token determines its region even when asciiTheme refers to minorEastAsia.
+    // themeFontLang defines theme mapping independently of the run's proofreading language.
+    const region = slot === "ea" ? "eastAsia" : slot === "cs" ? "cs" : "latin";
+    const themeLang = attr(themeLanguage, slot === "ea" ? "eastAsia" : slot === "cs" ? "bidi" : "val");
+    const language = themeLang || languages[region];
     const primary = Array.from(group?.children ?? []).find((entry) => entry.localName === slot)?.getAttribute("typeface");
     const regional = Array.from(group?.children ?? []).find((entry) => entry.localName === "font" && entry.getAttribute("script") === script(language));
-    const font = primary || regional?.getAttribute("typeface");
+    const mapped = regional?.getAttribute("typeface");
+    const font = themeLang ? mapped || primary : primary || mapped;
     if (!font) throw new Error(`DOCX 主题字体未配置：${name}（${language || "未指定语言"}）。`);
     return font;
   };

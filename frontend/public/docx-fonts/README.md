@@ -4,7 +4,9 @@
 
 ## XML 配置与加载
 
-字体配置直接取自 DOCX 的 `styles.xml`、正文、页眉页脚、脚注尾注、`numbering.xml`、主题及语言设置，保留文档默认、`basedOn`、段落样式、字符样式及直接格式的继承。`ascii`、`hAnsi`、`eastAsia`、`cs` 分别记录，主题引用在该段文字的语言上下文中解析。同一段中的中英文按字符选择 XML 指定的字体，而非按一个 CSS 字体列表互相替换。编号、符号及页码字段也使用项目字体。
+字体配置直接取自 DOCX 的 `styles.xml`、正文、页眉页脚、脚注尾注、`numbering.xml`、主题及语言设置，保留文档默认、`basedOn`、段落样式、字符样式及直接格式的继承。`ascii`、`hAnsi`、`eastAsia`、`cs` 分别记录。同一段中的中英文按字符选择 XML 指定的字体，而非按一个 CSS 字体列表互相替换。编号、符号及页码字段也使用项目字体。
+
+主题引用按引用名称的区域（EastAsia/Bidi/Ascii/HAnsi）解析，而非按引用所在的文字槽位判断。`settings.xml` 的 `themeFontLang` 分别通过 `eastAsia`、`bidi`、`val` 指定主题语言，其脚本映射优先于主题区域默认字体；未提供主题语言时使用区域默认字体，空区域再按 XML 继承的相应语言查找。校对语言 `w:lang/val=en-US` 不会覆盖东亚主题配置，`asciiTheme="minorEastAsia"` 也使用东亚主题语言。依据：[ThemeFontLanguages](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.themefontlanguages?view=openxml-3.0.1)。
 
 XML 制表符 `w:tab` 采用无文字的 CSS 间距节点，保留当前渲染器的 1em 占位宽度，避免生成 U+2003 后错误要求宋体提供该字形。这不替换正文字符，也不关闭真实正文的缺字检查；完整 Word 制表位对齐仍受当前渲染器能力限制。
 
