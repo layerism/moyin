@@ -55,12 +55,17 @@ export function paginateDocx(body: HTMLElement): number {
         if (rest) {
           nextPage();
           block = rest;
+        } else if (fits(block)) {
+          count++;
+          break;
         } else if (count > 0) {
           block.remove();
           nextPage();
         } else {
-          // A single image, merged table row, or other indivisible object may
-          // exceed the printable area. Fit it proportionally instead of clipping.
+          if (block.tagName === "TABLE" && block.textContent?.trim()) {
+            throw new Error("此表格包含无法安全跨页的内容，请下载原件查看。");
+          }
+          // Fit indivisible media proportionally instead of clipping it.
           const rect = block.getBoundingClientRect();
           const available = bottom() - rect.top;
           block.style.width = `${rect.width}px`;
@@ -118,6 +123,11 @@ function splitBlock(block: HTMLElement, fits: (block: HTMLElement) => boolean): 
 }
 
 function splitTable(table: HTMLTableElement, fits: (block: HTMLElement) => boolean): HTMLElement | null {
+  const columns = Array.from(table.querySelectorAll<HTMLTableColElement>(":scope > colgroup > col"));
+  const widths = columns.map((column) => column.getBoundingClientRect().width);
+  table.style.width = `${table.getBoundingClientRect().width}px`;
+  table.style.tableLayout = "fixed";
+  columns.forEach((column, index) => { column.style.width = `${widths[index]}px`; });
   const source = table.cloneNode(true) as HTMLTableElement;
   const rows = Array.from(source.rows);
   const headerCount = source.tHead?.rows.length ?? 0;
@@ -132,8 +142,75 @@ function splitTable(table: HTMLTableElement, fits: (block: HTMLElement) => boole
     chosen = index;
   }
   table.replaceChildren(...Array.from(source.cloneNode(true).childNodes));
-  if (!chosen) return null;
+  if (!chosen) return splitTableGroup(table, source, headerCount, fits);
   while (table.rows.length > chosen) table.deleteRow(table.rows.length - 1);
   for (let index = chosen - 1; index >= headerCount; index--) source.deleteRow(index);
   return source;
+}
+
+function splitTableGroup(
+  table: HTMLTableElement,
+  source: HTMLTableElement,
+  headerCount: number,
+  fits: (block: HTMLElement) => boolean,
+): HTMLElement | null {
+  const rows = Array.from(source.rows);
+  if (rows.length <= headerCount) return null;
+  let end = headerCount + 1;
+  // A vertical merge group keeps the same grid on each continuation page.
+  for (let index = 0; index < end; index++) {
+    for (const cell of Array.from(rows[index].cells)) {
+      end = Math.min(rows.length, Math.max(end, cell.rowSpan ? index + cell.rowSpan : rows.length));
+    }
+  }
+  const remainder = source.cloneNode(true) as HTMLTableElement;
+  while (table.rows.length > end) table.deleteRow(table.rows.length - 1);
+  const group = (target: HTMLTableElement) => Array.from(target.rows).slice(headerCount, end);
+  const cells = (target: HTMLTableElement) => group(target).flatMap((row) => Array.from(row.cells));
+  const originalCells = cells(source);
+  const currentCells = cells(table);
+  const nextCells = cells(remainder);
+  for (const target of [table, remainder]) {
+    for (const row of group(target)) {
+      row.style.height = "auto";
+      row.style.minHeight = "0";
+    }
+    for (const cell of cells(target)) {
+      cell.style.height = "auto";
+      cell.style.minHeight = "0";
+      if (cell.style.display !== "none") cell.replaceChildren();
+    }
+  }
+  let consumed = false;
+  let continued = false;
+  originalCells.forEach((cell, index) => {
+    if (cell.style.display === "none") return;
+    const parts = Array.from(cell.childNodes);
+    const current = currentCells[index];
+    const next = nextCells[index];
+    for (let partIndex = 0; partIndex < parts.length; partIndex++) {
+      const part = parts[partIndex].cloneNode(true);
+      current.appendChild(part);
+      if (fits(table)) { consumed = true; continue; }
+      const rest = part instanceof HTMLElement ? splitBlock(part, () => fits(table)) : null;
+      if (rest) {
+        consumed = true;
+        next.appendChild(rest);
+      } else {
+        current.removeChild(part);
+        next.appendChild(part);
+      }
+      next.append(...parts.slice(partIndex + 1).map((child) => child.cloneNode(true)));
+      continued = true;
+      break;
+    }
+  });
+  if (!consumed) {
+    table.replaceChildren(...Array.from(source.childNodes));
+    return null;
+  }
+  if (!continued) {
+    for (let index = end - 1; index >= headerCount; index--) remainder.deleteRow(index);
+  }
+  return remainder.rows.length > headerCount ? remainder : null;
 }
