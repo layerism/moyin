@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { paginateDocx } from "./docxPagination";
 import { applyDocxLineSpacing, supplementDocxLayout } from "./docxLayout";
+import { prepareDocxPageNumbers, updateDocxPageNumbers } from "./docxPageNumbers";
 import type { HElement } from "docx-preview";
 
 export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; filename: string; toolbarPrefix?: ReactNode }) {
@@ -45,6 +46,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       };
       const parsed = await parseAsync(data, options);
       supplementDocxLayout(data, parsed);
+      const numbering = prepareDocxPageNumbers(parsed);
       // docx-preview 0.4.1 merges equal-sized sections when saved page breaks
       // are enabled. Preserve next-page section boundaries explicitly; an
       // omitted section type means nextPage in WordprocessingML.
@@ -83,6 +85,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       if (!active) return;
       applyDocxLineSpacing(body);
       setPageCount(paginateDocx(body));
+      updateDocxPageNumbers(body, numbering);
       setLoading(false);
     })().catch((reason: unknown) => {
       if (!active) return;
