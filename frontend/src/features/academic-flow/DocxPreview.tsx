@@ -37,6 +37,14 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
         useBase64URL: true, renderAltChunks: false, breakPages: true,
         ignoreLastRenderedPageBreak: false, ignoreWidth: false, ignoreHeight: false, ignoreFonts: true,
         h: (value: HElement | Node | string) => {
+          // docx-preview renders w:tab as a generated EM SPACE string. Represent its
+          // 1em advance with layout, so it does not require a glyph from the XML font.
+          // Literal document text arrives here as a Text node inside its run.
+          if (typeof value === "object" && !(value instanceof Node) && value.tagName === "span"
+            && value.children?.length === 1 && value.children[0] === "\u2003" && !value.style) {
+            return defaultOptions.h({ tagName: "docx-tab", "aria-hidden": "true",
+              style: { display: "inline-block", width: "1em", height: "0" } });
+          }
           const result = defaultOptions.h(value);
           if ((result instanceof HTMLElement || result instanceof SVGElement || result instanceof MathMLElement) && typeof value === "object" && !(value instanceof Node)
             && typeof value.style === "object") {
