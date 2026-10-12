@@ -32,8 +32,13 @@ TTC 保留原文件，在浏览器内存中取出指定成员并重建 sfnt 容�
 | Consolas | `consola.ttf`、`consolab.ttf`、`consolai.ttf`、`consolaz.ttf` |
 | Courier New | `cour.ttf`、`courbd.ttf`、`couri.ttf`、`courbi.ttf` |
 | Cambria、Cambria Math | `cambria.ttc`、`cambriab.ttf`、`cambriai.ttf`、`cambriaz.ttf` |
+| Wingdings 2 | `wingdng2.ttf` |
 
 西文四个文件依次对应普通、粗体、斜体、粗斜体。微软雅黑和等线包含真实粗体；Light 是其独立字体族。华文中宋、Courier New 和 Cambria 是在仓库模板 XML 审计中发现的实际字体或样式引用，一并补充，避免替换。
+
+Wingdings 2 为原版符号字体（当前文件 Version 1.55）。其 Windows Symbol 编码使用独立 `cmap`，覆盖检查同时识别 Symbol 编码与 DOCX `w:sym` 私用区字符，不将它替换为 Unicode 通用符号或其他字体。
+
+符号编码依据：[OpenType cmap 的 Windows Symbol 编码](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap#windows-platform-platform-id--3)。
 
 文件来自固定提交的社区上传仓库，并非字体厂商的官方下载；核对内部名称、版本和校验值不能证明取得 Web 分发授权。来源、Git blob、内部名称、版权、版本及 SHA256 见 `WINDOWS-FONTS.json`。`SHA256SUMS` 仅记录保留的原字体。
 

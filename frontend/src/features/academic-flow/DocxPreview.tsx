@@ -87,6 +87,9 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
         [data-docx-project-before]::before { font-family: var(--docx-project-before-fonts) !important; }
         [data-docx-project-after]::after { font-family: var(--docx-project-after-fonts) !important; }
         [data-docx-project-marker]::marker { font-family: var(--docx-project-marker-fonts) !important; }
+        [data-docx-project-before-content]::before { content: var(--docx-project-before-content) !important; }
+        [data-docx-project-after-content]::after { content: var(--docx-project-after-content) !important; }
+        [data-docx-project-marker-content]::marker { content: var(--docx-project-marker-content) !important; }
       `;
       root.replaceChildren(styles, pageSize, body);
       // The host remains laid out (but invisible) while measuring pagination.

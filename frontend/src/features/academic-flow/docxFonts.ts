@@ -3,7 +3,7 @@ import { docxFontCoverage, docxFontMember } from "./docxFontAsset";
 
 type Face = { weight: string; style: string; file: string; member: number };
 type ProjectFont = { family: string; aliases: string[]; faces: Face[] };
-type LoadedFace = { data: ArrayBuffer; covers: (character: number) => boolean };
+type LoadedFace = { data: ArrayBuffer; covers: ReturnType<typeof docxFontCoverage> };
 const face = (file: string, weight = "400", style = "normal", member = 0): Face => ({ file, weight, style, member });
 const chinese = (family: string, aliases: string[], regular: string, bold?: string, member = 0): ProjectFont => ({
   family: `MoyinDocx${family}`, aliases,
@@ -37,6 +37,7 @@ const fonts = [
   latin("Courier", ["Courier New"], ["cour.ttf", "courbd.ttf", "couri.ttf", "courbi.ttf"]),
   latin("Cambria", ["Cambria"], ["cambria.ttc", "cambriab.ttf", "cambriai.ttf", "cambriaz.ttf"]),
   { family: "MoyinDocxCambriaMath", aliases: ["Cambria Math"], faces: [face("cambria.ttc", "400", "normal", 1)] },
+  { family: "MoyinDocxWingdings2", aliases: ["Wingdings 2"], faces: [face("wingdng2.ttf")] },
 ];
 const byName = new Map(fonts.flatMap((font) => font.aliases.map((alias) => [alias.toLowerCase(), font] as const)));
 const loaded = new Map<string, Promise<LoadedFace>>();
@@ -125,6 +126,7 @@ function slot(character: string, style: CSSStyleDeclaration): string {
 export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTheme) {
   type Selection = { font: ProjectFont; face: Face; key: string; characters: Set<number>; weight: string; style: string };
   const required = new Map<string, Selection>();
+  const resources = new Map<string, LoadedFace>();
   const select = (text: string, style: CSSStyleDeclaration, paragraphMark = false) => {
     const groups: { text: string; selection: Selection }[] = [];
     const names = new Map<string, string>();
@@ -199,16 +201,23 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
   }
   await Promise.all(Array.from(required.values(), async (request) => {
     const resource = await loadFace(request.font, request.face);
+    resources.set(request.key, resource);
     for (const code of request.characters) {
       if (!resource.covers(code)) throw new Error(`DOCX 字体 ${request.font.aliases[0]} 缺少字符 U+${code.toString(16).toUpperCase()}，已停止预览以避免系统字体替换。`);
     }
   }));
+  const glyphText = (text: string, selection: Selection) => resources.get(selection.key)?.covers.symbol
+    ? Array.from(text, (character) => {
+      const code = character.codePointAt(0)!;
+      return code >= 0x20 && code <= 0xff ? String.fromCodePoint(code + 0xf000) : character;
+    }).join("") : text;
   for (const { element, selection } of paragraphs) element.style.setProperty("font-family", `"${selection.font.family}"`, "important");
   for (const { node, groups } of texts) {
     const parent = node.parentElement!;
     if (new Set(groups.map((group) => group.selection.font.family)).size === 1) {
       // PAGE fields replace their text after pagination; preserve their private font on the parent.
       (parent as HTMLElement).style.setProperty("font-family", `"${groups[0].selection.font.family}"`, "important");
+      node.data = groups.map((group) => glyphText(group.text, group.selection)).join("");
     }
     if (parent.namespaceURI !== "http://www.w3.org/1999/xhtml") {
       if (new Set(groups.map((group) => group.selection.font.family)).size !== 1) throw new Error("DOCX 公式或图形中的混合字体暂无法准确预览，请下载原件查看。");
@@ -220,7 +229,7 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       // Renderer styles target span; a neutral inline element must not reapply defaults
       // (especially font-size) inside an already formatted run.
       const span = document.createElement("docx-text");
-      span.textContent = text;
+      span.textContent = glyphText(text, selection);
       span.style.setProperty("font-family", `"${selection.font.family}"`, "important");
       span.style.setProperty("font-weight", selection.weight, "important");
       span.style.setProperty("font-style", selection.style, "important");
@@ -236,16 +245,33 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
         const key = `${selection.key}:${selection.weight}:${selection.style}`;
         let entry = faces.get(key);
         if (!entry) { entry = { selection, characters: new Set() }; faces.set(key, entry); }
-        for (const character of text) entry.characters.add(character.codePointAt(0)!);
+        for (const character of text) {
+          entry.characters.add(character.codePointAt(0)!);
+          entry.characters.add(glyphText(character, selection).codePointAt(0)!);
+        }
       }
-      const resources = await Promise.all(Array.from(faces.values(), async ({ selection, characters }) => {
+      const markerResources = await Promise.all(Array.from(faces.values(), async ({ selection, characters }) => {
         const { data } = await loadFace(selection.font, selection.face);
         // Unicode ranges implement the XML slot assignment for generated list markers.
         const resource = new FontFace(family, data, { weight: selection.face.weight, style: selection.face.style,
           unicodeRange: Array.from(characters, (code) => `U+${code.toString(16)}`).join(", ") });
         await resource.load(); return resource;
       }));
-      for (const resource of resources) { document.fonts.add(resource); generated.push(resource); }
+      for (const resource of markerResources) { document.fonts.add(resource); generated.push(resource); }
+      // Normalize legacy symbol bytes in literal bullets, retaining counters and all other CSS.
+      const content = getComputedStyle(element, `::${name}`).content;
+      const mappedContent = content.replace(/"((?:[^"\\]|\\.)*)"/g, (match, literal: string) => {
+        const decoded = literal.replace(/\\([0-9a-f]{1,6})\s?/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
+        const mapped = Array.from(decoded, (character) => {
+          const selection = groups.find((group) => group.text.includes(character))?.selection;
+          return selection ? glyphText(character, selection) : character;
+        }).join("");
+        return mapped === decoded ? match : JSON.stringify(mapped);
+      });
+      if (mappedContent !== content) {
+        element.setAttribute(`data-docx-project-${name}-content`, "");
+        element.style.setProperty(`--docx-project-${name}-content`, mappedContent);
+      }
       element.setAttribute(`data-docx-project-${name}`, "");
       element.style.setProperty(`--docx-project-${name}-fonts`, `"${family}"`);
     }

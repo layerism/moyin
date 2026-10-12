@@ -2002,6 +2002,40 @@
           }
         }
       ]
+    },
+    {
+      "file": "wingdng2.ttf",
+      "source_url": "https://raw.githubusercontent.com/dv-anomaly/ttf-wps-fonts/8c980c24289cb08e03f72915970ce1bd6767e45a/WINGDNG2.ttf",
+      "git_blob_sha1": "e36d7f6318eba4cc6db90b978355fb40e63b6ea5",
+      "sha256": "fa671b6fddedd57f158ab90b6aa6a7c33db6f41ab620db72b7ad1e57c38bda5f",
+      "size_bytes": 65788,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Wingdings 2 designed by Bigelow & Holmes Inc. for Microsoft Corporation. Copyright © 1992 Microsoft Corporation. Pat. Pend. All Rights Reserved. © 1990-1991 Type Solutions, Inc. All Rights Reserved."
+            ],
+            "1": [
+              "Wingdings 2"
+            ],
+            "2": [
+              "Regular",
+              "normal",
+              "Standard",
+              "Normal",
+              "Normaali",
+              "Normale",
+              "Standaard"
+            ],
+            "4": [
+              "Wingdings 2"
+            ],
+            "5": [
+              "Version 1.55"
+            ]
+          }
+        }
+      ]
     }
   ]
 }

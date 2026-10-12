@@ -34,19 +34,25 @@ export function docxFontMember(buffer: ArrayBuffer, member: number): ArrayBuffer
 }
 
 // Detect unsupported characters before the browser can fall back to a system glyph.
-export function docxFontCoverage(buffer: ArrayBuffer): (character: number) => boolean {
+export function docxFontCoverage(buffer: ArrayBuffer): { (character: number): boolean; symbol: boolean } {
   const data = new DataView(buffer);
   const cmap = tables(data).find((entry) => entry.tag === 0x636d6170);
   if (!cmap) throw new Error("Font character map unavailable");
   const maps = Array.from({ length: data.getUint16(cmap.offset + 2) }, (_, index) => {
     const entry = cmap.offset + 4 + index * 8;
     const platform = data.getUint16(entry), encoding = data.getUint16(entry + 2);
-    return platform === 0 || (platform === 3 && [1, 10].includes(encoding)) ? cmap.offset + data.getUint32(entry + 4) : -1;
-  }).filter((offset) => offset >= 0);
-  const full = maps.find((offset) => data.getUint16(offset) === 12);
-  const bmp = maps.find((offset) => data.getUint16(offset) === 4);
+    return { offset: cmap.offset + data.getUint32(entry + 4),
+      unicode: platform === 0 || (platform === 3 && [1, 10].includes(encoding)), symbol: platform === 3 && encoding === 0 };
+  });
+  const unicode = maps.filter((entry) => entry.unicode);
+  const selected = unicode.length ? unicode : maps.filter((entry) => entry.symbol);
+  const full = selected.find((entry) => data.getUint16(entry.offset) === 12)?.offset;
+  const bmp = selected.find((entry) => data.getUint16(entry.offset) === 4)?.offset;
+  const symbol = !unicode.length && selected.some((entry) => entry.symbol);
   if (full === undefined && bmp === undefined) throw new Error("Unsupported font character map");
-  return (character) => {
+  return Object.assign((character: number) => {
+    // Legacy symbol-font bytes and w:sym PUA values refer to the same original glyph.
+    if (symbol && character >= 0x20 && character <= 0xff) character += 0xf000;
     if (full !== undefined) {
       let low = 0, high = data.getUint32(full + 12) - 1;
       while (low <= high) {
@@ -71,5 +77,5 @@ export function docxFontCoverage(buffer: ArrayBuffer): (character: number) => bo
     if (!range) return ((character + delta) & 0xffff) !== 0;
     const glyph = data.getUint16(ranges + low * 2 + range + (character - data.getUint16(starts + low * 2)) * 2);
     return glyph !== 0 && ((glyph + delta) & 0xffff) !== 0;
-  };
+  }, { symbol });
 }
