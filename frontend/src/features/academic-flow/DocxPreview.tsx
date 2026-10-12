@@ -71,7 +71,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       }
       const pageSize = document.createElement("style");
       pageSize.textContent = `
-        section.docx { flex-shrink: 0; box-sizing: border-box; }
+        section.docx { flex-shrink: 0; box-sizing: border-box; font-synthesis: weight style; }
         section.docx > article { flex: none; margin-bottom: 0; }
         section.docx > header, section.docx > footer { flex: none; }
         section.docx > footer { margin-top: auto !important; }

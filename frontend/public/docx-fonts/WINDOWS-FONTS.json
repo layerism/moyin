@@ -1,0 +1,576 @@
+{
+  "source_notice": "Community-uploaded files, not vendor downloads. Font names and versions were inspected; Web distribution authorization has not been established.",
+  "files": [
+    {
+      "file": "simfang.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/simfang.ttf",
+      "git_blob_sha1": "68334e278756e808ecd66ed85756f65554ce0e92",
+      "sha256": "3e2d44b01c9a248a61bedae4f15c8aae501328b1f7adfe6e111a5da5aa5c5104",
+      "size_bytes": 10578152,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© Beijing ZhongYi Electronics Co., 1995-2005, All rights reserved",
+              "字体数据由北京中易中标电子信息技术有限公司提供。"
+            ],
+            "1": [
+              "FangSong",
+              "仿宋"
+            ],
+            "2": [
+              "Regular",
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "Arrunta"
+            ],
+            "4": [
+              "FangSong",
+              "仿宋"
+            ],
+            "5": [
+              "Version 5.01"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "simhei.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/simhei.ttf",
+      "git_blob_sha1": "5bd4687e7212775e23bea569f08fdd1cd7395dc3",
+      "sha256": "aa4560dd8fe5645745fed3ffa301c3ca4d6c03cbd738145b613303961ba733b8",
+      "size_bytes": 9753388,
+      "faces": [
+        {
+          "names": {
+            "2": [
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Regular",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "Arrunta"
+            ],
+            "0": [
+              "© Beijing ZhongYi Electronics Co., 1995-2005, All rights reserved",
+              "字体数据由北京中易中标电子信息技术有限公司提供。"
+            ],
+            "1": [
+              "SimHei",
+              "黑体"
+            ],
+            "4": [
+              "SimHei",
+              "黑体"
+            ],
+            "5": [
+              "Version 5.03"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "simkai.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/simkai.ttf",
+      "git_blob_sha1": "d7c3b902d893e9206d03d38641f9c5abfcf9aef8",
+      "sha256": "9dd76f7ab430edd091db24c3f18e71410325c1414141aad5fe67947873ffba06",
+      "size_bytes": 11787328,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© Beijing ZhongYi Electronics Co., 1995-2005, All rights reserved",
+              "字体数据由北京中易中标电子信息技术有限公司提供。"
+            ],
+            "1": [
+              "KaiTi",
+              "楷体"
+            ],
+            "2": [
+              "Regular",
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "Arrunta"
+            ],
+            "4": [
+              "KaiTi",
+              "楷体"
+            ],
+            "5": [
+              "Version 5.01"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "simsun.ttc",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/simsun.ttc",
+      "git_blob_sha1": "5f22ce3f46875d8ccdafe6946a61c8b961e041df",
+      "sha256": "2e3cc9dbd787c827f73496f01633bba430e15c5db4d4f6ed9938386ea01f0171",
+      "size_bytes": 18214472,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© Copyright ZHONGYI Electronic Co. 2001",
+              "© Copyright ZHONGYI Electronic Co. 2001\r\n字体数据由北京中易中标电子信息技术有限公司提供。"
+            ],
+            "1": [
+              "SimSun",
+              "宋体"
+            ],
+            "2": [
+              "Regular",
+              "常规"
+            ],
+            "4": [
+              "SimSun",
+              "宋体"
+            ],
+            "5": [
+              "Version 5.16"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "http://www.microsoft.com/typography/fonts"
+            ]
+          }
+        },
+        {
+          "names": {
+            "0": [
+              "© Copyright ZHONGYI Electronic Co. 2001",
+              "© Copyright ZHONGYI Electronic Co. 2001\r\n字体数据由北京中易中标电子信息技术有限公司提供。"
+            ],
+            "1": [
+              "NSimSun",
+              "新宋体"
+            ],
+            "2": [
+              "Regular",
+              "常规"
+            ],
+            "4": [
+              "NSimSun",
+              "新宋体"
+            ],
+            "5": [
+              "Version 5.16"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "http://www.microsoft.com/typography/fonts"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "stxingka.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/STXINGKA.ttf",
+      "git_blob_sha1": "53439a2c1a15eb5b5259c086901fccbdb575095f",
+      "sha256": "7f901dfb0526d542740264fb5ba8dfe483293ad060270d273593e2f04a69d080",
+      "size_bytes": 4016288,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright (c) 1991-1998, Changzhou SinoType Technology Co., Ltd.  All rights reserved.",
+              "Ｃｏｐｙｒｉｇｈｔ（ｃ）１９９１－１９９８，Ｃｈａｎｇｚｈｏｕ　ＳｉｎｏＴｙｐｅ　Ｔｅｃｈｎｏｌｏｇｙ　Ｃｏ．，Ｌｔｄ．　Ａｌｌ　ｒｉｇｈｔｓ　ｒｅｓｅｒｖｅｄ．　常州华文印刷新技术有限公司　版权所有　"
+            ],
+            "1": [
+              "STXingkai",
+              "华文行楷"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "STXingkai",
+              "华文行楷"
+            ],
+            "5": [
+              "Version 1.02"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "kaiti_gb2312.ttf",
+      "source_url": "https://raw.githubusercontent.com/jchliao/CommonFonts/c32f13e2262d380c5f8f4ef4ca3c1b0a3539c0d6/楷体_GB2312.ttf",
+      "git_blob_sha1": "ece2ac2c05223693c8c50360ef8cba1dbac1036f",
+      "sha256": "99092cbb0df301625f46509e85854db8685556551742097ab3fbbc2e2ca0778b",
+      "size_bytes": 4135804,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "(C) Copyright GreatWall Computer Co. 1994"
+            ],
+            "1": [
+              "KaiTi_GB2312",
+              "楷体_GB2312"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "KaiTi_GB2312",
+              "楷体_GB2312"
+            ],
+            "5": [
+              "Version 2.00"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "fangsong_gb2312.ttf",
+      "source_url": "https://raw.githubusercontent.com/jchliao/CommonFonts/c32f13e2262d380c5f8f4ef4ca3c1b0a3539c0d6/仿宋_GB2312.ttf",
+      "git_blob_sha1": "16eb427c4dec810ede85ad0685f72aa8d7562c3d",
+      "sha256": "fef7cf991b458cabd184b73378918d9d15429010e1d6c804f08d394395c3c3b4",
+      "size_bytes": 3996872,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "(C) Copyright GreatWall Computer Co. 1994"
+            ],
+            "1": [
+              "FangSong_GB2312",
+              "仿宋_GB2312"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "FangSong_GB2312",
+              "仿宋_GB2312"
+            ],
+            "5": [
+              "Version 2.00"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "times.ttf",
+      "source_url": "https://raw.githubusercontent.com/jchliao/CommonFonts/c32f13e2262d380c5f8f4ef4ca3c1b0a3539c0d6/Times%20New%20Roman/times.ttf",
+      "git_blob_sha1": "3ea695f2e11ed3d4fbd15311c47dd7bc70e0134c",
+      "sha256": "43a890795ad133d73568d169a35924f40416be8a6950a1a03263052ec8e95b8a",
+      "size_bytes": 1206884,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2020 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2020 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.\r\n"
+            ],
+            "1": [
+              "Times New Roman"
+            ],
+            "2": [
+              "Regular",
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "thường",
+              "Arrunta"
+            ],
+            "4": [
+              "Times New Roman"
+            ],
+            "5": [
+              "Version 7.03"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "timesbd.ttf",
+      "source_url": "https://raw.githubusercontent.com/jchliao/CommonFonts/c32f13e2262d380c5f8f4ef4ca3c1b0a3539c0d6/Times%20New%20Roman/timesbd.ttf",
+      "git_blob_sha1": "e60dcff40bf24eb9ec505e011dc3cd7c7d5964e3",
+      "sha256": "56735cfcb1d3feac66d5d9bb446c8598e522dc03c54923943899217c227bdfab",
+      "size_bytes": 1185876,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2020 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2020 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.\r\n"
+            ],
+            "1": [
+              "Times New Roman"
+            ],
+            "2": [
+              "Bold",
+              "Negreta",
+              "tučné",
+              "fed",
+              "Fett",
+              "Έντονα",
+              "Negrita",
+              "Lihavoitu",
+              "Gras",
+              "Félkövér",
+              "Grassetto",
+              "Vet",
+              "Halvfet",
+              "Pogrubiona",
+              "Negrito",
+              "Полужирный",
+              "Tučné",
+              "Fet",
+              "Kalın",
+              "Krepko",
+              "đậm",
+              "Lodia"
+            ],
+            "4": [
+              "Times New Roman Bold",
+              "Times New Roman Negreta",
+              "Times New Roman tučné",
+              "Times New Roman fed",
+              "Times New Roman Fett",
+              "Times New Roman Έντονα",
+              "Times New Roman Negrita",
+              "Times New Roman Lihavoitu",
+              "Times New Roman Gras",
+              "Times New Roman Félkövér",
+              "Times New Roman Grassetto",
+              "Times New Roman Vet",
+              "Times New Roman Halvfet",
+              "Times New Roman Pogrubiona",
+              "Times New Roman Negrito",
+              "Times New Roman Полужирный",
+              "Times New Roman Tučné",
+              "Times New Roman Fet",
+              "Times New Roman Kalın",
+              "Times New Roman Krepko",
+              "Times New Roman đậm",
+              "Times New Roman Lodia"
+            ],
+            "5": [
+              "Version 7.03"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "timesi.ttf",
+      "source_url": "https://raw.githubusercontent.com/jchliao/CommonFonts/c32f13e2262d380c5f8f4ef4ca3c1b0a3539c0d6/Times%20New%20Roman/timesi.ttf",
+      "git_blob_sha1": "ff92816cc57582ba8e34b6143b1b65850ff62b39",
+      "sha256": "f3a1bbc53e7c3c21262f033c4d73a55a990952cbd4644ea42cb9f0c4c4640e40",
+      "size_bytes": 977892,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2020 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2020 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.\r\n"
+            ],
+            "1": [
+              "Times New Roman"
+            ],
+            "2": [
+              "Italic",
+              "cursiva",
+              "kurzíva",
+              "kursiv",
+              "Kursiv",
+              "Πλάγια",
+              "Cursiva",
+              "Kursivoitu",
+              "Italique",
+              "Dőlt",
+              "Corsivo",
+              "Cursief",
+              "kursywa",
+              "Itálico",
+              "Курсив",
+              "Kurzíva",
+              "İtalik",
+              "Poševno",
+              "nghiêng",
+              "Etzana"
+            ],
+            "4": [
+              "Times New Roman Italic",
+              "Times New Roman cursiva",
+              "Times New Roman kurzíva",
+              "Times New Roman kursiv",
+              "Times New Roman Kursiv",
+              "Times New Roman Πλάγια",
+              "Times New Roman Cursiva",
+              "Times New Roman Kursivoitu",
+              "Times New Roman Italique",
+              "Times New Roman Dőlt",
+              "Times New Roman Corsivo",
+              "Times New Roman Cursief",
+              "Times New Roman kursywa",
+              "Times New Roman Itálico",
+              "Times New Roman Курсив",
+              "Times New Roman Kurzíva",
+              "Times New Roman İtalik",
+              "Times New Roman Poševno",
+              "Times New Roman nghiêng",
+              "Times New Roman Etzana"
+            ],
+            "5": [
+              "Version 7.03"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "timesbi.ttf",
+      "source_url": "https://raw.githubusercontent.com/jchliao/CommonFonts/c32f13e2262d380c5f8f4ef4ca3c1b0a3539c0d6/Times%20New%20Roman/timesbi.ttf",
+      "git_blob_sha1": "9290e11071819a23a475240f4b09e78e7408b5ae",
+      "sha256": "914ae3beb26a5948dbf67d87a7f86f10abe9407d420fa6a448f974e41d0f3727",
+      "size_bytes": 918940,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2020 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2020 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.\r\n"
+            ],
+            "1": [
+              "Times New Roman"
+            ],
+            "2": [
+              "Bold Italic",
+              "Negreta cursiva",
+              "tučné kurzíva",
+              "fed kursiv",
+              "Fett Kursiv",
+              "Έντονα Πλάγια",
+              "Negrita Cursiva",
+              "Lihavoitu Kursivoi",
+              "Gras Italique",
+              "Félkövér dőlt",
+              "Grassetto Corsivo",
+              "Vet Cursief",
+              "Halvfet Kursiv",
+              "Pogrubiona kursywa",
+              "Negrito Itálico",
+              "Полужирный Курсив",
+              "Tučná kurzíva",
+              "Fet Kursiv",
+              "Kalın İtalik",
+              "Krepko poševno",
+              "nghiêng đậm",
+              "Lodi etzana"
+            ],
+            "4": [
+              "Times New Roman Bold Italic",
+              "Times New Roman Negreta cursiva",
+              "Times New Roman tučné kurzíva",
+              "Times New Roman fed kursiv",
+              "Times New Roman Fett Kursiv",
+              "Times New Roman Έντονα Πλάγια",
+              "Times New Roman Negrita Cursiva",
+              "Times New Roman Lihavoitu Kursivoi",
+              "Times New Roman Gras Italique",
+              "Times New Roman Félkövér dőlt",
+              "Times New Roman Grassetto Corsivo",
+              "Times New Roman Vet Cursief",
+              "Times New Roman Halvfet Kursiv",
+              "Times New Roman Pogrubiona kursywa",
+              "Times New Roman Negrito Itálico",
+              "Times New Roman Полужирный Курсив",
+              "Times New Roman Tučná kurzíva",
+              "Times New Roman Fet Kursiv",
+              "Times New Roman Kalın İtalik",
+              "Times New Roman Krepko poševno",
+              "Times New Roman nghiêng đậm",
+              "Times New Roman Lodi etzana"
+            ],
+            "5": [
+              "Version 7.03"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
