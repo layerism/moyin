@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { paginateDocx } from "./docxPagination";
 import { applyDocxLineSpacing, supplementDocxLayout } from "./docxLayout";
 import { prepareDocxPageNumbers, updateDocxPageNumbers } from "./docxPageNumbers";
+import { applyProjectDocxFonts } from "./docxFonts";
 import type { HElement } from "docx-preview";
 
 export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; filename: string; toolbarPrefix?: ReactNode }) {
@@ -32,7 +33,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       const styles = document.createElement("div");
       const options = {
         useBase64URL: true, renderAltChunks: false, breakPages: true,
-        ignoreLastRenderedPageBreak: false, ignoreWidth: false, ignoreHeight: false,
+        ignoreLastRenderedPageBreak: false, ignoreWidth: false, ignoreHeight: false, ignoreFonts: true,
         h: (value: HElement | Node | string) => {
           const result = defaultOptions.h(value);
           if (result instanceof HTMLElement && typeof value === "object" && !(value instanceof Node)
@@ -76,9 +77,12 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
         section.docx > footer { margin-top: auto !important; }
         p[data-page-continuation]::before { display: none !important; }
         p[data-page-continuation] { list-style-type: none !important; }
+        [data-docx-project-before]::before { font-family: var(--docx-project-before-fonts) !important; }
+        [data-docx-project-after]::after { font-family: var(--docx-project-after-fonts) !important; }
       `;
       root.replaceChildren(styles, pageSize, body);
       // The host remains laid out (but invisible) while measuring pagination.
+      await applyProjectDocxFonts(body);
       await Promise.all(Array.from(body.querySelectorAll("img"), (image) => image.decode().catch(() => undefined)));
       await document.fonts.ready;
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
