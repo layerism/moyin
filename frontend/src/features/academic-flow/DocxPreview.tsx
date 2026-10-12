@@ -3,6 +3,7 @@ import { paginateDocx } from "./docxPagination";
 import { applyDocxLineSpacing, supplementDocxLayout } from "./docxLayout";
 import { prepareDocxPageNumbers, updateDocxPageNumbers } from "./docxPageNumbers";
 import { applyProjectDocxFonts } from "./docxFonts";
+import { prepareDocxFontConfig } from "./docxFontConfig";
 import type { HElement } from "docx-preview";
 
 export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; filename: string; toolbarPrefix?: ReactNode }) {
@@ -19,6 +20,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
     const root = element.shadowRoot ?? element.attachShadow({ mode: "open" });
     const controller = new AbortController();
     let active = true;
+    let releaseFonts: (() => void) | undefined;
     root.replaceChildren();
     setLoading(true); setError(""); setZoom(0.5); setPageCount(0);
     void (async () => {
@@ -36,17 +38,21 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
         ignoreLastRenderedPageBreak: false, ignoreWidth: false, ignoreHeight: false, ignoreFonts: true,
         h: (value: HElement | Node | string) => {
           const result = defaultOptions.h(value);
-          if (result instanceof HTMLElement && typeof value === "object" && !(value instanceof Node)
+          if ((result instanceof HTMLElement || result instanceof SVGElement || result instanceof MathMLElement) && typeof value === "object" && !(value instanceof Node)
             && typeof value.style === "object") {
             for (const [name, content] of Object.entries(value.style)) {
               if (name.startsWith("--docx-")) result.style.setProperty(name, content);
             }
+            // w:sym specifies its own font, independent of the run's four script slots.
+            const symbolFont = value.style.fontFamily;
+            if (symbolFont) result.style.setProperty("--docx-font-symbol", JSON.stringify(symbolFont.replace(/^(['"])(.*)\1$/, "$2")));
           }
           return result;
         },
       };
       const parsed = await parseAsync(data, options);
       supplementDocxLayout(data, parsed);
+      const fontTheme = prepareDocxFontConfig(data, parsed);
       const numbering = prepareDocxPageNumbers(parsed);
       // docx-preview 0.4.1 merges equal-sized sections when saved page breaks
       // are enabled. Preserve next-page section boundaries explicitly; an
@@ -72,6 +78,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       const pageSize = document.createElement("style");
       pageSize.textContent = `
         section.docx { flex-shrink: 0; box-sizing: border-box; font-synthesis: weight style; }
+        docx-text { display: inline; }
         section.docx > article { flex: none; margin-bottom: 0; }
         section.docx > header, section.docx > footer { flex: none; }
         section.docx > footer { margin-top: auto !important; }
@@ -79,10 +86,12 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
         p[data-page-continuation] { list-style-type: none !important; }
         [data-docx-project-before]::before { font-family: var(--docx-project-before-fonts) !important; }
         [data-docx-project-after]::after { font-family: var(--docx-project-after-fonts) !important; }
+        [data-docx-project-marker]::marker { font-family: var(--docx-project-marker-fonts) !important; }
       `;
       root.replaceChildren(styles, pageSize, body);
       // The host remains laid out (but invisible) while measuring pagination.
-      await applyProjectDocxFonts(body);
+      releaseFonts = await applyProjectDocxFonts(body, fontTheme);
+      if (!active) { releaseFonts(); return; }
       await Promise.all(Array.from(body.querySelectorAll("img"), (image) => image.decode().catch(() => undefined)));
       await document.fonts.ready;
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -96,7 +105,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       setError(reason instanceof Error ? reason.message : "DOCX 预览失败，请下载原件查看。");
       setLoading(false);
     });
-    return () => { active = false; controller.abort(); root.replaceChildren(); };
+    return () => { active = false; controller.abort(); releaseFonts?.(); root.replaceChildren(); };
   }, [url, paper]);
 
   return <section className="file-review-docx-preview" aria-label={`DOCX 预览：${filename}`}>

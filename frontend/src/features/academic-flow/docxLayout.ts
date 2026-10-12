@@ -18,11 +18,6 @@ const number = (element: Element | null | undefined, name: string) => {
   return value != null && Number.isFinite(Number(value)) ? Number(value) : null;
 };
 
-function supplementFont(properties: Element | undefined, values: Styles) {
-  const font = attribute(child(properties, "rFonts"), "hAnsi");
-  if (font) values["font-family"] = [values["font-family"], CSS.escape(font)].filter(Boolean).join(", ");
-}
-
 function supplementParagraph(properties: Element | undefined, values: Styles) {
   const snap = child(properties, "snapToGrid");
   if (snap) values["--docx-snap-to-grid"] = enabled(snap) ? "1" : "0";
@@ -61,9 +56,7 @@ export function supplementDocxLayout(data: ArrayBuffer, parsed: ParsedDocx) {
     const style = parsed.stylesPart?.styles.find((entry) => entry.id === (defaults ? null : attribute(source, "styleId")));
     if (!style) continue;
     const paragraph = defaults ? child(child(source, "pPrDefault"), "pPr") : child(source, "pPr");
-    const run = defaults ? child(child(source, "rPrDefault"), "rPr") : child(source, "rPr");
     const runValues = style.styles.find((entry) => entry.target === "span")?.values;
-    if (runValues) supplementFont(run, runValues);
     if (defaults || style.target === "p") {
       let paragraphStyle = style.styles.find((entry) => entry.target === "p");
       if (!paragraphStyle) { paragraphStyle = { target: "p", values: {} }; style.styles.push(paragraphStyle); }
@@ -97,11 +90,6 @@ export function supplementDocxLayout(data: ArrayBuffer, parsed: ParsedDocx) {
       if (section) { grid(start, index + 1, section); start = index + 1; }
     });
     grid(start, paragraphs.length, child(bodyXml, "sectPr"));
-  }
-  const xmlRuns = Array.from(bodyXml?.getElementsByTagNameNS(wordNamespace, "r") ?? []);
-  const runs = descendants(parsed.documentPart.body, "run");
-  if (xmlRuns.length === runs.length) {
-    xmlRuns.forEach((source, index) => supplementFont(child(source, "rPr"), runs[index].cssStyle ??= {}));
   }
 }
 

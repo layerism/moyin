@@ -571,6 +571,1437 @@
           }
         }
       ]
+    },
+    {
+      "file": "msyh.ttc",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/msyh.ttc",
+      "git_blob_sha1": "37c28de014d5a92911623a8a30a5cff0db20c014",
+      "sha256": "e4b3b9d058750fb80899c24f68e35beda606ca92694eff0e9f7f91eec7a846aa",
+      "size_bytes": 19647736,
+      "faces": [
+        {
+          "names": {
+            "2": [
+              "Normal",
+              "obyčejné",
+              "Standard",
+              "Κανονικά",
+              "Regular",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "Arrunta"
+            ],
+            "0": [
+              "© 2017  Microsoft Corporation. All Rights Reserved. Portions © 2017 Beijing Founder Electronics Co. Ltd. All Rights Reserved.",
+              "© 2016 微软公司版权所有 © 2016 北京北大方正电子有限公司部分版权所有"
+            ],
+            "1": [
+              "Microsoft YaHei",
+              "微软雅黑"
+            ],
+            "4": [
+              "Microsoft YaHei",
+              "微软雅黑"
+            ],
+            "5": [
+              "Version 6.25"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display and print content as permitted by the license terms, or terms of use, of the Microsoft product, service or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        },
+        {
+          "names": {
+            "2": [
+              "Normal",
+              "obyčejné",
+              "Standard",
+              "Κανονικά",
+              "Regular",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "Arrunta"
+            ],
+            "0": [
+              "© 2017  Microsoft Corporation. All Rights Reserved. Portions © 2017 Beijing Founder Electronics Co. Ltd. All Rights Reserved.",
+              "© 2016 微软公司版权所有 © 2016 北京北大方正电子有限公司部分版权所有"
+            ],
+            "1": [
+              "Microsoft YaHei UI"
+            ],
+            "4": [
+              "Microsoft YaHei UI",
+              "Microsoft Yahei UI"
+            ],
+            "5": [
+              "Version 6.25"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display and print content as permitted by the license terms, or terms of use, of the Microsoft product, service or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "msyhbd.ttc",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/msyhbd.ttc",
+      "git_blob_sha1": "7949a5f151be856af3d178d3ae3da6150ed55413",
+      "sha256": "06e1a30f687ab7d39f533447b21e84d51e0cecdaa6bfa060c87136b168811bdc",
+      "size_bytes": 16829116,
+      "faces": [
+        {
+          "names": {
+            "2": [
+              "Negreta",
+              "tučné",
+              "fed",
+              "Fett",
+              "Έντονα",
+              "Bold",
+              "Negrita",
+              "Lihavoitu",
+              "Gras",
+              "Félkövér",
+              "Grassetto",
+              "Vet",
+              "Halvfet",
+              "Pogrubiony",
+              "Negrito",
+              "Полужирный",
+              "Tučné",
+              "Fet",
+              "Kalın",
+              "Krepko",
+              "Lodia"
+            ],
+            "4": [
+              "Microsoft YaHei Negreta",
+              "Microsoft YaHei tučné",
+              "Microsoft YaHei fed",
+              "Microsoft YaHei Fett",
+              "Microsoft YaHei Έντονα",
+              "Microsoft YaHei Bold",
+              "Microsoft YaHei Negrita",
+              "Microsoft YaHei Lihavoitu",
+              "Microsoft YaHei Gras",
+              "Microsoft YaHei Félkövér",
+              "Microsoft YaHei Grassetto",
+              "Microsoft YaHei Vet",
+              "Microsoft YaHei Halvfet",
+              "Microsoft YaHei Pogrubiony",
+              "Microsoft YaHei Negrito",
+              "Microsoft YaHei Полужирный",
+              "Microsoft YaHei Tučné",
+              "Microsoft YaHei Fet",
+              "Microsoft YaHei Kalın",
+              "Microsoft YaHei Krepko",
+              "Microsoft YaHei Lodia",
+              "微软雅黑 Bold"
+            ],
+            "0": [
+              "© 2017  Microsoft Corporation. All Rights Reserved. Portions © 2017 Beijing Founder Electronics Co. Ltd. All Rights Reserved.",
+              "© 2016 微软公司版权所有 © 2016 北京北大方正电子有限公司部分版权所有"
+            ],
+            "1": [
+              "Microsoft YaHei",
+              "微软雅黑"
+            ],
+            "5": [
+              "Version 6.25"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display and print content as permitted by the license terms, or terms of use, of the Microsoft product, service or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        },
+        {
+          "names": {
+            "2": [
+              "Negreta",
+              "tučné",
+              "fed",
+              "Fett",
+              "Έντονα",
+              "Bold",
+              "Negrita",
+              "Lihavoitu",
+              "Gras",
+              "Félkövér",
+              "Grassetto",
+              "Vet",
+              "Halvfet",
+              "Pogrubiony",
+              "Negrito",
+              "Полужирный",
+              "Tučné",
+              "Fet",
+              "Kalın",
+              "Krepko",
+              "Lodia"
+            ],
+            "4": [
+              "Microsoft YaHei UI Negreta",
+              "Microsoft YaHei UI tučné",
+              "Microsoft YaHei UI fed",
+              "Microsoft YaHei UI Fett",
+              "Microsoft YaHei UI Έντονα",
+              "Microsoft YaHei UI Bold",
+              "Microsoft YaHei UI Negrita",
+              "Microsoft YaHei UI Lihavoitu",
+              "Microsoft YaHei UI Gras",
+              "Microsoft YaHei UI Félkövér",
+              "Microsoft YaHei UI Grassetto",
+              "Microsoft YaHei UI Vet",
+              "Microsoft YaHei UI Halvfet",
+              "Microsoft YaHei UI Pogrubiony",
+              "Microsoft YaHei UI Negrito",
+              "Microsoft YaHei UI Полужирный",
+              "Microsoft YaHei UI Tučné",
+              "Microsoft YaHei UI Fet",
+              "Microsoft YaHei UI Kalın",
+              "Microsoft YaHei UI Krepko",
+              "Microsoft YaHei UI Lodia",
+              "Microsoft Yahei UI Bold"
+            ],
+            "0": [
+              "© 2017  Microsoft Corporation. All Rights Reserved. Portions © 2017 Beijing Founder Electronics Co. Ltd. All Rights Reserved.",
+              "© 2016 微软公司版权所有 © 2016 北京北大方正电子有限公司部分版权所有"
+            ],
+            "1": [
+              "Microsoft YaHei UI"
+            ],
+            "5": [
+              "Version 6.25"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display and print content as permitted by the license terms, or terms of use, of the Microsoft product, service or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "msyhl.ttc",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/msyhl.ttc",
+      "git_blob_sha1": "448e2ed24f5de574a4e633fd68299102bcb6a4f0",
+      "sha256": "2db3f3100589c5795f7917ebc25779d23b69dd19047a963190d9357a5e0dc34c",
+      "size_bytes": 12139380,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2017  Microsoft Corporation. All Rights Reserved. Portions © 2017 Beijing Founder Electronics Co. Ltd. All Rights Reserved.",
+              "© 2017 微软公司版权所有 © 2017 北京北大方正电子有限公司部分版权所有"
+            ],
+            "1": [
+              "Microsoft YaHei Light",
+              "微软雅黑 Light"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Microsoft YaHei Light",
+              "微软雅黑 Light"
+            ],
+            "5": [
+              "Version 6.23"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display and print content as permitted by the license terms, or terms of use, of the Microsoft product, service or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "16": [
+              "Microsoft YaHei",
+              "微软雅黑"
+            ],
+            "17": [
+              "Light"
+            ]
+          }
+        },
+        {
+          "names": {
+            "0": [
+              "© 2017  Microsoft Corporation. All Rights Reserved. Portions © 2017 Beijing Founder Electronics Co. Ltd. All Rights Reserved.",
+              "© 2017 微软公司版权所有 © 2017 北京北大方正电子有限公司部分版权所有"
+            ],
+            "1": [
+              "Microsoft YaHei UI Light"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Microsoft YaHei UI Light"
+            ],
+            "5": [
+              "Version 6.23"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display and print content as permitted by the license terms, or terms of use, of the Microsoft product, service or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "16": [
+              "Microsoft YaHei UI"
+            ],
+            "17": [
+              "Light"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "deng.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/Deng.ttf",
+      "git_blob_sha1": "7438a2a896b56e385015fdb64e760da49b3ee14c",
+      "sha256": "765be9ce80a602fca63934de9d12847743e0de6401c9306ae4416e2eabdaff06",
+      "size_bytes": 16093132,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright(c) Beijing Founder Electronics Co.,Ltd.2012"
+            ],
+            "1": [
+              "DengXian",
+              "等线"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "DengXian Regular",
+              "等线"
+            ],
+            "5": [
+              "Version 1.17"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "dengb.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/Dengb.ttf",
+      "git_blob_sha1": "9597b365e50171c439ffcbe2c0d48c185ef54ca7",
+      "sha256": "068c30d238a6f8426083cf77f4f4319a4dd53aff1ec53992fb428e8cef087ccd",
+      "size_bytes": 16218920,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright(c) Beijing Founder Electronics Co.,Ltd.2012"
+            ],
+            "1": [
+              "DengXian",
+              "等线"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "DengXian Bold",
+              "等线 Bold"
+            ],
+            "5": [
+              "Version 1.17"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "dengl.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/Dengl.ttf",
+      "git_blob_sha1": "b34aeeb92ce9cf4a9ffcd2a8673836d1ffd841dd",
+      "sha256": "7b47625d0127a2772203c753be965101e75582a51b9d306982a7a72bc66ec0ad",
+      "size_bytes": 15150940,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright(c) Beijing Founder Electronics Co.,Ltd.2012"
+            ],
+            "1": [
+              "DengXian Light",
+              "等线 Light"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "DengXian Light",
+              "等线 Light"
+            ],
+            "5": [
+              "Version 1.17"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "16": [
+              "DengXian",
+              "等线"
+            ],
+            "17": [
+              "Light"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "arial.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/arial.ttf",
+      "git_blob_sha1": "ad7d8eab89f5acbf7dea1dd36463c75066cc9540",
+      "sha256": "95766b58f7d869b0fa2cf6e6feb26c1b21cdf2631f1c5863fc9bd206d5c6e8ee",
+      "size_bytes": 915212,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details."
+            ],
+            "1": [
+              "Arial"
+            ],
+            "2": [
+              "Regular",
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "thường",
+              "Arrunta"
+            ],
+            "4": [
+              "Arial"
+            ],
+            "5": [
+              "Version 6.90"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r",
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r\n"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "arialbd.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/arialbd.ttf",
+      "git_blob_sha1": "d5fa0e6001268b7cee18b9040bd44679bedcd502",
+      "sha256": "61daedc4107c937e66911b8184688601ac70f9c27f19d069c3b38f892fa314e4",
+      "size_bytes": 864892,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details."
+            ],
+            "1": [
+              "Arial"
+            ],
+            "2": [
+              "Bold",
+              "Negreta",
+              "tučné",
+              "fed",
+              "Fett",
+              "Έντονα",
+              "Negrita",
+              "Lihavoitu",
+              "Gras",
+              "Félkövér",
+              "Grassetto",
+              "Vet",
+              "Halvfet",
+              "Pogrubiony",
+              "Negrito",
+              "Полужирный",
+              "Tučné",
+              "Fet",
+              "Kalın",
+              "Krepko",
+              "đậm",
+              "Lodia"
+            ],
+            "4": [
+              "Arial Bold",
+              "Arial Negreta",
+              "Arial tučné",
+              "Arial fed",
+              "Arial Fett",
+              "Arial Έντονα",
+              "Arial Negrita",
+              "Arial Lihavoitu",
+              "Arial Gras",
+              "Arial Félkövér",
+              "Arial Grassetto",
+              "Arial Vet",
+              "Arial Halvfet",
+              "Arial Pogrubiony",
+              "Arial Negrito",
+              "Arial Полужирный",
+              "Arial Tučné",
+              "Arial Fet",
+              "Arial Kalın",
+              "Arial Krepko",
+              "Arial đậm",
+              "Arial Lodia"
+            ],
+            "5": [
+              "Version 6.90"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r",
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r\n"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "ariali.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/ariali.ttf",
+      "git_blob_sha1": "486cd52a0114d3118e4e811089e32fb725459650",
+      "sha256": "7645ce18dc998e1280590f2ecce73d5ea0f4944229d4595a38b699ee88f4f102",
+      "size_bytes": 647536,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details."
+            ],
+            "1": [
+              "Arial"
+            ],
+            "2": [
+              "Italic",
+              "Cursiva",
+              "kurzíva",
+              "kursiv",
+              "Kursiv",
+              "Πλάγια",
+              "Kursivoitu",
+              "Italique",
+              "Dőlt",
+              "Corsivo",
+              "Cursief",
+              "Kursywa",
+              "Itálico",
+              "Курсив",
+              "Kurzíva",
+              "İtalik",
+              "Poševno",
+              "nghiêng",
+              "Etzana"
+            ],
+            "4": [
+              "Arial Italic",
+              "Arial Cursiva",
+              "Arial kurzíva",
+              "Arial kursiv",
+              "Arial Kursiv",
+              "Arial Πλάγια",
+              "Arial Kursivoitu",
+              "Arial Italique",
+              "Arial Dőlt",
+              "Arial Corsivo",
+              "Arial Cursief",
+              "Arial Kursywa",
+              "Arial Itálico",
+              "Arial Курсив",
+              "Arial Kurzíva",
+              "Arial İtalik",
+              "Arial Poševno",
+              "Arial nghiêng",
+              "Arial Etzana"
+            ],
+            "5": [
+              "Version 6.90"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r",
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r\n"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "arialbi.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/arialbi.ttf",
+      "git_blob_sha1": "78ee6d322a9bdf455c08d7b0a836d9d0335db0d0",
+      "sha256": "3e1b042729be1d73f6c4071482b06c0ff16a031d5f9ebda861fe5e3d1293573a",
+      "size_bytes": 651508,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details."
+            ],
+            "1": [
+              "Arial"
+            ],
+            "2": [
+              "Bold Italic",
+              "Negreta cursiva",
+              "tučné kurzíva",
+              "fed kursiv",
+              "Fett Kursiv",
+              "Έντονα Πλάγια",
+              "Negrita Cursiva",
+              "Lihavoitu Kursivoi",
+              "Gras Italique",
+              "Félkövér dőlt",
+              "Grassetto Corsivo",
+              "Vet Cursief",
+              "Halvfet Kursiv",
+              "Pogrubiona kursywa",
+              "Negrito Itálico",
+              "Полужирный Курсив",
+              "Tučná kurzíva",
+              "Fet Kursiv",
+              "Kalın İtalik",
+              "Krepko poševno",
+              "nghiêng đậm",
+              "Lodi etzana"
+            ],
+            "4": [
+              "Arial Bold Italic",
+              "Arial Negreta cursiva",
+              "Arial tučné kurzíva",
+              "Arial fed kursiv",
+              "Arial Fett Kursiv",
+              "Arial Έντονα Πλάγια",
+              "Arial Negrita Cursiva",
+              "Arial Lihavoitu Kursivoi",
+              "Arial Gras Italique",
+              "Arial Félkövér dőlt",
+              "Arial Grassetto Corsivo",
+              "Arial Vet Cursief",
+              "Arial Halvfet Kursiv",
+              "Arial Pogrubiona kursywa",
+              "Arial Negrito Itálico",
+              "Arial Полужирный Курсив",
+              "Arial Tučná kurzíva",
+              "Arial Fet Kursiv",
+              "Arial Kalın İtalik",
+              "Arial Krepko poševno",
+              "Arial nghiêng đậm",
+              "Arial Lodi etzana"
+            ],
+            "5": [
+              "Version 6.90"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r",
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r\n"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "calibri.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/calibri.ttf",
+      "git_blob_sha1": "b9bde2a7cccb28ae664e96a12c98ca917ea568eb",
+      "sha256": "72af985bf4cd4580882682a9b0e62b281e3668984f9b76d562525a5a30abfc7e",
+      "size_bytes": 940484,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Calibri"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Calibri"
+            ],
+            "5": [
+              "Version 6.11"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "calibrib.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/calibrib.ttf",
+      "git_blob_sha1": "c60e957910ff191ca0a7412c7c93d69817450b80",
+      "sha256": "0d53ac794d43899fb096f6e871cfdddb0885e5ff9c39052877d03bec2757b175",
+      "size_bytes": 903960,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Calibri"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Calibri Bold"
+            ],
+            "5": [
+              "Version 6.11"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "calibrii.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/calibrii.ttf",
+      "git_blob_sha1": "94ed4e1ef0686c5d121db52f8e63f9fed5f1d101",
+      "sha256": "3182dadc0816e11f11d09b83b5fdf72b94cb1573ef20e105cc3fd51beb067cf0",
+      "size_bytes": 997180,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Calibri"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Calibri Italic"
+            ],
+            "5": [
+              "Version 6.11"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "calibriz.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/calibriz.ttf",
+      "git_blob_sha1": "43ae5708ed3626a017ce22ba2dac690c96d92375",
+      "sha256": "f8e6090befa4d5b9a6cfb82c12f5cb33b545aff587123c3bfe80ba56853681bd",
+      "size_bytes": 957668,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Calibri"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Calibri Bold Italic"
+            ],
+            "5": [
+              "Version 6.11"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "calibril.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/calibril.ttf",
+      "git_blob_sha1": "0ed43073b08ff94ccebe9bc10b4ee27a8d25f3cf",
+      "sha256": "162c6a27b253e5a65e0b509d8b76c5d74be1c70871ad831228e65e181daa8e76",
+      "size_bytes": 808104,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved. Designed by Luc(as) de Groot"
+            ],
+            "1": [
+              "Calibri Light"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Calibri Light"
+            ],
+            "5": [
+              "Version 2.31"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "16": [
+              "Calibri"
+            ],
+            "17": [
+              "Light"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "calibrili.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/calibrili.ttf",
+      "git_blob_sha1": "be24da67a2ea909aea9e2da6a48f7907340a0e48",
+      "sha256": "f315f9a6fe154c05608a059d1b22d7b3160e574b4f84cd3eccef695a3ca21f05",
+      "size_bytes": 922760,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved. Designed by Luc(as) de Groot"
+            ],
+            "1": [
+              "Calibri Light"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Calibri Light Italic"
+            ],
+            "5": [
+              "Version 2.31"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "16": [
+              "Calibri"
+            ],
+            "17": [
+              "Light Italic"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "consola.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/consola.ttf",
+      "git_blob_sha1": "d860da1a5e562180dbe07ceaf9f399d43879d583",
+      "sha256": "aa5c97b9107bcfd72e29174df51b0cfb12a0fecbcd04f5518829dea8d0c19187",
+      "size_bytes": 429888,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2014 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Consolas"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Consolas"
+            ],
+            "5": [
+              "Version 5.36"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "consolab.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/consolab.ttf",
+      "git_blob_sha1": "ef6d5554e22e3a0500064d2fa82220dd024bb97b",
+      "sha256": "73acf8f7f9d16c76829ee5ee801852cd54184a68ac513c1e339487685aa9b732",
+      "size_bytes": 368720,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2013 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Consolas"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Consolas Bold"
+            ],
+            "5": [
+              "Version 5.33"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "consolai.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/consolai.ttf",
+      "git_blob_sha1": "d0de1badba252d2dd9d77cd72564771f31bacf22",
+      "sha256": "e291bf0633020c09cf81af848d7ff97ac342a025d1e6676c3a50d62663f0b6b3",
+      "size_bytes": 435048,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2014 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Consolas"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Consolas Italic"
+            ],
+            "5": [
+              "Version 5.36"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "consolaz.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/consolaz.ttf",
+      "git_blob_sha1": "cb720c07721202749378b9ce1f6b6c99fb7de3a7",
+      "sha256": "0000adf3cc6f3f382b061f31277cdcb3787fb816d7251d8fdb57b33085eaab70",
+      "size_bytes": 375392,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2013 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Consolas"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Consolas Bold Italic"
+            ],
+            "5": [
+              "Version 5.33"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "stzhongs.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/STZHONGS.ttf",
+      "git_blob_sha1": "412dfcda1eb68935d93d6ac218a41384e99c5468",
+      "sha256": "e822a3f2859a6cc982f04c6ad1eabc18371ce26d6874b710188a30c35dced0f1",
+      "size_bytes": 12135284,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright (c) 1991-1998, Changzhou SinoType Technology Co., Ltd.  All rights reserved.",
+              "Ｃｏｐｙｒｉｇｈｔ（ｃ）１９９１－１９９８，Ｃｈａｎｇｚｈｏｕ　ＳｉｎｏＴｙｐｅ　Ｔｅｃｈｎｏｌｏｇｙ　Ｃｏ．，Ｌｔｄ．　Ａｌｌ　ｒｉｇｈｔｓ　ｒｅｓｅｒｖｅｄ．　常州华文印刷新技术有限公司　版权所有　"
+            ],
+            "1": [
+              "STZhongsong",
+              "华文中宋"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "STZhongsong",
+              "华文中宋"
+            ],
+            "5": [
+              "Version 1.02"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "cambria.ttc",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/cambria.ttc",
+      "git_blob_sha1": "502cd6f96d7ef91fa9b8784581e7360d0e142684",
+      "sha256": "ac06c0cf6837515d67301d927d844edf1c93c01357cccfc157b5e7c20bcee096",
+      "size_bytes": 1711796,
+      "faces": [
+        {
+          "names": {
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "0": [
+              "© 2014 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Cambria"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Cambria"
+            ],
+            "5": [
+              "Version 6.90"
+            ]
+          }
+        },
+        {
+          "names": {
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "0": [
+              "© 2014 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Cambria Math"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Cambria Math"
+            ],
+            "5": [
+              "Version 6.90"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "cambriab.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/cambriab.ttf",
+      "git_blob_sha1": "842291330904e5b895c991d6e9876093b02ab9e6",
+      "sha256": "3d77eb209be61eb56faca225e6b5c7f47f3f5e3a9e773671bb9d988f9fa36410",
+      "size_bytes": 796632,
+      "faces": [
+        {
+          "names": {
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "0": [
+              "© 2014 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Cambria"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Cambria Bold"
+            ],
+            "5": [
+              "Version 6.90"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "cambriai.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/cambriai.ttf",
+      "git_blob_sha1": "2788990884b654cd2648c38c4f032bbc56d8db0e",
+      "sha256": "488bee9b7c21647d50576852524ecc7e5df66fd742aa4f02478f7f232a369a0d",
+      "size_bytes": 843772,
+      "faces": [
+        {
+          "names": {
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "0": [
+              "© 2014 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Cambria"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Cambria Italic"
+            ],
+            "5": [
+              "Version 6.90"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "cambriaz.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/cambriaz.ttf",
+      "git_blob_sha1": "e4384f37eb05e5e22e2dc60519f58dcc70040855",
+      "sha256": "9832e8ff1f087a6c54b4f2062de1b348c2e09939a7d0c5deea5ea4bd72b82c54",
+      "size_bytes": 809752,
+      "faces": [
+        {
+          "names": {
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "0": [
+              "© 2014 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Cambria"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Cambria Bold Italic"
+            ],
+            "5": [
+              "Version 6.90"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "cour.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/cour.ttf",
+      "git_blob_sha1": "cedbd9f596b4d723a8fe9721e95cb71ae7f10185",
+      "sha256": "d4557f9674de7c5ef58ad4c3651016944672c6bf1f5e9253abfeea9730939808",
+      "size_bytes": 792748,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details."
+            ],
+            "1": [
+              "Courier New"
+            ],
+            "2": [
+              "Regular",
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "thường",
+              "Arrunta"
+            ],
+            "4": [
+              "Courier New"
+            ],
+            "5": [
+              "Version 6.90"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r",
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r\n"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "courbd.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/courbd.ttf",
+      "git_blob_sha1": "ab18acbabb1856cffed15b1aa97ee2be23943e4c",
+      "sha256": "48aa67a7e051b3b01971d23cde77a7712dd0ef17b46a76db3f560c3b12e51215",
+      "size_bytes": 791436,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details."
+            ],
+            "1": [
+              "Courier New"
+            ],
+            "2": [
+              "Bold",
+              "Negreta",
+              "tučné",
+              "fed",
+              "Fett",
+              "Έντονα",
+              "Negrita",
+              "Lihavoitu",
+              "Gras",
+              "Félkövér",
+              "Grassetto",
+              "Vet",
+              "Halvfet",
+              "Pogrubiony",
+              "Negrito",
+              "Полужирный",
+              "Tučné",
+              "Fet",
+              "Kalın",
+              "Krepko",
+              "đậm",
+              "Lodia"
+            ],
+            "4": [
+              "Courier New Bold",
+              "Courier New Negreta",
+              "Courier New tučné",
+              "Courier New fed",
+              "Courier New Fett",
+              "Courier New Έντονα",
+              "Courier New Negrita",
+              "Courier New Lihavoitu",
+              "Courier New Gras",
+              "Courier New Félkövér",
+              "Courier New Grassetto",
+              "Courier New Vet",
+              "Courier New Halvfet",
+              "Courier New Pogrubiony",
+              "Courier New Negrito",
+              "Courier New Полужирный",
+              "Courier New Tučné",
+              "Courier New Fet",
+              "Courier New Kalın",
+              "Courier New Krepko",
+              "Courier New đậm",
+              "Courier New Lodia"
+            ],
+            "5": [
+              "Version 6.90"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r",
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r\n"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "couri.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/couri.ttf",
+      "git_blob_sha1": "f1d1a2d63dc5656e8d806eaf1d92bab817df05d3",
+      "sha256": "b707a469f233edff709f51e7bcba2e69f1f52460d8ee2d510707a7cac103b498",
+      "size_bytes": 665440,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details."
+            ],
+            "1": [
+              "Courier New"
+            ],
+            "2": [
+              "Italic",
+              "Cursiva",
+              "kurzíva",
+              "kursiv",
+              "Kursiv",
+              "Πλάγια",
+              "Kursivoitu",
+              "Italique",
+              "Dőlt",
+              "Corsivo",
+              "Cursief",
+              "Kursywa",
+              "Itálico",
+              "Курсив",
+              "Kurzíva",
+              "İtalik",
+              "Poševno",
+              "nghiêng",
+              "Etzana"
+            ],
+            "4": [
+              "Courier New Italic",
+              "Courier New Cursiva",
+              "Courier New kurzíva",
+              "Courier New kursiv",
+              "Courier New Kursiv",
+              "Courier New Πλάγια",
+              "Courier New Kursivoitu",
+              "Courier New Italique",
+              "Courier New Dőlt",
+              "Courier New Corsivo",
+              "Courier New Cursief",
+              "Courier New Kursywa",
+              "Courier New Itálico",
+              "Courier New Курсив",
+              "Courier New Kurzíva",
+              "Courier New İtalik",
+              "Courier New Poševno",
+              "Courier New nghiêng",
+              "Courier New Etzana"
+            ],
+            "5": [
+              "Version 6.90"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r",
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r\n"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "courbi.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/courbi.ttf",
+      "git_blob_sha1": "1c3a3f908a2813073b5ec3709499bd05189ceff6",
+      "sha256": "d9046a0be729b2a547555df405517545dd2ea4930d67d578013166f0fbfacfd0",
+      "size_bytes": 575224,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\rHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details.",
+              "© 2015 The Monotype Corporation. All Rights Reserved. \r\n\r\nHebrew OpenType Layout logic copyright © 2003 & 2007, Ralph Hancock & John Hudson. This layout logic for Biblical Hebrew is open source software under the MIT License; see embedded license description for details."
+            ],
+            "1": [
+              "Courier New"
+            ],
+            "2": [
+              "Bold Italic",
+              "Negreta cursiva",
+              "tučné kurzíva",
+              "fed kursiv",
+              "Fett Kursiv",
+              "Έντονα Πλάγια",
+              "Negrita Cursiva",
+              "Lihavoitu Kursivoi",
+              "Gras Italique",
+              "Félkövér dőlt",
+              "Grassetto Corsivo",
+              "Vet Cursief",
+              "Halvfet Kursiv",
+              "Pogrubiona kursywa",
+              "Negrito Itálico",
+              "Полужирный Курсив",
+              "Tučná kurzíva",
+              "Fet Kursiv",
+              "Kalın İtalik",
+              "Krepko poševno",
+              "đậm nghiêng",
+              "Lodi etzana"
+            ],
+            "4": [
+              "Courier New Bold Italic",
+              "Courier New Negreta cursiva",
+              "Courier New tučné kurzíva",
+              "Courier New fed kursiv",
+              "Courier New Fett Kursiv",
+              "Courier New Έντονα Πλάγια",
+              "Courier New Negrita Cursiva",
+              "Courier New Lihavoitu Kursivoi",
+              "Courier New Gras Italique",
+              "Courier New Félkövér dőlt",
+              "Courier New Grassetto Corsivo",
+              "Courier New Vet Cursief",
+              "Courier New Halvfet Kursiv",
+              "Courier New Pogrubiona kursywa",
+              "Courier New Negrito Itálico",
+              "Courier New Полужирный Курсив",
+              "Courier New Tučná kurzíva",
+              "Courier New Fet Kursiv",
+              "Courier New Kalın İtalik",
+              "Courier New Krepko poševno",
+              "Courier New đậm nghiêng",
+              "Courier New Lodi etzana"
+            ],
+            "5": [
+              "Version 6.90"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\rThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\rPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\rThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\rTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r",
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\r\n"
+            ]
+          }
+        }
+      ]
     }
   ]
 }
