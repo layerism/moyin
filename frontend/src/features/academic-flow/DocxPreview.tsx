@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { paginateDocx } from "./docxPagination";
+import { applyDocxLineSpacing, supplementDocxLayout } from "./docxLayout";
+import type { HElement } from "docx-preview";
 
 export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; filename: string; toolbarPrefix?: ReactNode }) {
   const host = useRef<HTMLDivElement>(null);
@@ -7,7 +9,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
   const [error, setError] = useState("");
   const [zoom, setZoom] = useState(0.5);
   const [pageCount, setPageCount] = useState(0);
-  const [paper, setPaper] = useState<"A4" | "A3">("A4");
+  const [paper, setPaper] = useState<"original" | "A4" | "A3">("original");
 
   useEffect(() => {
     const element = host.current;
@@ -22,13 +24,27 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       if (!response.ok) throw new Error(response.status === 401 || response.status === 403
         ? "登录已失效或无权查看此文件，请重新登录后重试。"
         : "DOCX 加载失败，请重新打开审核页或下载原件查看。");
-      const data = await response.blob();
-      const { parseAsync, renderDocument } = await import("docx-preview");
+      const data = await response.arrayBuffer();
+      const { parseAsync, renderDocument, defaultOptions } = await import("docx-preview");
       if (!active) return;
       const body = document.createElement("div");
       const styles = document.createElement("div");
-      const options = { useBase64URL: true, renderAltChunks: false, breakPages: true, ignoreLastRenderedPageBreak: false, ignoreWidth: true, ignoreHeight: true };
+      const options = {
+        useBase64URL: true, renderAltChunks: false, breakPages: true,
+        ignoreLastRenderedPageBreak: false, ignoreWidth: false, ignoreHeight: false,
+        h: (value: HElement | Node | string) => {
+          const result = defaultOptions.h(value);
+          if (result instanceof HTMLElement && typeof value === "object" && !(value instanceof Node)
+            && typeof value.style === "object") {
+            for (const [name, content] of Object.entries(value.style)) {
+              if (name.startsWith("--docx-")) result.style.setProperty(name, content);
+            }
+          }
+          return result;
+        },
+      };
       const parsed = await parseAsync(data, options);
+      supplementDocxLayout(data, parsed);
       // docx-preview 0.4.1 merges equal-sized sections when saved page breaks
       // are enabled. Preserve next-page section boundaries explicitly; an
       // omitted section type means nextPage in WordprocessingML.
@@ -45,10 +61,14 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       const nodes = await renderDocument(parsed, options);
       for (const node of nodes) (node.nodeName === "STYLE" ? styles : body).appendChild(node);
       if (!active) return;
-      const [width, height] = paper === "A3" ? [297, 420] : [210, 297];
+      for (const page of Array.from(body.querySelectorAll<HTMLElement>("section.docx"))) {
+        const height = paper === "original" ? page.style.minHeight || "297mm" : paper === "A3" ? "420mm" : "297mm";
+        page.style.width = paper === "original" ? page.style.width || "210mm" : paper === "A3" ? "297mm" : "210mm";
+        page.style.height = page.style.minHeight = height;
+      }
       const pageSize = document.createElement("style");
       pageSize.textContent = `
-        section.docx { width: ${width}mm; height: ${height}mm; min-height: ${height}mm; flex-shrink: 0; box-sizing: border-box; }
+        section.docx { flex-shrink: 0; box-sizing: border-box; }
         section.docx > article { flex: none; margin-bottom: 0; }
         section.docx > header, section.docx > footer { flex: none; }
         section.docx > footer { margin-top: auto !important; }
@@ -61,6 +81,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       await document.fonts.ready;
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       if (!active) return;
+      applyDocxLineSpacing(body);
       setPageCount(paginateDocx(body));
       setLoading(false);
     })().catch((reason: unknown) => {
@@ -75,11 +96,12 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
     <div className={`pdf-preview-toolbar${toolbarPrefix ? " is-unified" : ""}`}>
       {toolbarPrefix}
       {!toolbarPrefix ? <span>DOCX 预览</span> : null}
-      <select aria-label="DOCX 纸张大小" value={paper} onChange={(event) => setPaper(event.target.value === "A3" ? "A3" : "A4")}>
+      <select aria-label="DOCX 纸张大小" value={paper} onChange={(event) => setPaper(event.target.value === "A3" ? "A3" : event.target.value === "A4" ? "A4" : "original")}>
+        <option value="original">原始</option>
         <option value="A4">A4</option>
         <option value="A3">A3</option>
       </select>
-      {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">{toolbarPrefix ? "" : `${paper} 推断 · `}{pageCount} 页</span> : null}
+      {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">{toolbarPrefix ? "" : `${paper === "original" ? "原始版式" : `${paper} 重排`} · `}{pageCount} 页</span> : null}
       <div className="preview-zoom-group" role="group" aria-label="缩放">
       <button className="preview-zoom-start" type="button" disabled={loading || Boolean(error) || zoom <= 0.5} aria-label="缩小" onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}>−</button>
       <button type="button" disabled={loading || Boolean(error)} title="恢复原始比例" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>

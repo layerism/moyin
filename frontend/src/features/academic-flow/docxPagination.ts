@@ -38,8 +38,10 @@ export function paginateDocx(body: HTMLElement): number {
     const bottom = () => {
       const style = getComputedStyle(page);
       const footer = page.querySelector<HTMLElement>(":scope > footer");
+      // The renderer places part of the footer inside the already reserved bottom margin.
+      const footerHeight = footer ? Math.max(0, footer.offsetHeight + (parseFloat(getComputedStyle(footer).marginBottom) || 0)) : 0;
       return page.getBoundingClientRect().top + page.clientHeight
-        - parseFloat(style.paddingBottom) - (footer?.offsetHeight ?? 0);
+        - parseFloat(style.paddingBottom) - footerHeight;
     };
     const fits = (block: HTMLElement) => {
       const rect = block.getBoundingClientRect();
@@ -143,6 +145,8 @@ function splitTable(table: HTMLTableElement, fits: (block: HTMLElement) => boole
   }
   table.replaceChildren(...Array.from(source.cloneNode(true).childNodes));
   if (!chosen) return splitTableGroup(table, source, headerCount, fits);
+  const rest = splitTableGroup(table, source, headerCount, fits, chosen);
+  if (rest || fits(table)) return rest;
   while (table.rows.length > chosen) table.deleteRow(table.rows.length - 1);
   for (let index = chosen - 1; index >= headerCount; index--) source.deleteRow(index);
   return source;
@@ -153,10 +157,11 @@ function splitTableGroup(
   source: HTMLTableElement,
   headerCount: number,
   fits: (block: HTMLElement) => boolean,
+  start = headerCount,
 ): HTMLElement | null {
   const rows = Array.from(source.rows);
-  if (rows.length <= headerCount) return null;
-  let end = headerCount + 1;
+  if (rows.length <= start) return null;
+  let end = start + 1;
   // A vertical merge group keeps the same grid on each continuation page.
   for (let index = 0; index < end; index++) {
     for (const cell of Array.from(rows[index].cells)) {
@@ -165,7 +170,7 @@ function splitTableGroup(
   }
   const remainder = source.cloneNode(true) as HTMLTableElement;
   while (table.rows.length > end) table.deleteRow(table.rows.length - 1);
-  const group = (target: HTMLTableElement) => Array.from(target.rows).slice(headerCount, end);
+  const group = (target: HTMLTableElement) => Array.from(target.rows).slice(start, end);
   const cells = (target: HTMLTableElement) => group(target).flatMap((row) => Array.from(row.cells));
   const originalCells = cells(source);
   const currentCells = cells(table);
@@ -206,11 +211,12 @@ function splitTableGroup(
     }
   });
   if (!consumed) {
-    table.replaceChildren(...Array.from(source.childNodes));
+    table.replaceChildren(...Array.from(source.cloneNode(true).childNodes));
     return null;
   }
   if (!continued) {
-    for (let index = end - 1; index >= headerCount; index--) remainder.deleteRow(index);
+    for (let index = end - 1; index >= start; index--) remainder.deleteRow(index);
   }
+  for (let index = start - 1; index >= headerCount; index--) remainder.deleteRow(index);
   return remainder.rows.length > headerCount ? remainder : null;
 }
