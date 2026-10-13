@@ -400,7 +400,7 @@ export function StudentRuntimePage({
       {previewReviewNode ? (() => {
         const closeReview = () => { setPreviewReviewNode(null); void workflowApi.getInstance(instanceId).then(setInstance).catch((reason: Error) => setNotice(reason.message)); };
         return hasSequentialManualReview(instance.config.nodes.find((node) => node.id === previewReviewNode))
-          ? <FileReviewDialog nodeKey={previewReviewNode} versionId={instance.flowVersionId} allowBulkDownload={false} onClose={closeReview} />
+          ? <FileReviewDialog nodeKey={previewReviewNode} versionId={instance.flowVersionId} allowBulkDownload={false} allowDocxPdfPreview={false} onClose={closeReview} />
           : <ManualReviewDialog nodeKey={previewReviewNode} versionId={instance.flowVersionId} onClose={closeReview} />;
       })() : null}
       {actionWarning ? (
