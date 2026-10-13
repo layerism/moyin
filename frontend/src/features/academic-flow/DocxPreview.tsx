@@ -10,6 +10,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
   const host = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [fontWarnings, setFontWarnings] = useState<string[]>([]);
   const [zoom, setZoom] = useState(0.5);
   const [pageCount, setPageCount] = useState(0);
   const [paper, setPaper] = useState<"original" | "A4" | "A3">("original");
@@ -22,7 +23,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
     let active = true;
     let releaseFonts: (() => void) | undefined;
     root.replaceChildren();
-    setLoading(true); setError(""); setZoom(0.5); setPageCount(0);
+    setLoading(true); setError(""); setFontWarnings([]); setZoom(0.5); setPageCount(0);
     void (async () => {
       const response = await fetch(url, { credentials: "include", signal: controller.signal });
       if (!response.ok) throw new Error(response.status === 401 || response.status === 403
@@ -101,8 +102,10 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       `;
       root.replaceChildren(styles, pageSize, body);
       // The host remains laid out (but invisible) while measuring pagination.
-      releaseFonts = await applyProjectDocxFonts(body, fontTheme);
+      const fonts = await applyProjectDocxFonts(body, fontTheme);
+      releaseFonts = fonts.release;
       if (!active) { releaseFonts(); return; }
+      setFontWarnings(fonts.warnings);
       await Promise.all(Array.from(body.querySelectorAll("img"), (image) => image.decode().catch(() => undefined)));
       await document.fonts.ready;
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -135,6 +138,10 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       <button type="button" disabled={loading || Boolean(error) || zoom >= 2} aria-label="放大" onClick={() => setZoom((value) => Math.min(2, value + 0.25))}>＋</button>
       </div>
     </div>
+    {!loading && !error && fontWarnings.length > 0 ? <details className="file-review-muted" style={{ padding: "8px 12px", maxHeight: 120, overflow: "auto", flexShrink: 0 }}>
+      <summary>部分字符已补齐或显示缺字占位，排版可能与原件不同</summary>
+      <ul>{fontWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+    </details> : null}
     <div className="docx-preview-viewport" aria-busy={loading}>
       {loading ? <p role="status">正在加载 DOCX…</p> : null}
       {error ? <p role="alert">{error}</p> : null}

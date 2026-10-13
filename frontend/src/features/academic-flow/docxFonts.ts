@@ -84,6 +84,9 @@ const value = (style: CSSStyleDeclaration, key: string): string => {
   return raw ? JSON.parse(raw) : "";
 };
 let numberingFamily = 0;
+const compatibleFonts: Record<string, string> = {
+  MoyinDocxFangSongLegacy: "仿宋", MoyinDocxKaiLegacy: "楷体",
+};
 const counterCharacters: Record<string, string> = {
   decimal: "0123456789", decimalZero: "0123456789",
   upperRoman: "IVXLCDM", lowerRoman: "ivxlcdm",
@@ -127,6 +130,17 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
   type Selection = { font: ProjectFont; face: Face; key: string; characters: Set<number>; weight: string; style: string };
   const required = new Map<string, Selection>();
   const resources = new Map<string, LoadedFace>();
+  const selectionFor = (font: ProjectFont, weight: string, style: string): Selection => {
+    const key = `${font.family}:${weight}:${style}`;
+    const cached = required.get(key);
+    if (cached) return cached;
+    const selected = font.faces.find((entry) => entry.weight === weight && entry.style === style)
+      ?? font.faces.find((entry) => entry.weight === weight && entry.style === "normal")
+      ?? font.faces.find((entry) => entry.weight === "400" && entry.style === style) ?? font.faces[0];
+    const request = { font, face: selected, key, characters: new Set<number>(), weight, style };
+    required.set(key, request);
+    return request;
+  };
   const select = (text: string, style: CSSStyleDeclaration, paragraphMark = false) => {
     const groups: { text: string; selection: Selection }[] = [];
     const names = new Map<string, string>();
@@ -154,15 +168,10 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       const italic = csItalic ? csItalic === "1" : /^(italic|oblique)/.test(style.fontStyle);
       const fontStyle = italic ? "italic" : "normal";
       // Synthesize only within this same family if an independent face does not exist.
-      const selected = font.faces.find((entry) => entry.weight === weight && entry.style === fontStyle)
-        ?? font.faces.find((entry) => entry.weight === weight && entry.style === "normal")
-        ?? font.faces.find((entry) => entry.weight === "400" && entry.style === fontStyle) ?? font.faces[0];
-      const key = `${font.family}:${selected.weight}:${selected.style}`;
-      let request = required.get(key);
-      if (!request) { request = { font, face: selected, key, characters: new Set(), weight, style: fontStyle }; required.set(key, request); }
+      const selection = selectionFor(font, weight, fontStyle);
+      const key = selection.key;
       const code = character.codePointAt(0)!;
-      if (code >= 0x20 && ![0x200c, 0x200d, 0x2060, 0xfeff].includes(code) && !(code >= 0xfe00 && code <= 0xfe0f)) request.characters.add(code);
-      const selection = { ...request, weight, style: fontStyle };
+      if (!/\p{Cc}|\p{Default_Ignorable_Code_Point}/u.test(character)) selection.characters.add(code);
       const previous = groups[groups.length - 1];
       if (previous?.selection.key === key && previous.selection.weight === weight && previous.selection.style === fontStyle) previous.text += character;
       else groups.push({ text: character, selection });
@@ -181,7 +190,7 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
   const paragraphs = Array.from(body.querySelectorAll<HTMLElement>("p, li"))
     .filter((element) => element.getClientRects().length > 0)
     .map((element) => ({ element, selection: select(" ", getComputedStyle(element), true)[0].selection }));
-  const pseudos: { element: HTMLElement; name: string; family: string; groups: ReturnType<typeof select> }[] = [];
+  const pseudos: { element: HTMLElement; name: string; counters: string; groups: ReturnType<typeof select> }[] = [];
   for (const element of Array.from(body.querySelectorAll<HTMLElement>("*"))) {
     if (!(element instanceof HTMLElement) || element.getClientRects().length === 0) continue;
     for (const name of ["before", "after", "marker"]) {
@@ -194,27 +203,92 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       const formats = marker ? [format] : Array.from(style.content.matchAll(/counter\([^,)]+(?:,\s*([^\s)]+))?\)/g),
         (match) => match[1] ? counterFormats[match[1]] || match[1] : "decimal");
       for (const format of formats) if (!counterCharacters[format]) throw new Error(`DOCX 编号字体暂不支持格式：${format}，请下载原件查看。`);
+      const counters = formats.map((format) => counterCharacters[format]).join("");
       const text = Array.from(style.content.matchAll(/"((?:[^"\\]|\\.)*)"/g), (match) => match[1].replace(/\\([0-9a-f]{1,6})\s?/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))).join("")
-        + formats.map((format) => counterCharacters[format]).join("") + (marker ? ". " : "");
+        + counters + (marker ? ". " : "");
       if (!text.trim()) continue;
       const groups = select(text, style);
-      pseudos.push({ element, name, family: `MoyinDocxNumber${++numberingFamily}`, groups });
+      pseudos.push({ element, name, counters, groups });
     }
   }
   await Promise.all(Array.from(required.values(), async (request) => {
     const resource = await loadFace(request.font, request.face);
     resources.set(request.key, resource);
-    for (const code of request.characters) {
-      if (!resource.covers(code)) throw new Error(`DOCX 字体 ${request.font.aliases[0]} 缺少字符 U+${code.toString(16).toUpperCase()}，已停止预览以避免系统字体替换。`);
-    }
   }));
+  // Resolve unique missing glyphs once. Only the missing characters may change font.
+  type Replacement = { selection: Selection; text: string };
+  const replacements = new Map<string, Map<number, Replacement>>();
+  const notices = new Map<string, Set<number>>();
+  const note = (source: Selection, target: string, code: number) => {
+    const message = `${source.font.aliases[0]} → ${target}`;
+    let codes = notices.get(message);
+    if (!codes) { codes = new Set(); notices.set(message, codes); }
+    codes.add(code);
+  };
+  const ensureResource = async (selection: Selection) => {
+    const resource = resources.get(selection.key) ?? await loadFace(selection.font, selection.face);
+    resources.set(selection.key, resource);
+    return resource;
+  };
+  const requests = Array.from(required.values());
+  await Promise.all(requests.map(async (source) => {
+    const missing = Array.from(source.characters).filter((code) => !resources.get(source.key)!.covers(code));
+    if (!missing.length) return;
+    const resolved = new Map<number, Replacement>();
+    replacements.set(source.key, resolved);
+    await Promise.all(missing.map(async (code) => {
+      const text = String.fromCodePoint(code);
+      // Private-use/symbol glyphs have font-specific meanings; never guess a substitute.
+      const privateUse = (code >= 0xe000 && code <= 0xf8ff) || (code >= 0xf0000 && code <= 0xffffd)
+        || (code >= 0x100000 && code <= 0x10fffd);
+      const candidates = resources.get(source.key)!.covers.symbol || privateUse ? []
+        : [compatibleFonts[source.font.family], "宋体", "微软雅黑"];
+      for (const name of new Set(candidates.filter(Boolean))) {
+        const font = byName.get(name.toLowerCase())!;
+        if (font === source.font) continue;
+        const target = selectionFor(font, source.weight, source.style);
+        if ((await ensureResource(target)).covers(code)) {
+          resolved.set(code, { selection: target, text });
+          note(source, font.aliases[0], code);
+          return;
+        }
+      }
+      // A verified project glyph marks missing text; the notice retains its code point.
+      const target = selectionFor(byName.get("宋体")!, source.weight, source.style);
+      const label = "□";
+      const resource = await ensureResource(target);
+      if (!Array.from(label).every((character) => resource.covers(character.codePointAt(0)!))) {
+        throw new Error("DOCX 缺字占位字体不可用，请检查项目宋体文件。");
+      }
+      resolved.set(code, { selection: target, text: label });
+      note(source, "缺字占位", code);
+    }));
+  }));
+  const replaceGroups = (groups: ReturnType<typeof select>): ReturnType<typeof select> => {
+    const result: ReturnType<typeof select> = [];
+    for (const group of groups) {
+      const missing = replacements.get(group.selection.key);
+      if (!missing) { result.push({ ...group }); continue; }
+      for (const character of group.text) {
+        const replacement = missing.get(character.codePointAt(0)!);
+        const selection = replacement?.selection ?? group.selection;
+        const text = replacement?.text ?? character;
+        const previous = result[result.length - 1];
+        if (previous?.selection.key === selection.key) previous.text += text;
+        else result.push({ text, selection });
+      }
+    }
+    return result;
+  };
   const glyphText = (text: string, selection: Selection) => resources.get(selection.key)?.covers.symbol
     ? Array.from(text, (character) => {
       const code = character.codePointAt(0)!;
-      return code >= 0x20 && code <= 0xff ? String.fromCodePoint(code + 0xf000) : character;
+      return code >= 0x20 && code <= 0xff && !/\p{Cc}|\p{Default_Ignorable_Code_Point}/u.test(character)
+        ? String.fromCodePoint(code + 0xf000) : character;
     }).join("") : text;
   for (const { element, selection } of paragraphs) element.style.setProperty("font-family", `"${selection.font.family}"`, "important");
-  for (const { node, groups } of texts) {
+  for (const { node, groups: originalGroups } of texts) {
+    const groups = replaceGroups(originalGroups);
     const parent = node.parentElement!;
     if (new Set(groups.map((group) => group.selection.font.family)).size === 1) {
       // PAGE fields replace their text after pagination; preserve their private font on the parent.
@@ -222,8 +296,10 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       node.data = groups.map((group) => glyphText(group.text, group.selection)).join("");
     }
     if (parent.namespaceURI !== "http://www.w3.org/1999/xhtml") {
-      if (new Set(groups.map((group) => group.selection.font.family)).size !== 1) throw new Error("DOCX 公式或图形中的混合字体暂无法准确预览，请下载原件查看。");
-      (parent as HTMLElement).style.setProperty("font-family", `"${groups[0].selection.font.family}"`, "important");
+      if (new Set(originalGroups.map((group) => group.selection.font.family)).size !== 1) throw new Error("DOCX 公式或图形中的混合字体暂无法准确预览，请下载原件查看。");
+      const families = new Set([originalGroups[0].selection.font.family, ...groups.map((group) => group.selection.font.family)]);
+      (parent as HTMLElement).style.setProperty("font-family", Array.from(families, (family) => `"${family}"`).join(", "), "important");
+      node.data = groups.map((group) => glyphText(group.text, group.selection)).join("");
       continue;
     }
     const fragment = document.createDocumentFragment();
@@ -240,11 +316,13 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     node.replaceWith(fragment);
   }
   const generated: FontFace[] = [];
+  const markerCache = new Map<string, string>();
   try {
-    for (const { element, name, family, groups } of pseudos) {
+    for (const { element, name, counters, groups: originalGroups } of pseudos) {
+      const groups = replaceGroups(originalGroups);
       const faces = new Map<string, { selection: Selection; characters: Set<number> }>();
       for (const { text, selection } of groups) {
-        const key = `${selection.key}:${selection.weight}:${selection.style}`;
+        const key = `${selection.font.family}:${selection.face.weight}:${selection.face.style}`;
         let entry = faces.get(key);
         if (!entry) { entry = { selection, characters: new Set() }; faces.set(key, entry); }
         for (const character of text) {
@@ -252,24 +330,45 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
           entry.characters.add(glyphText(character, selection).codePointAt(0)!);
         }
       }
-      const markerResources = await Promise.all(Array.from(faces.values(), async ({ selection, characters }) => {
-        const { data } = await loadFace(selection.font, selection.face);
-        // Unicode ranges implement the XML slot assignment for generated list markers.
-        const resource = new FontFace(family, data, { weight: selection.face.weight, style: selection.face.style,
-          unicodeRange: Array.from(characters, (code) => `U+${code.toString(16)}`).join(", ") });
-        await resource.load(); return resource;
-      }));
-      for (const resource of markerResources) { document.fonts.add(resource); generated.push(resource); }
+      const entries = Array.from(faces.entries()).sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, { selection, characters }]) => ({ key, selection,
+        range: Array.from(characters).sort((a, b) => a - b).map((code) => `U+${code.toString(16)}`).join(", ") }));
+      const cacheKey = JSON.stringify(entries.map(({ key, range }) => [key, range]));
+      let family = markerCache.get(cacheKey);
+      if (!family) {
+        family = `MoyinDocxNumber${++numberingFamily}`;
+        const fontFamily = family;
+        const results = await Promise.allSettled(entries.map(async ({ selection, range }) => {
+          const { data } = await loadFace(selection.font, selection.face);
+          // Unicode ranges implement the XML slot assignment for generated list markers.
+          const resource = new FontFace(fontFamily, data, { weight: selection.face.weight, style: selection.face.style,
+            unicodeRange: range });
+          await resource.load();
+          document.fonts.add(resource); generated.push(resource);
+        }));
+        const failed = results.find((result) => result.status === "rejected");
+        if (failed?.status === "rejected") throw failed.reason;
+        markerCache.set(cacheKey, family);
+      }
       // Normalize legacy symbol bytes in literal bullets, retaining counters and all other CSS.
       const content = getComputedStyle(element, `::${name}`).content;
-      const mappedContent = content.replace(/"((?:[^"\\]|\\.)*)"/g, (match, literal: string) => {
+      let mappedContent = content.replace(/"((?:[^"\\]|\\.)*)"/g, (match, literal: string) => {
         const decoded = literal.replace(/\\([0-9a-f]{1,6})\s?/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)));
         const mapped = Array.from(decoded, (character) => {
-          const selection = groups.find((group) => group.text.includes(character))?.selection;
-          return selection ? glyphText(character, selection) : character;
+          const selection = originalGroups.find((group) => group.text.includes(character))?.selection;
+          if (!selection) return character;
+          const replacement = replacements.get(selection.key)?.get(character.codePointAt(0)!);
+          return replacement ? glyphText(replacement.text, replacement.selection) : glyphText(character, selection);
         }).join("");
         return mapped === decoded ? match : JSON.stringify(mapped);
       });
+      // CSS counters cannot replace individual output characters. If any counter glyph
+      // has no project font, show an explicit marker rather than permit system fallback.
+      const missingCounter = originalGroups.some((group) => Array.from(counters).some((character) => {
+        const replacement = replacements.get(group.selection.key)?.get(character.codePointAt(0)!);
+        return group.text.includes(character) && replacement && replacement.text !== character;
+      }));
+      if (missingCounter) mappedContent = JSON.stringify("□");
       if (mappedContent !== content) {
         element.setAttribute(`data-docx-project-${name}-content`, "");
         element.style.setProperty(`--docx-project-${name}-content`, mappedContent);
@@ -281,5 +380,10 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     for (const resource of generated) document.fonts.delete(resource);
     throw reason;
   }
-  return () => { for (const resource of generated) document.fonts.delete(resource); };
+  const warnings = Array.from(notices, ([message, codes]) => {
+    const sample = Array.from(codes).sort((a, b) => a - b).slice(0, 12)
+      .map((code) => `${String.fromCodePoint(code)}（U+${code.toString(16).toUpperCase()}）`).join("、");
+    return `${message}：${sample}${codes.size > 12 ? `等 ${codes.size} 种字符` : ""}`;
+  });
+  return { warnings, release: () => { for (const resource of generated) document.fonts.delete(resource); } };
 }
