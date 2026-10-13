@@ -1,9 +1,9 @@
 import type { DocxFontTheme } from "./docxFontConfig";
-import { docxFontCoverage, docxFontMember } from "./docxFontAsset";
+import { docxFontCoverage, docxFontMember, docxFontUnderline } from "./docxFontAsset";
 
 type Face = { weight: string; style: string; file: string; member: number };
 type ProjectFont = { family: string; aliases: string[]; faces: Face[] };
-type LoadedFace = { data: ArrayBuffer; covers: ReturnType<typeof docxFontCoverage> };
+type LoadedFace = { data: ArrayBuffer; covers: ReturnType<typeof docxFontCoverage>; underline: ReturnType<typeof docxFontUnderline> };
 const face = (file: string, weight = "400", style = "normal", member = 0): Face => ({ file, weight, style, member });
 const chinese = (family: string, aliases: string[], regular: string, bold?: string, member = 0): ProjectFont => ({
   family: `MoyinDocx${family}`, aliases,
@@ -88,7 +88,7 @@ function loadFace(font: ProjectFont, selected: Face): Promise<LoadedFace> {
       await resource.load();
       const covers = docxFontCoverage(data);
       document.fonts.add(resource);
-      return { data, covers };
+      return { data, covers, underline: docxFontUnderline(data) };
     } catch {
       throw new Error(`DOCX 字体加载失败：${font.aliases[0]}（${selected.file}）。请检查 docx-fonts 中的文件。`);
     }
@@ -217,12 +217,23 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     return groups;
   };
   const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
-  const texts: { node: Text; groups: ReturnType<typeof select> }[] = [];
+  const texts: { node: Text; groups: ReturnType<typeof select>; underline: string; underlineColor: string }[] = [];
   while (walker.nextNode()) {
     const node = walker.currentNode as Text, parent = node.parentElement;
     if (!parent || parent.closest("style, script") || !node.data) continue;
     if (parent.getClientRects().length === 0) continue;
-    texts.push({ node, groups: select(node.data, getComputedStyle(parent)) });
+    const style = getComputedStyle(parent);
+    const underline = value(style, "--docx-underline");
+    let decoration = style;
+    if (underline === "single" && !style.textDecorationLine.includes("underline")) {
+      // Text decoration propagates rather than inheriting; an ancestor may own
+      // its color when underline formatting came from a paragraph/table style.
+      for (let ancestor = parent.parentElement; ancestor && ancestor !== body; ancestor = ancestor.parentElement) {
+        const candidate = getComputedStyle(ancestor);
+        if (candidate.textDecorationLine.includes("underline")) { decoration = candidate; break; }
+      }
+    }
+    texts.push({ node, groups: select(node.data, style), underline, underlineColor: decoration.textDecorationColor });
   }
   // Paragraph struts (including blank lines) also need XML fonts for stable line metrics.
   const paragraphs = Array.from(body.querySelectorAll<HTMLElement>("p, li"))
@@ -328,14 +339,17 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     element.style.setProperty("font-family", `"${selection.font.family}"`, "important");
     element.style.setProperty("font-weight", selection.weight, "important");
     element.style.setProperty("font-style", selection.style, "important");
+    element.style.setProperty("font-synthesis", "weight style", "important");
   }
-  for (const { node, groups: originalGroups } of texts) {
+  const decorationWarnings = new Set<string>();
+  for (const { node, groups: originalGroups, underline, underlineColor } of texts) {
     const groups = replaceGroups(originalGroups);
     const parent = node.parentElement!;
     if (new Set(groups.map((group) => `${group.selection.weight}:${group.selection.style}`)).size === 1) {
       // Also retain formatting when a PAGE field subsequently replaces its text.
       (parent as HTMLElement).style.setProperty("font-weight", groups[0].selection.weight, "important");
       (parent as HTMLElement).style.setProperty("font-style", groups[0].selection.style, "important");
+      (parent as HTMLElement).style.setProperty("font-synthesis", "weight style", "important");
     }
     if (new Set(groups.map((group) => group.selection.font.family)).size === 1) {
       // PAGE fields replace their text after pagination; preserve their private font on the parent.
@@ -353,12 +367,31 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     for (const { text, selection } of groups) {
       // Renderer styles target span; a neutral inline element must not reapply defaults
       // (especially font-size) inside an already formatted run.
-      const span = document.createElement("docx-text");
-      span.textContent = glyphText(text, selection);
-      span.style.setProperty("font-family", `"${selection.font.family}"`, "important");
-      span.style.setProperty("font-weight", selection.weight, "important");
-      span.style.setProperty("font-style", selection.style, "important");
-      fragment.appendChild(span);
+      // Split only annotated underline spaces; preserve the original characters,
+      // white-space handling and font advance (no NBSP or replacement underscores).
+      const pieces = underline === "single" ? text.match(/ +|[^ ]+/g) ?? [] : [text];
+      for (const piece of pieces) {
+        const span = document.createElement("docx-text");
+        span.textContent = glyphText(piece, selection);
+        span.style.setProperty("font-family", `"${selection.font.family}"`, "important");
+        span.style.setProperty("font-weight", selection.weight, "important");
+        span.style.setProperty("font-style", selection.style, "important");
+        span.style.setProperty("font-synthesis", "weight style", "important");
+        span.dataset.docxWeight = selection.weight;
+        span.dataset.docxFaceWeight = selection.face.weight;
+        if (underline === "single" && /^ +$/.test(piece)) {
+          const metrics = resources.get(selection.key)!.underline;
+          if (metrics) {
+            span.dataset.docxSpaceUnderline = "";
+            span.style.setProperty("--docx-underline-position", String(metrics.position));
+            span.style.setProperty("--docx-underline-thickness", String(metrics.thickness));
+            span.style.setProperty("--docx-underline-color", underlineColor);
+          } else decorationWarnings.add("部分字体缺少有效的下划线度量，空白下划线保留浏览器处理。");
+        } else if (underline && !["none", "words", "single"].includes(underline) && / /.test(piece)) {
+          decorationWarnings.add("非单实线的空白下划线保留库的处理，行首、行尾效果可能与 Word 不同。");
+        }
+        fragment.appendChild(span);
+      }
     }
     node.replaceWith(fragment);
   }
@@ -438,5 +471,6 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       .map((code) => `${String.fromCodePoint(code)}（U+${code.toString(16).toUpperCase()}）`).join("、");
     return `${message}：${sample}${codes.size > 12 ? `等 ${codes.size} 种字符` : ""}`;
   });
-  return { warnings, release: () => { for (const resource of generated) document.fonts.delete(resource); } };
+  return { warnings: [...warnings, ...decorationWarnings],
+    release: () => { for (const resource of generated) document.fonts.delete(resource); } };
 }

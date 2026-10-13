@@ -237,6 +237,107 @@ export function applyDocxTabs(body: HTMLElement): string[] {
   return [...warnings];
 }
 
+// CSS skips underline ink at physical line edges. Paint those space fragments
+// after pagination, without changing text, whitespace advances or line breaking.
+export function applyDocxSpaceUnderlines(body: HTMLElement): string[] {
+  const warnings = new Set<string>();
+  const svgNamespace = "http://www.w3.org/2000/svg";
+  const layers = new Map<HTMLElement, SVGSVGElement>();
+  const baselines = new Map<string, number>();
+  const baseline = (page: HTMLElement, style: CSSStyleDeclaration): number => {
+    const names = ["font-family", "font-size", "font-weight", "font-style", "font-stretch", "font-feature-settings", "font-variation-settings"];
+    const key = names.map((name) => style.getPropertyValue(name)).join(";");
+    if (baselines.has(key)) return baselines.get(key)!;
+    // The zero-height inline box exposes the browser's actual alphabetic baseline.
+    // Its distance from a text range is independent of paragraph line-height.
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute;visibility:hidden;white-space:pre;line-height:normal;padding:0;margin:0;border:0;";
+    for (const name of names) probe.style.setProperty(name, style.getPropertyValue(name), "important");
+    probe.style.setProperty("font-synthesis", "weight style", "important");
+    const text = document.createTextNode(" ");
+    const marker = document.createElement("docx-baseline");
+    marker.style.cssText = "display:inline-block;vertical-align:baseline;width:0;height:0;line-height:0;padding:0;margin:0;border:0;";
+    probe.append(text, marker);
+    page.appendChild(probe);
+    const range = document.createRange();
+    range.selectNodeContents(text);
+    const offset = marker.getBoundingClientRect().top - range.getBoundingClientRect().top;
+    probe.remove();
+    baselines.set(key, offset);
+    return offset;
+  };
+  for (const page of Array.from(body.querySelectorAll<HTMLElement>("section.docx"))) {
+    page.querySelector(":scope > svg[data-docx-space-underlines]")?.remove();
+  }
+  for (const paragraph of Array.from(body.querySelectorAll<HTMLElement>("p, li"))) {
+    const spaces = Array.from(paragraph.querySelectorAll<HTMLElement>("docx-text[data-docx-space-underline]"))
+      .filter((element) => element.closest("p, li") === paragraph);
+    if (!spaces.length) continue;
+    const page = paragraph.closest<HTMLElement>("section.docx");
+    if (!page) continue;
+    // Find physical line edges from non-space text, including un-underlined runs.
+    // Interior spaces already have the library's underline; do not draw it twice.
+    const ink: DOMRect[] = [];
+    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (node.parentElement?.closest("p, li") !== paragraph) continue;
+      for (const match of node.data.matchAll(/[^ \t\r\n]+/g)) {
+        const range = document.createRange();
+        range.setStart(node, match.index!);
+        range.setEnd(node, match.index! + match[0].length);
+        ink.push(...Array.from(range.getClientRects()).filter((rect) => rect.width > 0));
+      }
+    }
+    for (const object of Array.from(paragraph.querySelectorAll<HTMLElement>("img, svg, math, canvas, object"))) {
+      const style = getComputedStyle(object);
+      if (object.closest("p, li") !== paragraph || !style.display.startsWith("inline")
+        || style.float !== "none" || ["absolute", "fixed"].includes(style.position)) continue;
+      ink.push(...Array.from(object.getClientRects()).filter((rect) => rect.width > 0));
+    }
+    for (const space of spaces) {
+      const style = getComputedStyle(space);
+      if (style.writingMode !== "horizontal-tb" || style.direction === "rtl") {
+        warnings.add("竖排或从右向左的空白下划线保留浏览器处理。");
+        continue;
+      }
+      const size = parseFloat(style.fontSize);
+      const position = Number(style.getPropertyValue("--docx-underline-position")) * size;
+      const thickness = Number(style.getPropertyValue("--docx-underline-thickness")) * size;
+      const range = document.createRange();
+      range.selectNodeContents(space);
+      const pageRect = page.getBoundingClientRect();
+      for (const rect of Array.from(range.getClientRects())) {
+        if (!rect.width || !rect.height) continue;
+        const line = ink.filter((entry) => entry.top < rect.bottom && entry.bottom > rect.top);
+        const left = Math.min(...line.map((entry) => entry.left));
+        const right = Math.max(...line.map((entry) => entry.right));
+        if (line.length && rect.left >= left && rect.right <= right) continue;
+        let layer = layers.get(page);
+        if (!layer) {
+          layer = document.createElementNS(svgNamespace, "svg");
+          layer.setAttribute("data-docx-space-underlines", "");
+          layer.setAttribute("aria-hidden", "true");
+          layer.setAttribute("focusable", "false");
+          layer.style.cssText = `position:absolute;left:0;top:0;width:${page.clientWidth}px;height:${page.clientHeight}px;overflow:visible;pointer-events:none;z-index:2;`;
+          page.appendChild(layer);
+          layers.set(page, layer);
+        }
+        const underline = document.createElementNS(svgNamespace, "line");
+        const y = rect.top - pageRect.top - page.clientTop + baseline(page, style) + position + thickness / 2;
+        underline.setAttribute("x1", String(rect.left - pageRect.left - page.clientLeft));
+        underline.setAttribute("x2", String(rect.right - pageRect.left - page.clientLeft));
+        underline.setAttribute("y1", String(y));
+        underline.setAttribute("y2", String(y));
+        underline.setAttribute("stroke", style.getPropertyValue("--docx-underline-color"));
+        underline.setAttribute("stroke-width", String(thickness));
+        layer.appendChild(underline);
+      }
+    }
+  }
+  return [...warnings];
+}
+
 // Resolve geometry from XML, not the renderer's table-style CSS (which targets td).
 function tableStyleProperties(source: Document | null) {
   const styles = new Map(Array.from(source?.getElementsByTagNameNS(wordNamespace, "style") ?? [])

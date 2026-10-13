@@ -5,6 +5,20 @@ const tables = (data: DataView, start = 0): Table[] => Array.from({ length: data
 });
 const align = (length: number) => Math.ceil(length / 4) * 4;
 
+// OpenType post specifies the TOP of the underline, in signed font units.
+// Keep the original metrics rather than inventing a pixel offset/thickness.
+export function docxFontUnderline(buffer: ArrayBuffer): { position: number; thickness: number } | null {
+  const data = new DataView(buffer);
+  const entries = tables(data);
+  const head = entries.find((entry) => entry.tag === 0x68656164);
+  const post = entries.find((entry) => entry.tag === 0x706f7374);
+  if (!head || !post || head.length < 20 || post.length < 12) return null;
+  const em = data.getUint16(head.offset + 18);
+  const thickness = data.getInt16(post.offset + 10);
+  if (!em || thickness <= 0) return null;
+  return { position: -data.getInt16(post.offset + 8) / em, thickness: thickness / em };
+}
+
 // Extract the exact original TTC member as browser-readable sfnt, without changing glyphs.
 export function docxFontMember(buffer: ArrayBuffer, member: number): ArrayBuffer {
   const source = new DataView(buffer);

@@ -193,6 +193,18 @@
 - 同一表格补充入口用于正文、页眉页脚及注释等文字 part；浮动、RTL 或逐行对齐未完整支持时保留库的定位处理并提示预览差异，不叠加未经确认的偏移。
 - 静态结构审计覆盖 assets 的 11 份 DOCX，包括直接正/负/零缩进、居中对齐及表格样式中的缩进。TypeScript 类型检查和差异检查通过；按项目约束未运行测试、浏览器插件或 Word 几何对照。HTML 自动宽度与 Word 的完整兼容模式仍不等价，不能宣称本次已经完成所有表格排版问题。
 
+## 空白下划线与字形补充
+
+实施检查点：`7f9a818`。修改限于共享 DOCX 预览与本计划，未修改审核、模板填写或后端配置。
+
+- 实习协议的 XML 中，甲方、乙方等标签明确包含直接 `w:b`，填空线由 `w:u="single"` 的 U+0020 空格组成，没有制表位。当前粗体选择链保留 700 请求，截图中的字形偏细尚未完成浏览器复现，不能据此声称粗体丢失已全部解决。
+- 正文、段落标记和字段所在元素显式允许同字体内的 weight/style 合成，避免依赖上层页面的合成许可；仍优先使用原版独立字形文件，不自行增加笔画粗细。正文 DOM 记录请求字重与实际文件字重，便于定位 700 请求使用 400 文件合成的情况。
+- 保留普通下划线给库处理，仅为 XML 指定单实线的空格保留装饰元数据。分页与页码更新完成后，根据空格 Text Range 的物理行片段补绘行首、行尾下划线；行内空格沿用库的装饰，不重复叠画。每页一个不参与排版的 SVG 层，无填充文字、固定字段宽度或额外换行。
+- 线的位置和厚度读取原版字体的 OpenType head/post 数据；浏览器字体基线由隐藏的零高度基线标记实测，并按字体配置缓存。下划线度量随物理字形缓存，复用已有字体下载；只扫描包含待补绘空格的段落。纸张切换重建装饰，缩放随页面统一生效，续页使用最终 DOM 几何。
+- 空格文字保持 U+0020，不替换成下划线字符或 NBSP，不改变字体 advance。非单实线、竖排、RTL 和缺少有效字体度量时保留原处理并提示；不宣称所有装饰线型均与 Word 等价。
+- 填写区域的右移至少部分来自原 XML：学号前 12 个空格，封面甲方段落 firstLineChars=200 / firstLine=723，填写值前 6 个空格。项目原版仿宋_GB2312 的空格 advance 为 128/256 em，12 个 15 pt 空格对应 90 pt。字符单位首行缩进尚未在共享排版器全面实现；这份封面在 18 pt 下的 2 字缩进约 36 pt，与库的 36.15 pt 相近，不能通过统一左移解释或修正所有差异。因此保留原字符、现有缩进及填写内容，不按模板名称或字段文字调整位置。
+- 验证范围为源码、XML、字体二进制度量和 TypeScript 类型检查；按项目要求未运行测试、浏览器插件或 Windows Word 视觉对照。补绘与合成粗体的实际视觉效果仍需对照，不能等同于完整 Word 排版验收。
+
 ## 一手资料
 
 - [docx-preview 官方说明：API、HTML 能力边界、分页及实验性制表位](https://github.com/VolodymyrBaydalka/docxjs)
@@ -205,3 +217,5 @@
 - [OOXML 表格缩进、单位及继承](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.tableindentation?view=openxml-3.0.1)
 - [Word 对表格缩进与非左对齐的实现说明](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/a129dffd-ef75-4faa-ab1f-47c3fd4cff26)
 - [MS-OI29500：首行缩进例外作用于整表](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/eec0c73c-18c2-4176-99e6-14501f3a4ad7)
+- [CSS 行首、行尾空格的装饰规则](https://www.w3.org/TR/css-text-decor-3/#line-decoration)
+- [OpenType post：下划线位置与厚度](https://learn.microsoft.com/en-us/typography/opentype/spec/post)

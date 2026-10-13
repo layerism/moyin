@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { paginateDocx } from "./docxPagination";
-import { applyDocxLineSpacing, applyDocxTabs, createDocxXmlContext, prepareDocxBreaks, supplementDocxLayout } from "./docxLayout";
+import { applyDocxLineSpacing, applyDocxSpaceUnderlines, applyDocxTabs, createDocxXmlContext, prepareDocxBreaks, supplementDocxLayout } from "./docxLayout";
 import { prepareDocxPageNumbers, updateDocxPageNumbers } from "./docxPageNumbers";
 import { applyProjectDocxFonts } from "./docxFonts";
 import { prepareDocxFontConfig } from "./docxFontConfig";
@@ -134,9 +134,11 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       const pagination = await paginateDocx(body, controller.signal);
       stage("pagination");
       if (!active) return;
-      setFontWarnings([...fonts.warnings, ...layoutWarnings, ...pagination.warnings]);
-      setPageCount(pagination.pageCount);
       updateDocxPageNumbers(body, numbering);
+      const decorationWarnings = applyDocxSpaceUnderlines(body);
+      stage("decoration");
+      setFontWarnings([...fonts.warnings, ...layoutWarnings, ...pagination.warnings, ...decorationWarnings]);
+      setPageCount(pagination.pageCount);
       // Inspectable without logging document content or adding product controls.
       body.dataset.docxTimings = JSON.stringify(timings);
       setLoading(false);

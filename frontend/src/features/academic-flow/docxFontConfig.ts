@@ -44,6 +44,8 @@ function properties(run: Element | undefined): Values {
   }
   const hint = attr(fonts, "hint");
   if (hint) values["--docx-font-hint"] = JSON.stringify(hint);
+  const underline = child(run, "u");
+  if (underline) values["--docx-underline"] = JSON.stringify(attr(underline, "val") ?? "single");
   for (const name of ["cs", "rtl", "b", "i", "bCs", "iCs"]) {
     const value = child(run, name);
     if (value) values[`--docx-run-${name.toLowerCase()}`] = on(value) ? "1" : "0";
