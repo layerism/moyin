@@ -39,6 +39,33 @@
 
 ## 实施顺序
 
+### 前置：建立文档全局布局上下文
+
+2026-10-13 用户追加表格错位、行距差异和异常跳页观察。三项纳入同一布局链路审计，不视为三个独立 CSS 问题。
+
+| XML 来源 | 需要解析或确认库已消费的信息 | 影响 |
+| --- | --- | --- |
+| settings.xml | compat/compatibilityMode、相关排版兼容项、defaultTabStop、奇偶页眉页脚与镜像边距设置 | 规则版本、制表位与页布局 |
+| styles.xml | docDefaults、默认样式、basedOn、段落/字符/表格条件样式及对应优先级 | 行距、字体、表格内文字及边框 |
+| theme/theme*.xml、fontTable.xml 及关系文件 | 实际引用主题、语言对应字体、字体定义与嵌入关系；项目字体映射仍按既定策略执行 | 字形选择与文字度量 |
+| document.xml 中 sectPr | 节所属内容范围、纸张/方向、边距、装订线、分栏、网格、节起始类型、页码起始与页眉页脚引用 | 可用区域、换页和几何 |
+| numbering.xml | 编号层级、缩进、编号字体、制表位与样式关联 | 段落起点、换行和分页 |
+| header/footer/footnotes/endnotes 等 part | 所属节、关系映射、继承/引用及实际占用 | 正文空间、节首页与奇偶页 |
+
+全局信息须带作用范围，不能把某一节的网格、宽度或页边距推广到整份文档。未显式设置的属性按各属性的规范继承链处理，不能用一条简单全局优先级替代全部规则。全局上下文每个文件版本只解析一次。
+
+### 三项追加问题的定位要求
+
+1. **表格布局**：计算起点是所属节/分栏或父单元格的可用宽度。补查 tblStyle/tblLook/cnfStyle、gridBefore/gridAfter、表格结束后的段落、重复标题、合并组与跨页约束。区分列网格、首选宽度与最终分配宽度，不能只看单元格局部 tcW。
+2. **文字行距**：追踪文档默认→适用样式→直接格式及兼容项的有效结果；区分基线间距、可见字形高度、段间距与表格行高。记录字体和字号、段落标记、行距规则及网格是否参与，不能从截图字块高度直接推断行距。
+3. **异常跳页**：统一记录每个分页边界的来源与关联节点，类别包括显式 br、pageBreakBefore、nextPage/evenPage/oddPage 分节、保存时 lastRenderedPageBreak、段落保持/孤行规则、表格约束及内容溢出。物理空白页、正文留白和页码字段跳号分开诊断。
+
+当前已确认的源码风险：DocxPreview 同时启用保存时分页标记、为部分分节插入普通分页符，之后再执行 paginateDocx；nextPage/evenPage/oddPage 被同一补丁处理，尚未完整表达奇偶页语义。需要按语义合并同一边界，不能按位置盲删重复分页，也不能将所有空白页一律删除。库生成的空段落、表格后的段落、字体就绪前后高度、页眉页脚空间重复扣除、页面舍入误差也纳入排查。
+
+本地 assets 的只读 XML 清单：论文模板有 5 个表格、6 个 sectPr、13 个 lastRenderedPageBreak，没有显式 w:br type=page；实习周记有 18 个表格、3 个节且没有保存分页标记。二者适合覆盖不同分页输入。此统计来自仓库样例，不能视为当前浏览器上传文件相同，也不能据此断言异常跳页根因。
+
+增加开发用分页诊断信息：节与源节点、分页原因、内容高度、可用高度、是否命中旧分页标记及奇偶页规则。信息按预览会话汇总且默认关闭，不输出正文，不在产品流程中堆放技术字段。
+
 ### 1. 撤除有损补丁，建立明确边界
 
 - 移除现有固定行裁切容器及依赖其标记的分页特殊处理；保留 XML 原始行高信息。
@@ -108,6 +135,7 @@
 - 必须区分类型/静态检查、浏览器布局观察、Word 对照和性能测量。任何一类结果不能替代其他类。
 - 当前 AGENTS.md 禁止运行测试与浏览器插件：实施阶段按现有约束只做源码、XML 和类型审计；视觉及几何结果由用户在 Windows Word 与页面对照反馈。未取得允许或实际对照结果，不宣称几何验收完成。
 - 保留逐项支持状态：已由库支持、项目补齐、尚未支持；剩余差异如实记录。
+- 三项追加验收：相同表格在不同节宽和嵌套容器中不会沿用错误宽度；相同最终段落属性不会因补丁路径不同而产生不同间距；每一次换页可追溯到规则或溢出，合法奇偶页空白保留，无解释的重复换页不得作为完成状态。
 
 ## 本轮及后续提交
 
@@ -119,3 +147,5 @@
 - [docx-preview 官方说明：API、HTML 能力边界、分页及实验性制表位](https://github.com/VolodymyrBaydalka/docxjs)
 - [MS-OI29500：Office 对 OOXML 的实现说明](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/)
 - [OpenType OS/2 字体度量](https://learn.microsoft.com/en-us/typography/opentype/spec/os2)
+- [Microsoft Word 分节与奇偶页起始说明](https://support.microsoft.com/en-us/word/use-section-breaks-to-change-the-layout-or-formatting-in-one-section-of-your-word-document)
+- [Office 兼容模式与布局](https://learn.microsoft.com/en-us/office/compatibility/manage-compatibility-mode-for-office)
