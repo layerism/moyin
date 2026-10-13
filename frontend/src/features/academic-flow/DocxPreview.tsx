@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { paginateDocx } from "./docxPagination";
-import { applyDocxLineSpacing, supplementDocxLayout } from "./docxLayout";
+import { applyDocxLineSpacing, applyDocxRowHeights, supplementDocxLayout } from "./docxLayout";
 import { prepareDocxPageNumbers, updateDocxPageNumbers } from "./docxPageNumbers";
 import { applyProjectDocxFonts } from "./docxFonts";
 import { prepareDocxFontConfig } from "./docxFontConfig";
@@ -111,6 +111,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       if (!active) return;
       applyDocxLineSpacing(body);
+      applyDocxRowHeights(body);
       setPageCount(paginateDocx(body));
       updateDocxPageNumbers(body, numbering);
       setLoading(false);

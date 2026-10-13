@@ -168,6 +168,9 @@ function splitTableGroup(
       end = Math.min(rows.length, Math.max(end, cell.rowSpan ? index + cell.rowSpan : rows.length));
     }
   }
+  // Fixed-height cells have an explicit viewport. Move these rows together,
+  // rather than stripping their height and splitting the clipped content.
+  if (rows.slice(start, end).some((row) => row.dataset.docxExactRow === "true")) return null;
   const remainder = source.cloneNode(true) as HTMLTableElement;
   while (table.rows.length > end) table.deleteRow(table.rows.length - 1);
   const group = (target: HTMLTableElement) => Array.from(target.rows).slice(start, end);

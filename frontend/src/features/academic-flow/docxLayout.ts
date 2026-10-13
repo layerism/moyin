@@ -36,7 +36,11 @@ function supplementParagraph(properties: Element | undefined, values: Styles) {
   }
   for (const side of ["before", "after"]) {
     const lines = number(spacing, `${side}Lines`);
-    if (lines !== null && !["1", "true", "on"].includes(attribute(spacing, `${side}AutoSpacing`) ?? "0")) {
+    const automatic = ["1", "true", "on"].includes(attribute(spacing, `${side}Autospacing`) ?? "0");
+    if (automatic || (lines === null && number(spacing, side) !== null)) {
+      // A direct point-based value must not retain a style's line-based override.
+      values[`--docx-${side}-lines`] = "initial";
+    } else if (lines !== null) {
       values[`--docx-${side}-lines`] = String(lines / 100);
     }
   }
@@ -110,6 +114,18 @@ function supplementTables(source: Element | undefined, body: DocxNode) {
   const tables = descendants(body, "table");
   if (xmlTables.length !== tables.length) return;
   xmlTables.forEach((table, index) => {
+    const rows = Array.from(table.children).filter((entry) => entry.localName === "tr");
+    const parsedRows = (tables[index].children ?? []).filter((entry) => entry.type === "row");
+    if (rows.length === parsedRows.length) rows.forEach((row, rowIndex) => {
+      const height = child(child(row, "trPr"), "trHeight");
+      const value = number(height, "val");
+      const style = parsedRows[rowIndex].cssStyle ??= {};
+      const rule = attribute(height, "hRule");
+      if (rule === "auto") style.height = "auto";
+      if (rule === "exact" && value !== null && value > 0) {
+        style["--docx-exact-row-height"] = String(value / 15);
+      }
+    });
     const properties = child(table, "tblPr");
     if (attribute(child(properties, "tblLayout"), "type") !== "fixed") return;
     const width = child(properties, "tblW");
@@ -181,7 +197,8 @@ function supplementTextBoxes(source: Element | undefined, body: DocxNode) {
 export function applyDocxLineSpacing(body: HTMLElement) {
   for (const paragraph of Array.from(body.querySelectorAll<HTMLElement>("section.docx > article p"))) {
     const style = getComputedStyle(paragraph);
-    let height = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+    const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
+    let height = lineHeight;
     const pitch = parseFloat(style.getPropertyValue("--docx-line-grid"));
     const inTable = Boolean(paragraph.closest("td, th"));
     if (pitch > 0 && style.getPropertyValue("--docx-line-rule").trim() !== "exact"
@@ -192,7 +209,37 @@ export function applyDocxLineSpacing(body: HTMLElement) {
     }
     for (const [side, property] of [["before", "marginTop"], ["after", "marginBottom"]] as const) {
       const lines = style.getPropertyValue(`--docx-${side}-lines`).trim();
-      if (lines) paragraph.style[property] = `${Number(lines) * height}px`;
+      // Paragraph spacing is separate from extra leading introduced by the grid.
+      if (lines) paragraph.style[property] = `${Number(lines) * lineHeight}px`;
     }
+  }
+}
+
+export function applyDocxRowHeights(body: HTMLElement) {
+  for (const table of Array.from(body.querySelectorAll<HTMLTableElement>("table"))) {
+    const rows = Array.from(table.rows);
+    rows.forEach((row, index) => {
+      // Read the declaration, not an inherited value from an enclosing table.
+      const height = Number(row.style.getPropertyValue("--docx-exact-row-height"));
+      if (!(height > 0)) return;
+      // Mixed-height vertical merges need a group layout; do not clip those cells
+      // to one row's height. Leave the renderer's existing merge handling intact.
+      const merged = rows.slice(0, index + 1).some((previous, previousIndex) =>
+        Array.from(previous.cells).some((cell) => cell.rowSpan === 0
+          || (cell.rowSpan > 1 && previousIndex + cell.rowSpan > index)));
+      if (merged) return;
+      row.dataset.docxExactRow = "true";
+      for (const cell of Array.from(row.cells)) {
+        if (cell.style.display === "none") continue;
+        const style = getComputedStyle(cell);
+        const padding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+        const borders = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+        const wrapper = document.createElement("div");
+        wrapper.style.maxHeight = `${Math.max(0, height - padding - borders)}px`;
+        wrapper.style.overflow = "hidden";
+        wrapper.append(...Array.from(cell.childNodes));
+        cell.appendChild(wrapper);
+      }
+    });
   }
 }
