@@ -125,11 +125,12 @@ export type RuntimeFlowInstance = {
 export type WorkflowProgressStudent = {
   approvedCount: number;
   expiredCount: number;
-  instanceId: string;
-  lastActiveAt: string;
+  instanceId: string | null;
+  lastActiveAt: string | null;
   name: string;
   nodes: WorkflowProgressNode[];
-  status: string;
+  rosterId: number;
+  status: "completed" | "in_progress" | "not_entered";
   studentNo: string;
   totalCount: number;
 };

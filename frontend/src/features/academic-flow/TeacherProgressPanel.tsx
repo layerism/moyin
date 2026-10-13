@@ -7,7 +7,7 @@ import { workflowApi } from "./api";
 import { saveDownload } from "./download";
 import type { TeacherSubmissionDetail, WorkflowProgress, WorkflowProgressNode, WorkflowProgressStudent } from "./runtimeTypes";
 
-type ProgressFilter = "all" | "completed" | "in_progress" | "overdue";
+type ProgressFilter = "all" | "completed" | "in_progress" | "not_entered" | "overdue";
 
 function toLocalDateTimeInput(timestamp: number) {
   const date = new Date(timestamp);
@@ -303,24 +303,29 @@ export function TeacherProgressPanel({
     }
   };
 
-  const editingStudent = progress?.students.find(
+  const editingStudent = editingInstanceId ? progress?.students.find(
     (student) => student.instanceId === editingInstanceId,
-  ) ?? null;
+  ) ?? null : null;
   const eligibleNodes = editingStudent?.nodes.filter(canExtendNode) ?? [];
   const currentNode = eligibleNodes.find((node) => node.nodeKey === extension.nodeKey);
   const progressStudents = progress?.students ?? [];
   const completedStudentCount = progressStudents.filter(
     (student) => student.status === "completed",
   ).length;
+  const inProgressStudentCount = progressStudents.filter((student) => student.status === "in_progress").length;
+  const notEnteredStudentCount = progressStudents.filter((student) => student.status === "not_entered").length;
   const overdueStudentCount = progressStudents.filter(
     (student) => student.expiredCount > 0,
   ).length;
   const visibleStudents = progressStudents.filter((student) => (
     progressFilter === "all"
     || (progressFilter === "overdue" ? student.expiredCount > 0
-      : progressFilter === "completed" ? student.status === "completed"
-        : student.status !== "completed")
+      : student.status === progressFilter)
   )).sort((a, b) => {
+    // Missing activity remains at the bottom in either time-sort direction.
+    if (!a.lastActiveAt || !b.lastActiveAt) {
+      return Number(!a.lastActiveAt) - Number(!b.lastActiveAt) || a.studentNo.localeCompare(b.studentNo);
+    }
     const difference = new Date(a.lastActiveAt).getTime() - new Date(b.lastActiveAt).getTime();
     return (activityDescending ? -difference : difference) || a.studentNo.localeCompare(b.studentNo);
   });
@@ -331,8 +336,9 @@ export function TeacherProgressPanel({
       filter: "in_progress",
       label: "进行中",
       tone: "accent",
-      value: progress ? progressStudents.length - completedStudentCount : "—",
+      value: progress ? inProgressStudentCount : "—",
     },
+    { filter: "not_entered", label: "未进入", tone: "neutral", value: progress ? notEnteredStudentCount : "—" },
     {
       filter: "overdue",
       label: "有逾期",
@@ -447,24 +453,26 @@ export function TeacherProgressPanel({
               </thead>
               <tbody>
                 {visibleStudents.map((student) => {
+                  const instanceId = student.instanceId;
                   const availableMaterialNodes = student.nodes.filter(
                     (node) => materialNodeKeys.has(node.nodeKey)
                       && ["reviewing", "approved", "rejected", "audit_error"].includes(node.status),
                   );
-                  const menuOpen = openActionMenuId === student.instanceId;
+                  const menuOpen = Boolean(instanceId && openActionMenuId === instanceId);
                   const completionPercent = student.totalCount > 0
                     ? Math.min(100, Math.round((student.approvedCount / student.totalCount) * 100))
                     : 0;
                   const completed = student.status === "completed";
+                  const notEntered = student.status === "not_entered";
                   return (
-                    <tr key={student.instanceId}>
+                    <tr key={student.rosterId}>
                       <td className="progress-student-cell">
                         <strong>{student.name}</strong>
                         <small>{student.studentNo}</small>
                       </td>
                       <td>
-                        <span className={`progress-status-tag ${completed ? "is-completed" : "is-active"}`}>
-                          {completed ? "已完成" : "进行中"}
+                        <span className={`progress-status-tag ${completed ? "is-completed" : notEntered ? "is-not-entered" : "is-active"}`}>
+                          {completed ? "已完成" : notEntered ? "未进入" : "进行中"}
                         </span>
                         {student.expiredCount > 0 ? (
                           <span className="progress-overdue-count">逾期 {student.expiredCount} 个节点</span>
@@ -472,7 +480,7 @@ export function TeacherProgressPanel({
                       </td>
                       <td>
                         <div className={`progress-completion${completed ? " is-completed" : ""}`}>
-                          <strong>{student.approvedCount}/{student.totalCount}</strong>
+                          <strong>{notEntered ? "0% · 尚未开始" : `${student.approvedCount}/${student.totalCount}`}</strong>
                           <span
                             aria-label={`完成度 ${completionPercent}%`}
                             aria-valuemax={100}
@@ -486,15 +494,15 @@ export function TeacherProgressPanel({
                         </div>
                       </td>
                       <td>
-                        <time className="progress-last-active" dateTime={student.lastActiveAt}
+                        {student.lastActiveAt ? <time className="progress-last-active" dateTime={student.lastActiveAt}
                           title={new Date(student.lastActiveAt).toLocaleString("zh-CN")}>
                           {new Date(student.lastActiveAt).toLocaleString("zh-CN", {
                             month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false,
                           })}
-                        </time>
+                        </time> : <span className="progress-last-active">—</span>}
                       </td>
                       <td className="progress-actions-cell">
-                        <div className="progress-row-actions" data-progress-action-menu>
+                        {instanceId ? <div className="progress-row-actions" data-progress-action-menu>
                           <button
                             aria-expanded={menuOpen}
                             aria-haspopup="menu"
@@ -509,13 +517,13 @@ export function TeacherProgressPanel({
                                 bottom: openAbove ? window.innerHeight - rect.top + 6 : undefined,
                                 maxHeight: Math.max(80, Math.min(320, openAbove ? rect.top - 18 : window.innerHeight - rect.bottom - 18)),
                               });
-                              setOpenActionMenuId((current) => current === student.instanceId ? null : student.instanceId);
+                              setOpenActionMenuId((current) => current === instanceId ? null : instanceId);
                             }}
                             ref={(element) => {
                               if (element) {
-                                triggerRefs.current.set(student.instanceId, element);
+                                triggerRefs.current.set(instanceId, element);
                               } else {
-                                triggerRefs.current.delete(student.instanceId);
+                                triggerRefs.current.delete(instanceId);
                               }
                             }}
                             title="更多操作"
@@ -557,7 +565,7 @@ export function TeacherProgressPanel({
                               })}
                             </div>
                           ) : null}
-                        </div>
+                        </div> : <span className="progress-last-active">—</span>}
                       </td>
                     </tr>
                   );
@@ -565,7 +573,7 @@ export function TeacherProgressPanel({
                 {visibleStudents.length === 0 ? (
                   <tr className="progress-table-empty"><td colSpan={5}>
                     {!progress ? (notice ? "进度加载失败" : "正在加载学生进度…")
-                      : progressStudents.length === 0 ? "尚无学生进入该流程" : "当前筛选下暂无学生"}
+                      : progressStudents.length === 0 ? "当前有效学生名单为空" : "当前筛选下暂无学生"}
                   </td></tr>
                 ) : null}
               </tbody>
@@ -578,7 +586,7 @@ export function TeacherProgressPanel({
         </aside>
       </div>
       {fileReview ? <FileReviewDialog nodeKey={fileReview.nodeKey} versionId={versionId} initialStudentNo={fileReview.studentNo} onClose={() => { setFileReview(null); void refresh().catch((reason: Error) => setNotice(reason.message)); }} /> : null}
-      {editingStudent ? (
+      {editingStudent && editingInstanceId ? (
         <div className="student-extension-backdrop" role="presentation">
           <section
             aria-labelledby="student-extension-dialog-title"
@@ -675,7 +683,7 @@ export function TeacherProgressPanel({
                 <button
                   className="primary-action"
                   disabled={savingExtension}
-                  onClick={() => void saveExtension(editingStudent.instanceId, currentNode)}
+                  onClick={() => void saveExtension(editingInstanceId, currentNode)}
                   type="button"
                 >
                   {savingExtension ? "保存中…" : "保存延期"}

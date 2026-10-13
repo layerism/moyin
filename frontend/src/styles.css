@@ -9358,6 +9358,7 @@ button {
 .progress-status-tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .progress-status-tag.is-active { color: #175cd3; }
 .progress-status-tag.is-completed { color: #067647; }
+.progress-status-tag.is-not-entered { color: #667085; }
 .progress-completion { display: flex; align-items: center; gap: 8px; }
 .progress-completion > strong { order: 1; color: #344054; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .progress-completion-track { width: 48px; height: 4px; flex-shrink: 0; overflow: hidden; border-radius: 99px; background: #e4e7ec; }

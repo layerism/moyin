@@ -1052,18 +1052,22 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             raise KeyError(version_id)
         rows = connection.execute(
             """
-            SELECT i.id, i.status, i.last_active_at, a.student_no, a.name,
+            SELECT r.id AS roster_id, r.student_no, r.name, i.id,
+                   COALESCE(i.status, 'not_entered') AS status, i.last_active_at,
                    SUM(CASE WHEN n.status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
                    SUM(CASE WHEN n.status != 'skipped' THEN 1 ELSE 0 END) AS total_count,
                    SUM(CASE WHEN n.status = 'expired' THEN 1 ELSE 0 END) AS expired_count
-            FROM flow_instances i
-            JOIN student_accounts a ON a.id = i.student_account_id
-            JOIN node_instances n ON n.flow_instance_id = i.id
-            WHERE i.flow_version_id = ?
-            GROUP BY i.id, a.id
-            ORDER BY a.student_no
+            FROM flow_roster_entries r
+            LEFT JOIN student_accounts a
+              ON a.student_no = r.student_no AND a.name = r.name AND a.account_kind = 'normal'
+            LEFT JOIN flow_instances i
+              ON i.student_account_id = a.id AND i.flow_version_id = ?
+            LEFT JOIN node_instances n ON n.flow_instance_id = i.id
+            WHERE r.flow_id = ? AND r.status = 'active'
+            GROUP BY r.id, i.id
+            ORDER BY r.student_no
             """,
-            (version_id,),
+            (version_id, version["flow_id"]),
         ).fetchall()
         config = json.loads(version["config_snapshot"])
         global_deadlines = version_deadlines(connection, version_id)
@@ -1081,6 +1085,10 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
                    o.deadline_at AS override_deadline
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN student_accounts a ON a.id = i.student_account_id AND a.account_kind = 'normal'
+            JOIN flow_roster_entries roster
+              ON roster.student_no = a.student_no AND roster.name = a.name
+             AND roster.flow_id = ? AND roster.status = 'active'
             LEFT JOIN flow_node_runtime_configs r
               ON r.flow_version_id = i.flow_version_id AND r.node_key = n.node_key
             LEFT JOIN student_deadline_overrides o
@@ -1088,7 +1096,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             WHERE i.flow_version_id = ?
             ORDER BY n.flow_instance_id, n.rowid
             """,
-            (version_id,),
+            (version["flow_id"], version_id),
         ).fetchall()
     nodes_by_instance: dict[str, list[dict[str, object]]] = {}
     control_keys = {node["id"] for node in json.loads(version["config_snapshot"])["nodes"] if node.get("kind") in {"branch", "or_gate"}}
@@ -1109,6 +1117,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
         "name": version["name"],
         "students": [
             {
+                "rosterId": row["roster_id"],
                 "instanceId": row["id"],
                 "studentNo": row["student_no"],
                 "name": row["name"],
