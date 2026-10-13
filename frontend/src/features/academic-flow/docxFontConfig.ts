@@ -19,6 +19,13 @@ const child = (element: Element | null | undefined, name: string) =>
   Array.from(element?.children ?? []).find((entry) => entry.namespaceURI === word && entry.localName === name);
 const attr = (element: Element | null | undefined, name: string) => element?.getAttributeNS(word, name);
 const on = (element: Element) => !["0", "false", "off"].includes(attr(element, "val") ?? "true");
+const toggles = ["b", "i", "bcs", "ics"] as const;
+// Keep hierarchy levels separate: CSS specificity is not Word's toggle cascade.
+const toggleLevel = (values: Values, level: string, reset = true): Values => Object.fromEntries(toggles
+  .filter((name) => reset || values[`--docx-run-${name}`] !== undefined).map((name) =>
+  [`--docx-${level}-${name}`, values[`--docx-run-${name}`] ?? "initial"]));
+const fontProperties = (values: Values): Values => Object.fromEntries(Object.entries(values)
+  .filter(([name]) => !toggles.some((toggle) => name === `--docx-run-${toggle}`)));
 const descendants = (node: Node, type: string): Node[] =>
   [...(node.type === type ? [node] : []), ...(node.children ?? []).flatMap((entry) => descendants(entry, type))];
 
@@ -37,7 +44,7 @@ function properties(run: Element | undefined): Values {
   }
   const hint = attr(fonts, "hint");
   if (hint) values["--docx-font-hint"] = JSON.stringify(hint);
-  for (const name of ["cs", "rtl", "bCs", "iCs"]) {
+  for (const name of ["cs", "rtl", "b", "i", "bCs", "iCs"]) {
     const value = child(run, name);
     if (value) values[`--docx-run-${name.toLowerCase()}`] = on(value) ? "1" : "0";
   }
@@ -66,10 +73,14 @@ export function prepareDocxFontConfig(xml: DocxXmlContext, parsed: Parsed): Docx
     const value = attr(themeLanguage, source);
     if (value && !defaultValues[`--docx-language-${target}`]) defaultValues[`--docx-language-${target}`] = JSON.stringify(value);
   }
-  Object.assign(parsed.documentPart.body.cssStyle ??= {}, defaultValues);
+  const rootValues = { ...fontProperties(defaultValues), ...toggleLevel(defaultValues, "default") };
+  Object.assign(parsed.documentPart.body.cssStyle ??= {}, rootValues);
 
   const sources = new Map(Array.from(styles?.getElementsByTagNameNS(word, "style") ?? [])
     .map((source) => [attr(source, "styleId") ?? "", source]));
+  const defaultStyles = new Map(Array.from(sources.values())
+    .filter((source) => ["1", "true", "on"].includes(attr(source, "default") ?? ""))
+    .map((source) => [attr(source, "type"), source]));
   const resolved = new Map<string, Values>();
   const resolve = (id: string, visiting = new Set<string>()): Values => {
     if (resolved.has(id)) return resolved.get(id)!;
@@ -78,7 +89,9 @@ export function prepareDocxFontConfig(xml: DocxXmlContext, parsed: Parsed): Docx
     if (!source) return {};
     visiting.add(id);
     const base = attr(child(source, "basedOn"), "val");
-    const values = { ...(base ? resolve(base, visiting) : {}), ...properties(child(source, "rPr")) };
+    // A basedOn chain resolves one style level. A cross-type reference is not a base.
+    const sameType = base && attr(sources.get(base), "type") === attr(source, "type");
+    const values = { ...(sameType ? resolve(base, visiting) : {}), ...properties(child(source, "rPr")) };
     visiting.delete(id); resolved.set(id, values);
     return values;
   };
@@ -87,7 +100,7 @@ export function prepareDocxFontConfig(xml: DocxXmlContext, parsed: Parsed): Docx
     // Put paragraph/table fonts on their container, so character styles can override slots.
     let target = style.styles.find((entry) => entry.target === style.target);
     if (!target) { target = { target: style.target, values: {} }; style.styles.push(target); }
-    Object.assign(target.values, resolve(style.id));
+    Object.assign(target.values, fontProperties(resolve(style.id)));
     const conditionalTargets: Record<string, string> = {
       firstRow: "tr.first-row td span", lastRow: "tr.last-row td span",
       firstCol: "td.first-col span", lastCol: "td.last-col span",
@@ -99,8 +112,10 @@ export function prepareDocxFontConfig(xml: DocxXmlContext, parsed: Parsed): Docx
       const entry = style.styles.find((candidate) => candidate.target === targetName);
       if (entry) {
         // Table fonts are inherited by paragraphs; explicit paragraph/character fonts win.
-        style.styles.push({ target: targetName.replace(/ span$/, ""), mod: entry.mod,
-          values: properties(child(conditional, "rPr")) });
+        const cellTarget = targetName.replace(/ span$/, "").replace(/^(tr\.[\w-]+)$/, "$1 td");
+        style.styles.push({ target: cellTarget, mod: entry.mod,
+          values: { ...fontProperties(properties(child(conditional, "rPr"))),
+            ...toggleLevel(properties(child(conditional, "rPr")), "table", false) } });
       }
     }
   }
@@ -108,25 +123,46 @@ export function prepareDocxFontConfig(xml: DocxXmlContext, parsed: Parsed): Docx
   for (const part of parsed.parts) {
     const roots = part.body ? [part.body] : part.rootElement ? [part.rootElement] : part.notes ?? [];
     if (!roots.length) continue;
-    for (const root of roots) Object.assign(root.cssStyle ??= {}, defaultValues);
+    for (const root of roots) Object.assign(root.cssStyle ??= {}, rootValues);
     const source = xml(part.path);
     if (!source) continue;
     const runs = roots.flatMap((root) => descendants(root, "run"));
     const xmlRuns = Array.from(source.getElementsByTagNameNS(word, "r"));
     if (runs.length !== xmlRuns.length) throw new Error(`DOCX 字体配置无法与正文对应（${part.path}），请下载原件查看。`);
-    xmlRuns.forEach((run, index) => Object.assign(runs[index].cssStyle ??= {}, properties(child(run, "rPr"))));
+    const runProperties = (run: Element) => {
+      const direct = properties(child(run, "rPr"));
+      const id = attr(child(child(run, "rPr"), "rStyle"), "val");
+      const character = id && attr(sources.get(id), "type") === "character" ? resolve(id) : {};
+      // Reset absent direct properties so a surrounding drawing/text-box run cannot
+      // leak its direct bold into a nested paragraph. Character styles are explicit.
+      return { ...direct, ...toggleLevel(direct, "run"), ...toggleLevel(character, "character") };
+    };
+    xmlRuns.forEach((run, index) => Object.assign(runs[index].cssStyle ??= {}, runProperties(run)));
     const mathRuns = roots.flatMap((root) => descendants(root, "mmlRun"));
     const xmlMathRuns = Array.from(source.getElementsByTagNameNS(math, "r"));
     if (mathRuns.length !== xmlMathRuns.length) throw new Error(`DOCX 公式字体配置无法对应（${part.path}），请下载原件查看。`);
-    xmlMathRuns.forEach((run, index) => Object.assign(mathRuns[index].cssStyle ??= {}, properties(child(run, "rPr"))));
+    xmlMathRuns.forEach((run, index) => Object.assign(mathRuns[index].cssStyle ??= {}, runProperties(run)));
     const paragraphs = roots.flatMap((root) => descendants(root, "paragraph"));
     const xmlParagraphs = Array.from(source.getElementsByTagNameNS(word, "p"));
     if (paragraphs.length !== xmlParagraphs.length) throw new Error(`DOCX 段落字体配置无法对应（${part.path}），请下载原件查看。`);
     xmlParagraphs.forEach((paragraph, index) => {
+      const id = attr(child(child(paragraph, "pPr"), "pStyle"), "val");
+      const style = id && attr(sources.get(id), "type") === "paragraph" ? sources.get(id) : defaultStyles.get("paragraph");
+      Object.assign(paragraphs[index].cssStyle ??= {},
+        toggleLevel(style ? resolve(attr(style, "styleId")!) : {}, "paragraph"),
+        toggleLevel({}, "character"), toggleLevel({}, "run"), toggleLevel({}, "mark-run"));
       // Paragraph-mark formatting affects line metrics, but must not override text runs.
       const mark = properties(child(child(paragraph, "pPr"), "rPr"));
       Object.assign(paragraphs[index].cssStyle ??= {}, Object.fromEntries(Object.entries(mark)
         .map(([name, value]) => [name.replace("--docx-", "--docx-mark-"), value])));
+    });
+    const tables = roots.flatMap((root) => descendants(root, "table"));
+    const xmlTables = Array.from(source.getElementsByTagNameNS(word, "tbl"));
+    if (tables.length !== xmlTables.length) throw new Error(`DOCX 表格字体配置无法对应（${part.path}），请下载原件查看。`);
+    xmlTables.forEach((table, index) => {
+      const id = attr(child(child(table, "tblPr"), "tblStyle"), "val");
+      const style = id && attr(sources.get(id), "type") === "table" ? sources.get(id) : defaultStyles.get("table");
+      Object.assign(tables[index].cssStyle ??= {}, toggleLevel(style ? resolve(attr(style, "styleId")!) : {}, "table"));
     });
   }
 

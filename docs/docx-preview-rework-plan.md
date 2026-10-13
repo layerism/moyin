@@ -171,6 +171,17 @@
 
 验证：TypeScript 无输出类型检查和差异检查通过；按 AGENTS.md 未运行自动化测试、浏览器插件或 Word 几何对照，尚无冷/热缓存性能实测结论。不能把以上支持状态称为完整复刻 Windows Word。
 
+## 粗体继承补充
+
+实施检查点：`7f9b42f`。仅修改 DOCX 预览与本计划。
+
+- 用户指出“摘要”和“3.1 系统定位”出现粗体缺失。本地论文样本中，“3.1 系统定位”的 run 没有直接 `w:b`，段落样式 `2`（heading 2）包含 `w:b`，应继承粗体。本地样本尚未与当前线上文件逐字节比对。
+- 旧字体层依赖浏览器计算后的 font-weight/font-style，bCs/iCs 则直接合并继承，未保留 Word 的样式层级。现在保留 b/i/bCs/iCs，分别解析文档默认、表格、段落、字符样式及直接格式；basedOn 在同类型样式层内解析，随后按层组合切换属性，直接格式优先。不会按标题文字强制加粗，也不会将段落标记的粗体应用到整段正文。
+- 每个 run 和段落显式重置未指定的直接粗体元数据，防止外层图形 run 污染内部文本框；嵌套表格重新建立表格样式层。表格条件格式沿用库已有匹配能力，不宣称补齐全部条件样式与兼容模式。
+- 字形选择继续优先使用项目内的独立粗体/粗斜体文件，缺少独立字形时保留请求的字重，由浏览器在同一字体内合成；不替换为系统字体。浏览器合成笔画仍不等同于 Windows Word 的栅格化结果。
+- 正文、段落标记、页码字段和列表标记同步保留最终字重/字形；同规则处理斜体，避免二者使用相互矛盾的继承方式。
+- 按项目约束仅做源码、样本 XML 与 TypeScript 类型检查，不运行测试或浏览器插件。尚未对用户指出的位置完成视觉复现，不能将代码修正等同于 Word 对照验收通过。
+
 ## 一手资料
 
 - [docx-preview 官方说明：API、HTML 能力边界、分页及实验性制表位](https://github.com/VolodymyrBaydalka/docxjs)
@@ -178,3 +189,5 @@
 - [OpenType OS/2 字体度量](https://learn.microsoft.com/en-us/typography/opentype/spec/os2)
 - [Microsoft Word 分节与奇偶页起始说明](https://support.microsoft.com/en-us/word/use-section-breaks-to-change-the-layout-or-formatting-in-one-section-of-your-word-document)
 - [Office 兼容模式与布局](https://learn.microsoft.com/en-us/office/compatibility/manage-compatibility-mode-for-office)
+- [Word 粗体属性及直接取消粗体](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bold?view=openxml-3.0.1)
+- [MS-OI29500 2.1.230：Word 的切换属性和文档默认值](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/f7130225-2368-48f3-acae-a9d278d0fb25)

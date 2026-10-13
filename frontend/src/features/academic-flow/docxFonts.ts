@@ -144,6 +144,24 @@ function slot(character: string, style: CSSStyleDeclaration): string {
   return "hansi";
 }
 
+// MS-OI29500 2.1.230 / ISO 29500 17.7.3: resolve basedOn within each
+// level first, then combine table, paragraph and character style levels.
+// Direct run formatting is absolute; bCs/iCs do not inherit b/i.
+function runToggle(style: CSSStyleDeclaration, name: string, paragraphMark: boolean): boolean {
+  const read = (level: string) => style.getPropertyValue(`--docx-${level}-${name}`).trim();
+  const direct = paragraphMark ? read("mark-run") : read("run");
+  if (direct === "0" || direct === "1") return direct === "1";
+  const initial = read("default") === "1";
+  let result = initial;
+  for (const level of ["table", "paragraph", "character"]) {
+    const value = read(level);
+    // Word uses document defaults for an unspecified hierarchy level. With a
+    // true default, an even number of false levels leaves the effective value true.
+    if ((value === "0" || value === "1") && (value === "1") !== initial) result = !result;
+  }
+  return result;
+}
+
 // Font names come exclusively from XML metadata, never a computed OS font-family.
 export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTheme) {
   type Selection = { font: ProjectFont; face: Face; key: string; characters: Set<number>; weight: string; style: string };
@@ -163,6 +181,11 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
   const select = (text: string, style: CSSStyleDeclaration, paragraphMark = false) => {
     const groups: { text: string; selection: Selection }[] = [];
     const names = new Map<string, string>();
+    // Formatting is constant for this run; do not re-read the cascade per glyph.
+    const regular = { weight: runToggle(style, "b", paragraphMark) ? "700" : "400",
+      fontStyle: runToggle(style, "i", paragraphMark) ? "italic" : "normal" };
+    const complex = { weight: runToggle(style, "bcs", paragraphMark) ? "700" : "400",
+      fontStyle: runToggle(style, "ics", paragraphMark) ? "italic" : "normal" };
     const language = (region: string) => (paragraphMark ? value(style, `--docx-mark-language-${region}`) : "")
       || value(style, `--docx-language-${region}`);
     const languages = { latin: language("latin"), eastAsia: language("eastasia"), cs: language("cs") };
@@ -181,11 +204,7 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       if (!name) throw new Error(`DOCX XML 未配置 ${scriptSlot} 字体，请补充文档字体配置或下载原件查看。`);
       const font = byName.get(name.replace(/^@/, "").toLowerCase());
       if (!font) throw new Error(`DOCX 缺少项目字体：${name}。请将该原版字体补充到 docx-fonts 并注册，或下载原件查看。`);
-      const csWeight = scriptSlot === "cs" ? style.getPropertyValue("--docx-run-bcs").trim() : "";
-      const csItalic = scriptSlot === "cs" ? style.getPropertyValue("--docx-run-ics").trim() : "";
-      const weight = csWeight ? (csWeight === "1" ? "700" : "400") : Number(style.fontWeight) >= 600 || style.fontWeight === "bold" ? "700" : "400";
-      const italic = csItalic ? csItalic === "1" : /^(italic|oblique)/.test(style.fontStyle);
-      const fontStyle = italic ? "italic" : "normal";
+      const { weight, fontStyle } = scriptSlot === "cs" ? complex : regular;
       // Synthesize only within this same family if an independent face does not exist.
       const selection = selectionFor(font, weight, fontStyle);
       const key = selection.key;
@@ -305,10 +324,19 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       return code >= 0x20 && code <= 0xff && !/\p{Cc}|\p{Default_Ignorable_Code_Point}/u.test(character)
         ? String.fromCodePoint(code + 0xf000) : character;
     }).join("") : text;
-  for (const { element, selection } of paragraphs) element.style.setProperty("font-family", `"${selection.font.family}"`, "important");
+  for (const { element, selection } of paragraphs) {
+    element.style.setProperty("font-family", `"${selection.font.family}"`, "important");
+    element.style.setProperty("font-weight", selection.weight, "important");
+    element.style.setProperty("font-style", selection.style, "important");
+  }
   for (const { node, groups: originalGroups } of texts) {
     const groups = replaceGroups(originalGroups);
     const parent = node.parentElement!;
+    if (new Set(groups.map((group) => `${group.selection.weight}:${group.selection.style}`)).size === 1) {
+      // Also retain formatting when a PAGE field subsequently replaces its text.
+      (parent as HTMLElement).style.setProperty("font-weight", groups[0].selection.weight, "important");
+      (parent as HTMLElement).style.setProperty("font-style", groups[0].selection.style, "important");
+    }
     if (new Set(groups.map((group) => group.selection.font.family)).size === 1) {
       // PAGE fields replace their text after pagination; preserve their private font on the parent.
       (parent as HTMLElement).style.setProperty("font-family", `"${groups[0].selection.font.family}"`, "important");
@@ -394,6 +422,12 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       }
       element.setAttribute(`data-docx-project-${name}`, "");
       element.style.setProperty(`--docx-project-${name}-fonts`, `"${family}"`);
+      // A single-face Chinese font still needs the requested weight on the
+      // pseudo-element; choosing its regular file alone cannot synthesize bold.
+      const weights = new Set(groups.map((group) => group.selection.weight));
+      const styles = new Set(groups.map((group) => group.selection.style));
+      if (weights.size === 1) element.style.setProperty(`--docx-project-${name}-weight`, groups[0].selection.weight);
+      if (styles.size === 1) element.style.setProperty(`--docx-project-${name}-style`, groups[0].selection.style);
     }
   } catch (reason) {
     for (const resource of generated) document.fonts.delete(resource);

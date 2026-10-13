@@ -100,9 +100,21 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
         section.docx > footer { margin-top: auto !important; }
         p[data-page-continuation]::before { display: none !important; }
         p[data-page-continuation] { list-style-type: none !important; }
-        [data-docx-project-before]::before { font-family: var(--docx-project-before-fonts) !important; }
-        [data-docx-project-after]::after { font-family: var(--docx-project-after-fonts) !important; }
-        [data-docx-project-marker]::marker { font-family: var(--docx-project-marker-fonts) !important; }
+        [data-docx-project-before]::before {
+          font-family: var(--docx-project-before-fonts) !important;
+          font-weight: var(--docx-project-before-weight, inherit) !important;
+          font-style: var(--docx-project-before-style, inherit) !important;
+        }
+        [data-docx-project-after]::after {
+          font-family: var(--docx-project-after-fonts) !important;
+          font-weight: var(--docx-project-after-weight, inherit) !important;
+          font-style: var(--docx-project-after-style, inherit) !important;
+        }
+        [data-docx-project-marker]::marker {
+          font-family: var(--docx-project-marker-fonts) !important;
+          font-weight: var(--docx-project-marker-weight, inherit) !important;
+          font-style: var(--docx-project-marker-style, inherit) !important;
+        }
         [data-docx-project-before-content]::before { content: var(--docx-project-before-content) !important; }
         [data-docx-project-after-content]::after { content: var(--docx-project-after-content) !important; }
         [data-docx-project-marker-content]::marker { content: var(--docx-project-marker-content) !important; }
