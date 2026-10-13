@@ -15,3 +15,8 @@
 - 审阅本地论文模板 XML 和固定版本依赖源码；未运行测试或浏览器验证。
 - 仅补充 VML t202 矩形文本框，不声称完整支持任意 DrawingML 浮动形状或 Word 排版。
 - 交付时提交任务文件并使用 deploy/run_dev.sh 重启。
+
+## 渲染回归修正
+
+- 用户反馈 `elem.children is not iterable`；新增 VML 矩形遗漏空 children 数组，渲染器 renderVmlChildElement 会无条件遍历该字段。
+- 补齐 children: []；核对该路径需要的 tagName、attrs 和 children，不改变原文本或表格布局。

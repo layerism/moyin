@@ -147,7 +147,7 @@ function supplementTextBoxes(source: Element | undefined, body: DocxNode) {
         // the default rectangle. Restore geometry without changing text runs.
         const stroked = !["f", "false", "0"].includes(shape.getAttribute("stroked") ?? "true");
         const filled = !["f", "false", "0"].includes(shape.getAttribute("filled") ?? "true");
-        node.children!.unshift({ type: node.type, tagName: "rect", attrs: {
+        node.children!.unshift({ type: node.type, tagName: "rect", children: [], attrs: {
           x: "0", y: "0", width: "100%", height: "100%",
           fill: filled ? shape.getAttribute("fillcolor") ?? "white" : "none",
           stroke: stroked ? shape.getAttribute("strokecolor") ?? "black" : "none",
