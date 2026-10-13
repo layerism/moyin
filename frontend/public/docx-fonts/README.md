@@ -35,6 +35,7 @@ TTC 保留原文件，在浏览器内存中取出指定成员并重建 sfnt 容�
 | 仿宋、仿宋_GB2312 | `simfang.ttf`、`fangsong_gb2312.ttf` |
 | 楷体、楷体_GB2312 | `simkai.ttf`、`kaiti_gb2312.ttf` |
 | 华文行楷、华文中宋 | `stxingka.ttf`、`stzhongs.ttf` |
+| 华文宋体、华文楷体、华文仿宋 | `stsong.ttf`、`stkaiti.ttf`、`stfangso.ttf` |
 | 微软雅黑、微软雅黑 UI | `msyh.ttc`、`msyhbd.ttc` |
 | 微软雅黑 Light、微软雅黑 UI Light | `msyhl.ttc` |
 | 等线 | `deng.ttf`、`dengb.ttf` |
@@ -43,18 +44,24 @@ TTC 保留原文件，在浏览器内存中取出指定成员并重建 sfnt 容�
 | Arial | `arial.ttf`、`arialbd.ttf`、`ariali.ttf`、`arialbi.ttf` |
 | Calibri | `calibri.ttf`、`calibrib.ttf`、`calibrii.ttf`、`calibriz.ttf` |
 | Calibri Light | `calibril.ttf`、`calibrili.ttf` |
+| Aptos | `aptos.ttf`、`aptos-bold.ttf`、`aptos-italic.ttf`、`aptos-bold-italic.ttf` |
+| Aptos Display / Narrow / Mono / Serif | 对应 `aptos-display*`、`aptos-narrow*`、`aptos-mono*`、`aptos-serif*`，各四种字形 |
+| Aptos Light / SemiBold / ExtraBold / Black | 对应 `aptos-light*`、`aptos-semibold*`、`aptos-extrabold*`、`aptos-black*`，各普通与斜体 |
 | Consolas | `consola.ttf`、`consolab.ttf`、`consolai.ttf`、`consolaz.ttf` |
 | Courier New | `cour.ttf`、`courbd.ttf`、`couri.ttf`、`courbi.ttf` |
 | Cambria、Cambria Math | `cambria.ttc`、`cambriab.ttf`、`cambriai.ttf`、`cambriaz.ttf` |
 | Wingdings 2 | `wingdng2.ttf` |
+| Symbol、Wingdings、Wingdings 3、Webdings | `symbol.ttf`、`wingding.ttf`、`wingdng3.ttf`、`webdings.ttf` |
 
 西文四个文件依次对应普通、粗体、斜体、粗斜体。微软雅黑和等线包含真实粗体；Light 是其独立字体族。华文中宋、Courier New 和 Cambria 是在仓库模板 XML 审计中发现的实际字体或样式引用，一并补充，避免替换。
 
-Wingdings 2 为原版符号字体（当前文件 Version 1.55）。其 Windows Symbol 编码使用独立 `cmap`，覆盖检查同时识别 Symbol 编码与 DOCX `w:sym` 私用区字符，不将它替换为 Unicode 通用符号或其他字体。
+符号字体保留 Windows Symbol 编码，覆盖检查同时识别 Symbol 编码与 DOCX `w:sym` 私用区字符，不将它替换为 Unicode 通用符号或其他字体。当前 Wingdings 2/3 文件为 Version 1.55，Symbol、Wingdings、Webdings 为 Version 5.00；缺字时按前述规则占位。
+
+Aptos 使用微软官方下载包（下载页面版本 4.40，字体内部版本 2.01），共 28 个原始 TTF 文件，包含所有上述独立名称及配套字形。基础 Aptos、Display、Narrow、Mono、Serif 的粗体/斜体使用对应原文件；Light、SemiBold、ExtraBold、Black 作为 XML 可指定的独立字体族，保留文件本身的特殊字重，不改为普通 Aptos。字体选择仍取自 XML，不预加载整个家族。原包协议保留为 `aptos-eula.rtf`。
 
 符号编码依据：[OpenType cmap 的 Windows Symbol 编码](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap#windows-platform-platform-id--3)。
 
-文件来自固定提交的社区上传仓库，并非字体厂商的官方下载；核对内部名称、版本和校验值不能证明取得 Web 分发授权。来源、Git blob、内部名称、版权、版本及 SHA256 见 `WINDOWS-FONTS.json`。`SHA256SUMS` 仅记录保留的原字体。
+Aptos 来自 [微软下载中心](https://www.microsoft.com/en-us/download/details.aspx?id=106087)，清单记录下载 URL、原包 SHA256 与原始包内文件名。其他文件来自固定提交的社区上传仓库，并非字体厂商的官方下载；核对内部名称、版本和校验值不能证明取得 Web 分发授权。来源、Git blob（仓库来源）、内部名称、版权、版本及 SHA256 见 `WINDOWS-FONTS.json`。`SHA256SUMS` 仅记录保留的原字体。
 
 替换或补充文件后刷新整个页面，以清除旧加载缓存。生产环境需要重新发布前端，确保 `dist/docx-fonts/` 同步删除旧备用文件。
 

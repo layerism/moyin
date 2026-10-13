@@ -1,5 +1,5 @@
 {
-  "source_notice": "Community-uploaded files, not vendor downloads. Font names and versions were inspected; Web distribution authorization has not been established.",
+  "source_notice": "Aptos files come from the official Microsoft download package; other font files come from fixed community repository revisions. Names, versions and checksums were inspected; Web distribution authorization is not asserted.",
   "files": [
     {
       "file": "simfang.ttf",
@@ -2034,6 +2034,1950 @@
               "Version 1.55"
             ]
           }
+        }
+      ]
+    },
+    {
+      "file": "stfangso.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/STFANGSO.ttf",
+      "git_blob_sha1": "441f28839de3263f16452c649b23ac4b668e770f",
+      "sha256": "e6326459e8e60e436c7d60e34d273bda3ba4eea2d2a5b309ff8f1b73200f2e38",
+      "size_bytes": 11362788,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright (c) 1991-1998, Changzhou SinoType Technology Co., Ltd.  All rights reserved.",
+              "Ｃｏｐｙｒｉｇｈｔ（ｃ）１９９１－１９９８，Ｃｈａｎｇｚｈｏｕ　ＳｉｎｏＴｙｐｅ　Ｔｅｃｈｎｏｌｏｇｙ　Ｃｏ．，Ｌｔｄ．　Ａｌｌ　ｒｉｇｈｔｓ　ｒｅｓｅｒｖｅｄ．　常州华文印刷新技术有限公司　版权所有　"
+            ],
+            "1": [
+              "STFangsong",
+              "华文仿宋"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "STFangsong",
+              "华文仿宋"
+            ],
+            "5": [
+              "Version 1.02"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 1,
+              "encoding": 0,
+              "format": 0
+            },
+            {
+              "platform": 1,
+              "encoding": 25,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "stkaiti.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/STKAITI.ttf",
+      "git_blob_sha1": "50441161213b62e450c9820762b465c48e0d740e",
+      "sha256": "a29c99c161fc43ce6aba2d7c152065359c2cb3019be4ae6248171178cb7d04d5",
+      "size_bytes": 12736196,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright (c) 1991-1998, Changzhou SinoType Technology Co., Ltd.  All rights reserved.",
+              "Ｃｏｐｙｒｉｇｈｔ（ｃ）１９９１－１９９８，Ｃｈａｎｇｚｈｏｕ　ＳｉｎｏＴｙｐｅ　Ｔｅｃｈｎｏｌｏｇｙ　Ｃｏ．，Ｌｔｄ．　Ａｌｌ　ｒｉｇｈｔｓ　ｒｅｓｅｒｖｅｄ．　常州华文印刷新技术有限公司　版权所有　"
+            ],
+            "1": [
+              "STKaiti",
+              "华文楷体"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "STKaiti",
+              "华文楷体"
+            ],
+            "5": [
+              "Version 1.02"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 1,
+              "encoding": 0,
+              "format": 0
+            },
+            {
+              "platform": 1,
+              "encoding": 25,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "stsong.ttf",
+      "source_url": "https://raw.githubusercontent.com/xoofee/chinese_fonts/5f6db40c7cc93fb54e4cf16641ba54cf84889f62/STSONG.ttf",
+      "git_blob_sha1": "387060533127fe5bab8d6380a661cda87052c02b",
+      "sha256": "c5cc2ed5e2c0e6385013fe82d950eee6960d805bd602b86c53ff454783f382c4",
+      "size_bytes": 11697600,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright (c) 1991-1998, Changzhou SinoType Technology Co., Ltd.  All rights reserved.",
+              "Ｃｏｐｙｒｉｇｈｔ（ｃ）１９９１－１９９８，Ｃｈａｎｇｚｈｏｕ　ＳｉｎｏＴｙｐｅ　Ｔｅｃｈｎｏｌｏｇｙ　Ｃｏ．，Ｌｔｄ．　Ａｌｌ　ｒｉｇｈｔｓ　ｒｅｓｅｒｖｅｄ．　常州华文印刷新技术有限公司　版权所有　"
+            ],
+            "1": [
+              "STSong",
+              "华文宋体"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "STSong",
+              "华文宋体"
+            ],
+            "5": [
+              "Version 1.02"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 1,
+              "encoding": 0,
+              "format": 0
+            },
+            {
+              "platform": 1,
+              "encoding": 25,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "symbol.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/symbol.ttf",
+      "git_blob_sha1": "fd1c0337496166aa40b07cd1edbca37919319c7d",
+      "sha256": "bffdc2fd675d9af414824ae84d8456504542480afb34fbc6bfd6903656c4f854",
+      "size_bytes": 70128,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Typeface © The Monotype Corporation plc. Data © The Monotype Corporation All Rights Reserved"
+            ],
+            "1": [
+              "Symbol"
+            ],
+            "2": [
+              "Regular",
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "Arrunta"
+            ],
+            "4": [
+              "Symbol"
+            ],
+            "5": [
+              "Version 5.00"
+            ],
+            "13": [
+              "NOTIFICATION OF LICENSE AGREEMENT\r\n\r\nNOTIFICATION OF LICENSE AGREEMENT\r\n\r\nYou may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.",
+              "NOTIFICATION OF LICENSE AGREEMENT\r\n\r\nYou may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "14": [
+              "http://www.monotype.com/html/type/license.html"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 1,
+              "encoding": 0,
+              "format": 0
+            },
+            {
+              "platform": 3,
+              "encoding": 0,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "wingding.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/wingding.ttf",
+      "git_blob_sha1": "e8c4b9506f70c4b7e40186474315360b77bf548a",
+      "sha256": "d7c38355bd52f52e043ed904f3463d476925300d1bdca9e842b28077ca3549b8",
+      "size_bytes": 83740,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2006 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Wingdings"
+            ],
+            "2": [
+              "Regular",
+              "normal",
+              "Standard",
+              "Normal",
+              "Normaali",
+              "Normale",
+              "Standaard",
+              "Normálne",
+              "Navadno"
+            ],
+            "4": [
+              "Wingdings"
+            ],
+            "5": [
+              "Version 5.00"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 1,
+              "encoding": 0,
+              "format": 0
+            },
+            {
+              "platform": 3,
+              "encoding": 0,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "wingdng3.ttf",
+      "source_url": "https://raw.githubusercontent.com/dv-anomaly/ttf-wps-fonts/8c980c24289cb08e03f72915970ce1bd6767e45a/WINGDNG3.ttf",
+      "git_blob_sha1": "a6f6b32523433f8995e8b7c91fd3341c4166822c",
+      "sha256": "ac9ee085920a3d8b076d5e0c61dc9df42c4bac28d1fc968344f9ceddb3972f69",
+      "size_bytes": 35328,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Wingdings 3 designed by Bigelow & Holmes Inc. for Microsoft Corporation. Copyright © 1992 Microsoft Corporation. Pat. pend. All Rights Reserved. © 1990-1991 Type Solutions, Inc. All Rights Reserved."
+            ],
+            "1": [
+              "Wingdings 3"
+            ],
+            "2": [
+              "Regular",
+              "normal",
+              "Standard",
+              "Normal",
+              "Normaali",
+              "Normale",
+              "Standaard"
+            ],
+            "4": [
+              "Wingdings 3"
+            ],
+            "5": [
+              "Version 1.55"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 1,
+              "encoding": 0,
+              "format": 0
+            },
+            {
+              "platform": 3,
+              "encoding": 0,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "webdings.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/webdings.ttf",
+      "git_blob_sha1": "b9b7441aeddf3a5f2b65f1202dcde864449c0454",
+      "sha256": "1161ce511c44eb5464a4f8144aaf3eb965a50ed66957ad7d38e497ab9d958e5a",
+      "size_bytes": 121664,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2006 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Webdings"
+            ],
+            "2": [
+              "Regular",
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "Arrunta"
+            ],
+            "4": [
+              "Webdings"
+            ],
+            "5": [
+              "Version 5.00"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ],
+            "14": [
+              "http://www.microsoft.com/typography/fonts/"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 1,
+              "encoding": 0,
+              "format": 0
+            },
+            {
+              "platform": 3,
+              "encoding": 0,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "01bbd2d3bd483045e1dbf4f106935cb86478b937f8d334258ad12eea60554a05",
+      "size_bytes": 220832,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Regular"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-black.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Black.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "21334c0fe58b65d30cf0a850ef914a60f1ef5ae272456d1630020048551e66da",
+      "size_bytes": 221476,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Black"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos Black"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Black"
+            ]
+          },
+          "weight_class": 900,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-black-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Black-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "c2f8e133d5333ff022c044ee760ac0b0af22e4264a5f1411b9400936d4d1c71d",
+      "size_bytes": 229832,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Black"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos Black Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Black Italic"
+            ]
+          },
+          "weight_class": 900,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-bold.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Bold.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "ae318584be8737164e24842e0b27ab180ee6761c1bedd799f5a29c93a8a4e65c",
+      "size_bytes": 221408,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Aptos Bold"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Bold"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-bold-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Bold-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "eccb43dc63b966f97f49abc7031f0337411f64064f8df8ba98aa22a135cac35a",
+      "size_bytes": 228688,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Aptos Bold Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Bold Italic"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-display.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Display.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "049b18e4ca1780af39b00966491723565612eee9d18bc726f312b47372f58074",
+      "size_bytes": 221152,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Display"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos Display"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Display"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-display-bold.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Display-Bold.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "2863d62831c885e44134c72070efadd6aa7d7b487afcba46fdc6d2d5ffafaa37",
+      "size_bytes": 221872,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Display"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Aptos Display Bold"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Display Bold"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-display-bold-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Display-Bold-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "698cf4a6325121430eec5e1da9fb2897f7285296438d15f7aa38fed895269f45",
+      "size_bytes": 229140,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Display"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Aptos Display Bold Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Display Bold Italic"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-display-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Display-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "158210574fea328266e6586c4df45394dcf746b7de891fc52671200521ca8298",
+      "size_bytes": 228264,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Display"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos Display Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Display Italic"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-extrabold.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-ExtraBold.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "9e1637f5861fe67d7225782ab27206d55e660bb3fe6e34e99ca05655d502dc4c",
+      "size_bytes": 221904,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos ExtraBold"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos ExtraBold"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "ExtraBold"
+            ]
+          },
+          "weight_class": 800,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-extrabold-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-ExtraBold-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "5b77e9fa7c41dc0d677195ec4ae5a00aa4bcf52c2c71bc2509019194e287430d",
+      "size_bytes": 229244,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos ExtraBold"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos ExtraBold Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "ExtraBold Italic"
+            ]
+          },
+          "weight_class": 800,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "b37b9d734abe6dd9924f914d4a3fbba6b9fdbccb30fedb4fbd6f27131307e6c2",
+      "size_bytes": 227868,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Italic"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-light.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Light.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "dbe7b9c8f07e8580ecee4c01befc4ff574cdf16bb2b90f88eaf945a9b662b0ba",
+      "size_bytes": 219484,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Light"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos Light"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Light"
+            ]
+          },
+          "weight_class": 300,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-light-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Light-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "939fd4e6a16c979088953620ef9dd3e7dfedb3e375db404b959554b75225ec02",
+      "size_bytes": 226696,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Light"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos Light Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "Light Italic"
+            ]
+          },
+          "weight_class": 300,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-mono.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Mono.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "8f31bec58e172359c99801268ea8a50e15bd1a2975a1cb982dfa340c69d844fa",
+      "size_bytes": 98244,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2023 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Aptos Mono"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos Mono"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Mono"
+            ],
+            "17": [
+              "Regular"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-mono-bold.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Mono-Bold.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "d0c5fbc35f48eccce8b890abff13445a173ae5c8fb2de69f84cd06b97ee88a47",
+      "size_bytes": 98812,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2023 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Aptos Mono"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Aptos Mono Bold"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Mono"
+            ],
+            "17": [
+              "Bold"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-mono-bold-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Mono-Bold-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "c37db2c4b70af5eff3e8d932201a1ef1ab219d01996ab9ae45c023212c86e57d",
+      "size_bytes": 102668,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2023 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Aptos Mono"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Aptos Mono Bold Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Mono"
+            ],
+            "17": [
+              "Bold Italic"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-mono-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Mono-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "a7be2fe98f3d3cc7e54dc0ea36626505adf6d88e52cc8502a3db7796d510068e",
+      "size_bytes": 102144,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2023 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Aptos Mono"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos Mono Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Mono"
+            ],
+            "17": [
+              "Italic"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-narrow.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Narrow.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "3366e06e61643449cadb19c6d2a617d341915471b3985dc4049c58d8d4153253",
+      "size_bytes": 238584,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Narrow"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos Narrow"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Narrow"
+            ],
+            "17": [
+              "Regular"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-narrow-bold.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Narrow-Bold.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "6c4b05b58c57e7affbd4fcd2c42aff6cefe347b353d0ba578b2ca064721e883a",
+      "size_bytes": 238116,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Narrow"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Aptos Narrow Bold"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Narrow"
+            ],
+            "17": [
+              "Bold"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-narrow-bold-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Narrow-Bold-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "ad58a2322d92bef51ccc15411a0cc0c4a6cd4b0519f30b92aaa5dfe5682f4a65",
+      "size_bytes": 250316,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Narrow"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Aptos Narrow Bold Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Narrow"
+            ],
+            "17": [
+              "Bold Italic"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-narrow-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Narrow-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "fa30b8a2637ca294b4045961fccf02cb1e72f22777faee749d41305dc541d40a",
+      "size_bytes": 248844,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Narrow"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos Narrow Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Narrow"
+            ],
+            "17": [
+              "Italic"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-semibold.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-SemiBold.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "3bd631a7ecb762df8aa7bca31b147db54d441babc83d91b96ba4a69d438880d9",
+      "size_bytes": 221020,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos SemiBold"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos SemiBold"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "SemiBold"
+            ]
+          },
+          "weight_class": 600,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-semibold-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-SemiBold-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "054d97515b85fc0c8e4ff8af37c04ef238c48a2c3956e40425f57dec4903191d",
+      "size_bytes": 228000,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos SemiBold"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos SemiBold Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos"
+            ],
+            "17": [
+              "SemiBold Italic"
+            ]
+          },
+          "weight_class": 600,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-serif.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Serif.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "387b6b619117c1ad1449c8cb802a16b17eb92c41f3550f6f7574ed6e9fc7d3e5",
+      "size_bytes": 202436,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Serif"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Aptos Serif"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Serif"
+            ],
+            "17": [
+              "Regular"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-serif-bold.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Serif-Bold.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "c52b80075eb3c429640192f11c4ee780ea33b62f8af3c400671b6155d6f44954",
+      "size_bytes": 202740,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Serif"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Aptos Serif Bold"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Serif"
+            ],
+            "17": [
+              "Bold"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-serif-bold-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Serif-Bold-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "dc961989dcfdbf6cf8940b0912aaf6bdc1acb42483db6a537e569aa2a9d1db59",
+      "size_bytes": 223316,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Serif"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Aptos Serif Bold Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Serif"
+            ],
+            "17": [
+              "Bold Italic"
+            ]
+          },
+          "weight_class": 700,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "aptos-serif-italic.ttf",
+      "source_url": "https://download.microsoft.com/download/8/6/0/860a94fa-7feb-44ef-ac79-c072d9113d69/Microsoft%20Aptos%20Fonts.zip",
+      "source_page": "https://www.microsoft.com/en-us/download/details.aspx?id=106087",
+      "archive_member": "Aptos-Serif-Italic.ttf",
+      "archive_sha256": "6528fd120e719a9f985e94214eca6887d1653b88456916a792a630b02e95b025",
+      "sha256": "bcb5de1b7f43f7d67ee6975b33d092d3472f32ff156da147dc6e8c601c3e3d3b",
+      "size_bytes": 222964,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "© 2024 Microsoft Corporation. All Rights Reserved. The \"kern\" table of this font was developed in part using a study by André Fuchs on the relevance of kerning pairs (https://github.com/andre-fuchs/kerning-pairs/blob/master/LICENSE.md). Copyright 2019 André Fuchs. Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software."
+            ],
+            "1": [
+              "Aptos Serif"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Aptos Serif Italic"
+            ],
+            "5": [
+              "Version 2.01;240513210638;O365"
+            ],
+            "13": [
+              "Microsoft supplied font. You may use this font to create, display, and print content as permitted by the license terms or terms of use, of the Microsoft product, service, or content in which this font was included. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content. Any other use is prohibited."
+            ],
+            "14": [
+              "https://docs.microsoft.com/typography/about"
+            ],
+            "16": [
+              "Aptos Serif"
+            ],
+            "17": [
+              "Italic"
+            ]
+          },
+          "weight_class": 400,
+          "fs_type": 8,
+          "cmap_formats": [
+            {
+              "platform": 0,
+              "encoding": 3,
+              "format": 4
+            },
+            {
+              "platform": 3,
+              "encoding": 1,
+              "format": 4
+            }
+          ]
         }
       ]
     }

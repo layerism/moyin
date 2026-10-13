@@ -28,16 +28,35 @@ const fonts = [
   chinese("Kai", ["楷体", "KaiTi"], "simkai.ttf"),
   chinese("XingKai", ["华文行楷", "STXingkai"], "stxingka.ttf"),
   chinese("ZhongSong", ["华文中宋", "STZhongsong"], "stzhongs.ttf"),
+  chinese("STSong", ["华文宋体", "STSong"], "stsong.ttf"),
+  chinese("STKai", ["华文楷体", "STKaiti"], "stkaiti.ttf"),
+  chinese("STFangSong", ["华文仿宋", "STFangsong"], "stfangso.ttf"),
   chinese("KaiLegacy", ["楷体_GB2312", "KaiTi_GB2312"], "kaiti_gb2312.ttf"),
   latin("Times", ["Times New Roman"], ["times.ttf", "timesbd.ttf", "timesi.ttf", "timesbi.ttf"]),
   latin("Arial", ["Arial"], ["arial.ttf", "arialbd.ttf", "ariali.ttf", "arialbi.ttf"]),
   latin("Calibri", ["Calibri"], ["calibri.ttf", "calibrib.ttf", "calibrii.ttf", "calibriz.ttf"]),
+  latin("Aptos", ["Aptos"], ["aptos.ttf", "aptos-bold.ttf", "aptos-italic.ttf", "aptos-bold-italic.ttf"]),
+  ...["Display", "Narrow", "Mono", "Serif"].map((variant) => {
+    const file = `aptos-${variant.toLowerCase()}`;
+    return latin(`Aptos${variant}`, [`Aptos ${variant}`], [`${file}.ttf`, `${file}-bold.ttf`, `${file}-italic.ttf`, `${file}-bold-italic.ttf`]);
+  }),
+  ...["Light", "SemiBold", "ExtraBold", "Black"].map((variant) => {
+    const file = `aptos-${variant.toLowerCase()}`;
+    // These names identify standalone families in Word's legacy font selection.
+    // The file already contains the requested weight; retain its original glyphs.
+    return { family: `MoyinDocxAptos${variant}`, aliases: [`Aptos ${variant}`],
+      faces: [face(`${file}.ttf`), face(`${file}-italic.ttf`, "400", "italic")] };
+  }),
   { family: "MoyinDocxCalibriLight", aliases: ["Calibri Light"], faces: [face("calibril.ttf"), face("calibrili.ttf", "400", "italic")] },
   latin("Consolas", ["Consolas"], ["consola.ttf", "consolab.ttf", "consolai.ttf", "consolaz.ttf"]),
   latin("Courier", ["Courier New"], ["cour.ttf", "courbd.ttf", "couri.ttf", "courbi.ttf"]),
   latin("Cambria", ["Cambria"], ["cambria.ttc", "cambriab.ttf", "cambriai.ttf", "cambriaz.ttf"]),
   { family: "MoyinDocxCambriaMath", aliases: ["Cambria Math"], faces: [face("cambria.ttc", "400", "normal", 1)] },
   { family: "MoyinDocxWingdings2", aliases: ["Wingdings 2"], faces: [face("wingdng2.ttf")] },
+  { family: "MoyinDocxSymbol", aliases: ["Symbol"], faces: [face("symbol.ttf")] },
+  { family: "MoyinDocxWingdings", aliases: ["Wingdings"], faces: [face("wingding.ttf")] },
+  { family: "MoyinDocxWingdings3", aliases: ["Wingdings 3"], faces: [face("wingdng3.ttf")] },
+  { family: "MoyinDocxWebdings", aliases: ["Webdings"], faces: [face("webdings.ttf")] },
 ];
 const byName = new Map(fonts.flatMap((font) => font.aliases.map((alias) => [alias.toLowerCase(), font] as const)));
 const loaded = new Map<string, Promise<LoadedFace>>();
