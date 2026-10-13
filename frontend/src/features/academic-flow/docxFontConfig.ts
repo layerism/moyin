@@ -1,4 +1,4 @@
-import { strFromU8, unzipSync } from "fflate";
+import type { DocxXmlContext } from "./docxLayout";
 
 const word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const drawing = "http://schemas.openxmlformats.org/drawingml/2006/main";
@@ -56,11 +56,7 @@ function script(language: string) {
 }
 
 // Add inheritable XML metadata to the renderer's existing style tree before rendering.
-export function prepareDocxFontConfig(data: ArrayBuffer, parsed: Parsed): DocxFontTheme {
-  const paths = new Set(parsed.parts.map((part) => part.path));
-  const archive = unzipSync(new Uint8Array(data), { filter: (entry) => paths.has(entry.name) });
-  const xml = (path?: string) => path && archive[path]
-    ? new DOMParser().parseFromString(strFromU8(archive[path]), "application/xml") : null;
+export function prepareDocxFontConfig(xml: DocxXmlContext, parsed: Parsed): DocxFontTheme {
   const styles = xml(parsed.stylesPart?.path);
   const defaults = child(styles?.documentElement, "docDefaults");
   const defaultValues = properties(child(child(defaults, "rPrDefault"), "rPr"));
@@ -115,12 +111,6 @@ export function prepareDocxFontConfig(data: ArrayBuffer, parsed: Parsed): DocxFo
     for (const root of roots) Object.assign(root.cssStyle ??= {}, defaultValues);
     const source = xml(part.path);
     if (!source) continue;
-    // Select the same AlternateContent branch as docx-preview, excluding unused alternatives.
-    for (const alternate of Array.from(source.getElementsByTagNameNS("http://schemas.openxmlformats.org/markup-compatibility/2006", "AlternateContent"))) {
-      // docx-preview 0.4.1 has no supported Choice namespaces and takes Fallback.
-      const branch = Array.from(alternate.children).find((entry) => entry.localName === "Fallback");
-      alternate.replaceWith(...(branch?.firstElementChild ? [branch.firstElementChild] : []));
-    }
     const runs = roots.flatMap((root) => descendants(root, "run"));
     const xmlRuns = Array.from(source.getElementsByTagNameNS(word, "r"));
     if (runs.length !== xmlRuns.length) throw new Error(`DOCX 字体配置无法与正文对应（${part.path}），请下载原件查看。`);

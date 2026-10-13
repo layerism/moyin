@@ -131,6 +131,7 @@ function formatNumber(value: number, format: string): string {
 export function updateDocxPageNumbers(body: HTMLElement, sections: PageNumbering[]) {
   const pages = Array.from(body.querySelectorAll<HTMLElement>("section.docx"));
   const sectionIds = pages.map((page) => {
+    if (page.dataset.docxSectionId) return Number(page.dataset.docxSectionId);
     const blocks = Array.from(page.querySelectorAll<HTMLElement>(":scope > article > *"))
       .filter((block) => block.style.getPropertyValue("--docx-numbering-section"));
     const block = blocks.find((entry) => entry.textContent?.trim() || entry.querySelector("img,svg")) ?? blocks[0];

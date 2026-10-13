@@ -1,8 +1,26 @@
 // Pagination is based on browser layout, not Word's layout engine.
 // Run at zoom 1, after fonts and images have loaded in the connected shadow root.
-export function paginateDocx(body: HTMLElement): number {
+export async function paginateDocx(body: HTMLElement, signal: AbortSignal): Promise<{ pageCount: number; warnings: string[] }> {
+  const warnings = new Set<string>();
+  let sliceStart = performance.now();
+  const yieldLayout = async () => {
+    signal.throwIfAborted();
+    if (performance.now() - sliceStart > 16) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      signal.throwIfAborted();
+      sliceStart = performance.now();
+    }
+  };
   const originals = Array.from(body.querySelectorAll<HTMLElement>("section.docx"));
   for (const original of originals) {
+    await yieldLayout();
+    if (original.dataset.docxUnpaged || Array.from(original.querySelectorAll<HTMLElement>(":scope > article")).some((article) =>
+      Number(getComputedStyle(article).columnCount) > 1) || original.querySelector(":scope > ol")) {
+      warnings.add("缺少纸张高度、分栏或脚注页面保留库的原始布局，自动分页尚不能保证与 Word 一致。");
+      original.style.height = "auto";
+      original.style.overflow = "visible";
+      continue;
+    }
     const template = original.cloneNode(true) as HTMLElement;
     const blocks = Array.from(original.children).flatMap((child) =>
       child.tagName === "ARTICLE"
@@ -20,10 +38,11 @@ export function paginateDocx(body: HTMLElement): number {
     };
     clear(template);
     clear(page);
-    const nextPage = () => {
+    const nextPage = (reason = "overflow") => {
       const next = template.cloneNode(true) as HTMLElement;
       page.after(next);
       page = next;
+      page.dataset.docxPageReason = reason;
       shell = undefined;
       count = 0;
     };
@@ -48,11 +67,31 @@ export function paginateDocx(body: HTMLElement): number {
       return rect.top + Math.max(rect.height, block.scrollHeight)
         + (parseFloat(getComputedStyle(block).marginBottom) || 0) <= bottom() + 1;
     };
-    for (const entry of blocks) {
+    for (let entryIndex = 0; entryIndex < blocks.length; entryIndex++) {
+      await yieldLayout();
+      const entry = blocks[entryIndex];
+      // Keep chains together when the whole chain fits on an empty page.
+      let chainEnd = entryIndex;
+      while (blocks[chainEnd]?.block.dataset.docxKeepNext === "1"
+        && blocks[chainEnd + 1]?.shell === entry.shell) chainEnd++;
+      if (chainEnd > entryIndex && count > 0) {
+        const chain = blocks.slice(entryIndex, chainEnd + 1).map((part) => part.block);
+        chain.forEach((part) => container(entry.shell).appendChild(part));
+        const needed = chain[chain.length - 1].getBoundingClientRect().bottom - chain[0].getBoundingClientRect().top;
+        const available = bottom() - article!.getBoundingClientRect().top;
+        const move = !fits(chain[chain.length - 1]) && needed <= available;
+        chain.forEach((part) => part.remove());
+        if (move) nextPage("keepNext");
+      }
       let block = entry.block;
       for (;;) {
         container(entry.shell).appendChild(block);
         if (fits(block)) { count++; break; }
+        if (block.dataset.docxKeepLines === "1" && count > 0) {
+          block.remove();
+          nextPage("keepLines");
+          continue;
+        }
         const rest = splitBlock(block, fits);
         if (rest) {
           nextPage();
@@ -64,29 +103,71 @@ export function paginateDocx(body: HTMLElement): number {
           block.remove();
           nextPage();
         } else {
-          if (block.tagName === "TABLE" && block.textContent?.trim()) {
-            throw new Error("此表格包含无法安全跨页的内容，请下载原件查看。");
-          }
-          // Fit indivisible media proportionally instead of clipping it.
-          const rect = block.getBoundingClientRect();
-          const available = bottom() - rect.top;
-          block.style.width = `${rect.width}px`;
-          block.style.zoom = String(Math.max(0.01, Math.min(1, available / Math.max(rect.height, block.scrollHeight))) * 0.98);
+          // Preserve content and scale. An unsupported indivisible object must
+          // not become tiny text or be silently clipped by a fixed page viewport.
+          page.style.height = "auto";
+          page.style.overflow = "visible";
+          page.dataset.docxPageReason = "oversize";
+          warnings.add("部分不可拆分内容超过页面可用高度，已完整显示，分页可能与 Word 不同。");
           count++;
           break;
         }
       }
     }
   }
-  return body.querySelectorAll("section.docx").length;
+  const seen = new Set<string>();
+  let physicalPage = 0;
+  let previousSection = "0";
+  for (const page of Array.from(body.querySelectorAll<HTMLElement>("section.docx"))) {
+    const first = page.querySelector<HTMLElement>(":scope > article > *");
+    const id = first?.style.getPropertyValue("--docx-numbering-section") || previousSection;
+    const kind = first?.style.getPropertyValue("--docx-section-start");
+    if (!seen.has(id) && ["oddPage", "evenPage"].includes(kind ?? "")) {
+      const wanted = kind === "oddPage" ? 1 : 0;
+      if ((physicalPage + 1) % 2 !== wanted) {
+        const blank = page.cloneNode(false) as HTMLElement;
+        blank.dataset.docxPageReason = kind!;
+        blank.dataset.docxSectionId = previousSection;
+        page.before(blank);
+        physicalPage++;
+      }
+    }
+    seen.add(id);
+    previousSection = id;
+    physicalPage++;
+  }
+  return { pageCount: body.querySelectorAll("section.docx").length, warnings: [...warnings] };
 }
 
 function splitBlock(block: HTMLElement, fits: (block: HTMLElement) => boolean): HTMLElement | null {
   if (block.tagName === "TABLE") return splitTable(block as HTMLTableElement, fits);
-  if (block.tagName !== "P" || block.querySelector("img,svg,math,canvas,object")) return null;
+  if (block.dataset.docxKeepLines === "1") return null;
+  if (block.tagName !== "P" || block.querySelector("img,svg,math,canvas,object,docx-tab")) return null;
   const source = block.cloneNode(true) as HTMLElement;
   const length = source.textContent?.length ?? 0;
   if (length < 2) return null;
+  // Record browser line boundaries before detaching anything. Text ranges avoid
+  // counting inline wrapper rectangles twice. Overlapping vertical intervals
+  // belong to one line even when that line contains different font sizes.
+  const lineRanges: { top: number; bottom: number }[] = [];
+  const textWalker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+  while (textWalker.nextNode()) {
+    const range = document.createRange();
+    range.selectNodeContents(textWalker.currentNode);
+    for (const rect of Array.from(range.getClientRects())) {
+      if (rect.width && rect.height) lineRanges.push({ top: rect.top, bottom: rect.bottom });
+    }
+  }
+  lineRanges.sort((a, b) => a.top - b.top);
+  const lines: { top: number; bottom: number }[] = [];
+  for (const rect of lineRanges) {
+    const previous = lines[lines.length - 1];
+    if (previous && rect.top < previous.bottom && rect.bottom > previous.top) previous.bottom = Math.max(previous.bottom, rect.bottom);
+    else lines.push({ ...rect });
+  }
+  const widowControl = block.dataset.docxWidow !== "0";
+  if (widowControl && lines.length < 4) return null;
+  block.style.marginBottom = "0";
   const cut = (offset: number) => {
     const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode()!;
@@ -110,11 +191,48 @@ function splitBlock(block: HTMLElement, fits: (block: HTMLElement) => boolean): 
     if (fits(block)) low = mid;
     else high = mid - 1;
   }
-  // Do not divide a UTF-16 surrogate pair between pages.
-  if (low > 0 && /[\uD800-\uDBFF]/.test(source.textContent![low - 1])) low--;
-  if (!low) { block.replaceChildren(...Array.from(source.childNodes)); return null; }
+  // Keep combining characters and emoji sequences with their base character.
+  const Segmenter = (Intl as unknown as { Segmenter: new (locale?: string, options?: { granularity: string }) => {
+    segment(text: string): Iterable<{ index: number }>;
+  } }).Segmenter;
+  if (Segmenter) {
+    let boundary = 0;
+    for (const entry of new Segmenter(undefined, { granularity: "grapheme" }).segment(source.textContent!)) {
+      if (entry.index > low) break;
+      boundary = entry.index;
+    }
+    low = boundary;
+  } else if (low > 0 && /[\uD800-\uDBFF]/.test(source.textContent![low - 1])) low--;
+  if (!low) {
+    block.style.marginBottom = source.style.marginBottom;
+    block.replaceChildren(...Array.from(source.childNodes)); return null;
+  }
   const [before, after] = cut(low);
   block.replaceChildren(before);
+  if (widowControl) {
+    const range = document.createRange();
+    range.selectNodeContents(block);
+    const bottom = Math.max(...Array.from(range.getClientRects(), (rect) => rect.bottom));
+    const consumed = lines.filter((line) => line.top < bottom).length;
+    if (consumed < 2) {
+      block.style.marginBottom = source.style.marginBottom;
+      block.replaceChildren(...Array.from(source.childNodes));
+      return null;
+    }
+    if (lines.length - consumed < 2) {
+      // Retry against the previous full-line boundary, leaving two lines for
+      // the continuation. This is an actual measured boundary, not a character
+      // count or font-size estimate.
+      block.replaceChildren(...Array.from(source.cloneNode(true).childNodes));
+      block.style.marginBottom = source.style.marginBottom;
+      const limit = lines[lines.length - 2].top;
+      return splitBlock(block, (candidate) => {
+        const measured = document.createRange();
+        measured.selectNodeContents(candidate);
+        return fits(candidate) && Array.from(measured.getClientRects()).every((rect) => rect.bottom <= limit);
+      });
+    }
+  }
   const remainder = source.cloneNode(false) as HTMLElement;
   remainder.appendChild(after);
   remainder.style.textIndent = "0";
@@ -131,17 +249,24 @@ function splitTable(table: HTMLTableElement, fits: (block: HTMLElement) => boole
   table.style.tableLayout = "fixed";
   columns.forEach((column, index) => { column.style.width = `${widths[index]}px`; });
   const source = table.cloneNode(true) as HTMLTableElement;
-  const rows = Array.from(source.rows);
-  const headerCount = source.tHead?.rows.length ?? 0;
+  const rows = Array.from(table.rows);
+  let headerCount = source.tHead?.rows.length ?? 0;
+  if (!headerCount) {
+    while (rows[headerCount]?.dataset.docxTableHeader === "1") headerCount++;
+  }
   let chosen = 0;
-  // Keep vertically merged cells together and retain any explicit table header.
-  for (let index = headerCount + 1; index < rows.length; index++) {
-    if (rows.slice(0, index).some((row, rowIndex) => Array.from(row.cells).some((cell) =>
-      cell.rowSpan === 0 || rowIndex + cell.rowSpan > index))) continue;
-    table.replaceChildren(...Array.from(source.cloneNode(true).childNodes));
-    while (table.rows.length > index) table.deleteRow(table.rows.length - 1);
+  // Remove one suffix once, then grow the prefix with existing row nodes.
+  // This avoids deep-cloning the entire table for every candidate boundary.
+  const parents = rows.map((row) => row.parentElement!);
+  rows.forEach((row) => row.remove());
+  for (let index = 0; index < rows.length; index++) {
+    parents[index].appendChild(rows[index]);
+    const cut = index + 1;
+    if (cut <= headerCount || cut === rows.length) continue;
+    if (rows.slice(0, cut).some((row, rowIndex) => Array.from(row.cells).some((cell) =>
+      cell.style.display !== "none" && (cell.rowSpan === 0 || rowIndex + cell.rowSpan > cut)))) continue;
     if (!fits(table)) break;
-    chosen = index;
+    chosen = cut;
   }
   table.replaceChildren(...Array.from(source.cloneNode(true).childNodes));
   if (!chosen) return splitTableGroup(table, source, headerCount, fits);
@@ -168,9 +293,7 @@ function splitTableGroup(
       end = Math.min(rows.length, Math.max(end, cell.rowSpan ? index + cell.rowSpan : rows.length));
     }
   }
-  // Fixed-height cells have an explicit viewport. Move these rows together,
-  // rather than stripping their height and splitting the clipped content.
-  if (rows.slice(start, end).some((row) => row.dataset.docxExactRow === "true")) return null;
+  if (rows.slice(start, end).some((row) => row.dataset.docxCantSplit === "1")) return null;
   const remainder = source.cloneNode(true) as HTMLTableElement;
   while (table.rows.length > end) table.deleteRow(table.rows.length - 1);
   const group = (target: HTMLTableElement) => Array.from(target.rows).slice(start, end);

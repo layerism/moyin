@@ -1,16 +1,21 @@
-import { strFromU8, unzipSync } from "fflate";
-
 const wordNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 type Styles = Record<string, string>;
 type DocxNode = {
   type: string; children?: DocxNode[]; cssStyle?: Styles;
   cssStyleText?: string; tagName?: string; attrs?: Record<string, string>;
+  break?: string; styleName?: string; pageBreakBefore?: boolean;
+  sectionProps?: { type?: string };
+  tabs?: { position: string; style: string; leader?: string }[];
+  gridBefore?: number; span?: number;
 };
-type DocxStyle = { id: string | null; target: string | null; styles: { target: string; values: Styles }[] };
+type DocxStyle = { id: string | null; target: string | null; basedOn?: string; isDefault?: boolean;
+  paragraphProps?: { tabs?: DocxNode["tabs"] };
+  styles: { target: string; values: Styles }[] };
 type ParsedDocx = {
   documentPart: { path: string; body: DocxNode };
   stylesPart?: { path: string; styles: DocxStyle[] };
   settingsPart?: { path: string };
+  parts: { path: string; body?: DocxNode; rootElement?: DocxNode; notes?: DocxNode[] }[];
 };
 const child = (element: Element | null | undefined, name: string) =>
   Array.from(element?.children ?? []).find((entry) => entry.namespaceURI === wordNamespace && entry.localName === name);
@@ -22,17 +27,19 @@ const number = (element: Element | null | undefined, name: string) => {
 };
 
 function supplementParagraph(properties: Element | undefined, values: Styles) {
+  for (const name of ["keepNext", "keepLines", "widowControl"]) {
+    const setting = child(properties, name);
+    if (setting) values[`--docx-${name.toLowerCase()}`] = enabled(setting) ? "1" : "0";
+  }
   const snap = child(properties, "snapToGrid");
   if (snap) values["--docx-snap-to-grid"] = enabled(snap) ? "1" : "0";
   const spacing = child(properties, "spacing");
   const line = number(spacing, "line");
+  const declaredRule = attribute(spacing, "lineRule");
+  if (declaredRule) values["--docx-line-rule"] = declaredRule;
   if (line !== null && line > 0) {
-    const declaredRule = attribute(spacing, "lineRule");
-    const rule = declaredRule === "exact" || declaredRule === "atLeast" ? declaredRule : "auto";
-    values["--docx-line-rule"] = rule;
-    values["line-height"] = rule === "auto" ? String(line / 240)
-      : rule === "atLeast" ? `max(1em, ${line / 20}pt)` : `${line / 20}pt`;
-    values["min-height"] = rule === "exact" ? `${line / 20}pt` : "1em";
+    // Preserve value and rule independently: a direct value can inherit its rule.
+    values["--docx-line-value"] = String(line);
   }
   for (const side of ["before", "after"]) {
     const lines = number(spacing, `${side}Lines`);
@@ -50,20 +57,73 @@ function descendants(node: DocxNode, type: string): DocxNode[] {
   return [...(node.type === type ? [node] : []), ...(node.children ?? []).flatMap((entry) => descendants(entry, type))];
 }
 
-// Supplement XML fields omitted by the pinned renderer without replacing its style inheritance.
-export function supplementDocxLayout(data: ArrayBuffer, parsed: ParsedDocx) {
-  const paths = new Set([parsed.documentPart.path, parsed.stylesPart?.path, parsed.settingsPart?.path]);
-  const archive = unzipSync(new Uint8Array(data), { filter: (entry) => paths.has(entry.name) });
-  const xml = (path: string | undefined) => path && archive[path]
-    ? new DOMParser().parseFromString(strFromU8(archive[path]), "application/xml") : null;
+// Keep the pinned renderer's internal XML access in one place. Its own parser
+// already inflated and parsed these parts; consumers share a normalized copy.
+export function createDocxXmlContext(parsed: { parts: { path: string; _xmlDocument?: Document }[] }) {
+  const documents = new Map<string, Document>();
+  return (path?: string): Document | null => {
+    if (!path) return null;
+    if (documents.has(path)) return documents.get(path)!;
+    const part = parsed.parts.find((entry) => entry.path === path);
+    if (!part) return null;
+    if (!part._xmlDocument) throw new Error("DOCX 解析器未保留 XML，请检查预览依赖版本。");
+    const source = part._xmlDocument.cloneNode(true) as Document;
+    for (const alternate of Array.from(source.getElementsByTagNameNS(
+      "http://schemas.openxmlformats.org/markup-compatibility/2006", "AlternateContent"))) {
+      const fallback = Array.from(alternate.children).find((entry) => entry.localName === "Fallback");
+      alternate.replaceWith(...(fallback?.firstElementChild ? [fallback.firstElementChild] : []));
+    }
+    documents.set(path, source);
+    return source;
+  };
+}
+export type DocxXmlContext = ReturnType<typeof createDocxXmlContext>;
+
+// Saved layout markers are historical results, not author-requested breaks.
+// Keep the library's explicit break renderer, with one event per section boundary.
+export function prepareDocxBreaks(parsed: {
+  documentPart: { body: DocxNode & { props?: { type?: string } } };
+  stylesPart?: { styles: { id: string | null; basedOn?: string; paragraphProps?: { pageBreakBefore?: boolean } }[] };
+}) {
+  const removeSaved = (node: DocxNode) => {
+    if (!node.children) return;
+    node.children = node.children.filter((child) => child.break !== "lastRenderedPageBreak");
+    node.children.forEach(removeSaved);
+  };
+  const body = parsed.documentPart.body;
+  removeSaved(body);
+  const blocks = body.children ?? [];
+  const before = (node: DocxNode): boolean => {
+    if (node.pageBreakBefore !== undefined) return node.pageBreakBefore;
+    let id = node.styleName;
+    const seen = new Set<string>();
+    while (id && !seen.has(id)) {
+      seen.add(id);
+      const style = parsed.stylesPart?.styles.find((entry) => entry.id === id);
+      if (style?.paragraphProps?.pageBreakBefore !== undefined) return style.paragraphProps.pageBreakBefore;
+      id = style?.basedOn;
+    }
+    return false;
+  };
+  blocks.forEach((block, index) => {
+    if (!block.sectionProps || index === blocks.length - 1) return;
+    const next = blocks[index + 1];
+    const nextSection = blocks.slice(index + 1).find((entry) => entry.sectionProps)?.sectionProps ?? body.props;
+    const kind = nextSection?.type ?? "nextPage";
+    (next.cssStyle ??= {})["--docx-section-start"] = kind;
+    if (!["nextPage", "evenPage", "oddPage"].includes(kind)) return;
+    // pageBreakBefore is already handled by the library, including style inheritance.
+    if (before(next)) return;
+    const lastRun = block.children?.[block.children.length - 1];
+    const last = lastRun?.children?.[lastRun.children.length - 1];
+    if (last?.break === "page") return;
+    (block.children ??= []).push({ type: "run", children: [{ type: "break", break: "page" }] });
+  });
+}
+
+// Supplement omitted properties on the library model before its style cascade.
+export function supplementDocxLayout(xml: DocxXmlContext, parsed: ParsedDocx) {
   const documentXml = xml(parsed.documentPart.path);
-  // Match docx-preview's chosen branch; counting both DrawingML and its VML
-  // fallback duplicates textbox paragraphs and prevents positional XML mapping.
-  for (const alternate of Array.from(documentXml?.getElementsByTagNameNS(
-    "http://schemas.openxmlformats.org/markup-compatibility/2006", "AlternateContent") ?? [])) {
-    const fallback = Array.from(alternate.children).find((entry) => entry.localName === "Fallback");
-    alternate.replaceWith(...(fallback?.firstElementChild ? [fallback.firstElementChild] : []));
-  }
   const stylesXml = xml(parsed.stylesPart?.path);
   for (const source of Array.from(stylesXml?.documentElement.children ?? [])) {
     const defaults = source.localName === "docDefaults";
@@ -107,6 +167,73 @@ export function supplementDocxLayout(data: ArrayBuffer, parsed: ParsedDocx) {
     });
     grid(start, paragraphs.length, child(bodyXml, "sectPr"));
   }
+  const settings = xml(parsed.settingsPart?.path);
+  // ISO/IEC 29500 defaultTabStop: 720 twips only when the element is omitted.
+  const defaultTab = number(settings?.getElementsByTagNameNS(wordNamespace, "defaultTabStop")[0], "val") ?? 720;
+  const styleTabs = (id: string | undefined, seen = new Set<string>()): NonNullable<DocxNode["tabs"]> => {
+    if (!id || seen.has(id)) return [];
+    seen.add(id);
+    const style = parsed.stylesPart?.styles.find((entry) => entry.id === id);
+    return [...styleTabs(style?.basedOn, seen), ...(style?.paragraphProps?.tabs ?? [])];
+  };
+  for (const part of parsed.parts) {
+    const roots = part.body ? [part.body] : part.rootElement ? [part.rootElement] : part.notes ?? [];
+    if (!roots.length) continue;
+    const source = xml(part.path);
+    if (!source) continue;
+    const nodes = roots.flatMap((root) => descendants(root, "paragraph"));
+    if (part.path !== parsed.documentPart.path) {
+      const sources = Array.from(source.getElementsByTagNameNS(wordNamespace, "p"));
+      if (sources.length === nodes.length) sources.forEach((entry, index) =>
+        supplementParagraph(child(entry, "pPr"), nodes[index].cssStyle ??= {}));
+    }
+    for (const node of nodes) {
+      const stops = new Map<string, NonNullable<DocxNode["tabs"]>[number]>();
+      const styleId = node.styleName ?? parsed.stylesPart?.styles.find((entry) => entry.isDefault && entry.target === "p")?.id ?? undefined;
+      for (const stop of [...styleTabs(styleId), ...(node.tabs ?? [])]) stops.set(stop.position, stop);
+      const values = node.cssStyle ??= {};
+      values["--docx-tabs"] = JSON.stringify([...stops.values()]);
+      values["--docx-default-tab"] = String(defaultTab / 15);
+    }
+  }
+}
+
+// The library's experimental tab refresh runs on a fixed 500ms timer. Use its
+// parsed tab stops after project fonts are ready, without that timing race.
+export function applyDocxTabs(body: HTMLElement): string[] {
+  const warnings = new Set<string>();
+  for (const paragraph of Array.from(body.querySelectorAll<HTMLElement>("p"))) {
+    const tabs = Array.from(paragraph.querySelectorAll<HTMLElement>("docx-tab"));
+    if (!tabs.length) continue;
+    const style = getComputedStyle(paragraph);
+    const stops = (JSON.parse(style.getPropertyValue("--docx-tabs") || "[]") as NonNullable<DocxNode["tabs"]>)
+      .map((stop) => ({ ...stop, x: parseFloat(stop.position) * 96 / 72 })).sort((a, b) => a.x - b.x);
+    const interval = Number(style.getPropertyValue("--docx-default-tab"));
+    if (style.direction === "rtl" || style.writingMode !== "horizontal-tb") {
+      warnings.add("竖排或从右向左的制表位尚未精确支持。");
+      continue;
+    }
+    tabs.forEach((tab, index) => {
+      const left = tab.getBoundingClientRect().left - (paragraph.getBoundingClientRect().left - (parseFloat(style.marginLeft) || 0));
+      const stop = stops.find((entry) => entry.style !== "clear" && entry.x > left);
+      const destination = stop?.x ?? (interval > 0 ? (Math.floor(left / interval) + 1) * interval : left);
+      let offset = 0;
+      if (stop && ["right", "center"].includes(stop.style)) {
+        const range = document.createRange();
+        range.setStartAfter(tab);
+        if (tabs[index + 1]) range.setEndBefore(tabs[index + 1]);
+        else range.setEnd(paragraph, paragraph.childNodes.length);
+        offset = range.getBoundingClientRect().width * (stop.style === "center" ? 0.5 : 1);
+      } else if (stop && !["left", "start"].includes(stop.style)) {
+        warnings.add("小数点或竖线制表位尚未精确支持，请对照原件。");
+      }
+      tab.style.width = `${Math.max(0, destination - left - offset)}px`;
+      if (["dot", "middleDot", "hyphen", "underscore", "heavy"].includes(stop?.leader ?? "")) {
+        warnings.add("制表位前导符尚未精确绘制，已保留制表间距。");
+      }
+    });
+  }
+  return [...warnings];
 }
 
 function supplementTables(source: Element | undefined, body: DocxNode) {
@@ -118,12 +245,21 @@ function supplementTables(source: Element | undefined, body: DocxNode) {
     const parsedRows = (tables[index].children ?? []).filter((entry) => entry.type === "row");
     if (rows.length === parsedRows.length) rows.forEach((row, rowIndex) => {
       const height = child(child(row, "trPr"), "trHeight");
-      const value = number(height, "val");
       const style = parsedRows[rowIndex].cssStyle ??= {};
       const rule = attribute(height, "hRule");
       if (rule === "auto") style.height = "auto";
-      if (rule === "exact" && value !== null && value > 0) {
-        style["--docx-exact-row-height"] = String(value / 15);
+      for (const name of ["cantSplit", "tblHeader"]) {
+        const setting = child(child(row, "trPr"), name);
+        if (setting) style[`--docx-${name.toLowerCase()}`] = enabled(setting) ? "1" : "0";
+      }
+      // In 0.4.1 the gridBefore placeholder does not advance the renderer's
+      // vertical-merge column cursor. A real empty cell does, preserving offsets.
+      const parsedRow = parsedRows[rowIndex];
+      if (parsedRow.gridBefore) {
+        (parsedRow.children ??= []).unshift({ type: "cell", span: parsedRow.gridBefore,
+          children: [], cssStyle: { border: "none", "border-left": "none", "border-right": "none",
+            "border-top": "none", "border-bottom": "none", padding: "0" } });
+        delete parsedRow.gridBefore;
       }
     });
     const properties = child(table, "tblPr");
@@ -135,6 +271,23 @@ function supplementTables(source: Element | undefined, body: DocxNode) {
     const widths = columns.map((column) => number(column, "w") ?? 0);
     if (!widths.length || widths.some((value) => value <= 0)) return;
     const style = tables[index].cssStyle ??= {};
+    const conflicting = rows.some((row) => {
+      let column = number(child(child(row, "trPr"), "gridBefore"), "val") ?? 0;
+      return Array.from(row.children).filter((entry) => entry.localName === "tc").some((cell) => {
+        const properties = child(cell, "tcPr");
+        const span = number(child(properties, "gridSpan"), "val") ?? 1;
+        const width = child(properties, "tcW");
+        const preferred = number(width, "w");
+        const gridWidth = widths.slice(column, column + span).reduce((sum, value) => sum + value, 0);
+        column += span;
+        return preferred !== null && preferred > 0
+          && (attribute(width, "type") !== "dxa" || preferred !== gridWidth);
+      });
+    });
+    if (conflicting) {
+      style["--docx-table-width-unresolved"] = "1";
+      return;
+    }
     style.width = `${widths.reduce((sum, value) => sum + value, 0) / 20}pt`;
     style["table-layout"] = "fixed";
   });
@@ -142,14 +295,17 @@ function supplementTables(source: Element | undefined, body: DocxNode) {
 
 function supplementTextBoxes(source: Element | undefined, body: DocxNode) {
   const vmlNamespace = "urn:schemas-microsoft-com:vml";
-  const shapes = Array.from(source?.getElementsByTagNameNS(vmlNamespace, "shape") ?? [])
-    .filter((shape) => shape.getAttribute("type") === "#_x0000_t202");
+  const shapes = Array.from(source?.getElementsByTagNameNS(vmlNamespace, "shape") ?? []);
+  const renderedShapes = descendants(body, "vmlElement").filter((node) => node.tagName === "g");
+  // Align the selected XML branch in source order, not by non-unique CSS text.
+  if (shapes.length !== renderedShapes.length) return;
+  const sources = new Map(renderedShapes.map((node, index) => [node, shapes[index]]));
   const visit = (node: DocxNode, cell?: DocxNode) => {
     if (node.type === "cell") cell = node;
     if (node.tagName === "g" && node.cssStyleText) {
-      const shape = shapes.find((entry) => entry.getAttribute("style") === node.cssStyleText);
+      const shape = sources.get(node);
       const box = node.children?.find((entry) => entry.tagName === "foreignObject");
-      if (shape && box) {
+      if (shape?.getAttribute("type") === "#_x0000_t202" && box) {
         const style = document.createElement("span").style;
         style.cssText = node.cssStyleText;
         // VML's text-relative positioning is relative to the enclosing cell here,
@@ -194,52 +350,76 @@ function supplementTextBoxes(source: Element | undefined, body: DocxNode) {
   visit(body);
 }
 
-export function applyDocxLineSpacing(body: HTMLElement) {
-  for (const paragraph of Array.from(body.querySelectorAll<HTMLElement>("section.docx > article p"))) {
+export function applyDocxLineSpacing(body: HTMLElement): string[] {
+  const warnings = new Set<string>();
+  // Resolve the library's CSS cascade first. auto is the OOXML default after
+  // inheritance, not a project-specific line spacing multiplier.
+  for (const paragraph of Array.from(body.querySelectorAll<HTMLElement>("section.docx p"))) {
     const style = getComputedStyle(paragraph);
-    const lineHeight = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2;
-    let height = lineHeight;
-    const pitch = parseFloat(style.getPropertyValue("--docx-line-grid"));
-    const inTable = Boolean(paragraph.closest("td, th"));
-    if (pitch > 0 && style.getPropertyValue("--docx-line-rule").trim() !== "exact"
-      && style.getPropertyValue("--docx-snap-to-grid").trim() !== "0"
-      && (!inTable || style.getPropertyValue("--docx-table-grid").trim() === "1")) {
-      height = Math.ceil(height / pitch) * pitch;
-      paragraph.style.lineHeight = `${height}px`;
-    }
-    for (const [side, property] of [["before", "marginTop"], ["after", "marginBottom"]] as const) {
-      const lines = style.getPropertyValue(`--docx-${side}-lines`).trim();
-      // Paragraph spacing is separate from extra leading introduced by the grid.
-      if (lines) paragraph.style[property] = `${Number(lines) * lineHeight}px`;
+    const line = Number(style.getPropertyValue("--docx-line-value"));
+    if (!(line > 0)) continue;
+    const rule = style.getPropertyValue("--docx-line-rule").trim() || "auto";
+    if (rule === "auto") {
+      paragraph.style.lineHeight = String(line / 240);
+      paragraph.style.minHeight = "1lh";
+    } else if (rule === "exact") {
+      paragraph.style.lineHeight = `${line / 20}pt`;
+      paragraph.style.minHeight = `${line / 20}pt`;
+    } else if (rule === "atLeast") {
+      // A font-size-based max(1em, ...) is not a measurement of a natural line.
+      // Let the browser measure a normal line with the paragraph's actual runs.
+      const probe = paragraph.cloneNode(true) as HTMLElement;
+      probe.style.cssText += ";position:absolute;visibility:hidden;width:max-content;max-width:none;margin:0;line-height:normal;min-height:0";
+      probe.querySelectorAll("br").forEach((element) => element.remove());
+      paragraph.parentElement!.appendChild(probe);
+      const natural = probe.getBoundingClientRect().height;
+      probe.remove();
+      paragraph.style.lineHeight = `${Math.max(line / 15, natural)}px`;
+      paragraph.style.minHeight = `${line / 20}pt`;
     }
   }
-}
-
-export function applyDocxRowHeights(body: HTMLElement) {
-  for (const table of Array.from(body.querySelectorAll<HTMLTableElement>("table"))) {
-    const rows = Array.from(table.rows);
-    rows.forEach((row, index) => {
-      // Read the declaration, not an inherited value from an enclosing table.
-      const height = Number(row.style.getPropertyValue("--docx-exact-row-height"));
-      if (!(height > 0)) return;
-      // Mixed-height vertical merges need a group layout; do not clip those cells
-      // to one row's height. Leave the renderer's existing merge handling intact.
-      const merged = rows.slice(0, index + 1).some((previous, previousIndex) =>
-        Array.from(previous.cells).some((cell) => cell.rowSpan === 0
-          || (cell.rowSpan > 1 && previousIndex + cell.rowSpan > index)));
-      if (merged) return;
-      row.dataset.docxExactRow = "true";
-      for (const cell of Array.from(row.cells)) {
-        if (cell.style.display === "none") continue;
-        const style = getComputedStyle(cell);
-        const padding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
-        const borders = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
-        const wrapper = document.createElement("div");
-        wrapper.style.maxHeight = `${Math.max(0, height - padding - borders)}px`;
-        wrapper.style.overflow = "hidden";
-        wrapper.append(...Array.from(cell.childNodes));
-        cell.appendChild(wrapper);
-      }
-    });
+  // Read once per paragraph before writing; never invent a normal line-height.
+  const paragraphs = Array.from(body.querySelectorAll<HTMLElement>("section.docx p")).map((paragraph) => {
+    const style = getComputedStyle(paragraph);
+    return { paragraph, lineHeight: parseFloat(style.lineHeight),
+      before: style.getPropertyValue("--docx-before-lines").trim(),
+      after: style.getPropertyValue("--docx-after-lines").trim(),
+      keepLines: style.getPropertyValue("--docx-keeplines").trim(),
+      keepNext: style.getPropertyValue("--docx-keepnext").trim(),
+      widow: style.getPropertyValue("--docx-widowcontrol").trim(),
+      grid: parseFloat(style.getPropertyValue("--docx-line-grid")),
+      snap: style.getPropertyValue("--docx-snap-to-grid").trim(),
+      rule: style.getPropertyValue("--docx-line-rule").trim(),
+      tableGrid: style.getPropertyValue("--docx-table-grid").trim() };
+  });
+  for (const entry of paragraphs) {
+    const { paragraph, lineHeight } = entry;
+    paragraph.dataset.docxKeepLines = entry.keepLines;
+    paragraph.dataset.docxKeepNext = entry.keepNext;
+    paragraph.dataset.docxWidow = entry.widow;
+    // Grid alignment also depends on baseline/font metrics and compatibility flags.
+    // Retain the library layout until that geometry is supported, rather than
+    // rounding every line upwards and silently changing pagination.
+    if (entry.grid > 0 && entry.snap !== "0" && entry.rule !== "exact"
+      && (!paragraph.closest("td,th") || entry.tableGrid === "1")) {
+      warnings.add("此文档使用文档网格；网格基线对齐尚不能保证与 Word 一致。");
+    }
+    for (const [lines, property] of [[entry.before, "marginTop"], [entry.after, "marginBottom"]] as const) {
+      if (!lines) continue;
+      if (Number(lines) === 0) paragraph.style[property] = "0px";
+      else if (Number.isFinite(lineHeight)) paragraph.style[property] = `${Number(lines) * lineHeight}px`;
+      else warnings.add("部分按行设置的段落间距缺少可确定的行高，保留原渲染结果。");
+    }
   }
+  for (const row of Array.from(body.querySelectorAll<HTMLTableRowElement>("tr"))) {
+    // Row properties must not leak from an outer row into a nested table.
+    row.dataset.docxCantSplit = row.style.getPropertyValue("--docx-cantsplit").trim();
+    row.dataset.docxTableHeader = row.style.getPropertyValue("--docx-tblheader").trim();
+  }
+  for (const table of Array.from(body.querySelectorAll<HTMLElement>("table"))) {
+    if (table.style.getPropertyValue("--docx-table-width-unresolved")) {
+      warnings.add("部分表格的列网格与单元格首选宽度不一致，已保留库的宽度处理。");
+    }
+  }
+  return [...warnings];
 }
