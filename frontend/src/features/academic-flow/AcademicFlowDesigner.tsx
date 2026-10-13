@@ -2,7 +2,7 @@ import { nodeReferences } from "./nodeReferences";
 import { NodeReferenceFiles } from "./NodeReferenceFiles";
 import { resolveFlowSchedule, getFlowTimeIssues } from "./flowDeadlines";
 import { NodeFileRow } from "./NodeFileRow";
-import { fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasSequentialManualReview } from "./FileReviewStepsEditor";
+import { fileReviewAcceptedExtensions, fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasSequentialManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
 import { NodeModelSelector } from "./NodeModelSelector";
 import { ManualReviewDialog } from "./ManualReviewDialog";
@@ -2742,8 +2742,7 @@ function NodeInspector({
   const timeSettingsLabel = getTimeSettingsLabel(node);
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
-  const stepExtensions = node.kind === "file" ? fileReviewSteps(node).filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length).map((step) => step.auditScriptAcceptedExtensions!) : [];
-  const effectiveExtensions = stepExtensions.length ? stepExtensions[0].filter((ext) => stepExtensions.every((list) => list.includes(ext))) : node.auditScriptAcceptedExtensions;
+  const effectiveExtensions = node.kind === "file" ? fileReviewAcceptedExtensions(auditControlsNode) : node.auditScriptAcceptedExtensions;
   const templateExtension = node.templateAsset?.originalName.split(".").pop()?.toLowerCase();
   const scriptLocksFileTypes = effectiveExtensions?.length === 1;
   const scriptFormatOptions = (effectiveExtensions ?? []).map((ext) => ext.replace(/^\./, "")).sort();

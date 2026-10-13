@@ -26,6 +26,15 @@ export function fileReviewSteps(node: AcademicFlowNode): FileReviewStep[] {
   } : step);
 }
 
+export function fileReviewAcceptedExtensions(node: AcademicFlowNode): string[] | null {
+  // Only active rules constrain uploads. Legacy rules are resolved by fileReviewSteps;
+  // stale node metadata and a removed/unselected rule must not lock the picker.
+  const accepted = fileReviewSteps(node)
+    .filter((step) => step.kind !== "manual" && step.auditScriptId && step.auditScriptAcceptedExtensions?.length)
+    .map((step) => step.auditScriptAcceptedExtensions!.map((ext) => `.${ext.replace(/^\./, "").toLowerCase()}`));
+  return accepted.length ? accepted[0].filter((ext) => accepted.every((list) => list.includes(ext))) : null;
+}
+
 export function hasSequentialManualReview(node: AcademicFlowNode | undefined): boolean {
   return Boolean(node && ["file", "confirmation"].includes(node.kind)
     && fileReviewSteps(node).some((step) => step.kind === "manual"));
@@ -125,9 +134,7 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
   const legacySteps = !node.fileReviewSteps || node.fileReviewSteps.some((step) => typeof step === "string");
   const history = rememberReviewSteps(node.fileReviewConfigHistory, steps);
   const save = (next: FileReviewStep[]) => {
-    const accepted = next.filter((step) => step.kind !== "manual" && step.auditScriptAcceptedExtensions?.length)
-      .map((step) => step.auditScriptAcceptedExtensions!);
-    const extensions = accepted.length ? accepted[0].filter((ext) => accepted.every((list) => list.includes(ext))) : null;
+    const extensions = fileReviewAcceptedExtensions({ ...node, fileReviewSteps: next });
     const selected = node.fileExtensions.split(",").map((ext) => `.${ext.trim().replace(/^\./, "").toLowerCase()}`).filter((ext) => ext !== ".");
     const selectedExtensions = selected.length && selected.every((ext) => extensions?.includes(ext)) ? selected : extensions;
     onChange({ ...toNodeAuditScriptSelection(null), auditModelCardId: undefined, fileReviewSteps: next,
