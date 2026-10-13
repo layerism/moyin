@@ -182,6 +182,17 @@
 - 正文、段落标记、页码字段和列表标记同步保留最终字重/字形；同规则处理斜体，避免二者使用相互矛盾的继承方式。
 - 按项目约束仅做源码、样本 XML 与 TypeScript 类型检查，不运行测试或浏览器插件。尚未对用户指出的位置完成视觉复现，不能将代码修正等同于 Word 对照验收通过。
 
+## 表格缩进补充
+
+实施检查点：`657238c`。仅修改共享 `docxLayout.ts` 和本计划。
+
+- 用户指出实习协议书的学生签名表偏右。已读取数据库所关联的 39847 字节版本及当前草稿的 40293 字节版本，两者都具有 `tblInd w:w="-503" w:type="dxa"`，首选表宽 10182 twips，正文宽 8845 twips。未将不同版本视为相同字节。
+- 库将 tblInd 交给段落缩进解析器，未读取表格专用 w 属性；项目补充代码此前也未处理缩进。现在由共享 XML 适配层解析带符号的 twips 值；-503 twips 转换为 -25.15 pt，约向左 8.87 mm。零值、nil 和按规范忽略的 pct/auto 不会沿用上层缩进。
+- 表格几何属性按同类型 basedOn 链、具体表格属性解析，支持默认表格样式与直接覆盖；只采用首行 tblPrEx 的缩进例外，后续行的该属性按 Word 实现说明忽略。缓存只属于本次文档解析，不重新解压文件。
+- 微软实现说明指出，Word 即使没有 jc 或不是左对齐也保留缩进。补充层按照 XML 指定的左/居中/右对齐锚点应用位移，宽表也保留该锚点；不改变字体、首选宽度、列宽或根据模板名称调整位置。布局样式保留在模型上，随分页续表克隆，嵌套表格使用各自的容器和属性。
+- 同一表格补充入口用于正文、页眉页脚及注释等文字 part；浮动、RTL 或逐行对齐未完整支持时保留库的定位处理并提示预览差异，不叠加未经确认的偏移。
+- 静态结构审计覆盖 assets 的 11 份 DOCX，包括直接正/负/零缩进、居中对齐及表格样式中的缩进。TypeScript 类型检查和差异检查通过；按项目约束未运行测试、浏览器插件或 Word 几何对照。HTML 自动宽度与 Word 的完整兼容模式仍不等价，不能宣称本次已经完成所有表格排版问题。
+
 ## 一手资料
 
 - [docx-preview 官方说明：API、HTML 能力边界、分页及实验性制表位](https://github.com/VolodymyrBaydalka/docxjs)
@@ -191,3 +202,6 @@
 - [Office 兼容模式与布局](https://learn.microsoft.com/en-us/office/compatibility/manage-compatibility-mode-for-office)
 - [Word 粗体属性及直接取消粗体](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bold?view=openxml-3.0.1)
 - [MS-OI29500 2.1.230：Word 的切换属性和文档默认值](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/f7130225-2368-48f3-acae-a9d278d0fb25)
+- [OOXML 表格缩进、单位及继承](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.tableindentation?view=openxml-3.0.1)
+- [Word 对表格缩进与非左对齐的实现说明](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oe376/a129dffd-ef75-4faa-ab1f-47c3fd4cff26)
+- [MS-OI29500：首行缩进例外作用于整表](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/eec0c73c-18c2-4176-99e6-14501f3a4ad7)

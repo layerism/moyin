@@ -142,7 +142,7 @@ export function supplementDocxLayout(xml: DocxXmlContext, parsed: ParsedDocx) {
     }
   }
   const bodyXml = documentXml?.getElementsByTagNameNS(wordNamespace, "body")[0];
-  supplementTables(bodyXml, parsed.documentPart.body);
+  const tableProperties = tableStyleProperties(stylesXml);
   supplementTextBoxes(bodyXml, parsed.documentPart.body);
   const xmlParagraphs = Array.from(bodyXml?.getElementsByTagNameNS(wordNamespace, "p") ?? []);
   const paragraphs = descendants(parsed.documentPart.body, "paragraph");
@@ -181,6 +181,7 @@ export function supplementDocxLayout(xml: DocxXmlContext, parsed: ParsedDocx) {
     if (!roots.length) continue;
     const source = xml(part.path);
     if (!source) continue;
+    supplementTables(source.documentElement, roots, tableProperties);
     const nodes = roots.flatMap((root) => descendants(root, "paragraph"));
     if (part.path !== parsed.documentPart.path) {
       const sources = Array.from(source.getElementsByTagNameNS(wordNamespace, "p"));
@@ -236,11 +237,85 @@ export function applyDocxTabs(body: HTMLElement): string[] {
   return [...warnings];
 }
 
-function supplementTables(source: Element | undefined, body: DocxNode) {
+// Resolve geometry from XML, not the renderer's table-style CSS (which targets td).
+function tableStyleProperties(source: Document | null) {
+  const styles = new Map(Array.from(source?.getElementsByTagNameNS(wordNamespace, "style") ?? [])
+    .filter((entry) => attribute(entry, "type") === "table")
+    .map((entry) => [attribute(entry, "styleId")!, entry]));
+  const defaultStyle = Array.from(styles.values()).find((entry) =>
+    ["1", "true", "on"].includes(attribute(entry, "default") ?? ""));
+  const cache = new Map<string, Map<string, Element>>();
+  const resolve = (id: string, visiting = new Set<string>()): Map<string, Element> => {
+    if (cache.has(id)) return cache.get(id)!;
+    if (visiting.has(id)) throw new Error(`DOCX 表格样式循环引用：${id}`);
+    const style = styles.get(id);
+    if (!style) return new Map();
+    visiting.add(id);
+    const base = attribute(child(style, "basedOn"), "val");
+    const values = new Map(base ? resolve(base, visiting) : []);
+    for (const entry of Array.from(child(style, "tblPr")?.children ?? [])) values.set(entry.localName, entry);
+    visiting.delete(id); cache.set(id, values);
+    return values;
+  };
+  return (table: Element) => {
+    const direct = child(table, "tblPr");
+    const id = attribute(child(direct, "tblStyle"), "val");
+    const values = new Map(resolve(id && styles.has(id) ? id : attribute(defaultStyle, "styleId") ?? ""));
+    for (const entry of Array.from(direct?.children ?? [])) values.set(entry.localName, entry);
+    // MS-OI29500 17.4.51: only the first row's indent exception affects the table.
+    const firstRow = child(table, "tr");
+    const exception = child(child(firstRow, "tblPrEx"), "tblInd");
+    if (exception) values.set("tblInd", exception);
+    return values;
+  };
+}
+function supplementTablePosition(table: Element, node: DocxNode, properties: Map<string, Element>) {
+  const style = node.cssStyle ??= {};
+  const indent = properties.get("tblInd");
+  const alignment = attribute(properties.get("jc"), "val");
+  // Floating anchors and RTL table layout need their own coordinate/column model.
+  // Retain the renderer's geometry for these instead of adding a second displacement.
+  if (properties.has("tblpPr") || enabled(properties.get("bidiVisual"))) {
+    if (indent) style["--docx-table-position-unresolved"] = "1";
+    return;
+  }
+  if (Array.from(table.children).filter((entry) => entry.localName === "tr")
+    .some((row) => child(child(row, "trPr"), "jc") || child(child(row, "tblPrEx"), "jc"))) {
+    style["--docx-table-position-unresolved"] = "1";
+    return;
+  }
+  if (!indent && !alignment) return;
+  const type = attribute(indent, "type") ?? "dxa";
+  // pct/auto are ignored by the table indentation rule; nil explicitly means zero.
+  const ignored = ["pct", "auto", "nil"].includes(type);
+  const value = !indent || ignored ? 0 : number(indent, "w");
+  if ((!ignored && type !== "dxa") || value === null
+    || (alignment && !["left", "start", "center", "right", "end"].includes(alignment))) {
+    style["--docx-table-position-unresolved"] = "1";
+    return;
+  }
+  // Word retains tblInd for center/right alignment too (MS-OI29500 17.4.50).
+  // Anchor against the containing text area, then offset by the XML indent.
+  // Unlike auto margins this also centers/right-aligns tables wider than that area.
+  // Translation preserves cell widths, nesting and pagination clones.
+  // Without jc, Word still honors indentation from the leading margin (17.4.28).
+  const anchor = alignment === "center" ? 50 : ["right", "end"].includes(alignment ?? "") ? 100 : 0;
+  if (anchor || value !== 0) {
+    delete style["text-align"];
+    style["margin-left"] = style["margin-right"] = "0pt";
+    style.position = "relative";
+    style.left = anchor ? `calc(${anchor}% + ${value / 20}pt)` : `${value / 20}pt`;
+    if (anchor) style.transform = `translateX(-${anchor}%)`;
+  }
+  style["--docx-table-indent"] = `${value / 20}pt`;
+}
+
+function supplementTables(source: Element | undefined, roots: DocxNode[], resolveProperties: ReturnType<typeof tableStyleProperties>) {
   const xmlTables = Array.from(source?.getElementsByTagNameNS(wordNamespace, "tbl") ?? []);
-  const tables = descendants(body, "table");
+  const tables = roots.flatMap((root) => descendants(root, "table"));
   if (xmlTables.length !== tables.length) return;
   xmlTables.forEach((table, index) => {
+    supplementTablePosition(table, tables[index], resolveProperties(table));
     const rows = Array.from(table.children).filter((entry) => entry.localName === "tr");
     const parsedRows = (tables[index].children ?? []).filter((entry) => entry.type === "row");
     if (rows.length === parsedRows.length) rows.forEach((row, rowIndex) => {
@@ -417,6 +492,9 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
     row.dataset.docxTableHeader = row.style.getPropertyValue("--docx-tblheader").trim();
   }
   for (const table of Array.from(body.querySelectorAll<HTMLElement>("table"))) {
+    if (table.style.getPropertyValue("--docx-table-position-unresolved")) {
+      warnings.add("部分表格定位配置暂未完整支持，已保留原渲染器的处理；缩进与对齐可能与 Word 有差异。");
+    }
     if (table.style.getPropertyValue("--docx-table-width-unresolved")) {
       warnings.add("部分表格的列网格与单元格首选宽度不一致，已保留库的宽度处理。");
     }
