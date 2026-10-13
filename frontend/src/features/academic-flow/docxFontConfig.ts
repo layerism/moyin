@@ -45,7 +45,13 @@ function properties(run: Element | undefined): Values {
   const hint = attr(fonts, "hint");
   if (hint) values["--docx-font-hint"] = JSON.stringify(hint);
   const underline = child(run, "u");
-  if (underline) values["--docx-underline"] = JSON.stringify(attr(underline, "val") ?? "single");
+  if (underline) {
+    values["--docx-underline"] = JSON.stringify(attr(underline, "val") ?? "single");
+    const color = attr(underline, "color");
+    // A new w:u replaces the underline property, including an inherited color.
+    values["--docx-underline-color"] = JSON.stringify(color && /^[0-9a-f]{6}$/i.test(color) ? `#${color}` : "");
+    values["--docx-underline-theme"] = JSON.stringify(attr(underline, "themeColor") ?? "");
+  }
   for (const name of ["cs", "rtl", "b", "i", "bCs", "iCs"]) {
     const value = child(run, name);
     if (value) values[`--docx-run-${name.toLowerCase()}`] = on(value) ? "1" : "0";

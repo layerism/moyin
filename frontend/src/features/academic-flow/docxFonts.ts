@@ -233,7 +233,8 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
         if (candidate.textDecorationLine.includes("underline")) { decoration = candidate; break; }
       }
     }
-    texts.push({ node, groups: select(node.data, style), underline, underlineColor: decoration.textDecorationColor });
+    texts.push({ node, groups: select(node.data, style), underline,
+      underlineColor: value(style, "--docx-underline-color") || decoration.textDecorationColor });
   }
   // Paragraph struts (including blank lines) also need XML fonts for stable line metrics.
   const paragraphs = Array.from(body.querySelectorAll<HTMLElement>("p, li"))
@@ -367,7 +368,7 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     for (const { text, selection } of groups) {
       // Renderer styles target span; a neutral inline element must not reapply defaults
       // (especially font-size) inside an already formatted run.
-      // Split only annotated underline spaces; preserve the original characters,
+      // Split underline spaces from text; preserve the original characters,
       // white-space handling and font advance (no NBSP or replacement underscores).
       const pieces = underline === "single" ? text.match(/ +|[^ ]+/g) ?? [] : [text];
       for (const piece of pieces) {
@@ -379,14 +380,14 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
         span.style.setProperty("font-synthesis", "weight style", "important");
         span.dataset.docxWeight = selection.weight;
         span.dataset.docxFaceWeight = selection.face.weight;
-        if (underline === "single" && /^ +$/.test(piece)) {
+        if (underline) span.dataset.docxUnderline = underline;
+        if (underline === "single") {
           const metrics = resources.get(selection.key)!.underline;
           if (metrics) {
-            span.dataset.docxSpaceUnderline = "";
             span.style.setProperty("--docx-underline-position", String(metrics.position));
             span.style.setProperty("--docx-underline-thickness", String(metrics.thickness));
             span.style.setProperty("--docx-underline-color", underlineColor);
-          } else decorationWarnings.add("部分字体缺少有效的下划线度量，空白下划线保留浏览器处理。");
+          } else decorationWarnings.add("部分字体缺少有效的下划线度量，所在段落保留库的处理。");
         } else if (underline && !["none", "words", "single"].includes(underline) && / /.test(piece)) {
           decorationWarnings.add("非单实线的空白下划线保留库的处理，行首、行尾效果可能与 Word 不同。");
         }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { paginateDocx } from "./docxPagination";
-import { applyDocxLineSpacing, applyDocxSpaceUnderlines, applyDocxTabs, createDocxXmlContext, prepareDocxBreaks, supplementDocxLayout } from "./docxLayout";
+import { applyDocxLineSpacing, applyDocxUnderlines, applyDocxTabs, createDocxXmlContext, prepareDocxBreaks, supplementDocxLayout } from "./docxLayout";
 import { prepareDocxPageNumbers, updateDocxPageNumbers } from "./docxPageNumbers";
 import { applyProjectDocxFonts } from "./docxFonts";
 import { prepareDocxFontConfig } from "./docxFontConfig";
@@ -135,7 +135,7 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
       stage("pagination");
       if (!active) return;
       updateDocxPageNumbers(body, numbering);
-      const decorationWarnings = applyDocxSpaceUnderlines(body);
+      const decorationWarnings = applyDocxUnderlines(body);
       stage("decoration");
       setFontWarnings([...fonts.warnings, ...layoutWarnings, ...pagination.warnings, ...decorationWarnings]);
       setPageCount(pagination.pageCount);
