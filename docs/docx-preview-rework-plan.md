@@ -205,6 +205,17 @@
 - 填写区域的右移至少部分来自原 XML：学号前 12 个空格，封面甲方段落 firstLineChars=200 / firstLine=723，填写值前 6 个空格。项目原版仿宋_GB2312 的空格 advance 为 128/256 em，12 个 15 pt 空格对应 90 pt。字符单位首行缩进尚未在共享排版器全面实现；这份封面在 18 pt 下的 2 字缩进约 36 pt，与库的 36.15 pt 相近，不能通过统一左移解释或修正所有差异。因此保留原字符、现有缩进及填写内容，不按模板名称或字段文字调整位置。
 - 验证范围为源码、XML、字体二进制度量和 TypeScript 类型检查；按项目要求未运行测试、浏览器插件或 Windows Word 视觉对照。补绘与合成粗体的实际视觉效果仍需对照，不能等同于完整 Word 排版验收。
 
+## 空白下划线范围修正
+
+实施检查点：`1ce4cba`。本次仅修改共享 `docxLayout.ts` 与本计划。
+
+- 用户反馈上一版补绘线过长。上述补绘方案遗漏了 `settings.xml/compat/ulTrailSpace`，并把 pre-wrap 的完整悬挂空格矩形当成可见线长，仅由纸张边缘裁切。这是上一版实现缺陷，不能据此修改原 DOCX 的空格或字段文本。
+- 已核对协议的 39847 与 40293 字节版本：两者都启用了 `ulTrailSpace`；目标段落没有段落边框、表单域、内容控件、制表位或绘图横线，使用的确为字符 `w:u="single"` 格式。已填写版本的部分字段还保留大量尾部空格，因此装饰范围必须与当前实际行区域结合。
+- 从共享 XML 上下文读取该兼容开关。只有元素启用时才补绘行尾空格；缺省与显式 false/0/off 均关闭。设置写入所有文字 part 的段落元数据，并随续页克隆保留。行首空格补绘不由行尾开关控制；完全由空格构成的行按行尾空格处理。
+- 仅计算位于本行非空白内容两侧的漏绘片段，行内已有下划线保持库的处理。补绘线段与段落内容框、首行 text-indent 及所在单元格内容框取交集；空交集不生成 SVG。左右段落缩进由最终 DOM 框体现，首行百分比缩进按当前段落内容宽度换算，续页使用分页器已处理的首行缩进。
+- 未改变文字、空格数量、字形 advance、字体或换行；无字段名称判断、固定线长或强制删空格。跨栏/多片段段落及无法解析的复杂缩进保留浏览器处理并提示，避免用一个总矩形跨越栏间空隙。
+- TypeScript 类型检查及差异检查通过；按项目约束未运行测试、浏览器插件或 Word 视觉对照。这里约束的是补绘层的墨迹范围，不代表已完整实现 Word 的空白换行、兼容模式与原生装饰线栅格化。
+
 ## 一手资料
 
 - [docx-preview 官方说明：API、HTML 能力边界、分页及实验性制表位](https://github.com/VolodymyrBaydalka/docxjs)
@@ -219,3 +230,4 @@
 - [MS-OI29500：首行缩进例外作用于整表](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/eec0c73c-18c2-4176-99e6-14501f3a4ad7)
 - [CSS 行首、行尾空格的装饰规则](https://www.w3.org/TR/css-text-decor-3/#line-decoration)
 - [OpenType post：下划线位置与厚度](https://learn.microsoft.com/en-us/typography/opentype/spec/post)
+- [OOXML ulTrailSpace：是否显示行尾空格下划线](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.underlinetrailingspaces?view=openxml-3.0.1)

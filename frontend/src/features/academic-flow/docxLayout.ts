@@ -168,6 +168,7 @@ export function supplementDocxLayout(xml: DocxXmlContext, parsed: ParsedDocx) {
     grid(start, paragraphs.length, child(bodyXml, "sectPr"));
   }
   const settings = xml(parsed.settingsPart?.path);
+  const underlineTrailingSpaces = enabled(child(child(settings?.documentElement, "compat"), "ulTrailSpace"));
   // ISO/IEC 29500 defaultTabStop: 720 twips only when the element is omitted.
   const defaultTab = number(settings?.getElementsByTagNameNS(wordNamespace, "defaultTabStop")[0], "val") ?? 720;
   const styleTabs = (id: string | undefined, seen = new Set<string>()): NonNullable<DocxNode["tabs"]> => {
@@ -195,6 +196,9 @@ export function supplementDocxLayout(xml: DocxXmlContext, parsed: ParsedDocx) {
       const values = node.cssStyle ??= {};
       values["--docx-tabs"] = JSON.stringify([...stops.values()]);
       values["--docx-default-tab"] = String(defaultTab / 15);
+      // ISO 29500 ulTrailSpace: omission/false does not underline trailing spaces.
+      // Carry the document setting to every text part and to pagination clones.
+      values["--docx-underline-trailing-spaces"] = underlineTrailingSpaces ? "1" : "0";
     }
   }
 }
@@ -237,13 +241,20 @@ export function applyDocxTabs(body: HTMLElement): string[] {
   return [...warnings];
 }
 
-// CSS skips underline ink at physical line edges. Paint those space fragments
-// after pagination, without changing text, whitespace advances or line breaking.
+// CSS skips underline ink at physical line edges. Supplement only permitted
+// fragments inside the actual line area; hanging space advances are not ink width.
+// Run after pagination, without changing text, whitespace advances or line breaking.
 export function applyDocxSpaceUnderlines(body: HTMLElement): string[] {
   const warnings = new Set<string>();
   const svgNamespace = "http://www.w3.org/2000/svg";
   const layers = new Map<HTMLElement, SVGSVGElement>();
   const baselines = new Map<string, number>();
+  const contentBounds = (element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return { left: rect.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft),
+      right: rect.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight) };
+  };
   const baseline = (page: HTMLElement, style: CSSStyleDeclaration): number => {
     const names = ["font-family", "font-size", "font-weight", "font-style", "font-stretch", "font-feature-settings", "font-variation-settings"];
     const key = names.map((name) => style.getPropertyValue(name)).join(";");
@@ -275,6 +286,28 @@ export function applyDocxSpaceUnderlines(body: HTMLElement): string[] {
     if (!spaces.length) continue;
     const page = paragraph.closest<HTMLElement>("section.docx");
     if (!page) continue;
+    // A single paragraph rectangle cannot represent separate column/inline fragments.
+    // Preserve native decoration in these cases instead of drawing across a column gap.
+    if (paragraph.getClientRects().length !== 1) {
+      warnings.add("跨栏或分片段落的空白下划线保留浏览器处理。");
+      continue;
+    }
+    const paragraphStyle = getComputedStyle(paragraph);
+    const trailing = paragraphStyle.getPropertyValue("--docx-underline-trailing-spaces").trim() === "1";
+    const bounds = contentBounds(paragraph);
+    const cell = paragraph.closest<HTMLElement>("td, th");
+    const cellBounds = cell ? contentBounds(cell) : null;
+    const indentValue = paragraphStyle.textIndent;
+    const indent = indentValue.endsWith("%") ? parseFloat(indentValue) * (bounds.right - bounds.left) / 100
+      : parseFloat(indentValue);
+    if (!Number.isFinite(indent)) {
+      warnings.add("复杂首行缩进的空白下划线保留浏览器处理。");
+      continue;
+    }
+    const paragraphRange = document.createRange();
+    paragraphRange.selectNodeContents(paragraph);
+    const first = Array.from(paragraphRange.getClientRects()).filter((rect) => rect.height > 0)
+      .sort((a, b) => a.top - b.top)[0];
     // Find physical line edges from non-space text, including un-underlined runs.
     // Interior spaces already have the library's underline; do not draw it twice.
     const ink: DOMRect[] = [];
@@ -312,26 +345,40 @@ export function applyDocxSpaceUnderlines(body: HTMLElement): string[] {
         const line = ink.filter((entry) => entry.top < rect.bottom && entry.bottom > rect.top);
         const left = Math.min(...line.map((entry) => entry.left));
         const right = Math.max(...line.map((entry) => entry.right));
-        if (line.length && rect.left >= left && rect.right <= right) continue;
-        let layer = layers.get(page);
-        if (!layer) {
-          layer = document.createElementNS(svgNamespace, "svg");
-          layer.setAttribute("data-docx-space-underlines", "");
-          layer.setAttribute("aria-hidden", "true");
-          layer.setAttribute("focusable", "false");
-          layer.style.cssText = `position:absolute;left:0;top:0;width:${page.clientWidth}px;height:${page.clientHeight}px;overflow:visible;pointer-events:none;z-index:2;`;
-          page.appendChild(layer);
-          layers.set(page, layer);
+        const fragments: { left: number; right: number }[] = [];
+        if (line.length) {
+          if (rect.left < left) fragments.push({ left: rect.left, right: Math.min(rect.right, left) });
+          if (trailing && rect.right > right) fragments.push({ left: Math.max(rect.left, right), right: rect.right });
+        } else if (trailing) fragments.push({ left: rect.left, right: rect.right });
+        const firstLine = first && rect.top < first.bottom && rect.bottom > first.top;
+        const lineLeft = Math.max(bounds.left + (firstLine ? indent : 0), cellBounds?.left ?? -Infinity);
+        const lineRight = Math.min(bounds.right, cellBounds?.right ?? Infinity);
+        for (const fragment of fragments) {
+          // pre-wrap can retain a hanging space rectangle beyond the text margin.
+          // Clip ink only, leaving the original advances and wrapping untouched.
+          const start = Math.max(fragment.left, lineLeft);
+          const end = Math.min(fragment.right, lineRight);
+          if (end <= start) continue;
+          let layer = layers.get(page);
+          if (!layer) {
+            layer = document.createElementNS(svgNamespace, "svg");
+            layer.setAttribute("data-docx-space-underlines", "");
+            layer.setAttribute("aria-hidden", "true");
+            layer.setAttribute("focusable", "false");
+            layer.style.cssText = `position:absolute;left:0;top:0;width:${page.clientWidth}px;height:${page.clientHeight}px;overflow:visible;pointer-events:none;z-index:2;`;
+            page.appendChild(layer);
+            layers.set(page, layer);
+          }
+          const underline = document.createElementNS(svgNamespace, "line");
+          const y = rect.top - pageRect.top - page.clientTop + baseline(page, style) + position + thickness / 2;
+          underline.setAttribute("x1", String(start - pageRect.left - page.clientLeft));
+          underline.setAttribute("x2", String(end - pageRect.left - page.clientLeft));
+          underline.setAttribute("y1", String(y));
+          underline.setAttribute("y2", String(y));
+          underline.setAttribute("stroke", style.getPropertyValue("--docx-underline-color"));
+          underline.setAttribute("stroke-width", String(thickness));
+          layer.appendChild(underline);
         }
-        const underline = document.createElementNS(svgNamespace, "line");
-        const y = rect.top - pageRect.top - page.clientTop + baseline(page, style) + position + thickness / 2;
-        underline.setAttribute("x1", String(rect.left - pageRect.left - page.clientLeft));
-        underline.setAttribute("x2", String(rect.right - pageRect.left - page.clientLeft));
-        underline.setAttribute("y1", String(y));
-        underline.setAttribute("y2", String(y));
-        underline.setAttribute("stroke", style.getPropertyValue("--docx-underline-color"));
-        underline.setAttribute("stroke-width", String(thickness));
-        layer.appendChild(underline);
       }
     }
   }
