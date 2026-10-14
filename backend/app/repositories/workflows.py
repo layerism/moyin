@@ -38,7 +38,7 @@ from app.repositories.answer_sheet_keys import (
 )
 from app.repositories.audit_policies import sync_published_audit_policies
 from app.repositories.form_parameters import apply_form_parameters
-from app.repositories.file_parameters import apply_file_parameters, stored_draft
+from app.repositories.published_node_parameters import apply_node_parameters, stored_draft
 from app.repositories.flow_content_assets import (
     ContentAssetError,
     freeze_content_asset_refs,
@@ -240,7 +240,7 @@ def prepare_runtime_config(
     connection: Any, flow_id: str, config: dict[str, Any]
 ) -> dict[str, str]:
     apply_form_parameters(connection, flow_id, config)
-    apply_file_parameters(connection, flow_id, config)
+    apply_node_parameters(connection, flow_id, config)
     _bind_confirmation_visual_audits(config)
     _refresh_file_audit_script_configs(config)
     validate_flow_config(config, require_publishable=True)
@@ -571,7 +571,7 @@ def copy_flow_definition(
             raise DuplicateFlowNameError("已存在同名流程")
 
         config = json.loads(source["draft_config"])
-        apply_file_parameters(connection, flow_id, config)
+        apply_node_parameters(connection, flow_id, config)
         apply_published_node_models(connection, flow_id, config)
         if source_owner != target_owner:
             for node in config.get("nodes", []):
@@ -863,7 +863,7 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         published = _latest_published_version(connection, flow_id, teacher_id)
         draft_config = json.loads(row["draft_config"])
         apply_form_parameters(connection, flow_id, draft_config)
-        apply_file_parameters(connection, flow_id, draft_config)
+        apply_node_parameters(connection, flow_id, draft_config)
         apply_published_node_models(connection, flow_id, draft_config)
         draft_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
         published_config = (
@@ -940,7 +940,7 @@ def save_draft(
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
         apply_form_parameters(connection, flow_id, config)
-        apply_file_parameters(connection, flow_id, config)
+        apply_node_parameters(connection, flow_id, config)
         _bind_confirmation_visual_audits(config)
         validate_flow_config(config)
         supplied_keys = (

@@ -64,7 +64,6 @@ def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
         snapshot.pop("referenceAssets", None)
         return snapshot
     if node.get("kind") == "confirmation":
-        snapshot.pop("templateAsset", None)
         snapshot.pop("referenceAsset", None)
         snapshot.pop("referenceAssets", None)
         return snapshot
@@ -128,7 +127,7 @@ def progress_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     if node.get("kind") == "form":
         for field in FORM_PROGRESS_PRESERVING_FIELDS:
             snapshot.pop(field, None)
-    if node.get("kind") == "file":
+    if node.get("kind") in {"file", "confirmation"}:
         for field in (*FORM_PROGRESS_PRESERVING_FIELDS, "fileLimitMb", "referenceAssets"):
             snapshot.pop(field, None)
     return snapshot

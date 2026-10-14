@@ -40,6 +40,11 @@ export type FileParameters = FormParameters & {
 };
 export type FileParametersPolicy = { generation: number; params: FileParameters };
 
+export type ConfirmationParameters = Omit<FileParameters, "fileLimitMb">;
+export type ConfirmationParametersPolicy = { generation: number; params: ConfirmationParameters };
+export type MaterialParameters = ConfirmationParameters & { fileLimitMb?: string };
+export type MaterialParametersPolicy = { generation: number; params: MaterialParameters };
+
 export type ReviewStepPolicy = {
   flowId: string;
   nodeKey: string;
@@ -595,6 +600,13 @@ export const workflowApi = {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
     );
+  },
+  getConfirmationParameters(flowId: string, nodeKey: string) {
+    return request<ConfirmationParametersPolicy>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/confirmation-parameters`);
+  },
+  updateConfirmationParameters(flowId: string, nodeKey: string, payload: { expectedGeneration: number; params: ConfirmationParameters }) {
+    return request<ConfirmationParametersPolicy>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/confirmation-parameters`,
+      { method: "PUT", body: JSON.stringify(payload) });
   },
   getFileParameters(flowId: string, nodeKey: string) {
     return request<FileParametersPolicy>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/file-parameters`);

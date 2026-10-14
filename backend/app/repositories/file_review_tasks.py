@@ -71,7 +71,7 @@ def run_next_task(stopping=None):
         from app.services.audit_script_parameters import validate_script_params
         config = version_config(connection, task['flow_version_id'])
         node = next(n for n in config['nodes'] if n['id'] == task['node_key'])
-        if node.get('kind') == 'file':
+        if node.get('kind') in {'file', 'confirmation'}:
             node = effective_review_step_node(connection, task['flow_id'], node)
             step = node['fileReviewSteps'][task['step_index']]
             record = find_audit_script(snapshot['auditScriptId'])
@@ -136,7 +136,7 @@ def run_next_task(stopping=None):
             connection.execute("UPDATE submissions SET status = 'cancelled' WHERE id = ?", (task['submission_id'],))
             connection.execute("UPDATE node_instances SET status = 'available' WHERE id = ?", (task['node_instance_id'],))
             return True
-        if node.get('kind') == 'file':
+        if node.get('kind') in {'file', 'confirmation'}:
             from app.repositories.audit_jobs import _record_execution
             _record_execution(connection, 'file_review_task', task['id'],
                               {'attempt': task['attempt_count'] + 1, 'result': result,

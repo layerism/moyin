@@ -74,9 +74,9 @@ def create_audit_job(
     return job_id
 
 
-def _is_file_job(connection, job):
+def _uses_live_review_parameters(connection, job):
     row = connection.execute("SELECT config_snapshot FROM flow_versions WHERE id = ?", (job['flow_version_id'],)).fetchone()
-    return bool(row and any(n['id'] == job['node_key'] and n.get('kind') == 'file'
+    return bool(row and any(n['id'] == job['node_key'] and n.get('kind') in {'file', 'confirmation'}
                            for n in json.loads(row['config_snapshot'])['nodes']))
 
 
@@ -151,7 +151,7 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             (job_id,),
         ).fetchone()
         model_id = None
-        if _is_file_job(connection, job):
+        if _uses_live_review_parameters(connection, job):
             binding = resolve_effective_audit_binding(connection, job['flow_id'], job['node_key'], job['script_id'])
             model_id = connection.execute('SELECT model_card_id FROM node_audit_policies WHERE flow_id = ? AND node_key = ?',
                                           (job['flow_id'], job['node_key'])).fetchone()['model_card_id']
@@ -220,7 +220,7 @@ def complete_audit_job(job_id: str, result: dict[str, object]) -> None:
         )
         if not _is_current_attempt(job) or job["node_status"] not in {"reviewing", "audit_error"}:
             return
-        if _is_file_job(connection, job):
+        if _uses_live_review_parameters(connection, job):
             _record_execution(connection, 'audit_job', job_id,
                               {'attempt': job['attempt_count'], 'result': result, 'status': 'succeeded'}, now)
         passed = result.get("passed") is True
@@ -359,7 +359,7 @@ def fail_audit_job(job_id: str, message: str, *, retry: bool = True) -> None:
             return
         if not _audit_write_allowed(connection, job) or not _generation_matches(connection, job):
             return
-        if _is_file_job(connection, job):
+        if _uses_live_review_parameters(connection, job):
             _record_execution(connection, 'audit_job', job_id,
                               {'attempt': job['attempt_count'], 'status': 'failed', 'error': message}, now_iso)
         attempt_count = int(job["attempt_count"])
@@ -592,7 +592,7 @@ def _generation_matches(connection, job) -> bool:
         state and state["status"] == "ready"
         and int(state["generation"]) == int(job["script_generation"])
         and state["content_hash"] == job["script_content_hash"]
-        and (_is_file_job(connection, job) or (policy and int(policy["generation"]) == int(job["policy_generation"])
+        and (_uses_live_review_parameters(connection, job) or (policy and int(policy["generation"]) == int(job["policy_generation"])
         and policy["policy_hash"] == job["policy_hash"]))
     )
 

@@ -53,7 +53,7 @@ def _published_template_editable(
 ) -> bool:
     if node_key not in _published_node_ids(connection, flow_id):
         return True
-    return node.get("kind") == "confirmation" or (node.get("kind") == "file" and reference)
+    return node.get("kind") in {"file", "confirmation"} and reference
 
 
 def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int, reference: bool = False) -> dict[str, Any]:
@@ -130,7 +130,7 @@ def save_template_asset(
             "sha256": sha256,
             "sizeBytes": size_bytes,
         }
-        staged_reference = reference and node.get("kind") == "file" and node_key in _published_node_ids(connection, flow_id)
+        staged_reference = reference and node.get("kind") in {"file", "confirmation"} and node_key in _published_node_ids(connection, flow_id)
         if staged_reference:
             return metadata, None, hashlib.sha256(_canonical_json(config).encode()).hexdigest()
         if reference:
@@ -176,7 +176,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
             not _published_template_editable(connection, flow_id, node_key, node, reference)
         ):
             raise TemplateMutationError("已发布节点的模板不可修改")
-        if reference and node.get('kind') == 'file' and node_key in _published_node_ids(connection, flow_id):
+        if reference and node.get('kind') in {'file', 'confirmation'} and node_key in _published_node_ids(connection, flow_id):
             # Live references are changed through the parameter transaction; this endpoint
             # only releases uploaded assets that no longer have a reference.
             if not reference_id:

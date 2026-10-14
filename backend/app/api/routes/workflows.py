@@ -170,9 +170,9 @@ class FileParametersRequest(BaseModel):
 
 @router.get("/{flow_id}/nodes/{node_key}/file-parameters")
 def get_file_parameters_route(flow_id: str, node_key: str, teacher: dict[str, object] = Depends(get_current_teacher)):
-    from app.repositories.file_parameters import get_file_parameters
+    from app.repositories.published_node_parameters import get_node_parameters
     try:
-        return get_file_parameters(flow_id, node_key, int(teacher["id"]))
+        return get_node_parameters(flow_id, node_key, int(teacher["id"]), "file")
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="已发布文件节点不存在") from exc
 
@@ -180,12 +180,50 @@ def get_file_parameters_route(flow_id: str, node_key: str, teacher: dict[str, ob
 @router.put("/{flow_id}/nodes/{node_key}/file-parameters")
 def put_file_parameters_route(flow_id: str, node_key: str, payload: FileParametersRequest,
                               teacher: dict[str, object] = Depends(get_current_teacher)):
-    from app.repositories.file_parameters import update_file_parameters, FileParametersConflict
+    from app.repositories.published_node_parameters import update_node_parameters, NodeParametersConflict
     try:
-        return update_file_parameters(flow_id, node_key, int(teacher["id"]), payload.expectedGeneration, payload.params.model_dump())
+        return update_node_parameters(flow_id, node_key, int(teacher["id"]), payload.expectedGeneration, payload.params.model_dump(), "file")
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="已发布文件节点或材料不存在") from exc
-    except FileParametersConflict as exc:
+    except NodeParametersConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+class ConfirmationNodeParams(BaseModel):
+    title: str = Field(min_length=1, max_length=50)
+    requirement: str
+    startAt: str
+    deadlineAt: str
+    referenceAssets: list[dict[str, Any]]
+    model_config = {"extra": "forbid"}
+
+
+class ConfirmationParametersRequest(BaseModel):
+    expectedGeneration: int = Field(ge=0)
+    params: ConfirmationNodeParams
+
+
+@router.get("/{flow_id}/nodes/{node_key}/confirmation-parameters")
+def get_confirmation_parameters_route(flow_id: str, node_key: str, teacher=Depends(get_current_teacher)):
+    from app.repositories.published_node_parameters import get_node_parameters
+    try:
+        return get_node_parameters(flow_id, node_key, int(teacher["id"]), "confirmation")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布确认承诺节点不存在") from exc
+
+
+@router.put("/{flow_id}/nodes/{node_key}/confirmation-parameters")
+def put_confirmation_parameters_route(flow_id: str, node_key: str, payload: ConfirmationParametersRequest,
+                                      teacher=Depends(get_current_teacher)):
+    from app.repositories.published_node_parameters import update_node_parameters, NodeParametersConflict
+    try:
+        return update_node_parameters(flow_id, node_key, int(teacher["id"]), payload.expectedGeneration,
+                                      payload.params.model_dump(), "confirmation")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布确认承诺节点或材料不存在") from exc
+    except NodeParametersConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

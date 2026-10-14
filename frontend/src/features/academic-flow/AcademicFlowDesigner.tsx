@@ -27,7 +27,7 @@ import {
   getFileTypeRestrictionPreset,
   nodeTemplates,
 } from "./academicFlowData";
-import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy, type FormParameters, type FormParametersPolicy, type FileParameters, type FileParametersPolicy } from "./api";
+import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy, type FormParameters, type FormParametersPolicy, type MaterialParameters, type MaterialParametersPolicy } from "./api";
 import {
   getAuditScriptParameterError,
   type NodeAuditPolicy,
@@ -693,7 +693,7 @@ export function AcademicFlowDesigner({
     }));
   };
 
-  const applyPublishedFormParameters = (nodeId: string, policy: FormParametersPolicy | FileParametersPolicy) => {
+  const applyPublishedNodeParameters = (nodeId: string, policy: FormParametersPolicy | MaterialParametersPolicy) => {
     const apply = (current: AcademicProcess): AcademicProcess => ({
       ...current,
       nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, ...policy.params } : node),
@@ -1006,8 +1006,8 @@ export function AcademicFlowDesigner({
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(policy) => applyPublishedAuditPolicy(inspectorNode.id, policy)}
-            onFormParametersSaved={(policy) => applyPublishedFormParameters(inspectorNode.id, policy)}
-            onFileParametersSaved={(policy) => applyPublishedFormParameters(inspectorNode.id, policy)}
+            onFormParametersSaved={(policy) => applyPublishedNodeParameters(inspectorNode.id, policy)}
+            onMaterialParametersSaved={(policy) => applyPublishedNodeParameters(inspectorNode.id, policy)}
             onAnswerKeyPolicySaved={(policy) => applyPublishedAnswerKeyPolicy(inspectorNode.id, policy)}
             publishedAuditPolicy={workingProcess.published && protectedNodeIds.includes(inspectorNode.id)}
             publishedRevision={workingProcess.published}
@@ -2434,7 +2434,7 @@ function NodeInspector({
   onAnswerKeyPolicySaved,
   onAuditPolicySaved,
   onFormParametersSaved,
-  onFileParametersSaved,
+  onMaterialParametersSaved,
   publishedAuditPolicy,
   publishedRevision,
 }: {
@@ -2465,49 +2465,51 @@ function NodeInspector({
   onAnswerKeyPolicySaved: (policy: AnswerKeyPolicy) => void;
   onAuditPolicySaved: (policy: NodeAuditPolicy) => void;
   onFormParametersSaved: (policy: FormParametersPolicy) => void;
-  onFileParametersSaved: (policy: FileParametersPolicy) => void;
+  onMaterialParametersSaved: (policy: MaterialParametersPolicy) => void;
   publishedAuditPolicy: boolean;
   publishedRevision: boolean;
 }) {
   const hasPublishedForm = publishedAuditPolicy && sourceNode?.kind === "form";
-  const hasPublishedFile = publishedAuditPolicy && sourceNode?.kind === "file";
-  const [filePolicy, setFilePolicy] = useState<FileParametersPolicy | null>(null);
-  const [fileDraft, setFileDraft] = useState<FileParameters | null>(null);
-  const [fileBusy, setFileBusy] = useState(false);
-  const [fileError, setFileError] = useState("");
+  const hasPublishedMaterial = publishedAuditPolicy && (sourceNode?.kind === "file" || sourceNode?.kind === "confirmation");
+  const [materialPolicy, setMaterialPolicy] = useState<MaterialParametersPolicy | null>(null);
+  const [materialDraft, setMaterialDraft] = useState<MaterialParameters | null>(null);
+  const [materialBusy, setMaterialBusy] = useState(false);
+  const [materialError, setMaterialError] = useState("");
   const uploadedReferenceIds = useRef(new Set<string>());
-  const cleanupFileUploads = useCallback(async (keptIds: string[]) => {
+  const cleanupMaterialUploads = useCallback(async (keptIds: string[]) => {
     for (const id of [...uploadedReferenceIds.current]) {
       if (!keptIds.includes(id) && sourceNode) await workflowApi.deleteNodeReference(flowId, sourceNode.id, id);
       uploadedReferenceIds.current.delete(id);
     }
   }, [flowId, sourceNode?.id]);
   useEffect(() => {
-    if (!hasPublishedFile || !sourceNode) return;
+    if (!hasPublishedMaterial || !sourceNode) return;
     let cancelled = false;
-    workflowApi.getFileParameters(flowId, sourceNode.id).then((policy) => {
-      if (!cancelled) { setFilePolicy(policy); setFileDraft(policy.params); }
-    }).catch((reason) => { if (!cancelled) setFileError(reason instanceof Error ? reason.message : "读取文件节点配置失败"); });
+    (sourceNode.kind === "confirmation"
+      ? workflowApi.getConfirmationParameters(flowId, sourceNode.id)
+      : workflowApi.getFileParameters(flowId, sourceNode.id)).then((policy) => {
+      if (!cancelled) { setMaterialPolicy(policy); setMaterialDraft(policy.params); }
+    }).catch((reason) => { if (!cancelled) setMaterialError(reason instanceof Error ? reason.message : "读取节点配置失败"); });
     return () => { cancelled = true; };
-  }, [flowId, sourceNode?.id, hasPublishedFile]);
-  const fileChanged = Boolean(filePolicy && fileDraft && JSON.stringify(filePolicy.params) !== JSON.stringify(fileDraft));
+  }, [flowId, sourceNode?.id, hasPublishedMaterial]);
+  const materialChanged = Boolean(materialPolicy && materialDraft && JSON.stringify(materialPolicy.params) !== JSON.stringify(materialDraft));
   const onUploadReference = async (files: File[], replaceAssetId?: string) => {
-    if (!hasPublishedFile || !sourceNode) { onUploadDraftReference(files, replaceAssetId); return; }
-    setFileBusy(true); setFileError("");
+    if (!hasPublishedMaterial || !sourceNode) { onUploadDraftReference(files, replaceAssetId); return; }
+    setMaterialBusy(true); setMaterialError("");
     try {
       for (const file of files) {
         const { referenceAsset: asset } = await workflowApi.uploadNodeReference(flowId, sourceNode.id, file);
         uploadedReferenceIds.current.add(asset.assetId);
-        setFileDraft((current) => current && ({ ...current, referenceAssets: replaceAssetId
+        setMaterialDraft((current) => current && ({ ...current, referenceAssets: replaceAssetId
           ? current.referenceAssets.map((item) => item.assetId === replaceAssetId ? asset : item)
           : [...current.referenceAssets, asset] }));
       }
-    } catch (reason) { setFileError(reason instanceof Error ? reason.message : "参考文件上传失败"); }
-    finally { setFileBusy(false); }
+    } catch (reason) { setMaterialError(reason instanceof Error ? reason.message : "参考文件上传失败"); }
+    finally { setMaterialBusy(false); }
   };
   const onDeleteReference = (assetId: string) => {
-    if (!hasPublishedFile) { onDeleteDraftReference(assetId); return; }
-    setFileDraft((current) => current && ({ ...current, referenceAssets: current.referenceAssets.filter((item) => item.assetId !== assetId) }));
+    if (!hasPublishedMaterial) { onDeleteDraftReference(assetId); return; }
+    setMaterialDraft((current) => current && ({ ...current, referenceAssets: current.referenceAssets.filter((item) => item.assetId !== assetId) }));
   };
   const [formPolicy, setFormPolicy] = useState<FormParametersPolicy | null>(null);
   const [formDraft, setFormDraft] = useState<FormParameters | null>(null);
@@ -2526,18 +2528,18 @@ function NodeInspector({
     });
     return () => { cancelled = true; };
   }, [flowId, formNodeKey, hasPublishedForm]);
-  const node = sourceNode && hasPublishedFile && fileDraft ? { ...sourceNode, ...fileDraft, referenceAsset: null }
+  const node = sourceNode && hasPublishedMaterial && materialDraft ? { ...sourceNode, ...materialDraft, referenceAsset: null }
     : sourceNode && hasPublishedForm && formDraft ? { ...sourceNode, ...formDraft } : sourceNode;
-  const editingLocked = parentEditingLocked || fileBusy || (hasPublishedFile && !filePolicy) || formSaving || (hasPublishedForm && !formPolicy);
+  const editingLocked = parentEditingLocked || materialBusy || (hasPublishedMaterial && !materialPolicy) || formSaving || (hasPublishedForm && !formPolicy);
   const formChanged = Boolean(formPolicy && formDraft && JSON.stringify(formPolicy.params) !== JSON.stringify(formDraft));
   const onUpdateNode = (nodeId: string, patch: Partial<AcademicFlowNode>) => {
-    if (hasPublishedFile) {
-      setFileError("");
-      setFileDraft((current) => current && ({ ...current,
+    if (hasPublishedMaterial) {
+      setMaterialError("");
+      setMaterialDraft((current) => current && ({ ...current,
         title: patch.title ?? current.title, requirement: patch.requirement ?? current.requirement,
         startAt: "startAt" in patch ? patch.startAt ?? "" : current.startAt,
         deadlineAt: "deadlineAt" in patch ? patch.deadlineAt ?? "" : current.deadlineAt,
-        fileLimitMb: patch.fileLimitMb ?? current.fileLimitMb,
+        ...(sourceNode?.kind === "file" ? { fileLimitMb: patch.fileLimitMb ?? current.fileLimitMb } : {}),
       }));
       return;
     }
@@ -2669,7 +2671,7 @@ function NodeInspector({
   const missingAuditModel = requiresAuditModel && !(hasPublishedAuditPolicy ? auditModelCardId : node?.auditModelCardId);
 
   const persistPoliciesAndClose = useCallback(async (saveAnswerKey: boolean) => {
-    setFileBusy(hasPublishedFile);
+    setMaterialBusy(hasPublishedMaterial);
     setFormSaving(hasPublishedForm && formChanged);
     setAuditPolicySaving(auditPolicyChanged || reviewStepChanged);
     setAnswerKeySaving(saveAnswerKey && answerKeyChanged);
@@ -2677,10 +2679,13 @@ function NodeInspector({
     setAnswerKeyError("");
     let answerKeySaved = false;
     try {
-      if (hasPublishedFile && filePolicy && fileDraft && fileChanged) {
-        setFileError("");
-        const saved = await workflowApi.updateFileParameters(flowId, nodeKey, { expectedGeneration: filePolicy.generation, params: fileDraft });
-        setFilePolicy(saved); setFileDraft(saved.params); onFileParametersSaved(saved);
+      if (hasPublishedMaterial && materialPolicy && materialDraft && materialChanged) {
+        setMaterialError("");
+        const saved = sourceNode?.kind === "confirmation"
+          ? await workflowApi.updateConfirmationParameters(flowId, nodeKey, { expectedGeneration: materialPolicy.generation, params: materialDraft })
+          : await workflowApi.updateFileParameters(flowId, nodeKey, { expectedGeneration: materialPolicy.generation,
+              params: { ...materialDraft, fileLimitMb: materialDraft.fileLimitMb ?? sourceNode?.fileLimitMb ?? "" } });
+        setMaterialPolicy(saved); setMaterialDraft(saved.params); onMaterialParametersSaved(saved);
       }
       if (hasPublishedForm && formPolicy && formDraft && formChanged) {
         setFormError("");
@@ -2723,23 +2728,23 @@ function NodeInspector({
         setReviewStepPolicy(updatedReviewSteps);
         setReviewStepDraft(updatedReviewSteps.steps);
       }
-      if (hasPublishedFile) await cleanupFileUploads(fileDraft?.referenceAssets.map((item) => item.assetId) ?? []);
+      if (hasPublishedMaterial) await cleanupMaterialUploads(materialDraft?.referenceAssets.map((item) => item.assetId) ?? []);
       onClose();
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "保存节点配置失败";
-      if (hasPublishedFile) setFileError(message);
+      if (hasPublishedMaterial) setMaterialError(message);
       else if (hasPublishedForm) setFormError(message);
       else if (saveAnswerKey && answerKeyChanged && !answerKeySaved) setAnswerKeyError(message);
       else setAuditPolicyError(message);
     } finally {
-      setFileBusy(false);
+      setMaterialBusy(false);
       setFormSaving(false);
       setAuditPolicySaving(false);
       setAnswerKeySaving(false);
       setAnswerKeyConfirmOpen(false);
     }
   }, [
-    hasPublishedFile, filePolicy, fileDraft, fileChanged, onFileParametersSaved, cleanupFileUploads,
+    hasPublishedMaterial, materialPolicy, materialDraft, materialChanged, onMaterialParametersSaved, cleanupMaterialUploads, sourceNode,
     hasPublishedForm,
     formChanged,
     formPolicy,
@@ -2765,18 +2770,18 @@ function NodeInspector({
   ]);
 
   const closeInspector = useCallback(async (requireModel = false) => {
-    if (auditPolicySaving || answerKeySaving || formSaving || fileBusy) return;
-    if ((hasPublishedForm || hasPublishedFile) && !requireModel) {
-      if (hasPublishedFile) {
-        setFileBusy(true);
-        try { await cleanupFileUploads(filePolicy?.params.referenceAssets.map((item) => item.assetId) ?? []); }
-        catch (reason) { setFileError(reason instanceof Error ? reason.message : "清理暂存文件失败，请重试关闭"); return; }
-        finally { setFileBusy(false); }
+    if (auditPolicySaving || answerKeySaving || formSaving || materialBusy) return;
+    if ((hasPublishedForm || hasPublishedMaterial) && !requireModel) {
+      if (hasPublishedMaterial) {
+        setMaterialBusy(true);
+        try { await cleanupMaterialUploads(materialPolicy?.params.referenceAssets.map((item) => item.assetId) ?? []); }
+        catch (reason) { setMaterialError(reason instanceof Error ? reason.message : "清理暂存文件失败，请重试关闭"); return; }
+        finally { setMaterialBusy(false); }
       }
       onClose();
       return;
     }
-    if (requireModel && hasPublishedFile && !filePolicy) return;
+    if (requireModel && hasPublishedMaterial && !materialPolicy) return;
     if (requireModel && hasPublishedForm && !formPolicy) return;
     if (requireModel && hasPublishedAnswerKeyPolicy && !answerKeyPolicy) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
@@ -2808,7 +2813,7 @@ function NodeInspector({
     }
     await persistPoliciesAndClose(false);
   }, [
-    fileBusy, filePolicy, hasPublishedFile, cleanupFileUploads,
+    materialBusy, materialPolicy, hasPublishedMaterial, cleanupMaterialUploads,
     formSaving,
     formPolicy,
     hasPublishedForm,
@@ -2922,9 +2927,9 @@ function NodeInspector({
               />
           </label>
           <button
-            aria-label={hasPublishedForm || hasPublishedFile ? "取消节点修改并关闭" : "关闭节点设置"}
-            disabled={fileBusy || formSaving || auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
-            onClick={() => void closeInspector(!(hasPublishedForm || hasPublishedFile))}
+            aria-label={hasPublishedForm || hasPublishedMaterial ? "取消节点修改并关闭" : "关闭节点设置"}
+            disabled={materialBusy || formSaving || auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
+            onClick={() => void closeInspector(!(hasPublishedForm || hasPublishedMaterial))}
             type="button"
           >
             ×
@@ -2989,14 +2994,14 @@ function NodeInspector({
           <div className="node-inspector-revision-strip" role="note">
             <strong className="revision-strip-title">
               <span aria-hidden="true">↻</span>
-              {hasPublishedFile ? "已发布文件节点" : hasPublishedForm ? "已发布表单" : "发布后修订"}
+              {hasPublishedMaterial ? (node.kind === "confirmation" ? "已发布确认承诺节点" : "已发布文件节点") : hasPublishedForm ? "已发布表单" : "发布后修订"}
             </strong>
-            {hasPublishedFile ? <span className="revision-strip-detail">模板、格式及审核结构已锁定 · 学生进度保留</span>
+            {hasPublishedMaterial ? <span className="revision-strip-detail">模板、格式及审核结构已锁定 · 学生进度保留</span>
               : hasPublishedForm ? <span className="revision-strip-detail">字段结构已锁定 · 学生进度保留</span>
               : <span className="revision-strip-detail">{node.kind === "file" || node.kind === "confirmation" ? "基本信息/材料/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>}
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
-              {hasPublishedFile ? "可变配置 · 完成立即生效" : hasPublishedForm ? "基本信息/时间 · 完成立即生效" : "审核规则 · 完成立即生效"}
+              {hasPublishedMaterial ? "可变配置 · 完成立即生效" : hasPublishedForm ? "基本信息/时间 · 完成立即生效" : "审核规则 · 完成立即生效"}
             </span>
           </div>
         ) : null}
@@ -3039,8 +3044,8 @@ function NodeInspector({
             flowId={flowId}
             disabled={coreSettingsDisabled}
             parameterDisabled={hasPublishedReviewStepPolicy ? !reviewStepPolicy || auditPolicySaving : coreSettingsDisabled}
-            templateDisabled={editingLocked}
-            templateRemovable={true}
+            templateDisabled={coreSettingsDisabled}
+            templateRemovable={!nodeCoreLocked}
             referenceDisabled={editingLocked}
             referenceReplaceOnly={false}
             publishedMaterialRevision={publishedRevision && nodeCoreLocked}
@@ -3184,7 +3189,7 @@ function NodeInspector({
               </header>
               <NodeFileRow previewContext={{ flowId, nodeKey }} label="文件模板" asset={node.templateAsset}
                 accept={node.fileExtensions.split(",").filter((value) => value.trim()).map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
-                hint={hasPublishedFile ? "发布后模板不可修改" : "可选；须符合上传限制"} disabled={coreSettingsDisabled} removable={!nodeCoreLocked}
+                hint={hasPublishedMaterial ? "发布后模板不可修改" : "可选；须符合上传限制"} disabled={coreSettingsDisabled} removable={!nodeCoreLocked}
                 onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
               <NodeReferenceFiles previewContext={{ flowId, nodeKey }} assets={nodeReferences(node)} disabled={materialSettingsDisabled} replaceOnly={nodeCoreLocked && node.kind !== "file"}
                 onUpload={onUploadReference} onRemove={onDeleteReference} />
@@ -3223,11 +3228,11 @@ function NodeInspector({
         </div>
         <footer className="node-inspector-footer">
           <span
-            className={fileError || formError || answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
-            role={fileError || formError || answerKeyError || auditPolicyError ? "alert" : undefined}
+            className={materialError || formError || answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
+            role={materialError || formError || answerKeyError || auditPolicyError ? "alert" : undefined}
           >
-            {fileError ? fileError : hasPublishedFile
-              ? auditPolicyError ? auditPolicyError : fileBusy ? "正在保存或上传…" : !filePolicy ? "正在读取文件节点配置…" : "点击完成保存可变配置，立即生效；模板和格式不可修改。"
+            {materialError ? materialError : hasPublishedMaterial
+              ? auditPolicyError ? auditPolicyError : materialBusy ? "正在保存或上传…" : !materialPolicy ? "正在读取节点配置…" : "点击完成保存可变配置，立即生效；模板和格式不可修改。"
               : formError ? formError
               : hasPublishedForm
                 ? formSaving ? "正在保存表单配置…"
@@ -3265,14 +3270,14 @@ function NodeInspector({
           </span>
           <button
             className="primary-action"
-            disabled={fileBusy || (hasPublishedFile && !filePolicy) || formSaving || (hasPublishedForm && !formPolicy) || answerKeySaving || auditPolicySaving
+            disabled={materialBusy || (hasPublishedMaterial && !materialPolicy) || formSaving || (hasPublishedForm && !formPolicy) || answerKeySaving || auditPolicySaving
               || (hasPublishedAnswerKeyPolicy && !answerKeyPolicy)
               || (hasPublishedAuditPolicy && !auditPolicy)
               || (hasPublishedReviewStepPolicy && !reviewStepPolicy)}
             onClick={() => void closeInspector(true)}
             type="button"
           >
-            {fileBusy || formSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
+            {materialBusy || formSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
           </button>
         </footer>
       </aside>
@@ -3453,7 +3458,7 @@ function ConfirmationScanSettings({
           <i aria-hidden="true">✓</i>
           扫描件提交与审核
         </strong>
-        <small>{publishedMaterialRevision ? "材料变更后需重新提交" : "视觉审核"}</small>
+        <small>{publishedMaterialRevision ? "模板已锁定 · 参考示例保存即生效" : "视觉审核"}</small>
       </header>
       <NodeFileRow previewContext={{ flowId, nodeKey: node.id }} label="文件模板" asset={node.templateAsset} accept=".docx"
         hint="可选；DOCX，不提供时直接上传扫描件" disabled={templateDisabled} removable={templateRemovable}
