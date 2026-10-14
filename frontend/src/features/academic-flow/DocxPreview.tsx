@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { paginateDocx } from "./docxPagination";
 import { applyDocxLineSpacing, applyDocxUnderlines, applyDocxTabs, createDocxXmlContext, prepareDocxBreaks, supplementDocxLayout } from "./docxLayout";
 import { prepareDocxPageNumbers, updateDocxPageNumbers } from "./docxPageNumbers";
@@ -6,7 +6,7 @@ import { applyProjectDocxFonts } from "./docxFonts";
 import { prepareDocxFontConfig } from "./docxFontConfig";
 import type { HElement } from "docx-preview";
 
-export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; filename: string; toolbarPrefix?: ReactNode }) {
+export function DocxPreview({ url, filename }: { url: string; filename: string }) {
   const host = useRef<HTMLDivElement>(null);
   const sourceFile = useRef<{ url: string; data: ArrayBuffer } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,15 +151,14 @@ export function DocxPreview({ url, filename, toolbarPrefix }: { url: string; fil
   }, [url, paper]);
 
   return <section className="file-review-docx-preview" aria-label={`DOCX 预览：${filename}`}>
-    <div className={`pdf-preview-toolbar${toolbarPrefix ? " is-unified" : ""}`}>
-      {toolbarPrefix}
-      {!toolbarPrefix ? <span>DOCX 预览</span> : null}
+    <div className="pdf-preview-toolbar">
+      <span>DOCX 预览</span>
       <select aria-label="DOCX 纸张大小" value={paper} onChange={(event) => setPaper(event.target.value === "A3" ? "A3" : event.target.value === "A4" ? "A4" : "original")}>
         <option value="original">原始</option>
         <option value="A4">A4</option>
         <option value="A3">A3</option>
       </select>
-      {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">{toolbarPrefix ? "" : `${paper === "original" ? "原始版式" : `${paper} 重排`} · `}{pageCount} 页</span> : null}
+      {pageCount > 0 ? <span title="按浏览器实际排版推断，可能与 Word 页码不同">{paper === "original" ? "原始版式" : `${paper} 重排`} · {pageCount} 页</span> : null}
       <div className="preview-zoom-group" role="group" aria-label="缩放">
       <button className="preview-zoom-start" type="button" disabled={loading || Boolean(error) || zoom <= 0.5} aria-label="缩小" onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}>−</button>
       <button type="button" disabled={loading || Boolean(error)} title="恢复原始比例" onClick={() => setZoom(1)}>{Math.round(zoom * 100)}%</button>

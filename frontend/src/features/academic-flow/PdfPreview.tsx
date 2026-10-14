@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GlobalWorkerOptions, getDocument, type PDFDocumentProxy, type RenderTask } from "pdfjs-dist";
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-export function PdfPreview({ url, filename, toolbarPrefix }: { url: string; filename: string; toolbarPrefix?: ReactNode }) {
+export function PdfPreview({ url, filename }: { url: string; filename: string }) {
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [zoom, setZoom] = useState(1);
@@ -38,8 +38,7 @@ export function PdfPreview({ url, filename, toolbarPrefix }: { url: string; file
   };
 
   return <section className="file-review-pdf-preview" aria-label={`原件预览：${filename}`}>
-    <div className={`pdf-preview-toolbar${toolbarPrefix ? " is-unified" : ""}`}>
-      {toolbarPrefix}
+    <div className="pdf-preview-toolbar">
       <button type="button" disabled={!document || pageNumber <= 1} onClick={() => goToPage(pageNumber - 1)} aria-label="上一页">‹</button>
       <span>{document ? `${pageNumber} / ${document.numPages}` : "加载中…"}</span>
       <button type="button" disabled={!document || pageNumber >= document.numPages} onClick={() => goToPage(pageNumber + 1)} aria-label="下一页">›</button>

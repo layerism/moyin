@@ -14729,18 +14729,4 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
   .audit-test-dialog .audit-test-body { padding: 16px; }
 }
 
-.review-docx-modes, .review-docx-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
-.review-docx-pane[hidden] { display: none; }
-.review-docx-switch { display: flex; gap: 0; padding: 0; background: #edf1f6; border: 1px solid #dce3ed; border-radius: 5px; flex-shrink: 0; }
-.file-manual-review-dialog .review-docx-switch button { height: 24px; padding: 0 10px; border: 0; border-radius: 4px; background: transparent; color: #60708a; font-size: 12px; }
-.file-manual-review-dialog .review-docx-switch button[aria-pressed="true"] { background: white; color: #2467e8; box-shadow: none; }
 .preview-zoom-group { display: flex; align-items: center; gap: 6px; }
-.pdf-preview-toolbar.is-unified { flex-wrap: nowrap; min-height: 38px; padding: 5px 10px; overflow-x: auto; white-space: nowrap; gap: 7px; }
-.pdf-preview-toolbar.is-unified > * { flex-shrink: 0; }
-.pdf-preview-toolbar.is-unified .review-docx-switch { margin-right: 3px; }
-.pdf-preview-toolbar.is-unified > span { color: #718098; font-size: 12px; }
-.file-manual-review-dialog .pdf-preview-toolbar.is-unified > button { height: 26px; min-width: 26px; padding: 0 7px; }
-.file-review-docx-preview .pdf-preview-toolbar.is-unified select { width: 54px; min-width: 54px; height: 26px; padding: 0 5px; border-color: transparent; background: transparent; }
-.pdf-preview-toolbar.is-unified .preview-zoom-group { margin-left: 3px; gap: 0; border: 1px solid #d7dfec; border-radius: 5px; background: white; overflow: hidden; }
-.file-manual-review-dialog .pdf-preview-toolbar.is-unified .preview-zoom-group button { height: 24px; min-width: 26px; padding: 0 7px; border: 0; border-radius: 0; background: transparent; font-size: 12px; }
-.file-manual-review-dialog .pdf-preview-toolbar.is-unified .preview-zoom-group button:nth-child(2) { min-width: 44px; border-inline: 1px solid #e8edf4; font-variant-numeric: tabular-nums; }
