@@ -20,19 +20,23 @@ export function NodeFileRow({ label, asset, accept, hint, disabled, removable = 
   const [previewOpen, setPreviewOpen] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const size = asset ? (asset.sizeBytes < 1024 * 1024 ? `${Math.max(1, Math.round(asset.sizeBytes / 1024))} KB` : `${(asset.sizeBytes / (1024 * 1024)).toFixed(1)} MB`) : "";
+  const lockStatus = disabled ? <span className="node-file-row-lock" title="已发布节点的文件配置不可修改">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+    已锁定
+  </span> : null;
   return <section className="node-file-row" aria-label={label}>
     <strong className="node-file-row-label">{label}</strong>
     {asset ? <div className="node-file-row-content">
       <FileFormatIcon filename={asset.originalName} />
-      <div className="node-file-row-copy"><MaterialFileName name={asset.originalName} /><small>{size}</small></div>
+      <div className="node-file-row-copy"><MaterialFileName name={asset.originalName} /><div className="node-file-row-meta"><small>{size}</small>{lockStatus}</div></div>
     </div> : <div className="node-file-row-content">
-      {disabled ? <span className="node-file-row-hint">未配置文件</span> : <button type="button" className="node-file-row-select" onClick={() => input.current?.click()} aria-label={`选择${label}`}>
+      {disabled ? <div className="node-file-row-meta"><span className="node-file-row-hint">未配置文件</span>{lockStatus}</div> : <button type="button" className="node-file-row-select" onClick={() => input.current?.click()} aria-label={`选择${label}`}>
         <span aria-hidden="true">＋</span><strong>选择文件</strong><small>{hint}</small>
       </button>}
     </div>}
-    {asset || disabled ? <div className="node-file-row-actions">
+    {asset && (previewContext || !disabled) ? <div className="node-file-row-actions">
       {asset && previewContext ? <button type="button" onClick={() => setPreviewOpen(true)} title="预览" aria-label={`预览${label} ${asset.originalName}`}><MaterialActionIcon action="preview" /></button> : null}
-      {disabled ? <span className="node-file-row-lock" title="已发布节点的文件配置不可修改">🔒 已锁定</span> : asset ? <>
+      {!disabled ? <>
         <button type="button" onClick={() => input.current?.click()} title="替换" aria-label={`替换${label}`}><MaterialActionIcon action="replace" /></button>
         {removable ? <button type="button" className="node-file-row-remove" onClick={onRemove} title="移除" aria-label={`移除${label}`}><MaterialActionIcon action="remove" /></button> : null}
       </> : null}

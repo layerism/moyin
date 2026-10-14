@@ -13560,11 +13560,13 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
 .node-file-row-select strong { white-space: nowrap; font-size: 12px; }
 .node-file-row-select small { color: #8491a6; font-size: 11px; text-align: left; }
 .node-file-row button:focus-visible { outline: 2px solid #2670ef; outline-offset: 2px; }
-.node-file-row-lock { white-space: nowrap; }
+.node-file-row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.node-file-row-lock { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.node-file-row-lock svg { width: 12px; height: 12px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 560px) {
   .node-file-row { flex-wrap: wrap; }
   .node-file-row-content { flex-basis: calc(100% - 60px); }
-  .node-file-row-actions, .node-file-row-lock { margin-left: auto; }
+  .node-file-row-actions { margin-left: auto; }
   .node-file-row-select { flex-wrap: wrap; }
   .node-file-row-select small { flex-basis: 100%; margin-left: 31px; }
 }
