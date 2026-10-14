@@ -620,6 +620,16 @@ CREATE TABLE IF NOT EXISTS node_audit_policies (
     PRIMARY KEY(flow_id, node_key)
 );
 
+CREATE TABLE IF NOT EXISTS node_form_parameters (
+    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
+    node_key TEXT NOT NULL,
+    params_json TEXT NOT NULL,
+    generation INTEGER NOT NULL CHECK (generation > 0),
+    updated_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(flow_id, node_key)
+);
+
 CREATE TABLE IF NOT EXISTS node_review_step_policies (
     flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,

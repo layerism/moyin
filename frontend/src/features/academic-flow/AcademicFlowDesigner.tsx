@@ -27,7 +27,7 @@ import {
   getFileTypeRestrictionPreset,
   nodeTemplates,
 } from "./academicFlowData";
-import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy } from "./api";
+import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy, type FormParameters, type FormParametersPolicy } from "./api";
 import {
   getAuditScriptParameterError,
   type NodeAuditPolicy,
@@ -693,6 +693,20 @@ export function AcademicFlowDesigner({
     }));
   };
 
+  const applyPublishedFormParameters = (nodeId: string, policy: FormParametersPolicy) => {
+    const apply = (current: AcademicProcess): AcademicProcess => ({
+      ...current,
+      nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, ...policy.params } : node),
+      draftConfig: {
+        ...current.draftConfig,
+        nodes: current.draftConfig.nodes.map((node) => node.id === nodeId ? { ...node, ...policy.params } : node),
+      },
+    });
+    setWorkingProcess(apply);
+    onProcessChange(apply(process));
+    setActionNotice("表单配置已保存并立即生效，学生进度保留");
+  };
+
   const applyPublishedAnswerKeyPolicy = (
     nodeId: string,
     policy: AnswerKeyPolicy,
@@ -973,6 +987,7 @@ export function AcademicFlowDesigner({
         </section>
         {inspectorNode && (
           <NodeInspector
+            key={inspectorNode.id}
             editingLocked={editorLocked}
             announcementEditingLocked={announcementEditingLocked}
             flowId={serverFlowId}
@@ -991,6 +1006,7 @@ export function AcademicFlowDesigner({
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(policy) => applyPublishedAuditPolicy(inspectorNode.id, policy)}
+            onFormParametersSaved={(policy) => applyPublishedFormParameters(inspectorNode.id, policy)}
             onAnswerKeyPolicySaved={(policy) => applyPublishedAnswerKeyPolicy(inspectorNode.id, policy)}
             publishedAuditPolicy={workingProcess.published && protectedNodeIds.includes(inspectorNode.id)}
             publishedRevision={workingProcess.published}
@@ -2399,11 +2415,11 @@ function FlowNodeCanvas({
 function NodeInspector({
   minimumDeadline,
   answerSheetKey,
-  editingLocked,
+  editingLocked: parentEditingLocked,
   announcementEditingLocked,
   flowId,
   nodeCoreLocked,
-  node,
+  node: sourceNode,
   onClose,
   onDeleteTemplate,
   onUploadTemplate,
@@ -2412,10 +2428,11 @@ function NodeInspector({
   onUploadAnnouncementFile,
   onUpdateAnnouncementRequirement,
   onDeleteReference,
-  onUpdateNode,
+  onUpdateNode: onUpdateDraftNode,
   onUpdateAnswerSheet,
   onAnswerKeyPolicySaved,
   onAuditPolicySaved,
+  onFormParametersSaved,
   publishedAuditPolicy,
   publishedRevision,
 }: {
@@ -2445,9 +2462,44 @@ function NodeInspector({
   ) => void;
   onAnswerKeyPolicySaved: (policy: AnswerKeyPolicy) => void;
   onAuditPolicySaved: (policy: NodeAuditPolicy) => void;
+  onFormParametersSaved: (policy: FormParametersPolicy) => void;
   publishedAuditPolicy: boolean;
   publishedRevision: boolean;
 }) {
+  const hasPublishedForm = publishedAuditPolicy && sourceNode?.kind === "form";
+  const [formPolicy, setFormPolicy] = useState<FormParametersPolicy | null>(null);
+  const [formDraft, setFormDraft] = useState<FormParameters | null>(null);
+  const [formSaving, setFormSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const formNodeKey = sourceNode?.id ?? "";
+  useEffect(() => {
+    if (!hasPublishedForm) return;
+    let cancelled = false;
+    workflowApi.getFormParameters(flowId, formNodeKey).then((policy) => {
+      if (cancelled) return;
+      setFormPolicy(policy);
+      setFormDraft(policy.params);
+    }).catch((reason) => {
+      if (!cancelled) setFormError(reason instanceof Error ? reason.message : "读取表单配置失败");
+    });
+    return () => { cancelled = true; };
+  }, [flowId, formNodeKey, hasPublishedForm]);
+  const node = sourceNode && hasPublishedForm && formDraft ? { ...sourceNode, ...formDraft } : sourceNode;
+  const editingLocked = parentEditingLocked || formSaving || (hasPublishedForm && !formPolicy);
+  const formChanged = Boolean(formPolicy && formDraft && JSON.stringify(formPolicy.params) !== JSON.stringify(formDraft));
+  const onUpdateNode = (nodeId: string, patch: Partial<AcademicFlowNode>) => {
+    if (!hasPublishedForm) {
+      onUpdateDraftNode(nodeId, patch);
+      return;
+    }
+    setFormError("");
+    setFormDraft((current) => current && ({
+      title: patch.title ?? current.title,
+      requirement: patch.requirement ?? current.requirement,
+      startAt: "startAt" in patch ? patch.startAt ?? "" : current.startAt,
+      deadlineAt: "deadlineAt" in patch ? patch.deadlineAt ?? "" : current.deadlineAt,
+    }));
+  };
   const [timeSettingsOpen, setTimeSettingsOpen] = useState(false);
   const [auditPolicy, setAuditPolicy] = useState<NodeAuditPolicy | null>(null);
   const [auditPolicyParams, setAuditPolicyParams] = useState<Record<string, string | number | boolean>>({});
@@ -2564,12 +2616,23 @@ function NodeInspector({
   const missingAuditModel = requiresAuditModel && !(hasPublishedAuditPolicy ? auditModelCardId : node?.auditModelCardId);
 
   const persistPoliciesAndClose = useCallback(async (saveAnswerKey: boolean) => {
+    setFormSaving(hasPublishedForm && formChanged);
     setAuditPolicySaving(auditPolicyChanged || reviewStepChanged);
     setAnswerKeySaving(saveAnswerKey && answerKeyChanged);
     setAuditPolicyError("");
     setAnswerKeyError("");
     let answerKeySaved = false;
     try {
+      if (hasPublishedForm && formPolicy && formDraft && formChanged) {
+        setFormError("");
+        const saved = await workflowApi.updateFormParameters(flowId, nodeKey, {
+          expectedGeneration: formPolicy.generation,
+          params: formDraft,
+        });
+        setFormPolicy(saved);
+        setFormDraft(saved.params);
+        onFormParametersSaved(saved);
+      }
       if (saveAnswerKey && answerKeyChanged && answerKeyPolicy && answerKeyDraft) {
         const updatedAnswerKey = await workflowApi.updateNodeAnswerKeyPolicy(flowId, nodeKey, {
           expectedGeneration: answerKeyPolicy.generation,
@@ -2604,14 +2667,21 @@ function NodeInspector({
       onClose();
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "保存节点配置失败";
-      if (saveAnswerKey && answerKeyChanged && !answerKeySaved) setAnswerKeyError(message);
+      if (hasPublishedForm) setFormError(message);
+      else if (saveAnswerKey && answerKeyChanged && !answerKeySaved) setAnswerKeyError(message);
       else setAuditPolicyError(message);
     } finally {
+      setFormSaving(false);
       setAuditPolicySaving(false);
       setAnswerKeySaving(false);
       setAnswerKeyConfirmOpen(false);
     }
   }, [
+    hasPublishedForm,
+    formChanged,
+    formPolicy,
+    formDraft,
+    onFormParametersSaved,
     answerKeyChanged,
     answerKeyDraft,
     answerKeyPolicy,
@@ -2632,7 +2702,12 @@ function NodeInspector({
   ]);
 
   const closeInspector = useCallback(async (requireModel = false) => {
-    if (auditPolicySaving || answerKeySaving) return;
+    if (auditPolicySaving || answerKeySaving || formSaving) return;
+    if (hasPublishedForm && !requireModel) {
+      onClose();
+      return;
+    }
+    if (requireModel && hasPublishedForm && !formPolicy) return;
     if (requireModel && hasPublishedAnswerKeyPolicy && !answerKeyPolicy) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
     if (requireModel && hasPublishedReviewStepPolicy && !reviewStepPolicy) return;
@@ -2663,6 +2738,10 @@ function NodeInspector({
     }
     await persistPoliciesAndClose(false);
   }, [
+    formSaving,
+    formPolicy,
+    hasPublishedForm,
+    onClose,
     answerKeyChanged,
     answerKeyPolicy,
     answerKeySaving,
@@ -2771,9 +2850,9 @@ function NodeInspector({
               />
           </label>
           <button
-            aria-label="关闭节点设置"
-            disabled={auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
-            onClick={() => void closeInspector(true)}
+            aria-label={hasPublishedForm ? "取消表单修改并关闭" : "关闭节点设置"}
+            disabled={formSaving || auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
+            onClick={() => void closeInspector(!hasPublishedForm)}
             type="button"
           >
             ×
@@ -2838,12 +2917,13 @@ function NodeInspector({
           <div className="node-inspector-revision-strip" role="note">
             <strong className="revision-strip-title">
               <span aria-hidden="true">↻</span>
-              发布后修订
+              {hasPublishedForm ? "已发布表单" : "发布后修订"}
             </strong>
-            <span className="revision-strip-detail">{node.kind === "file" || node.kind === "confirmation" ? "基本信息/材料/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>
+            {hasPublishedForm ? <span className="revision-strip-detail">字段结构已锁定 · 学生进度保留</span>
+              : <span className="revision-strip-detail">{node.kind === "file" || node.kind === "confirmation" ? "基本信息/材料/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>}
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
-              审核规则 · 完成立即生效
+              {hasPublishedForm ? "基本信息/时间 · 完成立即生效" : "审核规则 · 完成立即生效"}
             </span>
           </div>
         ) : null}
@@ -3070,10 +3150,15 @@ function NodeInspector({
         </div>
         <footer className="node-inspector-footer">
           <span
-            className={answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
-            role={answerKeyError || auditPolicyError ? "alert" : undefined}
+            className={formError || answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
+            role={formError || answerKeyError || auditPolicyError ? "alert" : undefined}
           >
-            {answerKeyError
+            {formError ? formError
+              : hasPublishedForm
+                ? formSaving ? "正在保存表单配置…"
+                  : !formPolicy ? "正在读取表单配置…"
+                    : "点击完成后，标题、说明和时间立即生效，无需重新发布。"
+              : answerKeyError
               ? answerKeyError
               : auditPolicyError
               ? auditPolicyError
@@ -3105,14 +3190,14 @@ function NodeInspector({
           </span>
           <button
             className="primary-action"
-            disabled={answerKeySaving || auditPolicySaving
+            disabled={formSaving || (hasPublishedForm && !formPolicy) || answerKeySaving || auditPolicySaving
               || (hasPublishedAnswerKeyPolicy && !answerKeyPolicy)
               || (hasPublishedAuditPolicy && !auditPolicy)
               || (hasPublishedReviewStepPolicy && !reviewStepPolicy)}
             onClick={() => void closeInspector(true)}
             type="button"
           >
-            {answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
+            {formSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
           </button>
         </footer>
       </aside>

@@ -171,7 +171,7 @@ def enter_flow(flow_id: str, student_id: int) -> dict[str, object]:
             connection,
             str(version["version_id"]),
             flow_id,
-            json.loads(version["config_snapshot"]),
+            version_config(connection, str(version["version_id"])),
             student_id,
             now,
         )
@@ -202,7 +202,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             raise KeyError(instance_id)
         if student_id is not None:
             assert_student_roster_access(connection, instance["flow_id"], student_id)
-        config = json.loads(instance["config_snapshot"])
+        config = version_config(connection, instance["flow_version_id"])
         sync_branch_states(connection, instance_id, config)
         instance_status = connection.execute("SELECT status FROM flow_instances WHERE id = ?", (instance_id,)).fetchone()["status"]
         preview = is_preview_instance(connection, instance_id)
@@ -500,7 +500,7 @@ def save_node_draft(
         sync_branch_states(connection, row["flow_instance_id"], current_config)
         row = {**dict(row), **dict(connection.execute("SELECT status, attempt_reset_no FROM node_instances WHERE id = ?", (node_instance_id,)).fetchone())}
 
-        config = json.loads(row["config_snapshot"])
+        config = version_config(connection, row["flow_version_id"])
         preview = is_preview_instance(connection, row["flow_instance_id"])
         node = node_by_key(config, row["node_key"])
         approved_resubmission = _is_approved_resubmission(row["status"], node)
@@ -954,7 +954,7 @@ def _set_student_deadline(connection, instance_id, node_key, deadline_at, reason
     clean_reason = reason.strip()
     if not clean_reason:
         raise StudentDeadlineValidationError("请填写延期原因")
-    config = json.loads(exists["config_snapshot"])
+    config = version_config(connection, exists["flow_version_id"])
     node = node_by_key(config, node_key)
     if node.get("kind") in {"branch", "or_gate"}:
         raise StudentDeadlineValidationError("流程控制节点不设置截止时间")
@@ -1069,7 +1069,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             """,
             (version_id, version["flow_id"]),
         ).fetchall()
-        config = json.loads(version["config_snapshot"])
+        config = version_config(connection, version_id)
         global_deadlines = version_deadlines(connection, version_id)
         node_titles = {
             str(node["id"]): str(node.get("title") or node["id"])
@@ -1140,7 +1140,7 @@ def get_teacher_submission_detail(
         row = connection.execute(
             """
             SELECT n.id, n.node_key, n.status, n.attempt_no, i.student_account_id,
-                   a.student_no, a.name AS student_name, v.config_snapshot,
+                   a.student_no, a.name AS student_name, v.config_snapshot, i.flow_version_id,
                    s.id AS submission_id, s.status AS submission_status,
                    s.payload_snapshot AS submission_payload,
                    g.result_snapshot AS answer_sheet_grade,
@@ -1161,7 +1161,7 @@ def get_teacher_submission_detail(
         ).fetchone()
         if row is None:
             raise KeyError(node_instance_id)
-        config = json.loads(row["config_snapshot"])
+        config = version_config(connection, row["flow_version_id"])
         node = node_by_key(config, row["node_key"])
         result = _json_object(row["result_json"])
         answer_sheet_grade = _json_object(row["answer_sheet_grade"])

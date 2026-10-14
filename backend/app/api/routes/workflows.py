@@ -37,6 +37,11 @@ from app.repositories.audit_policies import (
     get_node_audit_policy,
     update_node_audit_policy,
 )
+from app.repositories.form_parameters import (
+    FormParametersConflict,
+    get_form_parameters,
+    update_form_parameters,
+)
 from app.repositories.review_step_policies import (
     ReviewStepPolicyConflict,
     get_review_step_policy,
@@ -146,6 +151,52 @@ class AuditPolicyRequest(BaseModel):
 class AnswerKeyPolicyRequest(BaseModel):
     expectedGeneration: int = Field(ge=1)
     gradingKey: dict[str, Any]
+
+
+class FormNodeParams(BaseModel):
+    title: str = Field(min_length=1, max_length=50)
+    requirement: str
+    startAt: str
+    deadlineAt: str
+
+    model_config = {"extra": "forbid"}
+
+
+class FormParametersRequest(BaseModel):
+    expectedGeneration: int = Field(ge=0)
+    params: FormNodeParams
+
+
+@router.get("/{flow_id}/nodes/{node_key}/form-parameters")
+def get_form_parameters_route(
+    flow_id: str,
+    node_key: str,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return get_form_parameters(flow_id, node_key, int(teacher["id"]))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布表单不存在") from exc
+
+
+@router.put("/{flow_id}/nodes/{node_key}/form-parameters")
+def put_form_parameters_route(
+    flow_id: str,
+    node_key: str,
+    payload: FormParametersRequest,
+    teacher: dict[str, object] = Depends(get_current_teacher),
+) -> dict[str, object]:
+    try:
+        return update_form_parameters(
+            flow_id, node_key, int(teacher["id"]),
+            payload.expectedGeneration, payload.params.model_dump(),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布表单不存在") from exc
+    except FormParametersConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 def not_found() -> HTTPException:

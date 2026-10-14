@@ -14,6 +14,7 @@ from app.domain.answer_sheet import AnswerSheetConfigError
 from app.repositories.flow_runtime_state import (
     advance_downstream,
     effective_deadline,
+    version_config,
     version_deadlines,
 )
 from app.domain.workflow import FlowValidationError, validate_flow_config
@@ -36,6 +37,7 @@ from app.repositories.answer_sheet_keys import (
     validate_publishable_answer_sheet_keys,
 )
 from app.repositories.audit_policies import sync_published_audit_policies
+from app.repositories.form_parameters import apply_form_parameters
 from app.repositories.flow_content_assets import (
     ContentAssetError,
     freeze_content_asset_refs,
@@ -236,6 +238,7 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
 def prepare_runtime_config(
     connection: Any, flow_id: str, config: dict[str, Any]
 ) -> dict[str, str]:
+    apply_form_parameters(connection, flow_id, config)
     _bind_confirmation_visual_audits(config)
     _refresh_file_audit_script_configs(config)
     validate_flow_config(config, require_publishable=True)
@@ -429,16 +432,7 @@ def _current_published_config(connection: Any, flow_id: str) -> dict[str, Any] |
 
 
 def _version_config_with_runtime_deadlines(connection: Any, version: Any) -> dict[str, Any]:
-    config = json.loads(version["config_snapshot"])
-    rows = connection.execute(
-        "SELECT node_key, deadline_at FROM flow_node_runtime_configs WHERE flow_version_id = ?",
-        (version["id"],),
-    ).fetchall()
-    deadlines = {row["node_key"]: row["deadline_at"] for row in rows}
-    for node in config.get("nodes", []):
-        if node["id"] in deadlines:
-            node["deadlineAt"] = deadlines[node["id"]]
-    return config
+    return version_config(connection, version["id"])
 
 
 def _assert_no_published_structure_deletions(
@@ -865,6 +859,7 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             raise KeyError(flow_id)
         published = _latest_published_version(connection, flow_id, teacher_id)
         draft_config = json.loads(row["draft_config"])
+        apply_form_parameters(connection, flow_id, draft_config)
         apply_published_node_models(connection, flow_id, draft_config)
         draft_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
         published_config = (
@@ -940,6 +935,7 @@ def save_draft(
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
+        apply_form_parameters(connection, flow_id, config)
         _bind_confirmation_visual_audits(config)
         validate_flow_config(config)
         supplied_keys = (

@@ -22,6 +22,18 @@ import { createFlowConfig, createPublishRequestPayload } from "./flowRevision";
 
 export const FLOW_PREVIEW_TOKEN_KEY = "oa-flow-preview-token";
 
+export type FormParameters = {
+  title: string;
+  requirement: string;
+  startAt: string;
+  deadlineAt: string;
+};
+
+export type FormParametersPolicy = {
+  generation: number;
+  params: FormParameters;
+};
+
 export type ReviewStepPolicy = {
   flowId: string;
   nodeKey: string;
@@ -576,6 +588,20 @@ export const workflowApi = {
   getNodeAuditPolicy(flowId: string, nodeKey: string) {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
+    );
+  },
+  getFormParameters(flowId: string, nodeKey: string) {
+    return request<FormParametersPolicy>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/form-parameters`,
+    );
+  },
+  updateFormParameters(flowId: string, nodeKey: string, payload: {
+    expectedGeneration: number;
+    params: FormParameters;
+  }) {
+    return request<FormParametersPolicy>(
+      `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/form-parameters`,
+      { method: "PUT", body: JSON.stringify(payload) },
     );
   },
   updateNodeAuditPolicy(
