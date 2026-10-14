@@ -65,6 +65,25 @@ def run_next_task(stopping=None):
             return False
         task = dict(task)
         snapshot = json.loads(task['snapshot_json'])
+        from app.repositories.flow_runtime_state import version_config
+        from app.repositories.review_step_policies import effective_review_step_node
+        from app.services.audit_script_catalog import find_audit_script
+        from app.services.audit_script_parameters import validate_script_params
+        config = version_config(connection, task['flow_version_id'])
+        node = next(n for n in config['nodes'] if n['id'] == task['node_key'])
+        if node.get('kind') == 'file':
+            node = effective_review_step_node(connection, task['flow_id'], node)
+            step = node['fileReviewSteps'][task['step_index']]
+            record = find_audit_script(snapshot['auditScriptId'])
+            snapshot['params'] = validate_script_params(record.config, step.get('auditScriptParams') or {})
+            snapshot['auditScriptParams'] = snapshot['params']
+            snapshot['auditModelCardId'] = step.get('auditModelCardId')
+            connection.execute('UPDATE file_review_ai_tasks SET snapshot_json = ? WHERE id = ?',
+                               (json.dumps(snapshot, ensure_ascii=False), task['id']))
+            from app.repositories.audit_jobs import _record_execution
+            _record_execution(connection, 'file_review_task', task['id'],
+                              {'submissionId': task['submission_id'], 'stepIndex': task['step_index'],
+                               'attempt': task['attempt_count'] + 1, 'snapshot': snapshot}, utc_now_iso())
         connection.execute("UPDATE file_review_ai_tasks SET status = 'running', attempt_count = attempt_count + 1 WHERE id = ?", (task['id'],))
         files = connection.execute('SELECT * FROM uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at', (task['submission_id'],)).fetchall()
         materials = [AuditMaterial(id=f['id'], name=f['original_name'], storage_key=f['storage_key'], content_type=f['content_type'], size=f['size_bytes'], sha256=f['sha256'], page_count=f['page_count']) for f in files]
@@ -117,6 +136,11 @@ def run_next_task(stopping=None):
             connection.execute("UPDATE submissions SET status = 'cancelled' WHERE id = ?", (task['submission_id'],))
             connection.execute("UPDATE node_instances SET status = 'available' WHERE id = ?", (task['node_instance_id'],))
             return True
+        if node.get('kind') == 'file':
+            from app.repositories.audit_jobs import _record_execution
+            _record_execution(connection, 'file_review_task', task['id'],
+                              {'attempt': task['attempt_count'] + 1, 'result': result,
+                               'status': 'failed' if result is None else 'succeeded'}, now)
         if result is None:
             connection.execute("UPDATE file_review_ai_tasks SET status = 'failed', finished_at = ? WHERE id = ?", (now, task['id']))
             connection.execute("UPDATE node_instances SET status = 'audit_error' WHERE id = ?", (task['node_instance_id'],))

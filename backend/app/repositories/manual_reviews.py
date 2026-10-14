@@ -5,6 +5,7 @@ from app.core.database import get_connection
 from app.domain.workflow_runtime import node_by_key
 from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.branch_state import sync_branch_states
+from app.repositories.flow_runtime_state import version_config
 from app.services.security import utc_now_iso
 from app.repositories.file_reviews import has_manual_review, review_stage
 
@@ -24,7 +25,7 @@ def _version(connection, version_id, node_key, teacher_id):
     ).fetchone()
     if version is None:
         raise KeyError(version_id)
-    config = json.loads(version['config_snapshot'])
+    config = version_config(connection, version_id)
     node = node_by_key(config, node_key)
     if not has_manual_review(node):
         raise ValueError('该节点不是人工审核节点')

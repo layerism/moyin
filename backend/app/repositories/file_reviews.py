@@ -84,7 +84,24 @@ def file_review_evidence(connection, instance_id, config, node_key):
     evidence = {'nodeKey': node_key, 'sources': [source]}
     if structured_steps(node) and run:
         evidence['reviewStepIndex'] = min(run['step_index'], len(json.loads(run['steps_json'])) - 1)
-    encoded = json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
+    identity = evidence
+    if node.get('kind') == 'file':
+        identity = {**evidence, 'sources': [{key: value for key, value in source.items()
+                                          if key not in {'title', 'requirement'}}]}
+        # Preserve an in-flight draft created before mutable labels were excluded.
+        version = connection.execute("""SELECT v.config_snapshot FROM flow_instances i
+            JOIN flow_versions v ON v.id = i.flow_version_id WHERE i.id = ?""", (instance_id,)).fetchone()
+        original = node_by_key(json.loads(version['config_snapshot']), node_key)
+        legacy = {**evidence, 'sources': [{**source, 'title': original['title'],
+                                         'requirement': original.get('requirement', '')}]}
+        legacy_hash = hashlib.sha256(json.dumps(legacy, ensure_ascii=False, sort_keys=True,
+                                                separators=(',', ':')).encode()).hexdigest()
+        draft = connection.execute("""SELECT d.evidence_hash FROM manual_feedback_drafts d
+            JOIN node_instances n ON n.id = d.node_instance_id
+            WHERE n.flow_instance_id = ? AND n.node_key = ?""", (instance_id, node_key)).fetchone()
+        if draft and draft['evidence_hash'] == legacy_hash:
+            return evidence, legacy_hash
+    encoded = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
     return evidence, hashlib.sha256(encoded.encode()).hexdigest()
 
 

@@ -271,6 +271,9 @@ def update_node_audit_policy(
             validated.pop("scanAuditThreshold", None)
         from app.services.node_models import validate_node_model
         validate_node_model(connection, str(teacher_id), record.id, model_card_id)
+        version = connection.execute("SELECT config_snapshot FROM flow_versions WHERE flow_id = ? AND status = 'published' ORDER BY version_no DESC LIMIT 1", (flow_id,)).fetchone()
+        file_node = bool(version and any(node['id'] == node_key and node.get('kind') == 'file'
+                         for node in json.loads(version['config_snapshot'])['nodes']))
         next_hash = policy_hash(record.id, validated, model_card_id)
         changed = next_hash != row["policy_hash"]
         if changed:
@@ -300,7 +303,7 @@ def update_node_audit_policy(
                     if model_card_id:
                         node["auditModelCardId"] = model_card_id
             connection.execute("UPDATE flows SET draft_config = ? WHERE id = ?", (canonical_json(draft), flow_id))
-    if not changed:
+    if not changed or file_node:
         return get_node_audit_policy(flow_id, node_key, teacher_id)
     from app.repositories.audit_jobs import cancel_audit_jobs_for_policy
     from app.services.audit_job_worker import signal_audit_job_cancellations

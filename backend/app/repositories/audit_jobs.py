@@ -74,6 +74,18 @@ def create_audit_job(
     return job_id
 
 
+def _is_file_job(connection, job):
+    row = connection.execute("SELECT config_snapshot FROM flow_versions WHERE id = ?", (job['flow_version_id'],)).fetchone()
+    return bool(row and any(n['id'] == job['node_key'] and n.get('kind') == 'file'
+                           for n in json.loads(row['config_snapshot'])['nodes']))
+
+
+def _record_execution(connection, entity_type, entity_id, record, now):
+    connection.execute("""INSERT INTO audit_logs (action, entity_type, entity_id, after_data, created_at)
+        VALUES ('file_audit_execution', ?, ?, ?, ?)""",
+        (entity_type, entity_id, canonical_json(record), now))
+
+
 def claim_next_audit_job() -> ClaimedAuditJob | None:
     now = utc_now_iso()
     with get_connection() as connection:
@@ -138,6 +150,19 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             """,
             (job_id,),
         ).fetchone()
+        model_id = None
+        if _is_file_job(connection, job):
+            binding = resolve_effective_audit_binding(connection, job['flow_id'], job['node_key'], job['script_id'])
+            model_id = connection.execute('SELECT model_card_id FROM node_audit_policies WHERE flow_id = ? AND node_key = ?',
+                                          (job['flow_id'], job['node_key'])).fetchone()['model_card_id']
+            connection.execute("""UPDATE audit_jobs SET policy_generation = ?, policy_hash = ?,
+                effective_params_json = ?, effective_settings_json = ? WHERE id = ?""",
+                (binding['policyGeneration'], binding['policyHash'], canonical_json(binding['params']),
+                 canonical_json(binding['settings']), job_id))
+            job = {**dict(job), 'policy_generation': binding['policyGeneration'], 'policy_hash': binding['policyHash'],
+                   'effective_params_json': canonical_json(binding['params']), 'effective_settings_json': canonical_json(binding['settings'])}
+            _record_execution(connection, 'audit_job', job_id,
+                              {**dict(job), 'modelCardId': model_id}, now)
         file_rows = connection.execute(
             """
             SELECT id, original_name, storage_key, content_type, size_bytes, sha256, page_count
@@ -168,6 +193,7 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
                 "flowInstanceId": job["flow_instance_id"],
                 "nodeInstanceId": job["node_instance_id"], "nodeKey": job["node_key"],
                 "submissionId": job["submission_id"], "attemptNo": int(job["attempt_no"]),
+                **({"stepModelCardId": model_id} if model_id else {}),
             },
         )
 
@@ -194,6 +220,9 @@ def complete_audit_job(job_id: str, result: dict[str, object]) -> None:
         )
         if not _is_current_attempt(job) or job["node_status"] not in {"reviewing", "audit_error"}:
             return
+        if _is_file_job(connection, job):
+            _record_execution(connection, 'audit_job', job_id,
+                              {'attempt': job['attempt_count'], 'result': result, 'status': 'succeeded'}, now)
         passed = result.get("passed") is True
         from app.repositories.file_reviews import finish_step
         if finish_step(connection, job["submission_id"], "ai", passed, now):
@@ -330,6 +359,9 @@ def fail_audit_job(job_id: str, message: str, *, retry: bool = True) -> None:
             return
         if not _audit_write_allowed(connection, job) or not _generation_matches(connection, job):
             return
+        if _is_file_job(connection, job):
+            _record_execution(connection, 'audit_job', job_id,
+                              {'attempt': job['attempt_count'], 'status': 'failed', 'error': message}, now_iso)
         attempt_count = int(job["attempt_count"])
         if retry and attempt_count <= len(RETRY_DELAYS_SECONDS):
             next_attempt = now + timedelta(seconds=RETRY_DELAYS_SECONDS[attempt_count - 1])
@@ -475,6 +507,8 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
             WHERE n.id = ? AND i.student_account_id = ? AND n.status = 'audit_error' AND t.status = 'failed'""",
             (node_instance_id, student_id)).fetchone()
         if task:
+            previous = connection.execute('SELECT * FROM file_review_ai_tasks WHERE id = ?', (task['id'],)).fetchone()
+            _record_execution(connection, 'file_review_task', task['id'], dict(previous), now)
             assert_student_roster_access(connection, task["flow_id"], student_id)
             connection.execute("UPDATE file_review_ai_tasks SET status = 'pending', finished_at = NULL WHERE id = ?", (task["id"],))
             connection.execute("UPDATE node_instances SET status = 'reviewing' WHERE id = ?", (node_instance_id,))
@@ -499,6 +533,8 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
         assert_student_roster_access(connection, row["flow_id"], student_id)
         if row["status"] != "audit_error" or row["job_status"] != "failed":
             raise AuditJobConflictError("当前节点不可重新审核")
+        previous = connection.execute('SELECT * FROM audit_jobs WHERE id = ?', (row['job_id'],)).fetchone()
+        _record_execution(connection, 'audit_job', row['job_id'], dict(previous), now)
         try:
             binding = resolve_effective_audit_binding(
                 connection, row["flow_id"], row["node_key"], row["script_id"]
@@ -556,8 +592,8 @@ def _generation_matches(connection, job) -> bool:
         state and state["status"] == "ready"
         and int(state["generation"]) == int(job["script_generation"])
         and state["content_hash"] == job["script_content_hash"]
-        and policy and int(policy["generation"]) == int(job["policy_generation"])
-        and policy["policy_hash"] == job["policy_hash"]
+        and (_is_file_job(connection, job) or (policy and int(policy["generation"]) == int(job["policy_generation"])
+        and policy["policy_hash"] == job["policy_hash"]))
     )
 
 

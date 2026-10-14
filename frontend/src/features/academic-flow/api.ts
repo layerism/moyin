@@ -34,6 +34,12 @@ export type FormParametersPolicy = {
   params: FormParameters;
 };
 
+export type FileParameters = FormParameters & {
+  fileLimitMb: string;
+  referenceAssets: NonNullable<AcademicFlowNode["referenceAssets"]>;
+};
+export type FileParametersPolicy = { generation: number; params: FileParameters };
+
 export type ReviewStepPolicy = {
   flowId: string;
   nodeKey: string;
@@ -589,6 +595,13 @@ export const workflowApi = {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
     );
+  },
+  getFileParameters(flowId: string, nodeKey: string) {
+    return request<FileParametersPolicy>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/file-parameters`);
+  },
+  updateFileParameters(flowId: string, nodeKey: string, payload: { expectedGeneration: number; params: FileParameters }) {
+    return request<FileParametersPolicy>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/file-parameters`,
+      { method: "PUT", body: JSON.stringify(payload) });
   },
   getFormParameters(flowId: string, nodeKey: string) {
     return request<FormParametersPolicy>(

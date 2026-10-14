@@ -16,7 +16,7 @@ export function filterPublishedNodeRevisionPatch(
   return Object.fromEntries(
     Object.entries(value).filter(([key]) =>
       PUBLISHED_NODE_REVISION_FIELDS.has(key as keyof AcademicFlowNode)
-      || (kind === "file" && ["fileExtensions", "fileLimitMb"].includes(key)),
+      || (kind === "file" && ["fileLimitMb"].includes(key)),
     ),
   ) as Partial<AcademicFlowNode>;
 }

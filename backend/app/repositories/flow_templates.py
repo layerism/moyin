@@ -13,7 +13,7 @@ from app.domain.workflow_runtime import (
     validate_file_metadata,
 )
 from app.repositories.flow_roster import assert_student_roster_access
-from app.repositories.flow_runtime_state import effective_deadline, is_preview_instance
+from app.repositories.flow_runtime_state import effective_deadline, is_preview_instance, version_config
 from app.services.security import utc_now_iso
 
 
@@ -53,7 +53,7 @@ def _published_template_editable(
 ) -> bool:
     if node_key not in _published_node_ids(connection, flow_id):
         return True
-    return node.get("kind") in {"file", "confirmation"}
+    return node.get("kind") == "confirmation" or (node.get("kind") == "file" and reference)
 
 
 def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int, reference: bool = False) -> dict[str, Any]:
@@ -130,6 +130,9 @@ def save_template_asset(
             "sha256": sha256,
             "sizeBytes": size_bytes,
         }
+        staged_reference = reference and node.get("kind") == "file" and node_key in _published_node_ids(connection, flow_id)
+        if staged_reference:
+            return metadata, None, hashlib.sha256(_canonical_json(config).encode()).hexdigest()
         if reference:
             node["referenceAssets"] = [
                 metadata if item["assetId"] == replace_asset_id else item for item in references
@@ -170,9 +173,19 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
         config = json.loads(flow["draft_config"])
         node = node_by_key(config, node_key)
         if not supports_template(node, reference) or (
-            node_key in _published_node_ids(connection, flow_id) and node.get("kind") not in {"file", "confirmation"}
+            not _published_template_editable(connection, flow_id, node_key, node, reference)
         ):
             raise TemplateMutationError("已发布节点的模板不可修改")
+        if reference and node.get('kind') == 'file' and node_key in _published_node_ids(connection, flow_id):
+            # Live references are changed through the parameter transaction; this endpoint
+            # only releases uploaded assets that no longer have a reference.
+            if not reference_id:
+                raise TemplateMutationError('请选择参考文件')
+            asset = connection.execute('SELECT id, storage_key FROM flow_template_assets WHERE id = ? AND flow_id = ? AND node_key = ?',
+                                       (reference_id, flow_id, node_key)).fetchone()
+            if asset is None:
+                raise KeyError(reference_id)
+            return dict(asset)
         references = reference_assets(node) if reference else []
         if reference:
             if reference_id is None and len(references) > 1:
@@ -225,7 +238,12 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
                WHERE json_extract(n.value, '$.referenceAsset.assetId') = ?
                   OR json_extract(n.value, '$.templateAsset.assetId') = ? OR EXISTS (SELECT 1 FROM json_each(n.value, '$.referenceAssets') a WHERE json_extract(a.value, '$.assetId') = ?) LIMIT 1""", (asset_id, asset_id, asset_id),
         ).fetchone()
-        if referenced is not None or reference is not None or draft_reference is not None:
+        live_reference = connection.execute(
+            """SELECT 1 FROM flows f, json_each(f.draft_config, '$.publishedNodeParameters') p,
+               json_each(p.value, '$.params.referenceAssets') a
+               WHERE json_extract(a.value, '$.assetId') = ? LIMIT 1""", (asset_id,),
+        ).fetchone()
+        if referenced is not None or reference is not None or draft_reference is not None or live_reference is not None:
             return None
         row = connection.execute(
             "SELECT id, storage_key FROM flow_template_assets WHERE id = ?", (asset_id,)
@@ -363,7 +381,7 @@ def validate_reference_metadata(filename: str, size_bytes: int) -> None:
 
 def get_student_reference(node_instance_id: str, student_id: int, asset_id: str | None = None) -> dict[str, object]:
     with get_connection() as connection:
-        row = connection.execute("""SELECT n.node_key, v.flow_id, v.config_snapshot
+        row = connection.execute("""SELECT n.node_key, v.flow_id, v.id AS flow_version_id, v.config_snapshot
             FROM node_instances n JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
             WHERE n.id = ? AND i.student_account_id = ? AND v.status IN ('published', 'preview')""",
@@ -371,7 +389,7 @@ def get_student_reference(node_instance_id: str, student_id: int, asset_id: str 
         if row is None:
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row['flow_id'], student_id)
-        node = node_by_key(json.loads(row['config_snapshot']), row['node_key'])
+        node = node_by_key(version_config(connection, row['flow_version_id']), row['node_key'])
         asset = next((item for item in reference_assets(node) if asset_id is None or item['assetId'] == asset_id), None)
         if node.get('kind') not in {'file', 'confirmation'} or not asset:
             raise KeyError(node_instance_id)

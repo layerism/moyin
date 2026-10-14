@@ -27,7 +27,7 @@ import {
   getFileTypeRestrictionPreset,
   nodeTemplates,
 } from "./academicFlowData";
-import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy, type FormParameters, type FormParametersPolicy } from "./api";
+import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy, type FormParameters, type FormParametersPolicy, type FileParameters, type FileParametersPolicy } from "./api";
 import {
   getAuditScriptParameterError,
   type NodeAuditPolicy,
@@ -693,7 +693,7 @@ export function AcademicFlowDesigner({
     }));
   };
 
-  const applyPublishedFormParameters = (nodeId: string, policy: FormParametersPolicy) => {
+  const applyPublishedFormParameters = (nodeId: string, policy: FormParametersPolicy | FileParametersPolicy) => {
     const apply = (current: AcademicProcess): AcademicProcess => ({
       ...current,
       nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, ...policy.params } : node),
@@ -704,7 +704,7 @@ export function AcademicFlowDesigner({
     });
     setWorkingProcess(apply);
     onProcessChange(apply(process));
-    setActionNotice("表单配置已保存并立即生效，学生进度保留");
+    setActionNotice("节点配置已保存并立即生效，学生进度保留");
   };
 
   const applyPublishedAnswerKeyPolicy = (
@@ -1007,6 +1007,7 @@ export function AcademicFlowDesigner({
             onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(policy) => applyPublishedAuditPolicy(inspectorNode.id, policy)}
             onFormParametersSaved={(policy) => applyPublishedFormParameters(inspectorNode.id, policy)}
+            onFileParametersSaved={(policy) => applyPublishedFormParameters(inspectorNode.id, policy)}
             onAnswerKeyPolicySaved={(policy) => applyPublishedAnswerKeyPolicy(inspectorNode.id, policy)}
             publishedAuditPolicy={workingProcess.published && protectedNodeIds.includes(inspectorNode.id)}
             publishedRevision={workingProcess.published}
@@ -2423,16 +2424,17 @@ function NodeInspector({
   onClose,
   onDeleteTemplate,
   onUploadTemplate,
-  onUploadReference,
+  onUploadReference: onUploadDraftReference,
   onUploadAnnouncementImage,
   onUploadAnnouncementFile,
   onUpdateAnnouncementRequirement,
-  onDeleteReference,
+  onDeleteReference: onDeleteDraftReference,
   onUpdateNode: onUpdateDraftNode,
   onUpdateAnswerSheet,
   onAnswerKeyPolicySaved,
   onAuditPolicySaved,
   onFormParametersSaved,
+  onFileParametersSaved,
   publishedAuditPolicy,
   publishedRevision,
 }: {
@@ -2463,10 +2465,50 @@ function NodeInspector({
   onAnswerKeyPolicySaved: (policy: AnswerKeyPolicy) => void;
   onAuditPolicySaved: (policy: NodeAuditPolicy) => void;
   onFormParametersSaved: (policy: FormParametersPolicy) => void;
+  onFileParametersSaved: (policy: FileParametersPolicy) => void;
   publishedAuditPolicy: boolean;
   publishedRevision: boolean;
 }) {
   const hasPublishedForm = publishedAuditPolicy && sourceNode?.kind === "form";
+  const hasPublishedFile = publishedAuditPolicy && sourceNode?.kind === "file";
+  const [filePolicy, setFilePolicy] = useState<FileParametersPolicy | null>(null);
+  const [fileDraft, setFileDraft] = useState<FileParameters | null>(null);
+  const [fileBusy, setFileBusy] = useState(false);
+  const [fileError, setFileError] = useState("");
+  const uploadedReferenceIds = useRef(new Set<string>());
+  const cleanupFileUploads = useCallback(async (keptIds: string[]) => {
+    for (const id of [...uploadedReferenceIds.current]) {
+      if (!keptIds.includes(id) && sourceNode) await workflowApi.deleteNodeReference(flowId, sourceNode.id, id);
+      uploadedReferenceIds.current.delete(id);
+    }
+  }, [flowId, sourceNode?.id]);
+  useEffect(() => {
+    if (!hasPublishedFile || !sourceNode) return;
+    let cancelled = false;
+    workflowApi.getFileParameters(flowId, sourceNode.id).then((policy) => {
+      if (!cancelled) { setFilePolicy(policy); setFileDraft(policy.params); }
+    }).catch((reason) => { if (!cancelled) setFileError(reason instanceof Error ? reason.message : "读取文件节点配置失败"); });
+    return () => { cancelled = true; };
+  }, [flowId, sourceNode?.id, hasPublishedFile]);
+  const fileChanged = Boolean(filePolicy && fileDraft && JSON.stringify(filePolicy.params) !== JSON.stringify(fileDraft));
+  const onUploadReference = async (files: File[], replaceAssetId?: string) => {
+    if (!hasPublishedFile || !sourceNode) { onUploadDraftReference(files, replaceAssetId); return; }
+    setFileBusy(true); setFileError("");
+    try {
+      for (const file of files) {
+        const { referenceAsset: asset } = await workflowApi.uploadNodeReference(flowId, sourceNode.id, file);
+        uploadedReferenceIds.current.add(asset.assetId);
+        setFileDraft((current) => current && ({ ...current, referenceAssets: replaceAssetId
+          ? current.referenceAssets.map((item) => item.assetId === replaceAssetId ? asset : item)
+          : [...current.referenceAssets, asset] }));
+      }
+    } catch (reason) { setFileError(reason instanceof Error ? reason.message : "参考文件上传失败"); }
+    finally { setFileBusy(false); }
+  };
+  const onDeleteReference = (assetId: string) => {
+    if (!hasPublishedFile) { onDeleteDraftReference(assetId); return; }
+    setFileDraft((current) => current && ({ ...current, referenceAssets: current.referenceAssets.filter((item) => item.assetId !== assetId) }));
+  };
   const [formPolicy, setFormPolicy] = useState<FormParametersPolicy | null>(null);
   const [formDraft, setFormDraft] = useState<FormParameters | null>(null);
   const [formSaving, setFormSaving] = useState(false);
@@ -2484,10 +2526,21 @@ function NodeInspector({
     });
     return () => { cancelled = true; };
   }, [flowId, formNodeKey, hasPublishedForm]);
-  const node = sourceNode && hasPublishedForm && formDraft ? { ...sourceNode, ...formDraft } : sourceNode;
-  const editingLocked = parentEditingLocked || formSaving || (hasPublishedForm && !formPolicy);
+  const node = sourceNode && hasPublishedFile && fileDraft ? { ...sourceNode, ...fileDraft, referenceAsset: null }
+    : sourceNode && hasPublishedForm && formDraft ? { ...sourceNode, ...formDraft } : sourceNode;
+  const editingLocked = parentEditingLocked || fileBusy || (hasPublishedFile && !filePolicy) || formSaving || (hasPublishedForm && !formPolicy);
   const formChanged = Boolean(formPolicy && formDraft && JSON.stringify(formPolicy.params) !== JSON.stringify(formDraft));
   const onUpdateNode = (nodeId: string, patch: Partial<AcademicFlowNode>) => {
+    if (hasPublishedFile) {
+      setFileError("");
+      setFileDraft((current) => current && ({ ...current,
+        title: patch.title ?? current.title, requirement: patch.requirement ?? current.requirement,
+        startAt: "startAt" in patch ? patch.startAt ?? "" : current.startAt,
+        deadlineAt: "deadlineAt" in patch ? patch.deadlineAt ?? "" : current.deadlineAt,
+        fileLimitMb: patch.fileLimitMb ?? current.fileLimitMb,
+      }));
+      return;
+    }
     if (!hasPublishedForm) {
       onUpdateDraftNode(nodeId, patch);
       return;
@@ -2616,6 +2669,7 @@ function NodeInspector({
   const missingAuditModel = requiresAuditModel && !(hasPublishedAuditPolicy ? auditModelCardId : node?.auditModelCardId);
 
   const persistPoliciesAndClose = useCallback(async (saveAnswerKey: boolean) => {
+    setFileBusy(hasPublishedFile);
     setFormSaving(hasPublishedForm && formChanged);
     setAuditPolicySaving(auditPolicyChanged || reviewStepChanged);
     setAnswerKeySaving(saveAnswerKey && answerKeyChanged);
@@ -2623,6 +2677,11 @@ function NodeInspector({
     setAnswerKeyError("");
     let answerKeySaved = false;
     try {
+      if (hasPublishedFile && filePolicy && fileDraft && fileChanged) {
+        setFileError("");
+        const saved = await workflowApi.updateFileParameters(flowId, nodeKey, { expectedGeneration: filePolicy.generation, params: fileDraft });
+        setFilePolicy(saved); setFileDraft(saved.params); onFileParametersSaved(saved);
+      }
       if (hasPublishedForm && formPolicy && formDraft && formChanged) {
         setFormError("");
         const saved = await workflowApi.updateFormParameters(flowId, nodeKey, {
@@ -2664,19 +2723,23 @@ function NodeInspector({
         setReviewStepPolicy(updatedReviewSteps);
         setReviewStepDraft(updatedReviewSteps.steps);
       }
+      if (hasPublishedFile) await cleanupFileUploads(fileDraft?.referenceAssets.map((item) => item.assetId) ?? []);
       onClose();
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "保存节点配置失败";
-      if (hasPublishedForm) setFormError(message);
+      if (hasPublishedFile) setFileError(message);
+      else if (hasPublishedForm) setFormError(message);
       else if (saveAnswerKey && answerKeyChanged && !answerKeySaved) setAnswerKeyError(message);
       else setAuditPolicyError(message);
     } finally {
+      setFileBusy(false);
       setFormSaving(false);
       setAuditPolicySaving(false);
       setAnswerKeySaving(false);
       setAnswerKeyConfirmOpen(false);
     }
   }, [
+    hasPublishedFile, filePolicy, fileDraft, fileChanged, onFileParametersSaved, cleanupFileUploads,
     hasPublishedForm,
     formChanged,
     formPolicy,
@@ -2702,11 +2765,18 @@ function NodeInspector({
   ]);
 
   const closeInspector = useCallback(async (requireModel = false) => {
-    if (auditPolicySaving || answerKeySaving || formSaving) return;
-    if (hasPublishedForm && !requireModel) {
+    if (auditPolicySaving || answerKeySaving || formSaving || fileBusy) return;
+    if ((hasPublishedForm || hasPublishedFile) && !requireModel) {
+      if (hasPublishedFile) {
+        setFileBusy(true);
+        try { await cleanupFileUploads(filePolicy?.params.referenceAssets.map((item) => item.assetId) ?? []); }
+        catch (reason) { setFileError(reason instanceof Error ? reason.message : "清理暂存文件失败，请重试关闭"); return; }
+        finally { setFileBusy(false); }
+      }
       onClose();
       return;
     }
+    if (requireModel && hasPublishedFile && !filePolicy) return;
     if (requireModel && hasPublishedForm && !formPolicy) return;
     if (requireModel && hasPublishedAnswerKeyPolicy && !answerKeyPolicy) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
@@ -2738,6 +2808,7 @@ function NodeInspector({
     }
     await persistPoliciesAndClose(false);
   }, [
+    fileBusy, filePolicy, hasPublishedFile, cleanupFileUploads,
     formSaving,
     formPolicy,
     hasPublishedForm,
@@ -2789,6 +2860,7 @@ function NodeInspector({
 
   const coreSettingsDisabled = editingLocked || nodeCoreLocked;
   const materialSettingsDisabled = editingLocked || (nodeCoreLocked && node.kind !== "file");
+  const fileFormatDisabled = editingLocked || nodeCoreLocked;
   const materialLimitsDisabled = node.kind === "file" ? editingLocked : coreSettingsDisabled;
   const auditControlsNode: AcademicFlowNode = reviewStepPolicy ? {
     ...node,
@@ -2850,9 +2922,9 @@ function NodeInspector({
               />
           </label>
           <button
-            aria-label={hasPublishedForm ? "取消表单修改并关闭" : "关闭节点设置"}
-            disabled={formSaving || auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
-            onClick={() => void closeInspector(!hasPublishedForm)}
+            aria-label={hasPublishedForm || hasPublishedFile ? "取消节点修改并关闭" : "关闭节点设置"}
+            disabled={fileBusy || formSaving || auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
+            onClick={() => void closeInspector(!(hasPublishedForm || hasPublishedFile))}
             type="button"
           >
             ×
@@ -2917,13 +2989,14 @@ function NodeInspector({
           <div className="node-inspector-revision-strip" role="note">
             <strong className="revision-strip-title">
               <span aria-hidden="true">↻</span>
-              {hasPublishedForm ? "已发布表单" : "发布后修订"}
+              {hasPublishedFile ? "已发布文件节点" : hasPublishedForm ? "已发布表单" : "发布后修订"}
             </strong>
-            {hasPublishedForm ? <span className="revision-strip-detail">字段结构已锁定 · 学生进度保留</span>
+            {hasPublishedFile ? <span className="revision-strip-detail">模板、格式及审核结构已锁定 · 学生进度保留</span>
+              : hasPublishedForm ? <span className="revision-strip-detail">字段结构已锁定 · 学生进度保留</span>
               : <span className="revision-strip-detail">{node.kind === "file" || node.kind === "confirmation" ? "基本信息/材料/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>}
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
-              {hasPublishedForm ? "基本信息/时间 · 完成立即生效" : "审核规则 · 完成立即生效"}
+              {hasPublishedFile ? "可变配置 · 完成立即生效" : hasPublishedForm ? "基本信息/时间 · 完成立即生效" : "审核规则 · 完成立即生效"}
             </span>
           </div>
         ) : null}
@@ -3024,7 +3097,7 @@ function NodeInspector({
                     <i aria-hidden="true">🔒</i>
                   </span>
                 ) : scriptFormatOptions.length > 1 ? (
-                  <select aria-label="审核允许的文件格式" disabled={materialLimitsDisabled}
+                  <select aria-label="审核允许的文件格式" disabled={fileFormatDisabled}
                     title="可选格式由审核脚本支持范围决定"
                     value={selectedScriptFormats}
                     onChange={(event) => onUpdateNode(node.id, { fileExtensions: event.target.value })}>
@@ -3039,7 +3112,7 @@ function NodeInspector({
                       aria-checked={hasFileTypeRestriction}
                       aria-label="启用文件类型限制"
                       className={`restriction-switch ${hasFileTypeRestriction ? "is-enabled" : ""}`}
-                      disabled={materialLimitsDisabled}
+                      disabled={fileFormatDisabled}
                       onClick={() =>
                         onUpdateNode(node.id, {
                           fileExtensions: hasFileTypeRestriction
@@ -3055,7 +3128,7 @@ function NodeInspector({
                     {hasFileTypeRestriction ? (
                       <select
                         aria-label="文件类型预设"
-                        disabled={materialLimitsDisabled}
+                        disabled={fileFormatDisabled}
                         value={fileTypeRestrictionPreset}
                         onChange={(event) =>
                           onUpdateNode(node.id, {
@@ -3107,11 +3180,11 @@ function NodeInspector({
                   <i aria-hidden="true">▤</i>
                   材料配置
                 </strong>
-                <small>{publishedRevision && nodeCoreLocked ? "重新发布后学生需重交" : "文件节点"}</small>
+                <small>{publishedRevision && nodeCoreLocked ? "大小和参考文件保存后生效" : "文件节点"}</small>
               </header>
               <NodeFileRow previewContext={{ flowId, nodeKey }} label="文件模板" asset={node.templateAsset}
                 accept={node.fileExtensions.split(",").filter((value) => value.trim()).map((value) => `.${value.trim().replace(/^\./, "")}`).join(",")}
-                hint="可选；须符合上传限制" disabled={materialSettingsDisabled} removable={!nodeCoreLocked || node.kind === "file"}
+                hint={hasPublishedFile ? "发布后模板不可修改" : "可选；须符合上传限制"} disabled={coreSettingsDisabled} removable={!nodeCoreLocked}
                 onUpload={onUploadTemplate} onRemove={onDeleteTemplate} />
               <NodeReferenceFiles previewContext={{ flowId, nodeKey }} assets={nodeReferences(node)} disabled={materialSettingsDisabled} replaceOnly={nodeCoreLocked && node.kind !== "file"}
                 onUpload={onUploadReference} onRemove={onDeleteReference} />
@@ -3150,10 +3223,12 @@ function NodeInspector({
         </div>
         <footer className="node-inspector-footer">
           <span
-            className={formError || answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
-            role={formError || answerKeyError || auditPolicyError ? "alert" : undefined}
+            className={fileError || formError || answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
+            role={fileError || formError || answerKeyError || auditPolicyError ? "alert" : undefined}
           >
-            {formError ? formError
+            {fileError ? fileError : hasPublishedFile
+              ? auditPolicyError ? auditPolicyError : fileBusy ? "正在保存或上传…" : !filePolicy ? "正在读取文件节点配置…" : "点击完成保存可变配置，立即生效；模板和格式不可修改。"
+              : formError ? formError
               : hasPublishedForm
                 ? formSaving ? "正在保存表单配置…"
                   : !formPolicy ? "正在读取表单配置…"
@@ -3190,14 +3265,14 @@ function NodeInspector({
           </span>
           <button
             className="primary-action"
-            disabled={formSaving || (hasPublishedForm && !formPolicy) || answerKeySaving || auditPolicySaving
+            disabled={fileBusy || (hasPublishedFile && !filePolicy) || formSaving || (hasPublishedForm && !formPolicy) || answerKeySaving || auditPolicySaving
               || (hasPublishedAnswerKeyPolicy && !answerKeyPolicy)
               || (hasPublishedAuditPolicy && !auditPolicy)
               || (hasPublishedReviewStepPolicy && !reviewStepPolicy)}
             onClick={() => void closeInspector(true)}
             type="button"
           >
-            {formSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
+            {fileBusy || formSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
           </button>
         </footer>
       </aside>

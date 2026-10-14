@@ -7,6 +7,7 @@ from app.domain.workflow_runtime import node_by_key, pending_node_status
 from app.services.security import utc_now_iso
 from app.repositories.branch_state import sync_branch_states
 from app.repositories.form_parameters import apply_form_parameters
+from app.repositories.file_parameters import apply_file_parameters
 
 
 def is_preview_instance(connection, instance_id: str) -> bool:
@@ -114,4 +115,5 @@ def version_config(connection, version_id: str) -> dict[str, Any]:
             node["deadlineAt"] = deadlines[node["id"]]
     if row["status"] != "preview":
         apply_form_parameters(connection, row["flow_id"], config)
+        apply_file_parameters(connection, row["flow_id"], config)
     return config

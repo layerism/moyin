@@ -8,7 +8,7 @@ from app.core.database import get_connection
 from app.domain.workflow import confirmation_requires_scans
 from app.domain.workflow_runtime import pending_node_status
 from app.repositories.flow_roster import assert_student_roster_access
-from app.repositories.flow_runtime_state import effective_deadline, is_preview_instance
+from app.repositories.flow_runtime_state import effective_deadline, is_preview_instance, version_config
 from app.repositories.flow_templates import template_downloaded
 from app.services.security import utc_now_iso
 
@@ -59,7 +59,7 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         if row is None:
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
-        config = json.loads(row["config_snapshot"])
+        config = version_config(connection, row["flow_version_id"])
         config_node = next(node for node in config["nodes"] if node["id"] == row["node_key"])
         is_file = config_node.get("kind") == "file"
         is_scan = confirmation_requires_scans(config_node)

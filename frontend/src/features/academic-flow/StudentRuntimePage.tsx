@@ -363,7 +363,10 @@ export function StudentRuntimePage({
       <StudentFlowTopology
         edges={instance.config.edges}
         nodes={instance.config.nodes}
-        onOpenNode={setActiveNodeKey}
+        onOpenNode={(nodeKey) => {
+          void workflowApi.getInstance(instanceId).then((value) => { setInstance(value); setActiveNodeKey(nodeKey); })
+            .catch((reason: Error) => setNotice(reason.message));
+        }}
         preview={preview}
         runtimeNodes={instance.nodeInstances}
       />

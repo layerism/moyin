@@ -153,6 +153,44 @@ class AnswerKeyPolicyRequest(BaseModel):
     gradingKey: dict[str, Any]
 
 
+class FileNodeParams(BaseModel):
+    title: str = Field(min_length=1, max_length=50)
+    requirement: str
+    startAt: str
+    deadlineAt: str
+    fileLimitMb: str
+    referenceAssets: list[dict[str, Any]]
+    model_config = {"extra": "forbid"}
+
+
+class FileParametersRequest(BaseModel):
+    expectedGeneration: int = Field(ge=0)
+    params: FileNodeParams
+
+
+@router.get("/{flow_id}/nodes/{node_key}/file-parameters")
+def get_file_parameters_route(flow_id: str, node_key: str, teacher: dict[str, object] = Depends(get_current_teacher)):
+    from app.repositories.file_parameters import get_file_parameters
+    try:
+        return get_file_parameters(flow_id, node_key, int(teacher["id"]))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布文件节点不存在") from exc
+
+
+@router.put("/{flow_id}/nodes/{node_key}/file-parameters")
+def put_file_parameters_route(flow_id: str, node_key: str, payload: FileParametersRequest,
+                              teacher: dict[str, object] = Depends(get_current_teacher)):
+    from app.repositories.file_parameters import update_file_parameters, FileParametersConflict
+    try:
+        return update_file_parameters(flow_id, node_key, int(teacher["id"]), payload.expectedGeneration, payload.params.model_dump())
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布文件节点或材料不存在") from exc
+    except FileParametersConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 class FormNodeParams(BaseModel):
     title: str = Field(min_length=1, max_length=50)
     requirement: str

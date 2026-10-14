@@ -804,7 +804,7 @@ def submit_node(
                     node_instance_id,
                 ),
             )
-            if node.get("kind") == "file" or (node.get("kind") == "confirmation" and node.get("fileReviewSteps")):
+            if node.get("kind") == "confirmation" and node.get("fileReviewSteps"):
                 from app.repositories.file_reviews import discard_previous_rounds
                 discard_previous_rounds(connection, node_instance_id, submission_id)
             if submission_status == "approved":
