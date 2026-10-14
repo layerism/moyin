@@ -58,13 +58,15 @@ export function RevisionImpactDialog({
             <dd>{impact.invalidatedNodeIds.length}</dd>
           </div>
           <div>
-            <dt>受影响学生</dt>
+            <dt>需重做学生</dt>
             <dd>{impact.affectedStudentCount}</dd>
           </div>
         </dl>
 
         <p className="revision-impact-warning">
-          重新发布后，受影响提交保留为审计历史；相关学生需按新版本重新提交并审核，下游节点将重新锁定。
+          {impact.invalidatedNodeIds.length > 0
+            ? "重新发布后，列入重做范围的节点及下游需重新完成。仅修改信息表单的标题、说明或时间不会触发重做；操作资格仍按新时间条件判断。"
+            : "重新发布后配置更新，已有完成结果和提交记录保留，无需重新提交；未完成节点的操作资格按生效的时间条件判断。"}
         </p>
 
         <footer>

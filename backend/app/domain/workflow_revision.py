@@ -51,6 +51,8 @@ BUSINESS_NODE_FIELDS = (
     "scanAuditMode",
 )
 
+FORM_PROGRESS_PRESERVING_FIELDS = {"title", "requirement", "startAt", "deadlineAt"}
+
 
 def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     snapshot = {
@@ -123,6 +125,14 @@ def business_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     return snapshot
 
 
+def progress_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
+    snapshot = business_node_snapshot(node)
+    if node.get("kind") == "form":
+        for field in FORM_PROGRESS_PRESERVING_FIELDS:
+            snapshot.pop(field, None)
+    return snapshot
+
+
 def predecessor_sets(config: dict[str, Any]) -> dict[str, set[str]]:
     result = {node["id"]: set() for node in config["nodes"]}
     for edge in config.get("edges", []):
@@ -166,7 +176,14 @@ def analyze_revision(previous: dict, current: dict) -> dict[str, list[str]]:
         if current_predecessors[node_id] != previous_predecessors.get(node_id, set())
     }
 
-    initial_impact = added | changed | predecessor_changed
+    # Keep configuration changes visible without treating form parameters as resets.
+    progress_changed = {
+        node_id
+        for node_id in changed
+        if progress_node_snapshot(current_nodes[node_id])
+        != progress_node_snapshot(previous_nodes[node_id])
+    }
+    initial_impact = added | progress_changed | predecessor_changed
     invalidated = reachable_successors(current, initial_impact)
 
     def in_current_order(node_ids: set[str]) -> list[str]:

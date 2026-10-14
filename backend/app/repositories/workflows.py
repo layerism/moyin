@@ -11,7 +11,11 @@ from app.domain.node_assets import asset_entries
 from app.core.config import settings
 from app.core.database import get_connection
 from app.domain.answer_sheet import AnswerSheetConfigError
-from app.repositories.flow_runtime_state import advance_downstream, version_deadlines
+from app.repositories.flow_runtime_state import (
+    advance_downstream,
+    effective_deadline,
+    version_deadlines,
+)
 from app.domain.workflow import FlowValidationError, validate_flow_config
 from app.domain.workflow_revision import (
     analyze_revision,
@@ -1239,7 +1243,8 @@ def _migrate_instance(
                    VALUES (?, 'node_submission_invalidated', 'node_instance', ?, ?, ?)""",
                 (str(teacher_id), node["id"], canonical_json(before_data), now),
             )
-    invalidate_nodes(connection, instance["id"], config, impact["invalidatedNodeIds"], now)
+    if impact["invalidatedNodeIds"]:
+        invalidate_nodes(connection, instance["id"], config, impact["invalidatedNodeIds"], now)
 
     for node_key in set(existing) - current_node_keys:
         node = existing.pop(node_key)
@@ -1291,6 +1296,36 @@ def _migrate_instance(
         "UPDATE flow_instances SET flow_version_id = ? WHERE id = ?",
         (new_version_id, instance["id"]),
     )
+    for node_key in set(impact["changedNodeIds"]) - recomputed:
+        node = node_by_key(config, node_key)
+        row = existing[node_key]
+        if node.get("kind") != "form" or row["status"] not in {
+            "locked", "scheduled", "available", "draft", "rejected", "expired"
+        }:
+            continue
+        # Refresh conditions only; retain submissions, drafts and completion evidence.
+        status = pending_node_status(
+            node_is_ready(connection, instance["id"], config, node_key),
+            node.get("startAt"),
+            effective_deadline(connection, instance["id"], new_version_id, node_key),
+            kind="form",
+        )
+        if status == "available":
+            if row["status"] in {"draft", "rejected"}:
+                status = row["status"]
+            elif connection.execute(
+                "SELECT 1 FROM node_drafts WHERE node_instance_id = ?", (row["id"],)
+            ).fetchone():
+                status = "draft"
+        if status != row["status"]:
+            connection.execute(
+                "UPDATE node_instances SET status = ?, opened_at = ? WHERE id = ?",
+                (
+                    status,
+                    now if status in {"available", "draft", "rejected"} else row["opened_at"],
+                    row["id"],
+                ),
+            )
     advance_downstream(connection, instance["id"], new_version_id, config)
     statuses = {row["node_key"]: row["status"] for row in connection.execute(
         "SELECT node_key, status FROM node_instances WHERE flow_instance_id = ?", (instance["id"],),
