@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS workflow_groups (
+CREATE TABLE IF NOT EXISTS flow_groups (
     id TEXT PRIMARY KEY,
     owner_teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,
     name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 60),
@@ -152,7 +152,7 @@ CREATE TABLE IF NOT EXISTS workflow_groups (
     UNIQUE(owner_teacher_id, name)
 );
 CREATE INDEX IF NOT EXISTS idx_workflow_groups_owner_created
-    ON workflow_groups(owner_teacher_id, created_at, id);
+    ON flow_groups(owner_teacher_id, created_at, id);
 
 CREATE TABLE IF NOT EXISTS flows (
     id TEXT PRIMARY KEY,
@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS flows (
     owner_id TEXT NOT NULL DEFAULT 'teacher-local',
     status TEXT NOT NULL DEFAULT 'draft',
     draft_config TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
-    group_id TEXT REFERENCES workflow_groups(id) ON DELETE RESTRICT,
+    group_id TEXT REFERENCES flow_groups(id) ON DELETE RESTRICT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -606,6 +606,7 @@ def get_connection() -> sqlite3.Connection:
 def initialize_database() -> None:
     with get_connection() as connection:
         _apply_node_submissions_rename(connection)
+        _apply_flow_groups_rename(connection)
         connection.executescript(SCHEMA)
         _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema
@@ -652,6 +653,15 @@ def _apply_node_submissions_rename(connection: sqlite3.Connection) -> None:
     ).fetchone()
     if legacy is not None:
         connection.execute("ALTER TABLE submissions RENAME TO node_submissions")
+
+
+def _apply_flow_groups_rename(connection: sqlite3.Connection) -> None:
+    # Keep existing rows and constraints; rename before SCHEMA creates tables.
+    legacy = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'workflow_groups'"
+    ).fetchone()
+    if legacy is not None:
+        connection.execute("ALTER TABLE workflow_groups RENAME TO flow_groups")
 
 
 def _apply_registration_allowlist_migration(connection: sqlite3.Connection) -> None:
@@ -823,7 +833,7 @@ def _apply_workflow_groups_migration(connection: sqlite3.Connection) -> None:
     migration_id = "20260922_workflow_groups"
     connection.execute(
         """
-        CREATE TABLE IF NOT EXISTS workflow_groups (
+        CREATE TABLE IF NOT EXISTS flow_groups (
             id TEXT PRIMARY KEY,
             owner_teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id) ON DELETE CASCADE,
             name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 60),
@@ -839,12 +849,12 @@ def _apply_workflow_groups_migration(connection: sqlite3.Connection) -> None:
     if "group_id" not in columns:
         connection.execute(
             "ALTER TABLE flows ADD COLUMN group_id TEXT "
-            "REFERENCES workflow_groups(id) ON DELETE RESTRICT"
+            "REFERENCES flow_groups(id) ON DELETE RESTRICT"
         )
     connection.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_workflow_groups_owner_created
-        ON workflow_groups(owner_teacher_id, created_at, id)
+        ON flow_groups(owner_teacher_id, created_at, id)
         """
     )
     connection.execute(

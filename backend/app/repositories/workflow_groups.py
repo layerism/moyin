@@ -30,7 +30,7 @@ def _select_group(
     return connection.execute(
         """
         SELECT g.*, COUNT(f.id) AS flow_count
-        FROM workflow_groups g
+        FROM flow_groups g
         LEFT JOIN flows f ON f.group_id = g.id AND f.status != 'archived'
         WHERE g.id = ? AND g.owner_teacher_id = ?
         GROUP BY g.id
@@ -43,7 +43,7 @@ def require_owned_workflow_group(
     connection: sqlite3.Connection, group_id: str, teacher_id: int
 ) -> sqlite3.Row:
     row = connection.execute(
-        "SELECT * FROM workflow_groups WHERE id = ? AND owner_teacher_id = ?",
+        "SELECT * FROM flow_groups WHERE id = ? AND owner_teacher_id = ?",
         (group_id, teacher_id),
     ).fetchone()
     if row is None:
@@ -56,7 +56,7 @@ def list_workflow_groups(teacher_id: int) -> list[dict[str, object]]:
         rows = connection.execute(
             """
             SELECT g.*, COUNT(f.id) AS flow_count
-            FROM workflow_groups g
+            FROM flow_groups g
             LEFT JOIN flows f ON f.group_id = g.id AND f.status != 'archived'
             WHERE g.owner_teacher_id = ?
             GROUP BY g.id
@@ -78,7 +78,7 @@ def create_workflow_group(name: str, teacher_id: int) -> dict[str, object]:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
-                INSERT INTO workflow_groups
+                INSERT INTO flow_groups
                     (id, owner_teacher_id, name, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?)
                 """,
@@ -113,7 +113,7 @@ def rename_workflow_group(
             current = require_owned_workflow_group(connection, group_id, teacher_id)
             if current["name"] != group_name:
                 connection.execute(
-                    "UPDATE workflow_groups SET name = ?, updated_at = ? WHERE id = ?",
+                    "UPDATE flow_groups SET name = ?, updated_at = ? WHERE id = ?",
                     (group_name, now, group_id),
                 )
                 connection.execute(
@@ -150,7 +150,7 @@ def delete_workflow_group(group_id: str, teacher_id: int) -> None:
         ).fetchone()["count"]
         if flow_count:
             raise WorkflowGroupConflictError("组内有流程，不能删除")
-        connection.execute("DELETE FROM workflow_groups WHERE id = ?", (group_id,))
+        connection.execute("DELETE FROM flow_groups WHERE id = ?", (group_id,))
         connection.execute(
             """
             INSERT INTO audit_logs

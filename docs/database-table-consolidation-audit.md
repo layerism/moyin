@@ -2,7 +2,7 @@
 
 更新日期：2026-10-15（重新核对当前源码与本地数据库）。
 
-**当前结构：源码与本地数据库均有 16 张目标表，Flow 类 8 张、Node 类 4 张、Workflow 类 4 张。** 第一批资源精简及本次节点参数统一存储已落地；模板三表仍被现有接口使用，`flows` 尚无 `kind`、`is_shared` 字段。“模板内容固定、复制后独立使用”及进一步缩减到 12 张目标表的方向仍是讨论方案，不是当前实现。
+**当前结构：源码与本地数据库均有 16 张目标表，Flow 类 9 张、Node 类 4 张、Workflow 类 3 张。** 第一批资源精简及本次节点参数统一存储已落地；模板三表仍被现有接口使用，`flows` 尚无 `kind`、`is_shared` 字段。“模板内容固定、复制后独立使用”及进一步缩减到 12 张目标表的方向仍是讨论方案，不是当前实现。
 
 文档面向项目全部数据库表，文件名不限定前缀。本轮逐表核对范围仍为 `flow`、`node`、`workflow` 前缀，包含 `flows`；本地共有 51 张非 SQLite 内部表，其余 35 张仅按依赖追查，不宣称已完成全库逐表审计。
 
@@ -10,10 +10,11 @@
 
 ## 1. 当前各表的职责和作用
 
-### 1.1 Flow 类：8 张
+### 1.1 Flow 类：9 张
 
 | 表名 | 本地行数 | 一条记录表示什么 | 职责与主要读写场景 |
 | --- | ---: | --- | --- |
+| `flow_groups` | 3 | 某教师创建的流程分组 | 主键 `id`，同一教师下组名唯一；支持空组、改名与流程归组。`flows.group_id` 引用；包括归档流程在内，只要仍有流程引用便不能删除分组 |
 | `flows` | 30 | 一个流程定义 | 主键 `id`；保存名称、归属、草稿 JSON、分组和生命周期。模板快照及模板编辑草稿也各占一条流程记录；当前节点参数直接保存在 `draft_config.nodes`；节点 `_configMeta` 仅记录普通参数、单脚本审核和多步骤审核各自的修改代次、修改人和时间，不重复保存参数值 |
 | `flow_versions` | 33 | 某流程的一次发布或预览 | 按 `(flow_id, version_no)` 唯一；保存配置快照及 hash，关联实例、私有答案和资源引用。当前正式发布 13 条、停用 19 条、预览 1 条；正式运行以版本确定节点/连线和固定结构，再读取当前节点允许实时修改的字段；预览只读自己的快照 |
 | `flow_instances` | 233 | 一个学生在一个版本中的执行实例 | 按 `(flow_version_id, student_account_id)` 唯一；正式学生进入时按需创建，预览也创建实例。保存整体状态及活动时间，不作为名单授权依据 |
@@ -44,11 +45,10 @@
 
 依据：[flow_instances.py](../backend/app/repositories/flow_instances.py)、[manual_review_state.py](../backend/app/repositories/manual_review_state.py)、[node_progress.py](../backend/app/repositories/node_progress.py)、[branch_state.py](../backend/app/repositories/branch_state.py)、[audit_policies.py](../backend/app/repositories/audit_policies.py)、[review_step_policies.py](../backend/app/repositories/review_step_policies.py)、[node_models.py](../backend/app/services/node_models.py)。
 
-### 1.3 Workflow 类：4 张
+### 1.3 Workflow 类：3 张
 
 | 表名 | 本地行数 | 一条记录表示什么 | 职责与主要读写场景 |
 | --- | ---: | --- | --- |
-| `workflow_groups` | 3 | 某教师创建的流程分组 | 主键 `id`，同一教师下组名唯一；支持空组、改名与流程归组。`flows.group_id` 引用；包括归档流程在内，只要仍有流程引用便不能删除分组 |
 | `workflow_blueprints` | 0 | 模板库中的一个模板条目 | 主键 `id`；保存名称、简介、active、创建人及 `snapshot_flow_id`。使用模板时从当前定义复制普通流程；更新模板时替换指针，不修改教师已有副本 |
 | `workflow_blueprint_drafts` | 0 | 某管理员对某模板的编辑关系 | 主键 `(blueprint_id, teacher_id)`，草稿 `flow_id` 唯一；正文仍在 `flows`。记录编辑者与 `base_snapshot_flow_id`，用于恢复草稿及冲突检查；发布或放弃后移除关系 |
 | `workflow_blueprint_versions` | 0 | 某模板曾发布过的定义副本归属 | 主键 `id`，`snapshot_flow_id` 唯一；每次模板发布追加归属记录。删除模板或账号时定位历史定义；没有保存另一份节点 JSON，也不是学生运行版本 |
@@ -63,7 +63,7 @@
 
 ```mermaid
 flowchart LR
-    G[workflow_groups 分组] --> F[flows 定义与节点当前配置]
+    G[flow_groups 分组] --> F[flows 定义与节点当前配置]
     F --> V[flow_versions 发布或预览快照]
     V --> K[flow_version_answer_keys 私有答案]
     V --> I[flow_instances 学生执行]
