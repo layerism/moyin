@@ -11,13 +11,11 @@ from app.services.security import utc_now_iso
 # Order is child-first, including the RESTRICT references between assets/versions.
 ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_source_reviews',
          'manual_feedback_drafts', 'manual_feedback', 'manual_feedback_files', 'manual_reviews',
-         'file_review_ai_tasks', 'file_review_runs', 'audit_jobs', 'answer_sheet_grade_history',
-         'answer_sheet_grades',
+         'file_review_ai_tasks', 'file_review_runs', 'audit_jobs',
          'uploaded_files', 'template_download_events', 'node_submissions', 'node_drafts',
          'student_deadline_overrides', 'flow_preview_sessions', 'node_instances', 'flow_instances',
-         'flow_version_assets', 'flow_version_answer_keys',
-         'flow_versions', 'answer_sheet_drafts',
-         'answer_sheet_key_revisions',
+         'flow_version_assets',
+         'flow_versions',
          'flow_assets', 'flow_roster_entries', 'flows',
          'flow_groups',
          'personal_drive_files', 'audit_model_bindings', 'audit_model_cards', 'teacher_invitations',
@@ -64,11 +62,10 @@ def scope(db, kind, account_id):
         children(table, 'flow_instance_id', 'flow_instances')
     for table in ['manual_source_reviews', 'manual_feedback_drafts', 'manual_node_rejections', 'node_drafts', 'uploaded_files', 'template_download_events', 'audit_jobs']:
         children(table, 'node_instance_id', 'node_instances')
-    for table in ['answer_sheet_grades', 'answer_sheet_grade_history', 'file_review_runs', 'file_review_ai_tasks', 'file_review_feedback_context']:
+    for table in ['file_review_runs', 'file_review_ai_tasks', 'file_review_feedback_context']:
         children(table, 'submission_id', 'node_submissions')
-    for table in ['flow_version_assets', 'flow_version_answer_keys']:
-        children(table, 'flow_version_id', 'flow_versions')
-    for table in ['answer_sheet_drafts', 'answer_sheet_key_revisions', 'flow_assets', 'flow_roster_entries']:
+    children('flow_version_assets', 'flow_version_id', 'flow_versions')
+    for table in ['flow_assets', 'flow_roster_entries']:
         children(table, 'flow_id', 'flows')
     for role in ['student', 'teacher']:
         children(f'{role}_sessions', f'{role}_account_id', f'{role}_accounts')

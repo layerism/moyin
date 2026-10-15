@@ -8,9 +8,9 @@ from typing import Any
 from app.repositories.branch_state import node_is_ready, resolve_routes
 from app.core.database import get_connection
 from app.domain.answer_sheet import (
-    grade_answer_sheet,
     normalize_answer_sheet_submission,
 )
+from app.domain.node_configuration import ANSWER_KEY
 from app.domain.form_fields import normalize_form_answers
 from app.domain.workflow import confirmation_requires_scans
 from app.domain.workflow_runtime import (
@@ -30,11 +30,10 @@ from app.repositories.audit_policies import (
     resolve_effective_audit_binding,
 )
 from app.repositories.answer_sheet_grades import (
-    get_answer_sheet_grade,
-    insert_answer_sheet_grade,
+    calculate_answer_sheet_grade,
     student_grade_view,
 )
-from app.repositories.answer_sheet_keys import get_version_answer_key, get_graded_answer_key
+from app.repositories.answer_sheet_keys import get_version_answer_key
 from app.repositories.flow_files import (
     FileContextError,
     attach_uploaded_file,
@@ -270,7 +269,15 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 (row["id"], instance["student_account_id"], instance["flow_version_id"], row["node_key"]),
             ).fetchone()
             requires_resubmission = int(row["attempt_reset_no"]) > 0 and row["attempt_no"] == row["attempt_reset_no"]
-            grade = None if requires_resubmission else get_answer_sheet_grade(connection, row["submission_id"])
+            answer_key = (
+                get_version_answer_key(connection, str(instance["flow_version_id"]), str(row["node_key"]))["gradingKey"]
+                if config_node.get("kind") == "answer_sheet" and row["submission_id"] and not requires_resubmission
+                else None
+            )
+            grade = calculate_answer_sheet_grade(
+                config_node, answer_key,
+                _json_object(row["submission_payload"]) if row["submission_id"] and not requires_resubmission else None,
+            )
             grading_policy = (
                 config_node.get("answerSheet", {}).get("gradingPolicy", {})
                 if config_node.get("kind") == "answer_sheet"
@@ -282,21 +289,10 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 if max_attempts is None
                 else max(0, int(max_attempts) - (int(row["attempt_no"]) - int(row["attempt_reset_no"])))
             )
-            answer_key = None
             deadline_value = parse_datetime(deadline)
             after_deadline = bool(
                 deadline_value is not None and deadline_value <= datetime.now(UTC)
             )
-            if (
-                student_id is not None
-                and grading_policy.get("feedback") == "full_after_deadline"
-                and after_deadline
-                and grade is not None
-            ):
-                answer_key = get_graded_answer_key(
-                    connection, str(instance["flow_version_id"]), str(row["node_key"]),
-                    grade["gradingHash"],
-                )
             rejection = current_rejection(connection, row["id"])
             rejection_files = []
             if rejection and rejection["feedback_id"]:
@@ -372,6 +368,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     if not (
                         key in {
                             "_configMeta",
+                            ANSWER_KEY,
                             "auditScriptParams",
                             "auditModelCardId",
                             "fileReviewConfigHistory",
@@ -640,8 +637,6 @@ def submit_node(
                 ) as exc:
                     raise RuntimeConflictError(str(exc)) from exc
             submission_payload = payload
-            grade_result: dict[str, Any] | None = None
-            grading_hash: str | None = None
             uploaded_file = None
             uploaded_scans: list[dict[str, object]] = []
             if node.get("kind") == "file":
@@ -698,14 +693,6 @@ def submit_node(
                 submission_payload = normalize_answer_sheet_submission(
                     node, payload, strict=True
                 )
-                key_record = get_version_answer_key(
-                    connection, str(row["flow_version_id"]), str(row["node_key"])
-                )
-                grade_result = grade_answer_sheet(
-                    {**node, "deadlineAt": version_deadlines(connection, row["flow_version_id"]).get(node["id"])},
-                    key_record["gradingKey"], submission_payload
-                )
-                grading_hash = str(key_record["gradingHash"])
             elif node.get("kind") == "form":
                 submission_payload = normalize_form_answers(node, payload, strict=True)
             else:
@@ -726,7 +713,7 @@ def submit_node(
                     "branchLabel": next(option["label"] for option in node["branches"] if option["id"] == branch_id),
                 }
             attempt_no = int(row["attempt_no"]) + 1
-            if grade_result is not None:
+            if node.get("kind") == "answer_sheet":
                 submission_status = "approved"
             elif approved_resubmission:
                 submission_status = "approved"
@@ -754,10 +741,6 @@ def submit_node(
                     now,
                 ),
             )
-            if grade_result is not None and grading_hash is not None:
-                insert_answer_sheet_grade(
-                    connection, submission_id, grade_result, grading_hash, now
-                )
             if uploaded_file is not None:
                 try:
                     attach_uploaded_file(connection, str(uploaded_file["id"]), submission_id)
@@ -1134,13 +1117,13 @@ def get_teacher_submission_detail(
     node_instance_id: str, teacher_id: int
 ) -> dict[str, object]:
     with get_connection() as connection:
+        connection.execute("BEGIN")
         row = connection.execute(
             """
             SELECT n.id, n.node_key, n.status, n.attempt_no, i.student_account_id,
                    a.student_no, a.name AS student_name, v.config_snapshot, i.flow_version_id,
                    s.id AS submission_id, s.status AS submission_status,
                    s.payload_snapshot AS submission_payload,
-                   g.result_snapshot AS answer_sheet_grade,
                    j.result_json, j.status AS audit_job_status,
                    j.effective_params_json
             FROM node_instances n
@@ -1151,7 +1134,6 @@ def get_teacher_submission_detail(
             LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
-            LEFT JOIN answer_sheet_grades g ON g.submission_id = s.id
             WHERE n.id = ? AND f.owner_id = ? AND v.status = 'published'
             """,
             (node_instance_id, str(teacher_id)),
@@ -1161,7 +1143,12 @@ def get_teacher_submission_detail(
         config = version_config(connection, row["flow_version_id"])
         node = node_by_key(config, row["node_key"])
         result = _json_object(row["result_json"])
-        answer_sheet_grade = _json_object(row["answer_sheet_grade"])
+        answer_sheet_grade = calculate_answer_sheet_grade(
+            node,
+            get_version_answer_key(connection, str(row["flow_version_id"]), str(row["node_key"]))["gradingKey"]
+            if node.get("kind") == "answer_sheet" and row["submission_id"] else None,
+            _json_object(row["submission_payload"]) if row["submission_id"] else None,
+        ) or {}
         details = result.get("details") if isinstance(result.get("details"), dict) else {}
         effective_params = _json_object(row["effective_params_json"])
         mode = "answer_sheet" if answer_sheet_grade else effective_params.get("scanAuditMode")

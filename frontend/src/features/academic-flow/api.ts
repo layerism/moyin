@@ -99,7 +99,6 @@ export type AnswerKeyPolicy = {
   gradingHash: string;
   generation: number;
   updatedAt: string;
-  regradedSubmissionCount?: number;
 };
 
 export type FlowRosterEntry = {

@@ -2,7 +2,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from app.domain.node_assets import reference_assets
-from app.domain.node_configuration import REVISION_FIELDS, META_KEY
+from app.domain.node_configuration import REVISION_FIELDS, META_KEY, ANSWER_KEY
 
 
 class PublishedNodeDeletionError(ValueError):
@@ -64,7 +64,7 @@ def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     elif node.get("kind") == "or_gate":
         editable_fields = {"title", "requirement"}
     snapshot = {
-        key: value for key, value in node.items() if key not in editable_fields and key != META_KEY
+        key: value for key, value in node.items() if key not in editable_fields and key not in {META_KEY, ANSWER_KEY}
     }
     if node.get("kind") == "file":
         snapshot.pop("fileLimitMb", None)

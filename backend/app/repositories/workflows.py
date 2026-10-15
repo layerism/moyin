@@ -31,10 +31,9 @@ from app.repositories.flow_templates import TemplateMutationError, validate_vers
 from app.repositories.answer_sheet_keys import (
     assert_published_answer_keys_unchanged,
     composite_draft_hash,
-    freeze_answer_sheet_keys,
-    get_answer_sheet_drafts,
+    get_draft_answer_keys,
     get_version_answer_key,
-    replace_answer_sheet_drafts,
+    set_answer_sheet_keys,
     validate_answer_sheet_key_map,
     validate_publishable_answer_sheet_keys,
 )
@@ -609,7 +608,8 @@ def copy_flow_definition(
                 if template != expected:
                     raise FlowValidationError("流程模板资产无效，无法复制")
                 source_assets.append((node, dict(asset), template))
-        source_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
+        source_answer_sheet_keys = get_draft_answer_keys(connection, flow_id)
+        set_answer_sheet_keys(config, source_answer_sheet_keys)
         if target_kind == 'template':
             validate_flow_config(config, require_publishable=True)
             _validate_audit_script_nodes(config)
@@ -748,7 +748,7 @@ def copy_flow_definition(
                 ).fetchone()
                 if current is None or current['draft_config'] != source_data['draft_config'] or current['updated_at'] != source_data['updated_at']:
                     raise FlowValidationError('来源流程或模板已变化，请重新复制')
-                if get_answer_sheet_drafts(connection, flow_id) != source_answer_sheet_keys:
+                if get_draft_answer_keys(connection, flow_id) != source_answer_sheet_keys:
                     raise FlowValidationError('来源标准答案已变化，请重新复制')
             if auto_name:
                 base_name = new_name
@@ -812,14 +812,6 @@ def copy_flow_definition(
                 )
             if finalize is not None:
                 finalize(connection, new_flow_id)
-            replace_answer_sheet_drafts(
-                connection,
-                new_flow_id,
-                config,
-                source_answer_sheet_keys,
-                teacher_id,
-                now,
-            )
             connection.execute(
                 """
                 INSERT INTO audit_logs
@@ -858,7 +850,7 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         draft_config = json.loads(row["draft_config"])
         apply_node_parameters(connection, flow_id, draft_config)
         apply_published_node_models(connection, flow_id, draft_config)
-        draft_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
+        draft_answer_sheet_keys = get_draft_answer_keys(connection, flow_id)
         published_config = (
             _version_config_with_runtime_deadlines(connection, published) if published else None
         )
@@ -938,22 +930,15 @@ def save_draft(
         supplied_keys = (
             answer_sheet_keys
             if answer_sheet_keys is not None
-            else get_answer_sheet_drafts(connection, flow_id)
+            else get_draft_answer_keys(connection, flow_id)
         )
         try:
-            replace_answer_sheet_drafts(
-                connection,
-                flow_id,
-                config,
-                supplied_keys,
-                teacher_id,
-                now,
-            )
+            set_answer_sheet_keys(config, supplied_keys)
         except AnswerSheetConfigError as exc:
             raise FlowValidationError(str(exc)) from exc
         _assert_valid_published_revision(connection, flow_id, config)
         try:
-            assert_published_answer_keys_unchanged(connection, flow_id, config)
+            assert_published_answer_keys_unchanged(connection, flow_id, config, supplied_keys)
             validate_content_assets(connection, flow_id, config)
             validate_announcement_files(connection, flow_id, config)
         except AnswerSheetConfigError as exc:
@@ -1411,18 +1396,9 @@ def publish_flow(
         current_keys = (
             supplied_answer_sheet_keys
             if supplied_answer_sheet_keys is not None
-            else get_answer_sheet_drafts(connection, flow_id)
+            else get_draft_answer_keys(connection, flow_id)
         )
         try:
-            if supplied_answer_sheet_keys is not None:
-                replace_answer_sheet_drafts(
-                    connection,
-                    flow_id,
-                    config,
-                    supplied_answer_sheet_keys,
-                    teacher_id,
-                    now,
-                )
             current_keys = validate_publishable_answer_sheet_keys(
                 connection, flow_id, config, current_keys
             )
@@ -1430,7 +1406,8 @@ def publish_flow(
             validate_announcement_files(connection, flow_id, config)
         except (AnswerSheetConfigError, ContentAssetError, AnnouncementFileError) as exc:
             raise FlowValidationError(str(exc)) from exc
-        snapshot = canonical_json(config)
+        set_answer_sheet_keys(config, current_keys, require_publishable=True)
+        snapshot = canonical_json(public_config(config))
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         draft_hash = composite_draft_hash(config, current_keys)
         if expected_draft_config_hash is not None and expected_draft_config_hash != draft_hash:
@@ -1495,7 +1472,6 @@ def publish_flow(
             """,
             (version_id, flow_id, version_no, snapshot, config_hash, str(teacher_id), now),
         )
-        freeze_answer_sheet_keys(connection, flow_id, version_id, config)
         freeze_content_asset_refs(connection, flow_id, version_id, config)
         freeze_announcement_file_refs(connection, flow_id, version_id, config)
         for node_key, asset_id in version_templates.items():
@@ -1581,7 +1557,7 @@ def get_revision_impact(
         current_keys = (
             supplied_answer_sheet_keys
             if supplied_answer_sheet_keys is not None
-            else get_answer_sheet_drafts(connection, flow_id)
+            else get_draft_answer_keys(connection, flow_id)
         )
         try:
             current_keys = validate_answer_sheet_key_map(

@@ -6,6 +6,8 @@ from app.domain.answer_sheet import (
     AnswerSheetConfigError,
     validate_private_answer_key,
 )
+from app.domain.node_configuration import ANSWER_KEY, public_config
+from app.repositories.node_configuration import current_config, node_metadata
 
 
 def canonical_json(value: object) -> str:
@@ -16,38 +18,21 @@ def grading_hash(value: object) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
-def get_answer_sheet_drafts(connection: Any, flow_id: str) -> dict[str, dict[str, Any]]:
-    rows = connection.execute(
-        """
-        SELECT node_key, grading_config FROM answer_sheet_drafts
-        WHERE flow_id = ? ORDER BY node_key
-        """,
-        (flow_id,),
-    ).fetchall()
-    return {str(row["node_key"]): json.loads(row["grading_config"]) for row in rows}
+def get_draft_answer_keys(connection: Any, flow_id: str) -> dict[str, dict[str, Any]]:
+    return {
+        str(node["id"]): node[ANSWER_KEY]
+        for node in current_config(connection, flow_id).get("nodes", [])
+        if node.get("kind") == "answer_sheet" and ANSWER_KEY in node
+    }
 
 
-def replace_answer_sheet_drafts(
-    connection: Any,
-    flow_id: str,
-    config: dict[str, Any],
-    keys: object,
-    teacher_id: int,
-    now: str,
-) -> dict[str, dict[str, Any]]:
-    normalized = validate_answer_sheet_key_map(config, keys, require_publishable=False)
-    connection.execute("DELETE FROM answer_sheet_drafts WHERE flow_id = ?", (flow_id,))
-    for node_key, key in normalized.items():
-        snapshot = canonical_json(key)
-        connection.execute(
-            """
-            INSERT INTO answer_sheet_drafts
-                (flow_id, node_key, grading_config, grading_hash, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (flow_id, node_key, snapshot, grading_hash(key), teacher_id, now),
-        )
-    return normalized
+def set_answer_sheet_keys(config: dict[str, Any], keys: object, *, require_publishable: bool = False) -> None:
+    """Attach validated private answers to the config that the caller will persist."""
+    normalized = validate_answer_sheet_key_map(config, keys, require_publishable=require_publishable)
+    for node in config.get("nodes", []):
+        node.pop(ANSWER_KEY, None)
+        if node.get("kind") == "answer_sheet":
+            node[ANSWER_KEY] = normalized[str(node["id"])]
 
 
 def validate_answer_sheet_key_map(
@@ -84,98 +69,40 @@ def validate_publishable_answer_sheet_keys(
     keys = (
         supplied_keys
         if supplied_keys is not None
-        else get_answer_sheet_drafts(connection, flow_id)
+        else get_draft_answer_keys(connection, flow_id)
     )
     return validate_answer_sheet_key_map(config, keys, require_publishable=True)
-
-
-def freeze_answer_sheet_keys(
-    connection: Any,
-    flow_id: str,
-    flow_version_id: str,
-    config: dict[str, Any],
-) -> None:
-    keys = validate_publishable_answer_sheet_keys(connection, flow_id, config)
-    for node_key, key in keys.items():
-        snapshot = canonical_json(key)
-        connection.execute(
-            """
-            INSERT INTO flow_version_answer_keys
-                (flow_version_id, node_key, grading_snapshot, grading_hash)
-            VALUES (?, ?, ?, ?)
-            """,
-            (flow_version_id, node_key, snapshot, grading_hash(key)),
-        )
-
-
-def get_frozen_version_answer_key(
-    connection: Any, flow_version_id: str, node_key: str
-) -> dict[str, Any]:
-    row = connection.execute(
-        """
-        SELECT k.grading_snapshot, k.grading_hash, v.published_at
-        FROM flow_version_answer_keys k
-        JOIN flow_versions v ON v.id = k.flow_version_id
-        WHERE k.flow_version_id = ? AND k.node_key = ?
-        """,
-        (flow_version_id, node_key),
-    ).fetchone()
-    if row is None:
-        raise AnswerSheetConfigError("当前答题卡评分配置缺失，请联系教师")
-    return {
-        "gradingKey": json.loads(row["grading_snapshot"]),
-        "gradingHash": str(row["grading_hash"]),
-        "generation": 1,
-        "updatedAt": str(row["published_at"]),
-    }
 
 
 def get_version_answer_key(
     connection: Any, flow_version_id: str, node_key: str
 ) -> dict[str, Any]:
-    revision = connection.execute(
-        """
-        SELECT r.grading_snapshot, r.grading_hash, r.generation, r.updated_at
-        FROM answer_sheet_key_revisions r
-        JOIN flow_versions v ON v.flow_id = r.flow_id
-        WHERE v.id = ? AND r.node_key = ? AND v.status != 'preview'
-        ORDER BY r.generation DESC LIMIT 1
-        """,
-        (flow_version_id, node_key),
-    ).fetchone()
-    if revision is None:
-        return get_frozen_version_answer_key(connection, flow_version_id, node_key)
-    return {
-        "gradingKey": json.loads(revision["grading_snapshot"]),
-        "gradingHash": str(revision["grading_hash"]),
-        "generation": int(revision["generation"]),
-        "updatedAt": str(revision["updated_at"]),
-    }
-
-
-def get_graded_answer_key(connection: Any, flow_version_id: str, node_key: str,
-                          used_hash: str) -> dict[str, Any] | None:
-    """Resolve the actual grading basis without substituting the latest answers."""
     row = connection.execute(
-        """SELECT r.grading_snapshot FROM answer_sheet_key_revisions r
-        JOIN flow_versions v ON v.flow_id = r.flow_id
-        WHERE v.id = ? AND r.node_key = ? AND r.grading_hash = ?
-        UNION ALL
-        SELECT k.grading_snapshot FROM flow_version_answer_keys k
-        JOIN flow_versions original ON original.id = k.flow_version_id
-        JOIN flow_versions current ON current.flow_id = original.flow_id
-        WHERE current.id = ? AND k.node_key = ? AND k.grading_hash = ?
-        LIMIT 1""",
-        (flow_version_id, node_key, used_hash, flow_version_id, node_key, used_hash),
+        """SELECT v.status, v.config_snapshot, v.published_at, f.draft_config
+           FROM flow_versions v JOIN flows f ON f.id = v.flow_id WHERE v.id = ?""",
+        (flow_version_id,),
     ).fetchone()
-    return json.loads(row['grading_snapshot']) if row else None
+    if row is None:
+        raise AnswerSheetConfigError("当前答题卡评分配置缺失，请联系教师")
+    config = json.loads(row["config_snapshot"] if row["status"] == "preview" else row["draft_config"])
+    node = next((n for n in config.get("nodes", []) if str(n["id"]) == node_key and n.get("kind") == "answer_sheet"), None)
+    if node is None or ANSWER_KEY not in node:
+        raise AnswerSheetConfigError("当前答题卡评分配置缺失，请联系教师")
+    metadata = node_metadata(node, "answerKey")
+    key = node[ANSWER_KEY]
+    return {
+        "gradingKey": key,
+        "gradingHash": grading_hash(key),
+        "generation": metadata["generation"],
+        "updatedAt": metadata["updatedAt"] or row["published_at"],
+    }
 
 
 def composite_draft_hash(
     config: dict[str, Any], keys: dict[str, dict[str, Any]]
 ) -> str:
     return hashlib.sha256(
-        canonical_json({"config": config, "answerSheetKeys": keys}).encode("utf-8")
+        canonical_json({"config": public_config(config), "answerSheetKeys": keys}).encode("utf-8")
     ).hexdigest()
 
 
@@ -202,7 +129,7 @@ def assert_published_answer_keys_unchanged(
     draft_keys = (
         validate_answer_sheet_key_map(config, supplied_keys, require_publishable=False)
         if supplied_keys is not None
-        else get_answer_sheet_drafts(connection, flow_id)
+        else get_draft_answer_keys(connection, flow_id)
     )
     for node_key, previous_node in previous_nodes.items():
         if previous_node.get("kind") != "answer_sheet":
@@ -213,4 +140,4 @@ def assert_published_answer_keys_unchanged(
         published_key = get_version_answer_key(connection, str(published["id"]), node_key)
         draft_key = draft_keys.get(node_key)
         if draft_key is None or grading_hash(draft_key) != published_key["gradingHash"]:
-            raise AnswerSheetConfigError("已发布答题卡的标准答案不可修改")
+            raise AnswerSheetConfigError("已发布答题卡的标准答案已变化，请刷新后通过标准答案设置修改")

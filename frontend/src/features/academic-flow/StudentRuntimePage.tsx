@@ -388,6 +388,7 @@ export function StudentRuntimePage({
           onDownloadTemplate={() => void downloadTemplate(activeRuntime)}
           onSave={() => void save(activeRuntime)}
           onRetryAudit={() => void retryAudit(activeRuntime)}
+          onRefreshGrade={async () => { setInstance(await workflowApi.getInstance(instanceId)); }}
           onSubmit={() => void submit(activeRuntime)}
           onUploadFile={(file) => uploadFile(activeRuntime, file)}
           onUpdate={(field, value, fieldId) => updateDraft(
@@ -433,6 +434,7 @@ function RuntimeNodeDialog({
   onDownloadTemplate,
   onSave,
   onRetryAudit,
+  onRefreshGrade,
   onSubmit,
   onUploadFile,
   onUpdate,
@@ -451,6 +453,7 @@ function RuntimeNodeDialog({
   onDownloadTemplate: () => void;
   onSave: () => void;
   onRetryAudit: () => void;
+  onRefreshGrade: () => Promise<void>;
   onSubmit: () => void;
   onUploadFile: (file: File) => Promise<void>;
   onUpdate: (field: string, value: unknown, fieldId?: string) => void;
@@ -477,6 +480,20 @@ function RuntimeNodeDialog({
   const [clock, setClock] = useState(Date.now());
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const gradeDialogRef = useRef<HTMLDialogElement>(null);
+  const [gradeLoading, setGradeLoading] = useState(false);
+  const [gradeError, setGradeError] = useState("");
+  const viewGrade = async () => {
+    setGradeLoading(true);
+    setGradeError("");
+    gradeDialogRef.current?.showModal();
+    try {
+      await onRefreshGrade();
+    } catch (reason) {
+      setGradeError(reason instanceof Error ? reason.message : "分数加载失败，请重试");
+    } finally {
+      setGradeLoading(false);
+    }
+  };
   const submitConfirmationRef = useRef<HTMLDialogElement>(null);
   const [templateDownloadAttention, setTemplateDownloadAttention] = useState(false);
   const templateRowRef = useRef<HTMLElement>(null);
@@ -728,7 +745,7 @@ function RuntimeNodeDialog({
                 </span>
                 <span aria-live="polite">已答 {answeredCount} / {answerSheetQuestionCount}</span>
                 {runtime.grade ? (
-                  <button className="runtime-grade-trigger" onClick={() => gradeDialogRef.current?.showModal()} type="button">
+                  <button className="runtime-grade-trigger" disabled={gradeLoading} onClick={() => void viewGrade()} type="button">
                     查看节点分数
                   </button>
                 ) : null}
@@ -1011,7 +1028,9 @@ function RuntimeNodeDialog({
             <h3>节点分数</h3>
             <button aria-label="关闭节点分数" onClick={() => gradeDialogRef.current?.close()} type="button">×</button>
           </header>
-          <AnswerSheetGradeResult completion={answerSheetGradeCompletion} grade={runtime.grade} node={node} />
+          {gradeLoading ? <p role="status">正在计算最新分数…</p>
+            : gradeError ? <p role="alert">{gradeError}</p>
+            : <AnswerSheetGradeResult completion={answerSheetGradeCompletion} grade={runtime.grade} node={node} />}
         </dialog>
       ) : null}
       {fileWarning ? (

@@ -2,6 +2,8 @@ import json
 from typing import Any
 
 from app.core.database import get_connection
+from app.domain.node_configuration import ANSWER_KEY
+from app.repositories.node_configuration import save_node
 from app.domain.answer_sheet import validate_private_answer_key
 from app.repositories.answer_sheet_keys import (
     canonical_json,
@@ -89,47 +91,11 @@ def update_node_answer_key_policy(
         )
         next_hash = grading_hash(grading_key)
         if next_hash == current["gradingHash"]:
-            return {**_policy_view(connection, flow_id, node_key, teacher_id),
-                    "regradedSubmissionCount": 0}
+            return _policy_view(connection, flow_id, node_key, teacher_id)
 
         next_generation = expected_generation + 1
-        connection.execute(
-            """
-            INSERT INTO answer_sheet_key_revisions
-                (flow_id, node_key, generation, grading_snapshot, grading_hash,
-                 updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                flow_id,
-                node_key,
-                next_generation,
-                canonical_json(grading_key),
-                next_hash,
-                teacher_id,
-                now,
-            ),
-        )
-        connection.execute(
-            """
-            INSERT INTO answer_sheet_drafts
-                (flow_id, node_key, grading_config, grading_hash, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(flow_id, node_key) DO UPDATE SET
-                grading_config = excluded.grading_config,
-                grading_hash = excluded.grading_hash,
-                updated_by = excluded.updated_by,
-                updated_at = excluded.updated_at
-            """,
-            (
-                flow_id,
-                node_key,
-                canonical_json(grading_key),
-                next_hash,
-                teacher_id,
-                now,
-            ),
-        )
+        save_node(connection, flow_id, node_key, {ANSWER_KEY: grading_key},
+                  "answerKey", teacher_id, next_generation, now=now)
 
         connection.execute(
             """
@@ -151,13 +117,9 @@ def update_node_answer_key_policy(
                     {
                         "generation": next_generation,
                         "gradingHash": next_hash,
-                        "regradedSubmissionCount": 0,
                     }
                 ),
                 now,
             ),
         )
-        return {
-            **_policy_view(connection, flow_id, node_key, teacher_id),
-            "regradedSubmissionCount": 0,
-        }
+        return _policy_view(connection, flow_id, node_key, teacher_id)

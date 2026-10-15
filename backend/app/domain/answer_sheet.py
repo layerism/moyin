@@ -36,7 +36,7 @@ class AnswerSheetSubmissionError(ValueError):
 
 
 def validate_public_answer_sheet(
-    node: dict[str, Any], *, require_publishable: bool
+    node: dict[str, Any], *, require_publishable: bool, check_feedback_deadline: bool = True
 ) -> None:
     if node.get("kind") != "answer_sheet":
         return
@@ -81,7 +81,7 @@ def validate_public_answer_sheet(
         raise AnswerSheetConfigError(f"答题卡“{title}”作答次数必须为 1 到 99")
     if policy.get("feedback") not in FEEDBACK_POLICIES:
         raise AnswerSheetConfigError(f"答题卡“{title}”反馈策略无效")
-    if policy.get("feedback") == "full_after_deadline" and require_publishable:
+    if policy.get("feedback") == "full_after_deadline" and require_publishable and check_feedback_deadline:
         if not node.get("deadlineAt"):
             raise AnswerSheetConfigError(
                 f"答题卡“{title}”截止后展示答案时必须设置截止时间"
@@ -445,7 +445,8 @@ def _normalize_question_submission(
 def grade_answer_sheet(
     node: dict[str, Any], key: dict[str, Any], payload: dict[str, Any]
 ) -> dict[str, Any]:
-    validate_public_answer_sheet(node, require_publishable=True)
+    # Deadlines control answer disclosure, not scoring of an existing submission.
+    validate_public_answer_sheet(node, require_publishable=True, check_feedback_deadline=False)
     validate_private_answer_key(node, key, require_publishable=True)
     normalized = normalize_answer_sheet_submission(node, payload, strict=True)
     answers = normalized["answers"]

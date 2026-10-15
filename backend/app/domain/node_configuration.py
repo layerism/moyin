@@ -4,6 +4,7 @@ import copy
 from app.domain.file_review_steps import structured_steps
 
 META_KEY = '_configMeta'
+ANSWER_KEY = 'answerSheetKey'
 BASE_FIELDS = ('title', 'requirement')
 TIMED_FIELDS = (*BASE_FIELDS, 'startAt', 'deadlineAt')
 FIELDS = {
@@ -55,4 +56,5 @@ def public_config(config):
     result = copy.deepcopy(config)
     for node in result.get('nodes', []):
         node.pop(META_KEY, None)
+        node.pop(ANSWER_KEY, None)
     return result

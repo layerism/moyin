@@ -18,10 +18,6 @@ class TablePolicy:
 
 
 TABLE_POLICIES: dict[str, TablePolicy] = {
-    "answer_sheet_drafts": TablePolicy(),
-    "answer_sheet_grade_history": TablePolicy(),
-    "answer_sheet_grades": TablePolicy(),
-    "answer_sheet_key_revisions": TablePolicy(),
     "audit_logs": TablePolicy(deletable=True),
     "flow_instances": TablePolicy(
         frozenset({"status", "completed_at", "last_active_at"}), deletable=True
@@ -30,7 +26,6 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
         frozenset({"student_no", "name", "status"}), deletable=True
     ),
     "flow_assets": TablePolicy(),
-    "flow_version_answer_keys": TablePolicy(),
     "flow_version_assets": TablePolicy(),
     "flow_versions": TablePolicy(deletable=True),
     "flows": TablePolicy(
@@ -60,8 +55,6 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
 SENSITIVE_COLUMNS = frozenset({
     "encrypted_api_key",
     "encrypted_billing_credentials",
-    "grading_config",
-    "grading_snapshot",
     "password_hash",
     "token_hash",
     "token_value",

@@ -8,7 +8,7 @@ from typing import Any
 from app.repositories.flow_assets import bind_version_asset
 from app.core.database import get_connection
 from app.domain.workflow_runtime import incoming_nodes
-from app.repositories.answer_sheet_keys import freeze_answer_sheet_keys
+from app.repositories.answer_sheet_keys import get_draft_answer_keys, set_answer_sheet_keys
 from app.repositories.flow_content_assets import freeze_content_asset_refs
 from app.repositories.flow_announcement_files import freeze_announcement_file_refs
 from app.repositories.flow_instances import get_instance
@@ -161,6 +161,7 @@ def create_preview(flow_id: str, teacher_id: int) -> tuple[dict[str, object], st
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
         version_templates = prepare_runtime_config(connection, flow_id, config)
+        set_answer_sheet_keys(config, get_draft_answer_keys(connection, flow_id), require_publishable=True)
         snapshot = canonical_json(config)
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
         preview_student = _preview_student(connection, teacher_id, now)
@@ -173,7 +174,6 @@ def create_preview(flow_id: str, teacher_id: int) -> tuple[dict[str, object], st
             """,
             (version_id, flow_id, snapshot, config_hash, str(teacher_id), now),
         )
-        freeze_answer_sheet_keys(connection, flow_id, version_id, config)
         freeze_content_asset_refs(connection, flow_id, version_id, config)
         freeze_announcement_file_refs(connection, flow_id, version_id, config)
         for node_key, asset_id in version_templates.items():

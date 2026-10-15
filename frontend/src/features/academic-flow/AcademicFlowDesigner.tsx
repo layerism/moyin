@@ -715,7 +715,7 @@ export function AcademicFlowDesigner({
       },
     }));
     setActionNotice(
-      "标准答案已保存，后续提交使用新答案；历史成绩保留",
+      "标准答案已保存，查看和导出成绩时按新答案计算",
     );
   };
 
@@ -3236,7 +3236,7 @@ function NodeInspector({
               : hasPublishedBasic
                 ? basicSaving ? "正在保存节点配置…"
                   : !basicPolicy || (hasPublishedAnswerKeyPolicy && !answerKeyPolicy) ? "正在读取节点配置…"
-                    : answerKeyChanged ? "点击完成保存新答案，后续提交使用新答案；历史成绩保留。"
+                    : answerKeyChanged ? "点击完成保存新答案，查看和导出成绩时按新答案计算。"
                     : "点击完成保存可变配置，立即生效；已有进度和成绩保留。"
               : auditPolicyError
               ? auditPolicyError
@@ -3249,13 +3249,13 @@ function NodeInspector({
                 : answerKeySaving || auditPolicySaving
                   ? "正在保存并更新相关结果…"
                   : answerKeyChanged
-                    ? "点击完成后，标准答案立即更新，后续提交使用新答案，历史成绩保留。"
+                    ? "点击完成后，标准答案立即更新，查看和导出成绩时按新答案计算。"
                   : hasPublishedAuditPolicy && auditPolicyChanged
                     ? "点击完成后，审核规则立即更新未完成审核。"
                   : hasPublishedReviewStepPolicy && reviewStepChanged
                     ? "点击完成后，新提交将使用更新后的审核参数；已提交批次保持原规则。"
                     : publishedRevision && hasPublishedAnswerKeyPolicy
-                      ? "可变配置与标准答案在完成时立即保存，历史成绩保留。"
+                      ? "可变配置与标准答案在完成时立即保存，成绩按最新答案计算。"
                       : publishedRevision
                         ? "标题、说明和时间重新发布后生效；审核规则在完成时立即保存。"
                       : hasPublishedAuditPolicy

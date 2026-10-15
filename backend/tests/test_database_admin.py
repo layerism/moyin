@@ -50,10 +50,7 @@ def test_super_admin_lists_tables_and_redacts_sensitive_values(client: TestClien
     table_names = {table["name"] for table in tables.json()}
     assert "teacher_accounts" in table_names
     assert {
-        "answer_sheet_drafts",
-        "answer_sheet_grades",
         "flow_assets",
-        "flow_version_answer_keys",
         "flow_version_assets",
     } <= table_names
     assert rows.status_code == 200

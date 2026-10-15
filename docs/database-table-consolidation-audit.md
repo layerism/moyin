@@ -1,10 +1,10 @@
 # 数据库表现状说明
 
-核对时间：2026-10-15 20:01:17（Asia/Shanghai）。
+核对时间：2026-10-15 21:09:57（Asia/Shanghai）。
 
-**当前本地数据库共有 47 张非 SQLite 内部表，本文逐表覆盖全部 47 张。** 按业务职责分为 8 组；按名称前缀统计，Flow 类 9 张、Node 类 4 张，其余 34 张，没有独立的 `workflow_*` 表。业务分组与名称前缀是两种统计口径，不能相加。
+**当前本地数据库共有 42 张非 SQLite 内部表，本文逐表覆盖全部 42 张。** 按业务职责分为 7 组；按名称前缀统计，Flow 类 8 张、Node 类 4 张，其余 30 张，没有独立的 `workflow_*` 表。业务分组与名称前缀是两种统计口径，不能相加。
 
-本次依据根目录 [MEMORY.md](../MEMORY.md) 的事实来源顺序，以当前源码和 `backend/storage/app.db` 为准。结构、约束及索引以 SQLite 实际定义为准；本次结构调整已提前备份，事务内与备份逐表比较，确认保留表的结构和业务记录未变，仅新增迁移标记；外键与完整性检查通过。结构核对包括基础建表和初始化增量迁移，不能只看 `database.py` 中的初始 `CREATE TABLE`。
+本文以当前源码和 `backend/storage/app.db` 为准。结构、约束及索引以 SQLite 实际定义为准，覆盖基础建表和初始化增量迁移。标准答案保存在流程节点配置中，成绩在读取时计算，不设答题卡专用表。
 
 行数均为上述时点的快照，包含归档、停用、过期及历史记录，不代表活跃业务量。0 行表示当时无记录；是否仍有业务用途，需要结合读写代码判断。本次已同步数据库结构、后端清理逻辑与文档；未运行测试或浏览器验证。
 
@@ -16,11 +16,10 @@
 | 流程定义、分组与准入 | 4 | 流程/模板定义、版本、分组及名单 |
 | 学生运行、输入与进度 | 7 | 流程实例、节点状态、暂存、提交、返工与个别延期 |
 | 文件资源与下载 | 5 | 教师资源、版本引用、学生文件、下载与个人文件 |
-| 答题卡答案与成绩 | 5 | 私有答案、答案修订、成绩及保留的历史成绩结构 |
 | 审核任务、人工处理与反馈 | 11 | 自动审核、步骤进度、人工结论和反馈材料 |
 | 审核脚本运行与模型配置 | 3 | 脚本状态、模型连接卡及兼容绑定结构 |
 | 系统审计与后台任务 | 4 | 操作记录、迁移标记、导出及删除清理任务 |
-| **合计** | **47** | 每张表只归入一个业务分组 |
+| **合计** | **42** | 每张表只归入一个业务分组 |
 
 相关代码：[database.py](../backend/app/core/database.py)、[sms_recovery.py](../backend/app/services/sms_recovery.py)、[model_ownership.py](../backend/app/services/model_ownership.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)。
 
@@ -33,7 +32,7 @@
 | `teacher_accounts` | 4 | 一个教师或超级管理员账号 | 保存教师的工号、姓名、密码校验值、手机号和身份。登录时查这张表，区分普通教师和超级管理员；同一工号不能注册两个账号。 |
 | `student_accounts` | 127 | 一个正式或预览学生账号 | 保存学生的学号、姓名、密码校验值和手机号。正式学生和教师预览时使用的模拟学生都在这里；模拟学生另记所属教师，同一学号不能重复注册。 |
 | `teacher_sessions` | 16 | 一次教师登录会话 | 教师登录后，记录“哪个账号已登录、登录凭证何时过期”。后续请求用它识别教师，退出登录时删除对应记录；一个教师可以有多次登录记录。 |
-| `student_sessions` | 399 | 一次学生登录会话 | 学生登录后，记录账号、登录凭证的校验值和有效期。后续请求用它识别学生；旧记录也可能留在表中，因此行数不是当前在线学生数。 |
+| `student_sessions` | 398 | 一次学生登录会话 | 学生登录后，记录账号、登录凭证的校验值和有效期。后续请求用它识别学生；旧记录也可能留在表中，因此行数不是当前在线学生数。 |
 | `teacher_invitations` | 7 | 一次教师注册邀请 | 保存管理员邀请哪位教师注册、邀请何时到期、是否已使用或撤销。邀请被使用后，记下注册成功的教师账号；同一工号不能同时有两份有效邀请。 |
 | `registration_allowlist` | 373 | 一条学生注册准入信息 | 保存允许注册的学生姓名、学号和班级，也允许先导入不完整信息再补齐。它决定“能否注册账号”；注册后能进入哪些流程，要另外看流程名单。 |
 | `sms_challenges` | 2 | 一次短信验证请求 | 发送短信验证码时，记录发给谁、用于绑定手机号还是改密/找回、何时过期、验证了几次。具体验证码交给短信服务核验，这里不保存验证码明文。 |
@@ -46,8 +45,8 @@
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
 | `flow_groups` | 3 | 某教师创建的一个流程分组 | 保存教师创建的流程文件夹，例如“毕业论文”“课程作业”。每个流程记下自己属于哪个分组；同一教师不能建两个同名组，组里仍有流程时不能删除该组。 |
-| `flows` | 31 | 一个普通流程或固定流程模板 | 保存“毕业论文流程”这样的流程名称、所属教师，以及全部节点、连线和当前配置。普通流程和固定模板都放这里，用类型字段区分；模板还有是否上架的标志。 |
-| `flow_versions` | 33 | 普通流程的一次发布或预览版本 | 发布或预览时，保存当时的节点、连线和配置副本，并记录版本号。学生进度绑定某个版本；运行时只用当前配置覆盖允许实时修改的部分，例如标题和截止时间。 |
+| `flows` | 31 | 一个普通流程或固定流程模板 | 保存“毕业论文流程”这样的流程名称、所属教师，以及全部节点、连线和当前配置。答题卡的题目和私有标准答案也在节点配置中。普通流程和固定模板用类型字段区分；模板另有是否上架的标志。 |
+| `flow_versions` | 33 | 普通流程的一次发布或预览版本 | 发布或预览时，保存当时的节点、连线和配置副本，并记录版本号。学生进度绑定某个版本；运行时用当前配置覆盖允许实时修改的部分，例如标题和截止时间；正式判分读取当前答案，预览答案保存在自己的快照中。 |
 | `flow_roster_entries` | 375 | 某流程对某学号的一条准入记录 | 保存“哪些学生能进入这个流程”。例如老师给毕业论文流程导入姓名和学号，系统每次访问都检查这份名单；撤销资格后，已有进度也不能继续访问。 |
 
 相关代码：[workflow_groups.py](../backend/app/repositories/workflow_groups.py)、[workflows.py](../backend/app/repositories/workflows.py)、[workflow_blueprints.py](../backend/app/repositories/workflow_blueprints.py)、[flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)、[flow_roster.py](../backend/app/repositories/flow_roster.py)、[database.py](../backend/app/core/database.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)。
@@ -58,9 +57,9 @@
 | --- | ---: | --- | --- |
 | `flow_instances` | 233 | 一个学生在一个版本下的执行实例 | 保存某个学生在某个流程版本中的整体进度，例如“张三的毕业论文尚未完成”。学生首次进入时创建，再次进入复用；同一学生在同一版本下只有一份。 |
 | `flow_preview_sessions` | 1 | 某教师的一次学生视角预览会话 | 老师点击学生视角预览时，记录这次预览用了哪个模拟学生、哪个版本、哪份进度以及何时过期。系统据此允许预览访问，并定位需要清理的临时数据。 |
-| `node_instances` | 1,079 | 一个学生流程实例中的一个节点状态 | 保存“张三的开题报告节点是否开放、提交过几次、是否通过”等状态，并记下相关时间。一个学生的一份流程进度中，每个节点只有一条状态记录。 |
+| `node_instances` | 1,073 | 一个学生流程实例中的一个节点状态 | 保存“张三的开题报告节点是否开放、提交过几次、是否通过”等状态，并记下相关时间。一个学生的一份流程进度中，每个节点只有一条状态记录。 |
 | `node_drafts` | 10 | 一个节点实例当前暂存的学生输入 | 保存学生点击暂存后、尚未正式提交的内容。再次暂存会覆盖这份内容，成功提交后删除；部分撤销通过的操作会把上次提交恢复到这里，供学生修改。 |
-| `node_submissions` | 500 | 某学生节点实例的一次正式提交 | 保存学生每次正式提交的内容、提交时间和第几次尝试。审核任务和成绩都指向具体这一次提交；同一次提交请求重复发送时，不应再生成第二条记录。 |
+| `node_submissions` | 501 | 某学生节点实例的一次正式提交 | 保存学生每次正式提交的内容、提交时间和第几次尝试。审核任务指向具体这次提交；答题卡成绩用当前这次提交的答案实时计算；同一次提交请求重复发送时，不应再生成第二条记录。 |
 | `node_redo_dependencies` | 35 | 一个学生流程实例中一条返工等待关系 | 例如开题报告被撤销通过后，记录“张三的论文初稿必须等开题报告重新通过”。系统据此阻止他直接继续下游节点；每条记录只针对该学生的这份流程进度。 |
 | `student_deadline_overrides` | 2 | 某学生流程实例中某节点的个别截止时间 | 保存单个学生的特殊截止时间。例如全班 6 月 1 日截止，张三获准延至 6 月 5 日，这里记录张三、对应节点、新日期、原因和操作教师；其他学生仍用统一日期。 |
 
@@ -71,26 +70,14 @@
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
 | `flow_assets` | 167 | 教师为某流程节点保存的一份资源 | 保存老师上传的填写模板、参考示例、正文图片和公告附件的文件名、大小、存储位置及所属节点。文件本身放在 OSS，这里只登记文件信息，不保存学生提交的文件。 |
-| `flow_version_assets` | 107 | 某版本某节点对一份资源的冻结引用 | 记录“某次发布的某个节点使用哪份老师资源”，指向 `flow_assets` 中的文件，不再复制文件内容。同一版本的同一节点最多指定一个主模板；其他资源还可能在节点配置中被引用。 |
+| `flow_version_assets` | 104 | 某版本某节点对一份资源的冻结引用 | 记录“某次发布的某个节点使用哪份老师资源”，指向 `flow_assets` 中的文件，不再复制文件内容。同一版本的同一节点最多指定一个主模板；其他资源还可能在节点配置中被引用。 |
 | `uploaded_files` | 401 | 学生上传的一份原始文件或扫描材料 | 保存学生上传的论文、表格或扫描件的文件信息，包括属于谁、哪个节点、存储位置、页数和顺序。刚上传时可以尚未提交，正式提交后再记下对应的提交记录。 |
 | `template_download_events` | 44 | 某节点实例对某份主模板的下载记录 | 记录某学生在某节点下载了哪份主模板及下载时间，供系统检查下载情况。同一节点实例和同一模板只保留一条记录，不是每下载一次就新增一行。 |
 | `personal_drive_files` | 0 | 教师个人文件区的一份文件 | 保存教师个人文件区中的文件名、大小、存储位置及所属教师。这些文件单独管理，不会仅因上传到个人文件区就自动成为某个流程的模板或学生作业。 |
 
 相关代码：[flow_assets.py](../backend/app/repositories/flow_assets.py)、[flow_templates.py](../backend/app/repositories/flow_templates.py)、[flow_content_assets.py](../backend/app/repositories/flow_content_assets.py)、[flow_announcement_files.py](../backend/app/repositories/flow_announcement_files.py)、[flow_files.py](../backend/app/repositories/flow_files.py)、[routes/personal_drive.py](../backend/app/api/routes/personal_drive.py)、[repositories/personal_drive.py](../backend/app/repositories/personal_drive.py)。
 
-### 2.5 答题卡答案与成绩：5 张
-
-| 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
-| --- | ---: | --- | --- |
-| `answer_sheet_drafts` | 32 | 某流程某答题卡节点的私有标准答案配置 | 保存老师编辑的答题卡标准答案，以及谁在何时修改。答案属于某个流程的某个答题卡，和学生可见的题目配置分开；固定流程模板的答案也保存在这里。 |
-| `flow_version_answer_keys` | 20 | 某版本某答题卡的冻结标准答案 | 发布或预览答题卡时，保存当时的标准答案副本。预览按这份答案判分；正式答题如果没有后续答案修订，也按这份答案判分。 |
-| `answer_sheet_key_revisions` | 1 | 某流程某答题卡的一次标准答案修订 | 老师修改已发布答题卡的标准答案时，记录新答案和修改次数。后续正式提交优先用最新答案；系统也保留答案的内容标识，以便查出旧成绩当时用了哪份答案。 |
-| `answer_sheet_grades` | 232 | 一次答题卡正式提交对应的持久化成绩 | 保存一次正式答题的分数、总分、各题结果，以及使用的答案和判分程序标识。学生查看成绩、老师导出时直接读取这里，不在每次查看时重算；每次提交对应一份成绩。 |
-| `answer_sheet_grade_history` | 0 | 一份曾被替换的成绩副本 | 原本用于替换成绩前保存旧分数、旧判分结果和替换人。当前表为空，相关写入函数仍在，但没有现行业务调用；老师现在改答案不会自动重算旧成绩或向这里写入历史。 |
-
-相关代码：[answer_sheet_keys.py](../backend/app/repositories/answer_sheet_keys.py)、[answer_sheet_policies.py](../backend/app/repositories/answer_sheet_policies.py)、[answer_sheet_grades.py](../backend/app/repositories/answer_sheet_grades.py)、[flow_instances.py](../backend/app/repositories/flow_instances.py)、[teacher_node_exports.py](../backend/app/repositories/teacher_node_exports.py)。
-
-### 2.6 审核任务、人工处理与反馈：11 张
+### 2.5 审核任务、人工处理与反馈：11 张
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -108,7 +95,7 @@
 
 相关代码：[audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[audit_job_worker.py](../backend/app/services/audit_job_worker.py)、[file_reviews.py](../backend/app/repositories/file_reviews.py)、[file_review_tasks.py](../backend/app/repositories/file_review_tasks.py)、[manual_reviews.py](../backend/app/repositories/manual_reviews.py)、[manual_feedback.py](../backend/app/repositories/manual_feedback.py)、[workflows.py](../backend/app/repositories/workflows.py)、[manual_review_state.py](../backend/app/repositories/manual_review_state.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)、[review_remarks.py](../backend/app/repositories/review_remarks.py)。
 
-### 2.7 审核脚本运行与模型配置：3 张
+### 2.6 审核脚本运行与模型配置：3 张
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -118,16 +105,16 @@
 
 相关代码：[audit_script_runtime.py](../backend/app/services/audit_script_runtime.py)、[audit_script_catalog.py](../backend/app/services/audit_script_catalog.py)、[audit_model_connections.py](../backend/app/services/audit_model_connections.py)、[node_models.py](../backend/app/services/node_models.py)、[model_ownership.py](../backend/app/services/model_ownership.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)。
 
-### 2.8 系统审计与后台任务：4 张
+### 2.7 系统审计与后台任务：4 张
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
-| `audit_logs` | 2,038 | 一次业务操作或执行依据记录 | 记录谁在什么时候做了什么，例如修改流程、撤销某学生的通过状态；按操作保存修改前后内容和原因。审核实际采用的参数也可记在这里，用来追查处理依据。 |
-| `schema_migrations` | 20 | 一项已执行的数据库迁移标记 | 记录哪些数据库升级已经完成，以及完成时间。服务下次启动时先查这张表，避免把同一次升级重复执行；它不保存老师或学生的业务内容。 |
+| `audit_logs` | 2,042 | 一次业务操作或执行依据记录 | 记录谁在什么时候做了什么，例如修改流程、撤销某学生的通过状态；按操作保存修改前后内容和原因。审核实际采用的参数也可记在这里，用来追查处理依据。 |
+| `schema_migrations` | 21 | 一项已执行的数据库迁移标记 | 记录哪些数据库升级已经完成，以及完成时间。服务下次启动时先查这张表，避免把同一次升级重复执行；它不保存老师或学生的业务内容。 |
 | `material_export_jobs` | 5 | 教师对某发布版本发起的一次材料导出任务 | 老师点击导出材料后，记录导出哪个流程版本、是否排队或完成、结果文件名及何时过期。相同教师对同一版本已有任务在排队或执行时，复用该任务，避免重复打包。 |
 | `user_deletion_jobs` | 11 | 账号删除后的一个 OSS 文件清理任务 | 删除账号后，记录还需要从 OSS 删除哪些文件。后台按清单逐个清理，并更新剩余文件和失败原因；这样数据库记录已删除后，外部文件仍有明确的清理清单。 |
 
-相关代码：[workflows.py](../backend/app/repositories/workflows.py)、[node_progress.py](../backend/app/repositories/node_progress.py)、[audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[database_admin.py](../backend/app/repositories/database_admin.py)、[database.py](../backend/app/core/database.py)、[flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[node_configuration_migration.py](../backend/app/core/node_configuration_migration.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)、[export_jobs.py](../backend/app/repositories/export_jobs.py)、[export_job_worker.py](../backend/app/services/export_job_worker.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)、[user_deletion_worker.py](../backend/app/services/user_deletion_worker.py)。
+相关代码：[workflows.py](../backend/app/repositories/workflows.py)、[node_progress.py](../backend/app/repositories/node_progress.py)、[audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[database_admin.py](../backend/app/repositories/database_admin.py)、[database.py](../backend/app/core/database.py)、[answer_sheet_migration.py](../backend/app/core/answer_sheet_migration.py)、[flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[node_configuration_migration.py](../backend/app/core/node_configuration_migration.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)、[export_jobs.py](../backend/app/repositories/export_jobs.py)、[export_job_worker.py](../backend/app/services/export_job_worker.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)、[user_deletion_worker.py](../backend/app/services/user_deletion_worker.py)。
 
 ## 3. 当前配置、模板与学生数据如何连接
 
@@ -150,7 +137,8 @@
 | `flows.status` | 与类型分开；模板归档后不出现在模板列表，上下架通过 `is_shared` 控制 |
 | `flows.owner_id` | 新模板保存创建者；旧归档定义可能仍保留原模板命名空间归属 |
 | `flows.draft_config` | 模板自己的固定内容；模板发布后不能原地编辑 |
-| `flow_assets`、`answer_sheet_drafts` | 按模板自身 `flow_id` 保存独立附件和私有答案 |
+| `flow_assets` | 按模板自身 `flow_id` 保存独立附件 |
+| `flows.draft_config.nodes[].answerSheetKey` | 模板自己的私有标准答案，复制模板时一并复制 |
 
 相关代码：[routes/workflow_blueprints.py](../backend/app/api/routes/workflow_blueprints.py)、[repositories/workflow_blueprints.py](../backend/app/repositories/workflow_blueprints.py)、[workflows.py](../backend/app/repositories/workflows.py)。
 
@@ -170,7 +158,8 @@
 | 尚未提交的输入 | `node_drafts` | 学生现在暂存了什么？ |
 | 正式输入 | `node_submissions` | 这次正式提交了什么、属于第几次尝试？ |
 | 输入中的文件 | `uploaded_files` | 对应的原始文件存放在哪里、是否已关联提交？ |
-| 处理过程与输出 | 审核任务、人工审核、反馈和成绩表 | 谁按什么依据处理了这次提交，结果是什么？ |
+| 处理过程与输出 | 审核任务、人工审核和反馈表 | 谁处理了这次提交，留下什么结论和反馈？ |
+| 答题卡成绩 | 不落表 | 用该次学生作答与当前标准答案计算分数和逐题对错 |
 
 相关代码：[flow_roster.py](../backend/app/repositories/flow_roster.py)、[flow_instances.py](../backend/app/repositories/flow_instances.py)、[flow_files.py](../backend/app/repositories/flow_files.py)、[audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[file_reviews.py](../backend/app/repositories/file_reviews.py)、[answer_sheet_grades.py](../backend/app/repositories/answer_sheet_grades.py)。
 
@@ -184,9 +173,21 @@
 
 ### 3.5 标准答案、成绩和审核执行依据
 
-答题卡的题目和公开配置位于节点 JSON；私有标准答案由 `answer_sheet_drafts`、`flow_version_answer_keys`、`answer_sheet_key_revisions` 保存。正式提交按当前生效答案计算成绩，并写入 `answer_sheet_grades`。
+答题卡复用已有表，不单独保存成绩：
 
-**当前学生查看成绩及教师导出时读取已保存成绩，不是在每次查看时用最新答案重新计算。** 当前答案更新接口保存新答案及修订，返回的重判数量为 0，不改写已有成绩；历史答案可按判分 hash 解析。`answer_sheet_grade_history` 当前为空，其写入辅助函数仍在源码中，但没有发现现行业务调用。
+| 内容 | 保存位置或计算方式 |
+| --- | --- |
+| 题目、选项、分值与反馈规则 | `flows.draft_config.nodes[].answerSheet`；发布后使用版本固定的题目结构 |
+| 当前标准答案 | 同一节点的 `answerSheetKey`；`_configMeta.answerKey` 只记录修改次数、修改人和时间，用于避免旧页面覆盖新答案 |
+| 学生暂存与正式作答 | 暂存写入 `node_drafts.payload`，正式提交写入 `node_submissions.payload_snapshot` |
+| 当前成绩 | 后端读取当前提交和最新标准答案，计算总分、各题得分及对错；不保存成绩或成绩历史 |
+| 预览答案 | `flow_versions.config_snapshot.nodes[].answerSheetKey`，保持创建预览时的答案 |
+
+学生进入流程、点击“查看节点分数”，以及教师查看、导出时，后端实时计算成绩。老师改答案后，下次读取就使用新答案；已下载的导出文件不会自行变化。查看分数不增加提交次数，也不修改已通过状态或下游进度。
+
+正式发布快照不保存标准答案。教师接口仍通过 `answerSheetKeys` 映射编辑答案，后端保存时将其合入节点；学生接口会剔除 `answerSheetKey` 和 `_configMeta`，结果按反馈规则裁剪。只有配置了截止后公开答案、且该学生的有效截止时间已过时，才返回标准答案。
+
+相关代码：[answer_sheet_keys.py](../backend/app/repositories/answer_sheet_keys.py)、[answer_sheet_policies.py](../backend/app/repositories/answer_sheet_policies.py)、[answer_sheet_grades.py](../backend/app/repositories/answer_sheet_grades.py)、[flow_instances.py](../backend/app/repositories/flow_instances.py)、[teacher_node_exports.py](../backend/app/repositories/teacher_node_exports.py)。
 
 审核配置与审核执行记录同样分开：节点 JSON 保存当前参数，`audit_jobs` 或 `file_review_ai_tasks` 保存执行时采用的参数与结果。相关任务领取时读取适用的当前参数，执行依据还写入 `audit_logs`；不能把已保存的执行快照理解为永远等于教师当前配置。
 
@@ -199,7 +200,6 @@
 | `audit_model_bindings` | 0 条；保留初始化迁移和账号清理依赖，当前模型选择直接记录在节点配置中 |
 | `manual_source_reviews` | 0 条；保留版本迁移读取与清理依赖，未发现常规新增入口 |
 | `manual_node_rejections` | 0 条；保留退回信息读取、版本迁移及清理依赖，未发现常规新增入口 |
-| `answer_sheet_grade_history` | 0 条；保留表结构、管理/清理依赖及写入辅助函数，当前答案保存不调用历史重判 |
 
 相关代码：[workflows.py](../backend/app/repositories/workflows.py)、[node_models.py](../backend/app/services/node_models.py)、[manual_review_state.py](../backend/app/repositories/manual_review_state.py)、[answer_sheet_grades.py](../backend/app/repositories/answer_sheet_grades.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)。
 
@@ -213,8 +213,6 @@ flowchart LR
     F --> V[flow_versions]
     F --> R[flow_roster_entries]
     F --> A[flow_assets]
-    F --> K[answer_sheet_drafts / key_revisions]
-    V --> VK[flow_version_answer_keys]
     V --> VA[flow_version_assets]
     VA --> A
     V --> I[flow_instances]
@@ -225,7 +223,8 @@ flowchart LR
     N --> S[node_submissions]
     N --> U[uploaded_files]
     S --> U
-    S --> GR[answer_sheet_grades]
+    F -. 当前标准答案 .-> GR[读取时计算成绩]
+    S -. 学生作答 .-> GR
     S --> J[audit_jobs]
     S --> FR[file_review_runs / ai_tasks]
     FR --> MF[manual_reviews / manual_feedback]
@@ -234,13 +233,13 @@ flowchart LR
     P --> I
 ```
 
-图示为核心业务关联，不代表全部外键或精确基数。`key_revisions`、`deadline_overrides`、`ai_tasks` 是空间所限的简写，完整表名见第 2 节；固定流程模板属于 `flows` 中的一类记录，不另设模板表。
+图示为核心业务关联，不代表全部外键或精确基数；“读取时计算成绩”是计算过程，不是数据表。`deadline_overrides`、`ai_tasks` 是空间所限的简写，完整表名见第 2 节；固定流程模板属于 `flows` 中的一类记录，不另设模板表。
 
 ## 6. 源码核对入口
 
 | 范围 | 主要源码 |
 | --- | --- |
-| 建表及初始化迁移 | [database.py](../backend/app/core/database.py)、[flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)、[sms_recovery.py](../backend/app/services/sms_recovery.py)、[model_ownership.py](../backend/app/services/model_ownership.py) |
+| 建表及初始化迁移 | [database.py](../backend/app/core/database.py)、[answer_sheet_migration.py](../backend/app/core/answer_sheet_migration.py)、[flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)、[sms_recovery.py](../backend/app/services/sms_recovery.py)、[model_ownership.py](../backend/app/services/model_ownership.py) |
 | 流程、固定模板及运行配置 | [workflows.py](../backend/app/repositories/workflows.py)、[workflow_blueprints.py](../backend/app/repositories/workflow_blueprints.py)、[flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)、[node_configuration.py](../backend/app/domain/node_configuration.py) |
 | 名单、预览与学生节点 | [flow_roster.py](../backend/app/repositories/flow_roster.py)、[flow_previews.py](../backend/app/repositories/flow_previews.py)、[flow_instances.py](../backend/app/repositories/flow_instances.py)、[branch_state.py](../backend/app/repositories/branch_state.py) |
 | 答案与成绩 | [answer_sheet_keys.py](../backend/app/repositories/answer_sheet_keys.py)、[answer_sheet_policies.py](../backend/app/repositories/answer_sheet_policies.py)、[answer_sheet_grades.py](../backend/app/repositories/answer_sheet_grades.py)、[teacher_node_exports.py](../backend/app/repositories/teacher_node_exports.py) |

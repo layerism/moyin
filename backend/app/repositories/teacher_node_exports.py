@@ -6,6 +6,7 @@ from typing import Any
 from app.core.database import get_connection
 from app.repositories.flow_runtime_state import version_config
 from app.domain.workflow_runtime import incoming_nodes, node_by_key
+from app.repositories.answer_sheet_grades import calculate_answer_sheet_grade
 from app.repositories.answer_sheet_keys import get_version_answer_key
 from app.repositories.review_step_exports import ReviewStepExport, get_review_step_exports
 
@@ -65,6 +66,7 @@ def get_version_submission_export(
     version_id: str, teacher_id: int,
 ) -> TeacherVersionExportSelection:
     with get_connection() as connection:
+        connection.execute("BEGIN")
         version = connection.execute(
             """
             SELECT v.config_snapshot, f.name
@@ -107,6 +109,7 @@ def get_node_submission_export(
     roster_entry_ids: tuple[int, ...] | None = None,
 ) -> TeacherNodeExportSelection:
     with get_connection() as connection:
+        connection.execute("BEGIN")
         version = connection.execute(
             """
             SELECT v.flow_id, v.config_snapshot, f.name
@@ -142,7 +145,6 @@ def get_node_submission_export(
                    n.attempt_no,
                    j.status AS audit_job_status, j.result_json,
                    j.effective_params_json,
-                   g.result_snapshot AS answer_sheet_grade,
                    e.downloaded_at AS template_downloaded_at
             FROM flow_roster_entries r
             LEFT JOIN student_accounts a
@@ -156,7 +158,6 @@ def get_node_submission_export(
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
              AND s.status IN (?, ?, ?, ?)
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
-            LEFT JOIN answer_sheet_grades g ON g.submission_id = s.id
             LEFT JOIN flow_version_assets vt ON vt.asset_kind = 'template' AND vt.flow_version_id = ? AND vt.node_key = ?
             LEFT JOIN template_download_events e
               ON e.node_instance_id = n.id
@@ -220,7 +221,9 @@ def get_node_submission_export(
             audit_result=_json_object(row["result_json"]),
             attempt_no=int(row["attempt_no"]) if row["submission_id"] else None,
             files=tuple(files_by_submission.get(str(row["submission_id"]), [])),
-            grade=_json_object(row["answer_sheet_grade"]),
+            grade=calculate_answer_sheet_grade(
+                node, answer_key, _json_object(row["payload_snapshot"]) if row["submission_id"] else None,
+            ) or {},
             review_steps=review_steps.get(str(row["submission_id"]), ()),
             name=str(row["name"]),
             payload=_json_object(row["payload_snapshot"]),
