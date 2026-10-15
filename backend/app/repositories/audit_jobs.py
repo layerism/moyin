@@ -143,7 +143,7 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             """
             SELECT j.*, s.attempt_no, n.flow_instance_id, i.flow_version_id
             FROM audit_jobs j
-            JOIN submissions s ON s.id = j.submission_id
+            JOIN node_submissions s ON s.id = j.submission_id
             JOIN node_instances n ON n.id = j.node_instance_id
             JOIN flow_instances i ON i.id = n.flow_instance_id
             WHERE j.id = ?
@@ -227,7 +227,7 @@ def complete_audit_job(job_id: str, result: dict[str, object]) -> None:
         if finish_step(connection, job["submission_id"], "ai", passed, now):
             return
         next_status = "approved" if passed else "rejected"
-        connection.execute("UPDATE submissions SET status = ? WHERE id = ?", (next_status, job["submission_id"]))
+        connection.execute("UPDATE node_submissions SET status = ? WHERE id = ?", (next_status, job["submission_id"]))
         updated = connection.execute(
             """UPDATE node_instances SET status = ?, approved_at = ?
                WHERE id = ? AND status IN ('reviewing', 'audit_error')""",
@@ -263,7 +263,7 @@ def manual_approve_audit_job(
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
             JOIN flows f ON f.id = v.flow_id
-            LEFT JOIN submissions s
+            LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
             WHERE n.id = ? AND f.owner_id = ? AND v.status = 'published'
@@ -312,7 +312,7 @@ def manual_approve_audit_job(
             (canonical_json(result), now, now, row["job_id"]),
         )
         connection.execute(
-            "UPDATE submissions SET status = 'approved' WHERE id = ?",
+            "UPDATE node_submissions SET status = 'approved' WHERE id = ?",
             (submission_id,),
         )
         connection.execute(
@@ -376,7 +376,7 @@ def fail_audit_job(job_id: str, message: str, *, retry: bool = True) -> None:
             (message, now_iso, now_iso, job_id),
         )
         if _is_current_attempt(job):
-            connection.execute("UPDATE submissions SET status = 'audit_error' WHERE id = ?", (job["submission_id"],))
+            connection.execute("UPDATE node_submissions SET status = 'audit_error' WHERE id = ?", (job["submission_id"],))
             connection.execute(
                 """UPDATE node_instances SET status = 'audit_error', approved_at = NULL
                    WHERE id = ? AND status = 'reviewing'""",
@@ -404,7 +404,7 @@ def _cancel_jobs(condition: str, values: tuple[object, ...], reason: str) -> lis
             f"""SELECT j.id, j.status, j.submission_id, j.node_instance_id,
                        s.attempt_no AS submission_attempt, n.attempt_no AS node_attempt
                 FROM audit_jobs j
-                JOIN submissions s ON s.id = j.submission_id
+                JOIN node_submissions s ON s.id = j.submission_id
                 JOIN node_instances n ON n.id = j.node_instance_id
                 WHERE ({condition}) AND j.status IN ('pending', 'running')""",
             values,
@@ -417,7 +417,7 @@ def _cancel_jobs(condition: str, values: tuple[object, ...], reason: str) -> lis
                 (reason, now, now, row["id"]),
             )
             connection.execute("UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id = ?", (row["submission_id"],))
-            connection.execute("UPDATE submissions SET status = 'cancelled' WHERE id = ?", (row["submission_id"],))
+            connection.execute("UPDATE node_submissions SET status = 'cancelled' WHERE id = ?", (row["submission_id"],))
             if int(row["submission_attempt"]) == int(row["node_attempt"]):
                 connection.execute(
                     """UPDATE node_instances SET status = 'available', approved_at = NULL
@@ -477,7 +477,7 @@ def recover_audit_jobs() -> None:
             """
             SELECT n.id AS node_instance_id, s.id AS submission_id
             FROM node_instances n
-            JOIN submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
+            JOIN node_submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             WHERE n.status = 'reviewing'
               AND NOT EXISTS (SELECT 1 FROM audit_jobs j WHERE j.submission_id = s.id)
               AND NOT EXISTS (SELECT 1 FROM file_review_runs r WHERE r.submission_id = s.id AND r.status = 'active')
@@ -485,7 +485,7 @@ def recover_audit_jobs() -> None:
         ).fetchall()
         for row in missing:
             connection.execute("UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id = ?", (row["submission_id"],))
-            connection.execute("UPDATE submissions SET status = 'cancelled' WHERE id = ?", (row["submission_id"],))
+            connection.execute("UPDATE node_submissions SET status = 'cancelled' WHERE id = ?", (row["submission_id"],))
             connection.execute("UPDATE node_instances SET status = 'available' WHERE id = ?", (row["node_instance_id"],))
 
 
@@ -495,7 +495,7 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
         connection.execute("BEGIN IMMEDIATE")
         task = connection.execute("""SELECT t.id, n.flow_instance_id, v.flow_id FROM file_review_ai_tasks t
             JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
-            JOIN submissions s ON s.id = t.submission_id
+            JOIN node_submissions s ON s.id = t.submission_id
             JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
             JOIN flow_instances i ON i.id = n.flow_instance_id JOIN flow_versions v ON v.id = i.flow_version_id
             WHERE n.id = ? AND i.student_account_id = ? AND n.status = 'audit_error' AND t.status = 'failed'""",
@@ -506,7 +506,7 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
             assert_student_roster_access(connection, task["flow_id"], student_id)
             connection.execute("UPDATE file_review_ai_tasks SET status = 'pending', finished_at = NULL WHERE id = ?", (task["id"],))
             connection.execute("UPDATE node_instances SET status = 'reviewing' WHERE id = ?", (node_instance_id,))
-            connection.execute("UPDATE submissions SET status = 'reviewing' WHERE id = (SELECT submission_id FROM file_review_ai_tasks WHERE id = ?)", (task["id"],))
+            connection.execute("UPDATE node_submissions SET status = 'reviewing' WHERE id = (SELECT submission_id FROM file_review_ai_tasks WHERE id = ?)", (task["id"],))
             return task["flow_instance_id"]
         row = connection.execute(
             """
@@ -516,7 +516,7 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
-            JOIN submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
+            JOIN node_submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             JOIN audit_jobs j ON j.submission_id = s.id
             WHERE n.id = ? AND i.student_account_id = ?
             """,
@@ -548,7 +548,7 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
              canonical_json(binding["params"]), canonical_json(binding["settings"]),
              now, row["job_id"]),
         )
-        connection.execute("UPDATE submissions SET status = 'reviewing' WHERE id = ?", (row["submission_id"],))
+        connection.execute("UPDATE node_submissions SET status = 'reviewing' WHERE id = ?", (row["submission_id"],))
         connection.execute("UPDATE node_instances SET status = 'reviewing', approved_at = NULL WHERE id = ?", (node_instance_id,))
         return str(row["flow_instance_id"])
 
@@ -563,7 +563,7 @@ def _current_job_context(connection, job_id: str):
                n.status AS node_status, n.flow_instance_id, i.flow_version_id,
                v.status AS version_status
         FROM audit_jobs j
-        JOIN submissions s ON s.id = j.submission_id
+        JOIN node_submissions s ON s.id = j.submission_id
         JOIN node_instances n ON n.id = j.node_instance_id
         JOIN flow_instances i ON i.id = n.flow_instance_id
         JOIN flow_versions v ON v.id = i.flow_version_id

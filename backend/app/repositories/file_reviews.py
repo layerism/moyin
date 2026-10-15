@@ -30,7 +30,7 @@ def finish_step(connection, submission_id, kind, passed, now):
         return False
     if review_stage(connection, submission_id) != kind:
         return True
-    row = connection.execute('''SELECT n.*, i.flow_version_id FROM submissions s
+    row = connection.execute('''SELECT n.*, i.flow_version_id FROM node_submissions s
         JOIN node_instances n ON n.id = s.node_instance_id
         JOIN flow_instances i ON i.id = n.flow_instance_id
         WHERE s.id = ? AND s.attempt_no = n.attempt_no''', (submission_id,)).fetchone()
@@ -41,7 +41,7 @@ def finish_step(connection, submission_id, kind, passed, now):
     status = 'approved' if completed else 'reviewing' if passed else 'rejected'
     connection.execute('UPDATE file_review_runs SET step_index = ?, status = ? WHERE submission_id = ?',
                        (next_index, 'completed' if completed else 'active' if passed else 'rejected', submission_id))
-    connection.execute('UPDATE submissions SET status = ? WHERE id = ?', (status, submission_id))
+    connection.execute('UPDATE node_submissions SET status = ? WHERE id = ?', (status, submission_id))
     connection.execute('UPDATE node_instances SET status = ?, approved_at = ? WHERE id = ?',
                        (status, now if completed else None, row['id']))
     if not passed:
@@ -67,7 +67,7 @@ def can_amend_review(connection, submission_id, status):
 
 def file_review_evidence(connection, instance_id, config, node_key):
     node = node_by_key(config, node_key)
-    row = connection.execute('''SELECT s.* FROM node_instances n LEFT JOIN submissions s
+    row = connection.execute('''SELECT s.* FROM node_instances n LEFT JOIN node_submissions s
         ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
         WHERE n.flow_instance_id = ? AND n.node_key = ?''', (instance_id, node_key)).fetchone()
     submission_id = row['id'] if row else None
@@ -172,7 +172,7 @@ def decide_file_review(connection, row, config, node, status, teacher_id, eviden
             for key in affected:
                 connection.execute('''UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ?
                     WHERE status IN ('pending', 'running') AND submission_id IN
-                    (SELECT s.id FROM submissions s JOIN node_instances n ON n.id = s.node_instance_id
+                    (SELECT s.id FROM node_submissions s JOIN node_instances n ON n.id = s.node_instance_id
                      WHERE n.flow_instance_id = ? AND n.node_key = ?)''', (now, row['flow_instance_id'], key))
         run = connection.execute('SELECT steps_json FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
         connection.execute("UPDATE file_review_runs SET status = 'active', step_index = ? WHERE submission_id = ?", (len(json.loads(run['steps_json'])) - 1, submission_id))

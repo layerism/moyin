@@ -118,7 +118,7 @@ def reset_progress(instance_id, node_key, teacher_id, fingerprint, reason, deadl
         for key in affected:
             connection.execute('''UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ?
                 WHERE status IN ('pending','running') AND submission_id IN
-                (SELECT s.id FROM submissions s JOIN node_instances n ON n.id = s.node_instance_id
+                (SELECT s.id FROM node_submissions s JOIN node_instances n ON n.id = s.node_instance_id
                  WHERE n.flow_instance_id = ? AND n.node_key = ?)''', (now, instance_id, key))
             if key != node_key:
                 connection.execute('INSERT OR IGNORE INTO node_redo_dependencies VALUES (?, ?, ?)', (instance_id, node_key, key))

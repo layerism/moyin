@@ -214,7 +214,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                    j.cancellation_reason AS audit_cancellation_reason
             FROM node_instances n
             LEFT JOIN node_drafts d ON d.node_instance_id = n.id
-            LEFT JOIN submissions s
+            LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
             WHERE n.flow_instance_id = ?
@@ -576,7 +576,7 @@ def submit_node(
         row = {**dict(row), **dict(connection.execute("SELECT status, attempt_reset_no FROM node_instances WHERE id = ?", (node_instance_id,)).fetchone())}
 
         duplicate = connection.execute(
-            "SELECT id FROM submissions WHERE node_instance_id = ? AND idempotency_key = ?",
+            "SELECT id FROM node_submissions WHERE node_instance_id = ? AND idempotency_key = ?",
             (node_instance_id, idempotency_key),
         ).fetchone()
         if duplicate is None:
@@ -711,7 +711,7 @@ def submit_node(
             if node.get("kind") == "branch":
                 branch_id = submission_payload["branchId"]
                 previous = connection.execute(
-                    "SELECT payload_snapshot FROM submissions WHERE node_instance_id = ? AND attempt_no > ? ORDER BY attempt_no DESC LIMIT 1",
+                    "SELECT payload_snapshot FROM node_submissions WHERE node_instance_id = ? AND attempt_no > ? ORDER BY attempt_no DESC LIMIT 1",
                     (node_instance_id, row["attempt_reset_no"]),
                 ).fetchone()
                 if previous and json.loads(previous["payload_snapshot"]).get("branchId") != branch_id:
@@ -734,7 +734,7 @@ def submit_node(
             submission_id = str(uuid.uuid4())
             connection.execute(
                 """
-                INSERT INTO submissions
+                INSERT INTO node_submissions
                     (id, node_instance_id, attempt_no, idempotency_key,
                      payload_snapshot, status, submitted_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -832,7 +832,7 @@ def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[di
     """Return persisted business conclusions, never worker exception messages."""
     records = connection.execute(
         """SELECT j.id, j.script_id, j.result_json, j.finished_at, s.attempt_no
-           FROM audit_jobs j JOIN submissions s ON s.id = j.submission_id
+           FROM audit_jobs j JOIN node_submissions s ON s.id = j.submission_id
            WHERE j.node_instance_id = ? AND j.status = 'succeeded'
            ORDER BY s.attempt_no DESC, j.finished_at DESC""",
         (node_row["id"],),
@@ -851,7 +851,7 @@ def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[di
             "reviewedAt": record["finished_at"],
         })
     tasks = connection.execute("""SELECT t.*, s.attempt_no FROM file_review_ai_tasks t
-        JOIN submissions s ON s.id = t.submission_id WHERE s.node_instance_id = ? AND t.status = 'succeeded'
+        JOIN node_submissions s ON s.id = t.submission_id WHERE s.node_instance_id = ? AND t.status = 'succeeded'
         ORDER BY s.attempt_no DESC, t.step_index""", (node_row["id"],)).fetchall()
     for task in tasks:
         result = _json_object(task["result_json"])
@@ -1143,7 +1143,7 @@ def get_teacher_submission_detail(
             JOIN student_accounts a ON a.id = i.student_account_id
             JOIN flow_versions v ON v.id = i.flow_version_id
             JOIN flows f ON f.id = v.flow_id
-            LEFT JOIN submissions s
+            LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
             LEFT JOIN answer_sheet_grades g ON g.submission_id = s.id

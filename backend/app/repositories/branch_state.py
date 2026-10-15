@@ -8,7 +8,7 @@ from app.services.security import utc_now_iso
 def resolve_routes(connection, instance_id, config):
     rows = connection.execute(
         """SELECT n.node_key, n.status, s.payload_snapshot
-           FROM node_instances n LEFT JOIN submissions s
+           FROM node_instances n LEFT JOIN node_submissions s
              ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
            WHERE n.flow_instance_id = ?""", (instance_id,),
     ).fetchall()

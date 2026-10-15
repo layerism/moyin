@@ -26,12 +26,12 @@ def invalidate_nodes(connection, instance_id, config, node_keys, now):
         connection.execute(
             "UPDATE node_instances SET status = 'locked', approved_at = NULL, or_winner_node_key = NULL, attempt_reset_no = attempt_no WHERE id = ?", (row['id'],),
         )
-        connection.execute('''UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id IN (SELECT id FROM submissions WHERE node_instance_id = ?) AND status = 'active' ''', (row['id'],))
+        connection.execute('''UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id IN (SELECT id FROM node_submissions WHERE node_instance_id = ?) AND status = 'active' ''', (row['id'],))
         node = next(item for item in config['nodes'] if item['id'] == node_key)
         if node.get('kind') in {'form', 'answer_sheet'}:
             connection.execute(
                 """INSERT INTO node_drafts (node_instance_id, payload, updated_at)
-                   SELECT node_instance_id, payload_snapshot, ? FROM submissions
+                   SELECT node_instance_id, payload_snapshot, ? FROM node_submissions
                    WHERE node_instance_id = ? AND attempt_no = ?
                    ON CONFLICT(node_instance_id) DO NOTHING""",
                 (now, row['id'], row['attempt_no']),

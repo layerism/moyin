@@ -152,7 +152,7 @@ def get_node_submission_export(
               ON i.flow_version_id = ? AND i.student_account_id = a.id
             LEFT JOIN node_instances n
               ON n.flow_instance_id = i.id AND n.node_key = ?
-            LEFT JOIN submissions s
+            LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
              AND s.status IN (?, ?, ?, ?)
             LEFT JOIN audit_jobs j ON j.submission_id = s.id

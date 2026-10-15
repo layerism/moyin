@@ -993,7 +993,7 @@ def _node_invalidation_before_data(
     ).fetchone()
     submissions = connection.execute(
         """
-        SELECT * FROM submissions
+        SELECT * FROM node_submissions
         WHERE node_instance_id = ?
         ORDER BY attempt_no, id
         """,
@@ -1012,7 +1012,7 @@ def _node_invalidation_before_data(
     ).fetchall()
     review_runs = connection.execute(
         """SELECT r.* FROM file_review_runs r
-           JOIN submissions s ON s.id = r.submission_id
+           JOIN node_submissions s ON s.id = r.submission_id
            WHERE s.node_instance_id = ? ORDER BY s.attempt_no""",
         (node["id"],),
     ).fetchall()
@@ -1020,7 +1020,7 @@ def _node_invalidation_before_data(
         """SELECT t.id, t.submission_id, t.step_index, t.status, t.attempt_count,
                   t.result_json, t.created_at, t.finished_at
            FROM file_review_ai_tasks t
-           JOIN submissions s ON s.id = t.submission_id
+           JOIN node_submissions s ON s.id = t.submission_id
            WHERE s.node_instance_id = ? ORDER BY s.attempt_no, t.step_index""",
         (node["id"],),
     ).fetchall()
@@ -1146,7 +1146,7 @@ def _audit_and_remove_node(
         """,
         (str(teacher_id), node["id"], canonical_json(before_data), now),
     )
-    connection.execute("DELETE FROM submissions WHERE node_instance_id = ?", (node["id"],))
+    connection.execute("DELETE FROM node_submissions WHERE node_instance_id = ?", (node["id"],))
     connection.execute("DELETE FROM node_drafts WHERE node_instance_id = ?", (node["id"],))
     connection.execute(
         """
@@ -1688,7 +1688,7 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
 
         connection.execute(
             """
-            DELETE FROM submissions WHERE node_instance_id IN (
+            DELETE FROM node_submissions WHERE node_instance_id IN (
                 SELECT n.id FROM node_instances n
                 JOIN flow_instances i ON i.id = n.flow_instance_id
                 JOIN flow_versions v ON v.id = i.flow_version_id

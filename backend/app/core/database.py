@@ -396,7 +396,7 @@ CREATE TABLE IF NOT EXISTS manual_feedback (
 CREATE INDEX IF NOT EXISTS idx_manual_feedback_node ON manual_feedback(flow_instance_id, node_key);
 CREATE TABLE IF NOT EXISTS file_review_feedback_context (
     feedback_id TEXT PRIMARY KEY REFERENCES manual_feedback(id) ON DELETE CASCADE,
-    submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    submission_id TEXT NOT NULL REFERENCES node_submissions(id) ON DELETE CASCADE,
     step_index INTEGER NOT NULL
 );
 
@@ -420,7 +420,7 @@ CREATE TABLE IF NOT EXISTS node_drafts (
     updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS submissions (
+CREATE TABLE IF NOT EXISTS node_submissions (
     id TEXT PRIMARY KEY,
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
     attempt_no INTEGER NOT NULL,
@@ -433,7 +433,7 @@ CREATE TABLE IF NOT EXISTS submissions (
 );
 
 CREATE TABLE IF NOT EXISTS answer_sheet_grades (
-    submission_id TEXT PRIMARY KEY REFERENCES submissions(id) ON DELETE CASCADE,
+    submission_id TEXT PRIMARY KEY REFERENCES node_submissions(id) ON DELETE CASCADE,
     score INTEGER NOT NULL CHECK (score >= 0),
     max_score INTEGER NOT NULL CHECK (max_score >= 0),
     passing_score INTEGER NOT NULL CHECK (passing_score >= 0),
@@ -446,7 +446,7 @@ CREATE TABLE IF NOT EXISTS answer_sheet_grades (
 
 CREATE TABLE IF NOT EXISTS answer_sheet_grade_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    submission_id TEXT NOT NULL REFERENCES node_submissions(id) ON DELETE CASCADE,
     score INTEGER NOT NULL CHECK (score >= 0),
     max_score INTEGER NOT NULL CHECK (max_score >= 0),
     passing_score INTEGER NOT NULL CHECK (passing_score >= 0),
@@ -465,7 +465,7 @@ CREATE TABLE IF NOT EXISTS uploaded_files (
     id TEXT PRIMARY KEY,
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
     student_account_id INTEGER NOT NULL REFERENCES student_accounts(id) ON DELETE CASCADE,
-    submission_id TEXT REFERENCES submissions(id) ON DELETE SET NULL,
+    submission_id TEXT REFERENCES node_submissions(id) ON DELETE SET NULL,
     storage_key TEXT NOT NULL UNIQUE,
     original_name TEXT NOT NULL,
     content_type TEXT NOT NULL,
@@ -497,7 +497,7 @@ CREATE INDEX IF NOT EXISTS idx_uploaded_files_submission
     ON uploaded_files(submission_id);
 
 CREATE TABLE IF NOT EXISTS file_review_runs (
-    submission_id TEXT PRIMARY KEY REFERENCES submissions(id) ON DELETE CASCADE,
+    submission_id TEXT PRIMARY KEY REFERENCES node_submissions(id) ON DELETE CASCADE,
     steps_json TEXT NOT NULL,
     step_index INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'rejected', 'cancelled'))
@@ -505,7 +505,7 @@ CREATE TABLE IF NOT EXISTS file_review_runs (
 
 CREATE TABLE IF NOT EXISTS file_review_ai_tasks (
     id TEXT PRIMARY KEY,
-    submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+    submission_id TEXT NOT NULL REFERENCES node_submissions(id) ON DELETE CASCADE,
     step_index INTEGER NOT NULL,
     snapshot_json TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('pending','running','succeeded','failed','cancelled')),
@@ -519,7 +519,7 @@ CREATE INDEX IF NOT EXISTS idx_file_review_task_status ON file_review_ai_tasks(s
 
 CREATE TABLE IF NOT EXISTS audit_jobs (
     id TEXT PRIMARY KEY,
-    submission_id TEXT NOT NULL UNIQUE REFERENCES submissions(id) ON DELETE CASCADE,
+    submission_id TEXT NOT NULL UNIQUE REFERENCES node_submissions(id) ON DELETE CASCADE,
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
     flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
@@ -605,6 +605,7 @@ def get_connection() -> sqlite3.Connection:
 
 def initialize_database() -> None:
     with get_connection() as connection:
+        _apply_node_submissions_rename(connection)
         connection.executescript(SCHEMA)
         _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema
@@ -641,6 +642,16 @@ def initialize_database() -> None:
     from app.core.node_configuration_migration import migrate_node_configuration
     with get_connection() as connection:
         migrate_node_configuration(connection)
+
+
+def _apply_node_submissions_rename(connection: sqlite3.Connection) -> None:
+    # Rename before SCHEMA creates the new table; SQLite preserves rows and
+    # constraints and updates foreign-key references in the existing schema.
+    legacy = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'submissions'"
+    ).fetchone()
+    if legacy is not None:
+        connection.execute("ALTER TABLE submissions RENAME TO node_submissions")
 
 
 def _apply_registration_allowlist_migration(connection: sqlite3.Connection) -> None:
@@ -924,7 +935,7 @@ def _apply_audit_hot_reload_migration(connection: sqlite3.Connection) -> None:
             """
             CREATE TABLE audit_jobs (
                 id TEXT PRIMARY KEY,
-                submission_id TEXT NOT NULL UNIQUE REFERENCES submissions(id) ON DELETE CASCADE,
+                submission_id TEXT NOT NULL UNIQUE REFERENCES node_submissions(id) ON DELETE CASCADE,
                 node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
                 flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
                 node_key TEXT NOT NULL,
@@ -973,7 +984,7 @@ def _apply_audit_hot_reload_migration(connection: sqlite3.Connection) -> None:
         )
         connection.execute(
             """
-            UPDATE submissions SET status = 'cancelled'
+            UPDATE node_submissions SET status = 'cancelled'
             WHERE id IN (SELECT submission_id FROM audit_jobs WHERE status = 'cancelled')
             """
         )
@@ -1016,7 +1027,7 @@ def _apply_answer_sheet_key_revision_migration(connection: sqlite3.Connection) -
             ON answer_sheet_key_revisions(flow_id, node_key, generation DESC);
         CREATE TABLE IF NOT EXISTS answer_sheet_grade_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            submission_id TEXT NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+            submission_id TEXT NOT NULL REFERENCES node_submissions(id) ON DELETE CASCADE,
             score INTEGER NOT NULL CHECK (score >= 0),
             max_score INTEGER NOT NULL CHECK (max_score >= 0),
             passing_score INTEGER NOT NULL CHECK (passing_score >= 0),

@@ -60,7 +60,7 @@ def list_manual_reviews(version_id, node_key, teacher_id):
             row = None
             if instance_id:
                 sync_branch_states(connection, instance_id, config)
-                row = connection.execute('SELECT n.id, n.status, s.id AS submission_id FROM node_instances n LEFT JOIN submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no WHERE n.flow_instance_id = ? AND n.node_key = ?', (instance_id, node_key)).fetchone()
+                row = connection.execute('SELECT n.id, n.status, s.id AS submission_id FROM node_instances n LEFT JOIN node_submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no WHERE n.flow_instance_id = ? AND n.node_key = ?', (instance_id, node_key)).fetchone()
             stage = review_stage(connection, row['submission_id']) if row else None
             result.append({
                 'id': student['roster_id'], 'name': student['name'], 'studentNo': student['student_no'],

@@ -119,7 +119,7 @@ def list_teacher_material_library(
                        u.size_bytes, u.created_at, u.display_order,
                        s.submitted_at, s.status AS submission_status
                 FROM uploaded_files u
-                JOIN submissions s ON s.id = u.submission_id
+                JOIN node_submissions s ON s.id = u.submission_id
                 JOIN node_instances n ON n.id = s.node_instance_id
                 JOIN flow_instances i ON i.id = n.flow_instance_id
                 JOIN flow_versions v ON v.id = i.flow_version_id
@@ -225,7 +225,7 @@ def get_teacher_material_library_file(
             SELECT u.id AS file_id, u.original_name, u.storage_key,
                    n.node_key, v.config_snapshot
             FROM uploaded_files u
-            JOIN submissions s ON s.id = u.submission_id
+            JOIN node_submissions s ON s.id = u.submission_id
             JOIN node_instances n ON n.id = s.node_instance_id
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
@@ -303,7 +303,7 @@ def get_version_materials(
                    u.display_order, u.created_at, n.node_key,
                    a.student_no, a.name AS student_name
             FROM uploaded_files u
-            JOIN submissions s ON s.id = u.submission_id
+            JOIN node_submissions s ON s.id = u.submission_id
             JOIN node_instances n ON n.id = s.node_instance_id
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN student_accounts a ON a.id = i.student_account_id
@@ -378,7 +378,7 @@ def get_node_instance_materials(
             """
             SELECT u.id AS file_id, u.original_name, u.storage_key,
                    u.display_order, u.created_at
-            FROM submissions s
+            FROM node_submissions s
             JOIN uploaded_files u ON u.submission_id = s.id
             WHERE s.node_instance_id = ? AND s.attempt_no = ?
               AND s.status IN (?, ?, ?, ?)

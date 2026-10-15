@@ -261,7 +261,7 @@ def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
     assert "请改为以“安全责任书”开头" in rejected.json()["detail"]
     with sqlite3.connect(settings.database_path) as connection:
         assert connection.execute(
-            "SELECT COUNT(*) FROM submissions WHERE node_instance_id = ?", (node_id,)
+            "SELECT COUNT(*) FROM node_submissions WHERE node_instance_id = ?", (node_id,)
         ).fetchone()[0] == 0
         assert connection.execute(
             "SELECT COUNT(*) FROM audit_jobs WHERE node_instance_id = ?", (node_id,)
@@ -288,7 +288,7 @@ def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
     assert accepted.status_code == 200
     with sqlite3.connect(settings.database_path) as connection:
         assert connection.execute(
-            "SELECT COUNT(*) FROM submissions WHERE node_instance_id = ?", (node_id,)
+            "SELECT COUNT(*) FROM node_submissions WHERE node_instance_id = ?", (node_id,)
         ).fetchone()[0] == 1
         assert connection.execute(
             "SELECT COUNT(*) FROM audit_jobs WHERE node_instance_id = ?", (node_id,)

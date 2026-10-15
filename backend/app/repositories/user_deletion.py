@@ -13,7 +13,7 @@ ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_sourc
          'manual_feedback_drafts', 'manual_feedback', 'manual_feedback_files', 'manual_reviews',
          'file_review_ai_tasks', 'file_review_runs', 'audit_jobs', 'answer_sheet_grade_history',
          'answer_sheet_grades',
-         'uploaded_files', 'template_download_events', 'submissions', 'node_drafts',
+         'uploaded_files', 'template_download_events', 'node_submissions', 'node_drafts',
          'student_deadline_overrides', 'flow_preview_sessions', 'node_instances', 'flow_instances',
          'flow_version_assets', 'flow_version_answer_keys',
          'share_tokens', 'workflow_blueprint_versions',
@@ -64,13 +64,13 @@ def scope(db, kind, account_id):
     children('flow_instances', 'student_account_id', 'student_accounts')
     children('flow_preview_sessions', 'flow_instance_id', 'flow_instances')
     children('node_instances', 'flow_instance_id', 'flow_instances')
-    children('submissions', 'node_instance_id', 'node_instances')
+    children('node_submissions', 'node_instance_id', 'node_instances')
     for table in ['manual_reviews', 'manual_feedback_files', 'manual_feedback', 'student_deadline_overrides']:
         children(table, 'flow_instance_id', 'flow_instances')
     for table in ['manual_source_reviews', 'manual_feedback_drafts', 'manual_node_rejections', 'node_drafts', 'uploaded_files', 'template_download_events', 'audit_jobs']:
         children(table, 'node_instance_id', 'node_instances')
     for table in ['answer_sheet_grades', 'answer_sheet_grade_history', 'file_review_runs', 'file_review_ai_tasks', 'file_review_feedback_context']:
-        children(table, 'submission_id', 'submissions')
+        children(table, 'submission_id', 'node_submissions')
     for table in ['flow_version_assets', 'flow_version_answer_keys', 'share_tokens']:
         children(table, 'flow_version_id', 'flow_versions')
     for table in ['answer_sheet_drafts', 'answer_sheet_key_revisions', 'flow_assets', 'flow_roster_entries']:
@@ -86,6 +86,8 @@ def scope(db, kind, account_id):
         for row in rows.values():
             key = json.dumps({column: row[column] for column in primary_keys}, ensure_ascii=False, sort_keys=True)
             select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:' + table, key))
+            if table == 'node_submissions':
+                select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:submissions', key))
             if table == 'flow_roster_entries':
                 select('audit_logs', "entity_type = 'flow_roster' AND entity_id = ?", (f"{row['flow_id']}:{row['id']}",))
             if table in ('student_accounts', 'teacher_accounts'):

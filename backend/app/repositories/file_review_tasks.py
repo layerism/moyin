@@ -43,7 +43,7 @@ def run_next_task(stopping=None):
                 v.flow_id, v.id AS flow_version_id, s.attempt_no
             FROM file_review_ai_tasks t
             JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
-            JOIN submissions s ON s.id = t.submission_id
+            JOIN node_submissions s ON s.id = t.submission_id
             JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
@@ -131,7 +131,7 @@ def run_next_task(stopping=None):
         if not state or state['status'] != 'ready' or state['generation'] != snapshot['generation'] or state['content_hash'] != snapshot['hash']:
             connection.execute("UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ? WHERE submission_id = ? AND status IN ('pending', 'running')", (now, task['submission_id']))
             connection.execute("UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id = ?", (task['submission_id'],))
-            connection.execute("UPDATE submissions SET status = 'cancelled' WHERE id = ?", (task['submission_id'],))
+            connection.execute("UPDATE node_submissions SET status = 'cancelled' WHERE id = ?", (task['submission_id'],))
             connection.execute("UPDATE node_instances SET status = 'available' WHERE id = ?", (task['node_instance_id'],))
             return True
         if node.get('kind') in {'file', 'confirmation'}:
@@ -142,7 +142,7 @@ def run_next_task(stopping=None):
         if result is None:
             connection.execute("UPDATE file_review_ai_tasks SET status = 'failed', finished_at = ? WHERE id = ?", (now, task['id']))
             connection.execute("UPDATE node_instances SET status = 'audit_error' WHERE id = ?", (task['node_instance_id'],))
-            connection.execute("UPDATE submissions SET status = 'audit_error' WHERE id = ?", (task['submission_id'],))
+            connection.execute("UPDATE node_submissions SET status = 'audit_error' WHERE id = ?", (task['submission_id'],))
         else:
             connection.execute("UPDATE file_review_ai_tasks SET status = 'succeeded', result_json = ?, finished_at = ? WHERE id = ?", (json.dumps(result, ensure_ascii=False), now, task['id']))
             from app.repositories.file_reviews import finish_step
@@ -153,7 +153,7 @@ def run_next_task(stopping=None):
 def _task_is_active(connection, task_id, now):
     return connection.execute('''SELECT t.id FROM file_review_ai_tasks t
             JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
-            JOIN submissions s ON s.id = t.submission_id
+            JOIN node_submissions s ON s.id = t.submission_id
             JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
             JOIN flow_instances i ON i.id = n.flow_instance_id JOIN flow_versions v ON v.id = i.flow_version_id
             WHERE t.id = ? AND t.status = 'running' AND n.status = 'reviewing'

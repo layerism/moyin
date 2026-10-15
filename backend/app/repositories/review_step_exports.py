@@ -52,7 +52,7 @@ def get_review_step_exports(connection, submission_ids: list[str], node) -> dict
     for row in connection.execute(
         f"""SELECT m.* FROM manual_reviews m
             WHERE m.node_instance_id IN (
-                SELECT node_instance_id FROM submissions WHERE id IN ({placeholders})
+                SELECT node_instance_id FROM node_submissions WHERE id IN ({placeholders})
             ) ORDER BY m.created_at, m.rowid""",
         tuple(submission_ids),
     ):

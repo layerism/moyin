@@ -2,9 +2,9 @@
 
 更新日期：2026-10-15（重新核对当前源码与本地数据库）。
 
-**当前结构：源码与本地数据库均有 15 张目标表，Flow 类 8 张、Node 类 3 张、Workflow 类 4 张。** 第一批资源精简及本次节点参数统一存储已落地；模板三表仍被现有接口使用，`flows` 尚无 `kind`、`is_shared` 字段。“模板内容固定、复制后独立使用”及进一步缩减到 12 张目标表的方向仍是讨论方案，不是当前实现。
+**当前结构：源码与本地数据库均有 16 张目标表，Flow 类 8 张、Node 类 4 张、Workflow 类 4 张。** 第一批资源精简及本次节点参数统一存储已落地；模板三表仍被现有接口使用，`flows` 尚无 `kind`、`is_shared` 字段。“模板内容固定、复制后独立使用”及进一步缩减到 12 张目标表的方向仍是讨论方案，不是当前实现。
 
-文档面向项目全部数据库表，文件名不限定前缀。本轮逐表核对范围仍为 `flow`、`node`、`workflow` 前缀，包含 `flows`；本地共有 51 张非 SQLite 内部表，其余 36 张仅按依赖追查，不宣称已完成全库逐表审计。
+文档面向项目全部数据库表，文件名不限定前缀。本轮逐表核对范围仍为 `flow`、`node`、`workflow` 前缀，包含 `flows`；本地共有 51 张非 SQLite 内部表，其余 35 张仅按依赖追查，不宣称已完成全库逐表审计。
 
 依据根目录 [MEMORY.md](../MEMORY.md) 的事实来源顺序，核对建表与迁移、仓储读写、模板 API 和前端请求定义；以 SQLite `mode=ro`、`query_only` 在同一只读事务内复核结构与行数。下列数量包含归档、停用和预览相关记录，不是当前活跃业务量。本次已修改业务代码、执行数据库迁移并本地重启服务；验证范围为静态审计、迁移数据核对及启动日志，未运行测试、构建、HTTP 或浏览器验证。
 
@@ -31,13 +31,14 @@
 
 依据：[database.py](../backend/app/core/database.py)、[workflows.py](../backend/app/repositories/workflows.py)、[flow_assets.py](../backend/app/repositories/flow_assets.py)、[flow_roster.py](../backend/app/repositories/flow_roster.py)、[flow_previews.py](../backend/app/repositories/flow_previews.py)、[answer_sheet_keys.py](../backend/app/repositories/answer_sheet_keys.py)、[flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)、[published_node_parameters.py](../backend/app/repositories/published_node_parameters.py)。
 
-### 1.2 Node 类：3 张
+### 1.2 Node 类：4 张
 
 | 表名 | 本地行数 | 一条记录表示什么 | 职责与主要读写场景 |
 | --- | ---: | --- | --- |
 | `node_instances` | 1,092 | 一个学生流程实例中的一个节点 | 按 `(flow_instance_id, node_key)` 唯一；保存状态、开放/提交/通过时间、尝试次数与重置基线、或节点胜出前驱。关联草稿、提交和审核；节点定义仍在配置 JSON 中 |
 | `node_drafts` | 10 | 一个节点实例尚未正式提交的输入 | 以 `node_instance_id` 为主键，一实例至多一份；暂存覆盖，成功提交后删除，撤销通过时可恢复。它不是提交历史；已通过节点也可能存在新草稿 |
 | `node_redo_dependencies` | 0 | 某学生实例中一次返工产生的等待关系 | 主键为实例、源节点、目标节点；教师撤销通过时记录，路径判断时阻塞目标，源节点重新通过后清理。0 行仅表示当前没有这类记录 |
+| `node_submissions` | 499 | 某学生节点实例的一次正式提交 | 原表名 `submissions`，仅重命名；字段和记录内容保持不变。保存 `payload_snapshot`、提交次数编号、幂等标识、状态和提交时间；按 `(node_instance_id, attempt_no)` 及 `(node_instance_id, idempotency_key)` 唯一 |
 
 `node_audit_policies` 和 `node_review_step_policies` 已迁移并删除：原单脚本策略迁入对应节点，原多步骤参数覆盖合并到对应审核步骤。两类接口保留，但底层共用节点配置，不再单独存储；审核任务保留实际执行参数快照及历史记录。`publishedNodeParameters` 已移除。
 
@@ -68,7 +69,7 @@ flowchart LR
     V --> I[flow_instances 学生执行]
     I --> N[node_instances 节点状态]
     N --> D[node_drafts 当前暂存]
-    N --> S[submissions 正式提交]
+    N --> S[node_submissions 正式提交]
     F --> R[flow_roster_entries 准入授权]
     F --> A[flow_assets 教师资源]
     I --> X[node_redo_dependencies 返工关系]
@@ -81,7 +82,7 @@ flowchart LR
     BD[workflow_blueprint_drafts 编辑关联] --> F
 ```
 
-箭头表示业务关联，不表示外键方向或全部基数；图中 `submissions` 用于说明提交边界，不计入本次 15 张目标表。流程定义、学生状态、暂存和正式提交具有不同生命周期，不能仅因部分字段类似就合并。
+箭头表示业务关联，不表示外键方向或全部基数；图中 `node_submissions` 计入本次 16 张目标表。流程定义、学生状态、暂存和正式提交具有不同生命周期，不能仅因部分字段类似就合并。
 
 ### 1.5 本次节点配置整改结果
 

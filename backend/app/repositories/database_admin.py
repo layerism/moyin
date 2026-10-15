@@ -50,7 +50,7 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
         frozenset({"deadline_at", "reason"}), deletable=True
     ),
     "student_sessions": TablePolicy(deletable=True),
-    "submissions": TablePolicy(frozenset({"status"}), deletable=True),
+    "node_submissions": TablePolicy(frozenset({"status"}), deletable=True),
     "teacher_accounts": TablePolicy(
         frozenset({"employee_no", "name", "status"}), deletable=True
     ),

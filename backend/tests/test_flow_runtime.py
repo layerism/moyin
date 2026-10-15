@@ -190,7 +190,7 @@ def test_approved_form_can_be_amended_without_relocking_downstream(
     with get_connection() as connection:
         rows = connection.execute(
             """
-            SELECT attempt_no, payload_snapshot, status FROM submissions
+            SELECT attempt_no, payload_snapshot, status FROM node_submissions
             WHERE node_instance_id = ? ORDER BY attempt_no
             """,
             (form["id"],),

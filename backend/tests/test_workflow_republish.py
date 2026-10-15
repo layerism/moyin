@@ -181,7 +181,7 @@ def _node_before_data(node_instance_id: str) -> dict[str, object]:
             "SELECT * FROM node_drafts WHERE node_instance_id = ?", (node_instance_id,)
         ).fetchone()
         submissions = connection.execute(
-            "SELECT * FROM submissions WHERE node_instance_id = ? ORDER BY attempt_no, id",
+            "SELECT * FROM node_submissions WHERE node_instance_id = ? ORDER BY attempt_no, id",
             (node_instance_id,),
         ).fetchall()
         override = connection.execute(
@@ -307,7 +307,7 @@ def test_content_change_resets_only_changed_branch_and_preserves_artifacts(
     with get_connection() as connection:
         assert (
             connection.execute(
-                "SELECT 1 FROM submissions WHERE node_instance_id = ?", (node_ids["left"],)
+                "SELECT 1 FROM node_submissions WHERE node_instance_id = ?", (node_ids["left"],)
             ).fetchone()
             is None
         )
@@ -365,7 +365,7 @@ def test_layout_only_republish_preserves_all_progress_and_has_no_invalidation_au
     _add_node_artifacts(original["id"], node_ids)  # type: ignore[index,arg-type]
     before_nodes = _table_rows("node_instances")
     before_drafts = _table_rows("node_drafts")
-    before_submissions = _table_rows("submissions")
+    before_submissions = _table_rows("node_submissions")
     before_overrides = _table_rows("student_deadline_overrides")
     changed = deepcopy(BASE_CONFIG)
     changed["nodes"][0].update({"x": 300, "y": 120, "deadlineAt": "2030-01-01"})
@@ -374,7 +374,7 @@ def test_layout_only_republish_preserves_all_progress_and_has_no_invalidation_au
 
     assert _table_rows("node_instances") == before_nodes
     assert _table_rows("node_drafts") == before_drafts
-    assert _table_rows("submissions") == before_submissions
+    assert _table_rows("node_submissions") == before_submissions
     assert _table_rows("student_deadline_overrides") == before_overrides
     migrated = client.get(
         f"/api/student/flow-instances/{original['id']}"  # type: ignore[index]
@@ -1030,7 +1030,7 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
         "flow_instances",
         "node_instances",
         "node_drafts",
-        "submissions",
+        "node_submissions",
         "student_deadline_overrides",
         "audit_logs",
     )

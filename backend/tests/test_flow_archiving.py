@@ -94,7 +94,7 @@ def test_delete_removes_flow_owned_data_and_retains_accounts_and_audit(
         )
         connection.execute(
             """
-            INSERT INTO submissions
+            INSERT INTO node_submissions
                 (id, node_instance_id, attempt_no, idempotency_key,
                  payload_snapshot, status, submitted_at)
             VALUES ('delete-test-submission', ?, 1, 'delete-test-key', '{}', 'approved', ?)
@@ -157,7 +157,7 @@ def test_delete_removes_flow_owned_data_and_retains_accounts_and_audit(
                 (node_instance_id,),
             ).fetchone()["count"],
             "submissions": connection.execute(
-                "SELECT COUNT(*) AS count FROM submissions WHERE node_instance_id = ?",
+                "SELECT COUNT(*) AS count FROM node_submissions WHERE node_instance_id = ?",
                 (node_instance_id,),
             ).fetchone()["count"],
             "student_deadline_overrides": connection.execute(
