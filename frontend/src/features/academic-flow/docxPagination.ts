@@ -70,16 +70,16 @@ export async function paginateDocx(body: HTMLElement, signal: AbortSignal): Prom
     for (let entryIndex = 0; entryIndex < blocks.length; entryIndex++) {
       await yieldLayout();
       const entry = blocks[entryIndex];
-      // Keep chains together when the whole chain fits on an empty page.
+      // Start an overflowing keepNext chain on a fresh page, even when the
+      // chain itself exceeds one page. Its contents can then paginate normally.
+      // Requiring the entire chain to fit silently drops keepNext for long tables.
       let chainEnd = entryIndex;
       while (blocks[chainEnd]?.block.dataset.docxKeepNext === "1"
         && blocks[chainEnd + 1]?.shell === entry.shell) chainEnd++;
       if (chainEnd > entryIndex && count > 0) {
         const chain = blocks.slice(entryIndex, chainEnd + 1).map((part) => part.block);
         chain.forEach((part) => container(entry.shell).appendChild(part));
-        const needed = chain[chain.length - 1].getBoundingClientRect().bottom - chain[0].getBoundingClientRect().top;
-        const available = bottom() - article!.getBoundingClientRect().top;
-        const move = !fits(chain[chain.length - 1]) && needed <= available;
+        const move = !fits(chain[chain.length - 1]);
         chain.forEach((part) => part.remove());
         if (move) nextPage("keepNext");
       }
