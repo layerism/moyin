@@ -16,8 +16,7 @@ ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_sourc
          'uploaded_files', 'template_download_events', 'node_submissions', 'node_drafts',
          'student_deadline_overrides', 'flow_preview_sessions', 'node_instances', 'flow_instances',
          'flow_version_assets', 'flow_version_answer_keys',
-         'share_tokens', 'workflow_blueprint_versions',
-         'workflow_blueprints', 'flow_versions', 'answer_sheet_drafts',
+         'share_tokens', 'flow_versions', 'answer_sheet_drafts',
          'answer_sheet_key_revisions',
          'flow_assets', 'flow_roster_entries', 'flows',
          'flow_groups',
@@ -50,10 +49,6 @@ def scope(db, kind, account_id):
         select('flows', 'owner_id = ?', (str(account_id),))
         select('flow_groups', 'owner_teacher_id = ?', (account_id,))
         select('student_accounts', 'preview_owner_teacher_id = ?', (account_id,))
-        select('workflow_blueprints', 'created_by = ?', (account_id,))
-        children('workflow_blueprint_versions', 'blueprint_id', 'workflow_blueprints')
-        children('flows', 'id', 'workflow_blueprints', 'snapshot_flow_id')
-        children('flows', 'id', 'workflow_blueprint_versions', 'snapshot_flow_id')
         select('audit_model_bindings', 'owner_teacher_id = ?', (account_id,))
         select('audit_model_cards', 'owner_teacher_id = ?', (account_id,))
         select('teacher_invitations', 'created_by = ? OR used_by_teacher_id = ? OR employee_no = ?', (account_id, account_id, account['employee_no']))

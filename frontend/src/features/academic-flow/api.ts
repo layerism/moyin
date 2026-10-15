@@ -290,19 +290,10 @@ export const workflowApi = {
   listWorkflowTemplates() {
     return request<WorkflowTemplate[]>("/api/workflow-templates");
   },
-  publishWorkflowTemplate(payload: { sourceFlowId: string; name: string; description: string }, id?: string) {
-    return request<{ id: string }>(id ? `/api/workflow-templates/${encodeURIComponent(id)}` : "/api/workflow-templates", {
-      method: id ? "PUT" : "POST", body: JSON.stringify(payload),
+  publishWorkflowTemplate(payload: { sourceFlowId: string; name: string; description: string }) {
+    return request<{ id: string }>("/api/workflow-templates", {
+      method: "POST", body: JSON.stringify(payload),
     });
-  },
-  openWorkflowTemplateEditor(id: string) {
-    return request<{ flow: ServerFlow; name: string; description: string }>(`/api/workflow-templates/${encodeURIComponent(id)}/edit`, { method: "POST" });
-  },
-  updateWorkflowTemplateFromDraft(id: string, payload: { sourceFlowId: string; name: string; description: string }) {
-    return request<{ id: string }>(`/api/workflow-templates/${encodeURIComponent(id)}/edit`, { method: "PUT", body: JSON.stringify(payload) });
-  },
-  discardWorkflowTemplateDraft(id: string) {
-    return request<void>(`/api/workflow-templates/${encodeURIComponent(id)}/edit`, { method: "DELETE" });
   },
   setWorkflowTemplateActive(id: string, active: boolean) {
     return request(`/api/workflow-templates/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ active }) });

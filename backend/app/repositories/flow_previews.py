@@ -153,7 +153,7 @@ def create_preview(flow_id: str, teacher_id: int) -> tuple[dict[str, object], st
         flow = connection.execute(
             """
             SELECT id, draft_config FROM flows
-            WHERE id = ? AND owner_id = ? AND status != 'archived'
+            WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'
             """,
             (flow_id, str(teacher_id)),
         ).fetchone()

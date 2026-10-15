@@ -5,9 +5,10 @@ from app.domain.workflow import FlowValidationError
 from app.domain.answer_sheet import AnswerSheetConfigError
 from app.repositories.flow_content_assets import ContentAssetError
 from app.repositories.flow_announcement_files import AnnouncementFileError
+from app.repositories.workflows import DuplicateFlowNameError
 from app.repositories.workflow_blueprints import (
     BlueprintConflictError, list_blueprints, publish_blueprint, set_blueprint_active, use_blueprint,
-    open_blueprint_draft, discard_blueprint_draft, delete_blueprint,
+    delete_blueprint,
 )
 from app.services.object_storage import ObjectStorageError
 from app.services.security import get_current_teacher
@@ -36,7 +37,7 @@ def perform(operation):
         return operation()
     except KeyError as exc:
         raise HTTPException(404, "模板或源流程不存在，或无权访问") from exc
-    except BlueprintConflictError as exc:
+    except (BlueprintConflictError, DuplicateFlowNameError) as exc:
         raise HTTPException(409, str(exc)) from exc
     except (FlowValidationError, AnswerSheetConfigError, ContentAssetError, AnnouncementFileError) as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -57,14 +58,6 @@ def publish(payload: PublishBlueprint, teacher: dict = Depends(template_admin)):
     return {"id": template_id}
 
 
-@router.put("/{template_id}")
-def update(template_id: str, payload: PublishBlueprint, teacher: dict = Depends(template_admin)):
-    perform(lambda: publish_blueprint(
-        payload.sourceFlowId, payload.name, payload.description, int(teacher["id"]), template_id,
-    ))
-    return {"id": template_id}
-
-
 @router.patch("/{template_id}")
 def availability(template_id: str, payload: BlueprintAvailability, teacher: dict = Depends(template_admin)):
     perform(lambda: set_blueprint_active(template_id, payload.active, int(teacher["id"])))
@@ -74,23 +67,6 @@ def availability(template_id: str, payload: BlueprintAvailability, teacher: dict
 @router.post("/{template_id}/use", status_code=201)
 def use(template_id: str, teacher: dict = Depends(get_current_teacher)):
     return perform(lambda: use_blueprint(template_id, int(teacher["id"])))
-
-
-@router.post("/{template_id}/edit")
-def edit(template_id: str, teacher: dict = Depends(template_admin)):
-    return perform(lambda: open_blueprint_draft(template_id, int(teacher['id'])))
-
-
-@router.put("/{template_id}/edit")
-def commit_edit(template_id: str, payload: PublishBlueprint, teacher: dict = Depends(template_admin)):
-    perform(lambda: publish_blueprint(payload.sourceFlowId, payload.name, payload.description,
-                                     int(teacher['id']), template_id, editing=True))
-    return {"id": template_id}
-
-
-@router.delete("/{template_id}/edit", status_code=204)
-def discard_edit(template_id: str, teacher: dict = Depends(template_admin)):
-    perform(lambda: discard_blueprint_draft(template_id, int(teacher['id'])))
 
 
 @router.delete("/{template_id}", status_code=204)

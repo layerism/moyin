@@ -1,4 +1,3 @@
-import { WorkflowTemplateDesigner } from "./WorkflowTemplateDesigner";
 import { PersonalDriveUploadButton } from "../home/PersonalDriveUploadButton";
 import { DriveNavIcon } from "../home/DriveNavIcon";
 import { WorkflowIcon } from "../home/WorkflowIcon";
@@ -25,12 +24,6 @@ export function WorkflowTemplatesPage({
   onCreated: (flow: ServerFlow) => void;
 }) {
   const admin = teacherIdentity.role === "super_admin";
-  const [editingId, setEditingId] = useState(() => new URLSearchParams(window.location.search).get("edit"));
-  useEffect(() => {
-    const sync = () => setEditingId(new URLSearchParams(window.location.search).get("edit"));
-    window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
-  }, []);
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -98,12 +91,6 @@ export function WorkflowTemplatesPage({
   const visible = templates.filter((template) =>
     `${template.name} ${template.description}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
 
-  if (editingId && admin) return <WorkflowTemplateDesigner key={editingId} templateId={editingId} onBack={() => {
-    window.history.pushState(null, "", "/workflow-templates");
-    setEditingId(null);
-    void load();
-  }} />;
-
   return <main className="home-page">
     <aside className="drive-sidebar">
       <div className="drive-logo"><span className="logo-mark">T</span><strong>材料收集</strong></div>
@@ -142,10 +129,6 @@ export function WorkflowTemplatesPage({
             </div>
             <div className="workflow-template-actions">
               {admin ? <>
-                <button aria-label={`更新模板 ${template.name}`} className="workflow-template-icon-action" disabled={busy !== null} title="更新模板" type="button" onClick={() => {
-                  window.history.pushState(null, "", `/workflow-templates?edit=${encodeURIComponent(template.id)}`);
-                  setEditingId(template.id);
-                }}><WorkflowIcon name="edit" /></button>
                 <button aria-label={`${template.active ? "下架" : "上架"}模板 ${template.name}`} className="workflow-template-icon-action" disabled={busy !== null} title={template.active ? "下架模板" : "上架模板"} type="button" onClick={() => void changeAvailability(template)}><WorkflowIcon name={template.active ? "eyeOff" : "eye"} /></button>
                 <button aria-label={`删除模板 ${template.name}`} className="workflow-template-icon-action danger" disabled={busy !== null} title="删除模板" type="button" onClick={() => { setDeleteError(""); setDeleteTarget(template); }}><WorkflowIcon name="trash" /></button>
               </> : null}
@@ -166,7 +149,7 @@ export function WorkflowTemplatesPage({
           }}><option value="" disabled hidden>选择自己的流程</option>{processes.map((process) => <option key={process.id} value={process.serverId ?? process.id}>{process.name}</option>)}</select></label>
           <label>模板名称<input required maxLength={120} disabled={busy !== null} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
           <label>模板简介<textarea maxLength={500} rows={3} disabled={busy !== null} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label>
-          <p>保存来源流程的当前草稿及附件；不包含学生数据，开始和截止时间会清空。已创建的流程不受影响。</p>
+          <p>将来源流程保存为不可编辑的独立模板，不包含学生数据、日期和私人模型配置。需要修改时，请使用模板创建草稿后再发布新模板。</p>
           {formError ? <p className="dialog-error" role="alert">{formError}</p> : null}
           <footer><button type="button" disabled={busy !== null} onClick={() => setDraft(null)}>取消</button><button className="primary-action" type="submit" disabled={busy !== null || !draft.sourceFlowId || !draft.name.trim()}>{busy === "publish" ? "正在保存…" : "发布模板"}</button></footer>
         </form>
@@ -203,7 +186,7 @@ function TemplateDeleteDialog({ template, busy, error, onCancel, onConfirm }: {
     </header>
     <div className="template-delete-body">
       <div className="template-delete-target"><DriveNavIcon kind="template" /><strong>{template.name}</strong></div>
-      <p id="template-delete-description">删除后将关闭关联编辑草稿，已创建的流程不受影响。</p>
+      <p id="template-delete-description">删除后模板将归档并下架，已创建的流程不受影响。</p>
       {error ? <p className="dialog-error" role="alert">{error}</p> : null}
     </div>
     <footer>

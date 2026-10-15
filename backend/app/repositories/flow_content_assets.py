@@ -26,7 +26,7 @@ def get_editable_content_node(
         flow = connection.execute(
             """
             SELECT draft_config FROM flows
-            WHERE id = ? AND owner_id = ? AND status != 'archived'
+            WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'
             """,
             (flow_id, str(teacher_id)),
         ).fetchone()
@@ -131,7 +131,7 @@ def save_content_asset(
     flow = connection.execute(
         """
         SELECT draft_config FROM flows
-        WHERE id = ? AND owner_id = ? AND status != 'archived'
+        WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'
         """,
         (flow_id, str(teacher_id)),
     ).fetchone()
@@ -186,7 +186,7 @@ def remove_content_asset(
         """
         SELECT a.storage_key FROM flow_assets a
         JOIN flows f ON f.id = a.flow_id
-        WHERE a.asset_kind = 'content' AND a.id = ? AND a.flow_id = ? AND f.owner_id = ? AND f.status != 'archived'
+        WHERE a.asset_kind = 'content' AND a.id = ? AND a.flow_id = ? AND f.owner_id = ? AND f.kind = 'normal' AND f.status != 'archived'
         """,
         (asset_id, flow_id, str(teacher_id)),
     ).fetchone()

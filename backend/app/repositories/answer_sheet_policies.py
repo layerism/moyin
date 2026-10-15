@@ -23,7 +23,7 @@ def _published_answer_sheet(
         SELECT v.id, v.config_snapshot
         FROM flow_versions v
         JOIN flows f ON f.id = v.flow_id
-        WHERE v.flow_id = ? AND f.owner_id = ? AND f.status != 'archived'
+        WHERE v.flow_id = ? AND f.owner_id = ? AND f.kind = 'normal' AND f.status != 'archived'
           AND v.status = 'published'
         ORDER BY v.version_no DESC LIMIT 1
         """,

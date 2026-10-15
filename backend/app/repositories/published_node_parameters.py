@@ -45,7 +45,7 @@ def stored_draft(connection, flow_id, config):
 def published_node(connection, flow_id, node_key, teacher_id, kind):
     from app.repositories.flow_runtime_state import version_config
     version = connection.execute('''SELECT v.id FROM flow_versions v JOIN flows f ON f.id = v.flow_id
-        WHERE f.id = ? AND f.owner_id = ? AND f.status != 'archived' AND v.status = 'published'
+        WHERE f.id = ? AND f.owner_id = ? AND f.kind = 'normal' AND f.status != 'archived' AND v.status = 'published'
         ORDER BY v.version_no DESC LIMIT 1''', (flow_id, str(teacher_id))).fetchone()
     if version:
         config = version_config(connection, version['id'])

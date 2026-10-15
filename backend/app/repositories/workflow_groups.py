@@ -31,7 +31,7 @@ def _select_group(
         """
         SELECT g.*, COUNT(f.id) AS flow_count
         FROM flow_groups g
-        LEFT JOIN flows f ON f.group_id = g.id AND f.status != 'archived'
+        LEFT JOIN flows f ON f.group_id = g.id AND f.kind = 'normal' AND f.status != 'archived'
         WHERE g.id = ? AND g.owner_teacher_id = ?
         GROUP BY g.id
         """,
@@ -57,7 +57,7 @@ def list_workflow_groups(teacher_id: int) -> list[dict[str, object]]:
             """
             SELECT g.*, COUNT(f.id) AS flow_count
             FROM flow_groups g
-            LEFT JOIN flows f ON f.group_id = g.id AND f.status != 'archived'
+            LEFT JOIN flows f ON f.group_id = g.id AND f.kind = 'normal' AND f.status != 'archived'
             WHERE g.owner_teacher_id = ?
             GROUP BY g.id
             ORDER BY g.created_at, g.id
@@ -170,7 +170,7 @@ def move_flow_to_group(
         flow = connection.execute(
             """
             SELECT id, group_id FROM flows
-            WHERE id = ? AND owner_id = ? AND status != 'archived'
+            WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'
             """,
             (flow_id, str(teacher_id)),
         ).fetchone()

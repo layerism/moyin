@@ -162,36 +162,10 @@ CREATE TABLE IF NOT EXISTS flows (
     status TEXT NOT NULL DEFAULT 'draft',
     draft_config TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
     group_id TEXT REFERENCES flow_groups(id) ON DELETE RESTRICT,
+    kind TEXT NOT NULL DEFAULT 'normal' CHECK (kind IN ('normal', 'template')),
+    is_shared INTEGER NOT NULL DEFAULT 0 CHECK (is_shared IN (0, 1) AND (kind = 'template' OR is_shared = 0)),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS workflow_blueprints (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL DEFAULT '',
-    snapshot_flow_id TEXT NOT NULL REFERENCES flows(id),
-    active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
-    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS workflow_blueprint_drafts (
-    blueprint_id TEXT NOT NULL REFERENCES workflow_blueprints(id),
-    teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    flow_id TEXT NOT NULL UNIQUE REFERENCES flows(id) ON DELETE CASCADE,
-    base_snapshot_flow_id TEXT NOT NULL REFERENCES flows(id),
-    base_updated_at TEXT NOT NULL,
-    PRIMARY KEY (blueprint_id, teacher_id)
-);
-
-CREATE TABLE IF NOT EXISTS workflow_blueprint_versions (
-    id TEXT PRIMARY KEY,
-    blueprint_id TEXT NOT NULL REFERENCES workflow_blueprints(id),
-    snapshot_flow_id TEXT NOT NULL UNIQUE REFERENCES flows(id),
-    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS flow_roster_entries (
@@ -643,6 +617,9 @@ def initialize_database() -> None:
     from app.core.node_configuration_migration import migrate_node_configuration
     with get_connection() as connection:
         migrate_node_configuration(connection)
+    from app.core.flow_template_migration import migrate_flow_templates
+    with get_connection() as connection:
+        migrate_flow_templates(connection)
 
 
 def _apply_node_submissions_rename(connection: sqlite3.Connection) -> None:

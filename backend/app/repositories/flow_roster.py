@@ -52,7 +52,7 @@ def _ensure_owned_flow(
     connection: sqlite3.Connection, flow_id: str, teacher_id: int
 ) -> None:
     row = connection.execute(
-        "SELECT 1 FROM flows WHERE id = ? AND owner_id = ?",
+        "SELECT 1 FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal'",
         (flow_id, str(teacher_id)),
     ).fetchone()
     if row is None:

@@ -173,6 +173,8 @@ def update_admin_row(
         ).fetchone()
         if before is None:
             raise KeyError(table)
+        if table == 'flows' and before['kind'] == 'template':
+            raise DatabaseAdminError('固定模板不可在数据库编辑器中修改，请使用模板库管理上下架')
         connection.execute(
             f"UPDATE {_quoted_identifier(table)} SET {set_clause} WHERE {where_clause}",
             [*changes.values(), *key_values],
@@ -233,6 +235,8 @@ def delete_admin_row(
             ).fetchone()
             if before is None:
                 raise KeyError(table)
+            if table == 'flows' and before['kind'] == 'template':
+                raise DatabaseAdminError('请从模板库归档模板，不能直接删除固定模板记录')
             redacted_before = _redact_row(dict(before))
             connection.execute(
                 f"DELETE FROM {_quoted_identifier(table)} WHERE {where_clause}", key_values

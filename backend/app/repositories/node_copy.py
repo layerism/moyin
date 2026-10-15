@@ -27,7 +27,7 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
         with get_connection() as db:
             db.execute("BEGIN IMMEDIATE")
             if db.execute(
-                "SELECT 1 FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+                "SELECT 1 FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'",
                 (flow_id, str(teacher_id)),
             ).fetchone() is None:
                 raise KeyError(flow_id)

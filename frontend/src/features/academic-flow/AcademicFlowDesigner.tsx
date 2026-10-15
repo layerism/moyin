@@ -186,14 +186,12 @@ function createDraftWorkingProcess(process: AcademicProcess): AcademicProcess {
 }
 
 export function AcademicFlowDesigner({
-  templateMode = false,
   onBack,
   onPublishProcess,
   onProcessChange,
   onSaveProcess,
   process,
 }: {
-  templateMode?: boolean;
   onBack: () => void;
   onPublishProcess: (
     process: AcademicProcess,
@@ -359,7 +357,6 @@ export function AcademicFlowDesigner({
   }, [revisionDirty]);
 
   useEffect(() => {
-    if (templateMode) return;
     let cancelled = false;
     workflowApi
       .getRoster(serverFlowId)
@@ -372,7 +369,7 @@ export function AcademicFlowDesigner({
     return () => {
       cancelled = true;
     };
-  }, [serverFlowId, templateMode]);
+  }, [serverFlowId]);
 
   const saveWorkingDraft = async (
     candidate: AcademicProcess,
@@ -425,7 +422,7 @@ export function AcademicFlowDesigner({
       setRevisionDirty(false);
       setRevisionImpact(null);
       setPendingPublishProcess(null);
-      setActionNotice(templateMode ? "模板已更新" : candidate.published ? "重新发布成功" : "发布成功");
+      setActionNotice(candidate.published ? "重新发布成功" : "发布成功");
     } catch (reason) {
       const shouldReloadRevision =
         reason instanceof ApiError
@@ -520,7 +517,6 @@ export function AcademicFlowDesigner({
   };
 
   const handlePublishButtonClick = () => {
-    if (templateMode) { void publishProcess(workingProcess); return; }
     void preparePublish();
   };
 
@@ -895,8 +891,8 @@ export function AcademicFlowDesigner({
     <main className="academic-standalone-page designer-standalone-page">
       <AcademicStandaloneHeader
         currentLabel={workingProcess.name}
-        parentLabel={templateMode ? "流程模板" : "教务流程"}
-        onBack={() => requestNavigation(templateMode ? "模板列表" : "教务流程列表", onBack)}
+        parentLabel="教务流程"
+        onBack={() => requestNavigation("教务流程列表", onBack)}
       />
       <section className="academic-workspace-main designer-workspace-main">
         <header className="academic-topbar designer-topbar">
@@ -921,9 +917,9 @@ export function AcademicFlowDesigner({
             </div>
           </div>
           <div className="academic-actions">
-            {!templateMode ? <button onClick={() => setShowRoster(true)}>
+            <button onClick={() => setShowRoster(true)}>
               学生名单{rosterActiveCount === null ? "" : ` (${rosterActiveCount})`}
-            </button> : null}
+            </button>
             <button disabled={operationLocked} onClick={() => void openPreview()} type="button">
               {previewCreating ? "正在创建预览" : "预览"}
             </button>
@@ -939,11 +935,11 @@ export function AcademicFlowDesigner({
             </button>
             <button
               className="primary-action"
-              disabled={templateMode ? operationLocked : publishButtonState.disabled}
+              disabled={publishButtonState.disabled}
               onClick={handlePublishButtonClick}
-              title={templateMode ? "保存并更新模板库中的版本" : publishButtonState.title}
+              title={publishButtonState.title}
             >
-              {templateMode ? (saving ? "正在更新…" : "更新模板") : publishButtonState.label}
+              {publishButtonState.label}
             </button>
           </div>
         </header>

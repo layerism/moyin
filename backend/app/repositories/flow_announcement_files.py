@@ -81,7 +81,7 @@ def get_editable_announcement_node(flow_id: str, node_key: str, teacher_id: int)
         flow = connection.execute(
             """
             SELECT draft_config FROM flows
-            WHERE id = ? AND owner_id = ? AND status != 'archived'
+            WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'
             """,
             (flow_id, str(teacher_id)),
         ).fetchone()
@@ -105,7 +105,7 @@ def create_announcement_file(
         flow = connection.execute(
             """
             SELECT draft_config FROM flows
-            WHERE id = ? AND owner_id = ? AND status != 'archived'
+            WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'
             """,
             (flow_id, str(teacher_id)),
         ).fetchone()

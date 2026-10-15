@@ -74,7 +74,7 @@ def resolve_effective_audit_binding(
 def get_node_audit_policy(flow_id: str, node_key: str, teacher_id: int) -> dict[str, object]:
     with get_connection() as connection:
         owner = connection.execute(
-            "SELECT 1 FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+            "SELECT 1 FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'",
             (flow_id, str(teacher_id)),
         ).fetchone()
         if owner is None:
@@ -96,7 +96,7 @@ def update_node_audit_policy(
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         owner = connection.execute(
-            "SELECT 1 FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+            "SELECT 1 FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'",
             (flow_id, str(teacher_id)),
         ).fetchone()
         if owner is None:

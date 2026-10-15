@@ -17,7 +17,7 @@ class ReviewStepPolicyConflict(ValueError):
 def _published_node(connection, flow_id, node_key, teacher_id):
     version = connection.execute(
         """SELECT v.config_snapshot FROM flow_versions v JOIN flows f ON f.id = v.flow_id
-           WHERE v.flow_id = ? AND f.owner_id = ? AND f.status != 'archived'
+           WHERE v.flow_id = ? AND f.owner_id = ? AND f.kind = 'normal' AND f.status != 'archived'
              AND v.status = 'published' ORDER BY v.version_no DESC LIMIT 1""",
         (flow_id, str(teacher_id)),
     ).fetchone()

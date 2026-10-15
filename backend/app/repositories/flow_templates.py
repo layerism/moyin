@@ -60,7 +60,7 @@ def _published_template_editable(
 def get_editable_template_node(flow_id: str, node_key: str, teacher_id: int, reference: bool = False) -> dict[str, Any]:
     with get_connection() as connection:
         flow = connection.execute(
-            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'",
             (flow_id, str(teacher_id)),
         ).fetchone()
         if flow is None:
@@ -93,7 +93,7 @@ def save_template_asset(
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         flow = connection.execute(
-            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'",
             (flow_id, str(teacher_id)),
         ).fetchone()
         if flow is None:
@@ -162,7 +162,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         flow = connection.execute(
-            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'",
             (flow_id, str(teacher_id)),
         ).fetchone()
         if flow is None:

@@ -397,7 +397,7 @@ def _build_migration_plan(
 
 def _owned_flow(connection: Any, flow_id: str, teacher_id: int) -> Any:
     return connection.execute(
-        "SELECT * FROM flows WHERE id = ? AND owner_id = ?",
+        "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal'",
         (flow_id, str(teacher_id)),
     ).fetchone()
 
@@ -464,7 +464,7 @@ def create_flow(
         existing = connection.execute(
             """
             SELECT 1 FROM flows
-            WHERE owner_id = ? AND name = ? AND status != 'archived'
+            WHERE owner_id = ? AND name = ? AND kind = 'normal' AND status != 'archived'
             LIMIT 1
             """,
             (owner_id, name),
@@ -494,7 +494,7 @@ def rename_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         flow = connection.execute(
-            "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
+            "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal' AND status != 'archived'",
             (flow_id, owner_id),
         ).fetchone()
         if flow is None:
@@ -504,7 +504,7 @@ def rename_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
         duplicate = connection.execute(
             """
             SELECT 1 FROM flows
-            WHERE owner_id = ? AND name = ? AND status != 'archived' AND id != ?
+            WHERE owner_id = ? AND name = ? AND kind = 'normal' AND status != 'archived' AND id != ?
             LIMIT 1
             """,
             (owner_id, new_name, flow_id),
@@ -541,6 +541,7 @@ def clone_flow(flow_id: str, name: str, teacher_id: int) -> dict[str, object]:
 def copy_flow_definition(
     flow_id: str, name: str, teacher_id: int, source_owner: str, target_owner: str,
     *, auto_name: bool = False, clear_dates: bool = False,
+    source_kind: str = 'normal', target_kind: str = 'normal',
     finalize: Callable[[Connection, str], None] | None = None,
 ) -> str:
     """Copy only a definition and its assets; finalize runs in the same DB transaction."""
@@ -551,20 +552,20 @@ def copy_flow_definition(
     owner_id = target_owner
     with get_connection() as connection:
         source = connection.execute(
-            "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
-            (flow_id, source_owner),
+            "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND kind = ? AND status != 'archived'",
+            (flow_id, source_owner, source_kind),
         ).fetchone()
         if source is None:
             raise KeyError(flow_id)
-        if not auto_name and source_owner == target_owner and new_name == source["name"]:
+        if not auto_name and source_owner == target_owner and source_kind == target_kind and new_name == source["name"]:
             raise DuplicateFlowNameError("副本名称不能与原流程相同")
         duplicate = connection.execute(
             """
             SELECT 1 FROM flows
-            WHERE owner_id = ? AND name = ? AND status != 'archived'
+            WHERE owner_id = ? AND name = ? AND kind = ? AND status != 'archived'
             LIMIT 1
             """,
-            (owner_id, new_name),
+            (owner_id, new_name, target_kind),
         ).fetchone()
         if duplicate is not None and not auto_name:
             raise DuplicateFlowNameError("已存在同名流程")
@@ -573,7 +574,7 @@ def copy_flow_definition(
         apply_node_parameters(connection, flow_id, config)
         apply_published_node_models(connection, flow_id, config)
         config = public_config(config)
-        if source_owner != target_owner:
+        if source_owner != target_owner or 'template' in (source_kind, target_kind):
             for node in config.get("nodes", []):
                 node.pop("auditModelCardId", None)
                 for step in node.get("fileReviewSteps", []):
@@ -609,6 +610,10 @@ def copy_flow_definition(
                     raise FlowValidationError("流程模板资产无效，无法复制")
                 source_assets.append((node, dict(asset), template))
         source_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
+        if target_kind == 'template':
+            validate_flow_config(config, require_publishable=True)
+            _validate_audit_script_nodes(config)
+            validate_publishable_answer_sheet_keys(connection, flow_id, config, source_answer_sheet_keys)
         content_references = validate_content_assets(connection, flow_id, config)
         announcement_file_references = validate_announcement_files(connection, flow_id, config)
         source_content_assets: list[tuple[dict[str, Any], dict[str, Any]]] = []
@@ -736,12 +741,21 @@ def copy_flow_definition(
         now = utc_now_iso()
         with get_connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            if 'template' in (source_kind, target_kind):
+                current = connection.execute(
+                    "SELECT * FROM flows WHERE id = ? AND owner_id = ? AND kind = ? AND status != 'archived'",
+                    (flow_id, source_owner, source_kind),
+                ).fetchone()
+                if current is None or current['draft_config'] != source_data['draft_config'] or current['updated_at'] != source_data['updated_at']:
+                    raise FlowValidationError('来源流程或模板已变化，请重新复制')
+                if get_answer_sheet_drafts(connection, flow_id) != source_answer_sheet_keys:
+                    raise FlowValidationError('来源标准答案已变化，请重新复制')
             if auto_name:
                 base_name = new_name
                 suffix = 1
                 while connection.execute(
-                    "SELECT 1 FROM flows WHERE owner_id = ? AND name = ? AND status != 'archived'",
-                    (owner_id, new_name),
+                    "SELECT 1 FROM flows WHERE owner_id = ? AND name = ? AND kind = ? AND status != 'archived'",
+                    (owner_id, new_name, target_kind),
                 ).fetchone():
                     suffix += 1
                     ending = f" ({suffix})"
@@ -749,10 +763,10 @@ def copy_flow_definition(
             duplicate = connection.execute(
                 """
                 SELECT 1 FROM flows
-                WHERE owner_id = ? AND name = ? AND status != 'archived'
+                WHERE owner_id = ? AND name = ? AND kind = ? AND status != 'archived'
                 LIMIT 1
                 """,
-                (owner_id, new_name),
+                (owner_id, new_name, target_kind),
             ).fetchone()
             if duplicate is not None:
                 raise DuplicateFlowNameError("已存在同名流程")
@@ -760,8 +774,8 @@ def copy_flow_definition(
                 """
                 INSERT INTO flows
                     (id, name, description, owner_id, status, draft_config,
-                     group_id, created_at, updated_at)
-                VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?)
+                     group_id, created_at, updated_at, kind)
+                VALUES (?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)
                 """,
                 (
                     new_flow_id,
@@ -769,9 +783,10 @@ def copy_flow_definition(
                     source_data["description"],
                     owner_id,
                     canonical_json(config),
-                    source_data["group_id"] if source_owner == target_owner else None,
+                    source_data["group_id"] if source_owner == target_owner and source_kind == target_kind == 'normal' else None,
                     now,
                     now,
+                    target_kind,
                 ),
             )
             for asset in new_assets:
@@ -895,8 +910,7 @@ def list_flows(teacher_id: int) -> list[dict[str, object]]:
         rows = connection.execute(
             """
             SELECT id FROM flows
-            WHERE owner_id = ? AND status != 'archived'
-              AND NOT EXISTS (SELECT 1 FROM workflow_blueprint_drafts d WHERE d.flow_id = flows.id)
+            WHERE owner_id = ? AND kind = 'normal' AND status != 'archived'
             ORDER BY created_at DESC
             """,
             (str(teacher_id),),
@@ -953,7 +967,7 @@ def save_draft(
         cursor = connection.execute(
             """
             UPDATE flows SET draft_config = ?, updated_at = ?
-            WHERE id = ? AND owner_id = ?
+            WHERE id = ? AND owner_id = ? AND kind = 'normal'
             """,
             (stored_draft(connection, flow_id, config), now, flow_id, str(teacher_id)),
         )
@@ -1528,7 +1542,7 @@ def publish_flow(
         connection.execute(
             """
             UPDATE flows SET draft_config = ?, status = 'published', updated_at = ?
-            WHERE id = ? AND owner_id = ?
+            WHERE id = ? AND owner_id = ? AND kind = 'normal'
             """,
             (stored_draft(connection, flow_id, config), now, flow_id, str(teacher_id)),
         )
@@ -1551,7 +1565,7 @@ def get_revision_impact(
     with get_connection() as connection:
         connection.execute("BEGIN")
         flow = connection.execute(
-            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ?",
+            "SELECT draft_config FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal'",
             (flow_id, str(teacher_id)),
         ).fetchone()
         if flow is None:
@@ -1628,7 +1642,7 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
     now = utc_now_iso()
     with get_connection() as connection:
         row = connection.execute(
-            "SELECT name, status FROM flows WHERE id = ? AND owner_id = ?",
+            "SELECT name, status FROM flows WHERE id = ? AND owner_id = ? AND kind = 'normal'",
             (flow_id, str(teacher_id)),
         ).fetchone()
         if row is None:
