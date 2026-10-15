@@ -1043,7 +1043,7 @@ def _node_invalidation_before_data(
     ).fetchall()
     override = connection.execute(
         """
-        SELECT * FROM student_deadline_overrides
+        SELECT * FROM node_deadline_overrides
         WHERE flow_instance_id = ? AND node_key = ?
         """,
         (node["flow_instance_id"], node["node_key"]),
@@ -1149,7 +1149,7 @@ def _audit_and_remove_node(
     connection.execute("DELETE FROM node_drafts WHERE node_instance_id = ?", (node["id"],))
     connection.execute(
         """
-        DELETE FROM student_deadline_overrides
+        DELETE FROM node_deadline_overrides
         WHERE flow_instance_id = ? AND node_key = ?
         """,
         (node["flow_instance_id"], node["node_key"]),
@@ -1684,7 +1684,7 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
         )
         connection.execute(
             """
-            DELETE FROM student_deadline_overrides WHERE flow_instance_id IN (
+            DELETE FROM node_deadline_overrides WHERE flow_instance_id IN (
                 SELECT i.id FROM flow_instances i
                 JOIN flow_versions v ON v.id = i.flow_version_id
                 WHERE v.flow_id = ?

@@ -926,7 +926,7 @@ def _set_student_deadline(connection, instance_id, node_key, deadline_at, reason
         JOIN flows f ON f.id = v.flow_id
         JOIN node_instances n
           ON n.flow_instance_id = i.id AND n.node_key = ?
-        LEFT JOIN student_deadline_overrides o
+        LEFT JOIN node_deadline_overrides o
           ON o.flow_instance_id = i.id AND o.node_key = n.node_key
         WHERE i.id = ? AND f.owner_id = ? AND v.status = 'published'
         """,
@@ -968,7 +968,7 @@ def _set_student_deadline(connection, instance_id, node_key, deadline_at, reason
     normalized_deadline = new_deadline.isoformat()
     connection.execute(
         """
-        INSERT INTO student_deadline_overrides
+        INSERT INTO node_deadline_overrides
             (flow_instance_id, node_key, deadline_at, reason, created_by, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(flow_instance_id, node_key) DO UPDATE
@@ -1071,7 +1071,7 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             JOIN flow_roster_entries roster
               ON roster.student_no = a.student_no AND roster.name = a.name
              AND roster.flow_id = ? AND roster.status = 'active'
-            LEFT JOIN student_deadline_overrides o
+            LEFT JOIN node_deadline_overrides o
               ON o.flow_instance_id = i.id AND o.node_key = n.node_key
             WHERE i.flow_version_id = ?
             ORDER BY n.flow_instance_id, n.rowid

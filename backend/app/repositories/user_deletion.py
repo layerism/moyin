@@ -13,7 +13,7 @@ ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_sourc
          'manual_feedback_drafts', 'manual_feedback', 'manual_feedback_files', 'manual_reviews',
          'file_review_ai_tasks', 'file_review_runs', 'audit_jobs',
          'uploaded_files', 'template_download_events', 'node_submissions', 'node_drafts',
-         'student_deadline_overrides', 'flow_preview_sessions', 'node_instances', 'flow_instances',
+         'node_deadline_overrides', 'flow_preview_sessions', 'node_instances', 'flow_instances',
          'flow_version_assets',
          'flow_versions',
          'flow_assets', 'flow_roster_entries', 'flows',
@@ -58,7 +58,7 @@ def scope(db, kind, account_id):
     children('flow_preview_sessions', 'flow_instance_id', 'flow_instances')
     children('node_instances', 'flow_instance_id', 'flow_instances')
     children('node_submissions', 'node_instance_id', 'node_instances')
-    for table in ['manual_reviews', 'manual_feedback_files', 'manual_feedback', 'student_deadline_overrides']:
+    for table in ['manual_reviews', 'manual_feedback_files', 'manual_feedback', 'node_deadline_overrides']:
         children(table, 'flow_instance_id', 'flow_instances')
     for table in ['manual_source_reviews', 'manual_feedback_drafts', 'manual_node_rejections', 'node_drafts', 'uploaded_files', 'template_download_events', 'audit_jobs']:
         children(table, 'node_instance_id', 'node_instances')
@@ -80,6 +80,8 @@ def scope(db, kind, account_id):
             select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:' + table, key))
             if table == 'node_submissions':
                 select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:submissions', key))
+            if table == 'node_deadline_overrides':
+                select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:student_deadline_overrides', key))
             if table == 'flow_groups':
                 select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:workflow_groups', key))
             if table == 'flow_roster_entries':

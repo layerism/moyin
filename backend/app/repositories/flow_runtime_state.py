@@ -24,7 +24,7 @@ def effective_deadline(
         return None
     override = connection.execute(
         """
-        SELECT deadline_at FROM student_deadline_overrides
+        SELECT deadline_at FROM node_deadline_overrides
         WHERE flow_instance_id = ? AND node_key = ?
         """,
         (instance_id, node_key),

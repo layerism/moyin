@@ -484,7 +484,7 @@ CREATE TABLE IF NOT EXISTS audit_model_bindings (
     revision INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS student_deadline_overrides (
+CREATE TABLE IF NOT EXISTS node_deadline_overrides (
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
     deadline_at TEXT NOT NULL,
@@ -510,6 +510,7 @@ def initialize_database() -> None:
     with get_connection() as connection:
         _apply_node_submissions_rename(connection)
         _apply_flow_groups_rename(connection)
+        _apply_node_deadline_overrides_rename(connection)
         connection.executescript(SCHEMA)
         _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema
@@ -586,6 +587,15 @@ def _apply_flow_groups_rename(connection: sqlite3.Connection) -> None:
     ).fetchone()
     if legacy is not None:
         connection.execute("ALTER TABLE workflow_groups RENAME TO flow_groups")
+
+
+def _apply_node_deadline_overrides_rename(connection: sqlite3.Connection) -> None:
+    # Rename before SCHEMA creates the table, preserving all rows and constraints.
+    legacy = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'student_deadline_overrides'"
+    ).fetchone()
+    if legacy is not None:
+        connection.execute("ALTER TABLE student_deadline_overrides RENAME TO node_deadline_overrides")
 
 
 def _apply_registration_allowlist_migration(connection: sqlite3.Connection) -> None:

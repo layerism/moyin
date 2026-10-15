@@ -151,7 +151,7 @@ def _add_node_artifacts(instance_id: str, node_ids: dict[str, str]) -> None:
         for node_key in ("left", "right"):
             connection.execute(
                 """
-                INSERT INTO student_deadline_overrides
+                INSERT INTO node_deadline_overrides
                     (flow_instance_id, node_key, deadline_at, reason, created_by, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
@@ -186,7 +186,7 @@ def _node_before_data(node_instance_id: str) -> dict[str, object]:
         ).fetchall()
         override = connection.execute(
             """
-            SELECT * FROM student_deadline_overrides
+            SELECT * FROM node_deadline_overrides
             WHERE flow_instance_id = ? AND node_key = ?
             """,
             (node["flow_instance_id"], node["node_key"]),
@@ -312,7 +312,7 @@ def test_content_change_resets_only_changed_branch_and_preserves_artifacts(
             is None
         )
         overrides = connection.execute(
-            "SELECT node_key FROM student_deadline_overrides WHERE flow_instance_id = ?",
+            "SELECT node_key FROM node_deadline_overrides WHERE flow_instance_id = ?",
             (original["id"],),  # type: ignore[index]
         ).fetchall()
     assert [row["node_key"] for row in overrides] == ["right"]
@@ -366,7 +366,7 @@ def test_layout_only_republish_preserves_all_progress_and_has_no_invalidation_au
     before_nodes = _table_rows("node_instances")
     before_drafts = _table_rows("node_drafts")
     before_submissions = _table_rows("node_submissions")
-    before_overrides = _table_rows("student_deadline_overrides")
+    before_overrides = _table_rows("node_deadline_overrides")
     changed = deepcopy(BASE_CONFIG)
     changed["nodes"][0].update({"x": 300, "y": 120, "deadlineAt": "2030-01-01"})
 
@@ -375,7 +375,7 @@ def test_layout_only_republish_preserves_all_progress_and_has_no_invalidation_au
     assert _table_rows("node_instances") == before_nodes
     assert _table_rows("node_drafts") == before_drafts
     assert _table_rows("node_submissions") == before_submissions
-    assert _table_rows("student_deadline_overrides") == before_overrides
+    assert _table_rows("node_deadline_overrides") == before_overrides
     migrated = client.get(
         f"/api/student/flow-instances/{original['id']}"  # type: ignore[index]
     ).json()
@@ -1030,7 +1030,7 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
         "node_instances",
         "node_drafts",
         "node_submissions",
-        "student_deadline_overrides",
+        "node_deadline_overrides",
         "audit_logs",
     )
     before = {table: _table_rows(table) for table in tables}

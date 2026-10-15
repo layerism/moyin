@@ -76,7 +76,7 @@
 | `node_drafts` | `node_instance_id`, `payload`, `updated_at` | 当前暂存数据 |
 | `submissions` | `id`, `node_instance_id`, `attempt_no`, `payload_snapshot`, `submitted_at`, `status` | 不可变提交版本 |
 | `uploaded_files` | `id`, `node_instance_id`, `student_account_id`, `submission_id`, `storage_key`, `original_name`, `content_type`, `size_bytes`, `sha256`, `etag` | OSS 附件元数据；上传后暂存，提交成功后关联 submission |
-| `student_deadline_overrides` | `flow_instance_id`, `node_key`, `deadline_at`, `reason`, `created_by`, `created_at` | 个别学生延期 |
+| `node_deadline_overrides` | `flow_instance_id`, `node_key`, `deadline_at`, `reason`, `created_by`, `created_at` | 个别学生延期 |
 | `audit_logs` | `id`, `actor_id`, `action`, `entity_type`, `entity_id`, `before_data`, `after_data`, `reason`, `created_at` | 统一审计记录 |
 
 数据库约束：
@@ -161,7 +161,7 @@ effective_deadline = student_override.deadline_at ?? node_runtime.deadline_at
 ### 6.4 截止与延期
 
 1. 教师修改统一截止时间时，仅更新 `flow_node_runtime_configs`。
-2. 教师为个别学生延期时，写入 `student_deadline_overrides`。
+2. 教师为个别学生延期时，写入 `node_deadline_overrides`。
 3. 请求时实时计算有效截止时间；后台任务仅负责批量标记和提醒，不作为权限判定依据。
 4. 延期后，未提交节点根据原暂存状态恢复为 `available` 或 `draft`。
 
