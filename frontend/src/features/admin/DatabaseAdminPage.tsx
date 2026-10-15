@@ -23,6 +23,8 @@ export function DatabaseAdminPage({
   const [schema, setSchema] = useState<AdminTableSchema | null>(null);
   const [rowPage, setRowPage] = useState<AdminRows | null>(null);
   const [offset, setOffset] = useState(0);
+  const [view, setView] = useState<"data" | "schema">("data");
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null);
   const [deletingRow, setDeletingRow] = useState<Record<string, unknown> | null>(null);
   const [resettingStudent, setResettingStudent] = useState<Record<string, unknown> | null>(null);
@@ -33,7 +35,7 @@ export function DatabaseAdminPage({
   const loadTables = async () => {
     const nextTables = await databaseAdminApi.listTables();
     setTables(nextTables);
-    setActiveTable((current) => current || nextTables[0]?.name || "");
+    setActiveTable((current) => current || nextTables.find((table) => table.name === "flows")?.name || nextTables[0]?.name || "");
   };
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export function DatabaseAdminPage({
 
   useEffect(() => {
     if (!activeTable) return;
+    let cancelled = false;
     setLoading(true);
     setError("");
     Promise.all([
@@ -52,20 +55,39 @@ export function DatabaseAdminPage({
       databaseAdminApi.getRows(activeTable, offset, PAGE_SIZE),
     ])
       .then(([nextSchema, rows]) => {
+        if (cancelled) return;
         setSchema(nextSchema);
         setRowPage(rows);
         setEditingRow(null);
         setDeletingRow(null);
         setResettingStudent(null);
       })
-      .catch((reason: Error) => setError(reason.message))
-      .finally(() => setLoading(false));
-  }, [activeTable, offset]);
+      .catch((reason: Error) => {
+        if (!cancelled) setError(reason.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [activeTable, offset, refreshVersion]);
 
   const selectTable = (name: string) => {
+    setSchema(null);
+    setRowPage(null);
+    setLoading(true);
+    setEditingRow(null);
+    setDeletingRow(null);
+    setResettingStudent(null);
     setOffset(0);
     setActiveTable(name);
+    setError("");
     setNotice("");
+  };
+
+  const changePage = (nextOffset: number) => {
+    setRowPage(null);
+    setLoading(true);
+    setOffset(nextOffset);
   };
 
   if (identity.role !== "super_admin") {
@@ -81,47 +103,48 @@ export function DatabaseAdminPage({
     <main className="database-admin-page">
       <header className="database-admin-header">
         <div>
-          <span className="oa-brand-mark">DB</span>
-          <div>
-            <strong>数据库管理</strong>
-            <small>超级管理员 · {identity.name}（{identity.employeeNo}）</small>
-          </div>
+          <h1>数据库管理</h1>
+          <span className="database-table-count">{tables.length} 个数据表</span>
         </div>
+        <span className="database-admin-identity">超级管理员 · {identity.name}</span>
         <button onClick={onBack}>返回首页</button>
       </header>
       <section className="database-admin-layout">
-        <aside className="database-table-nav">
-          <h2>数据表</h2>
-          <p>{tables.length} 个数据表</p>
-          <nav aria-label="数据库表列表">
-            {tables.map((table) => (
-              <button
-                className={table.name === activeTable ? "active" : ""}
-                key={table.name}
-                onClick={() => selectTable(table.name)}
-                type="button"
-              >
-                <span>{table.name}</span>
-                <small>{table.rowCount}</small>
-              </button>
-            ))}
-          </nav>
-        </aside>
         <section className="database-table-main">
           <div className="database-table-toolbar">
-            <div>
-              <p>当前数据表</p>
-              <h1>{activeTable || "正在加载"}</h1>
-            </div>
-            <div>
-              <span>{rowPage?.total ?? 0} 条记录</span>
+            <label className="database-table-picker">
+              <span>数据表</span>
+              <select
+                aria-label="选择数据表"
+                disabled={tables.length === 0}
+                onChange={(event) => selectTable(event.target.value)}
+                value={activeTable}
+              >
+                {tables.length === 0 ? <option value="">{loading ? "正在加载" : "暂无数据表"}</option> : null}
+                {tables.map((table) => <option key={table.name} value={table.name}>{table.name}</option>)}
+              </select>
+            </label>
+            <span className="database-record-count">
+              {rowPage ? `${rowPage.total} 条记录` : loading ? "读取中…" : "—"}
+            </span>
+            <div className="database-toolbar-actions">
+              <div className="database-view-switch" aria-label="查看方式" role="group">
+                <button aria-pressed={view === "data"} onClick={() => setView("data")}>数据</button>
+                <button aria-pressed={view === "schema"} onClick={() => setView("schema")}>结构</button>
+              </div>
               <button
-                disabled={!activeTable || loading}
+                disabled={loading}
                 onClick={() => {
+                  setError("");
+                  setRowPage(null);
+                  setLoading(true);
                   setOffset(0);
-                  void loadTables();
                   if (activeTable) {
-                    void databaseAdminApi.getRows(activeTable, 0, PAGE_SIZE).then(setRowPage);
+                    setRefreshVersion((current) => current + 1);
+                  } else {
+                    void loadTables()
+                      .catch((reason: Error) => setError(reason.message))
+                      .finally(() => setLoading(false));
                   }
                 }}
               >
@@ -131,25 +154,38 @@ export function DatabaseAdminPage({
           </div>
           {error ? <p className="database-admin-message error" role="alert">{error}</p> : null}
           {notice ? <p className="database-admin-message">{notice}</p> : null}
-          <DatabaseRowsTable
+          {view === "data" ? <DatabaseRowsTable
             deletable={schema?.deletable ?? false}
+            error={error}
             loading={loading}
+            offset={offset}
             onDelete={setDeletingRow}
             onEdit={setEditingRow}
             rows={rowPage?.rows ?? []}
             schema={schema}
-          />
+          /> : <DatabaseSchemaTable error={error} loading={loading} schema={schema} />}
           <div className="database-pagination">
-            <button disabled={offset === 0 || loading} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
-              上一页
-            </button>
-            <span>第 {Math.floor(offset / PAGE_SIZE) + 1} 页</span>
-            <button
-              disabled={loading || offset + PAGE_SIZE >= (rowPage?.total ?? 0)}
-              onClick={() => setOffset(offset + PAGE_SIZE)}
-            >
-              下一页
-            </button>
+            <span className="database-record-range">
+              {view === "schema"
+                ? `${schema?.columns.length ?? 0} 个字段`
+                : rowPage
+                  ? rowPage.total > 0 ? `${offset + 1}–${offset + rowPage.rows.length} / ${rowPage.total} 条` : "0 条记录"
+                  : loading ? "正在读取记录" : "记录未加载"}
+            </span>
+            {view === "data" ? (
+              <>
+                <button disabled={offset === 0 || loading} onClick={() => changePage(Math.max(0, offset - PAGE_SIZE))}>
+                  上一页
+                </button>
+                <span>{Math.floor(offset / PAGE_SIZE) + 1} / {rowPage ? Math.max(1, Math.ceil(rowPage.total / PAGE_SIZE)) : "—"}</span>
+                <button
+                  disabled={loading || offset + PAGE_SIZE >= (rowPage?.total ?? 0)}
+                  onClick={() => changePage(offset + PAGE_SIZE)}
+                >
+                  下一页
+                </button>
+              </>
+            ) : null}
           </div>
         </section>
       </section>
@@ -213,39 +249,53 @@ export function DatabaseAdminPage({
 
 function DatabaseRowsTable({
   deletable,
+  error,
   loading,
+  offset,
   onDelete,
   onEdit,
   rows,
   schema,
 }: {
   deletable: boolean;
+  error: string;
   loading: boolean;
+  offset: number;
   onDelete: (row: Record<string, unknown>) => void;
   onEdit: (row: Record<string, unknown>) => void;
   rows: Array<Record<string, unknown>>;
   schema: AdminTableSchema | null;
 }) {
   if (loading && rows.length === 0) return <p className="database-empty">正在读取数据库记录</p>;
+  if (error && rows.length === 0) return <p className="database-empty">记录读取失败，请点击刷新重试</p>;
   if (!schema || rows.length === 0) return <p className="database-empty">该表暂无记录</p>;
+  const widths = schema.columns.map((column) => column.type.toUpperCase().includes("INT") ? 110 : 200);
+  const hasPrimaryKey = schema.columns.some((column) => column.primaryKey);
   return (
-    <div className="database-grid-scroll">
-      <table className="database-grid">
+    <div className="database-grid-scroll" key={`${schema.name}-${offset}`} tabIndex={0} aria-label={`${schema.name} 数据记录，可横向滚动查看全部字段`}>
+      <table className="database-grid" style={{ width: widths.reduce((sum, width) => sum + width, 176) }}>
+        <colgroup>
+          <col style={{ width: 48 }} />
+          {schema.columns.map((column, index) => <col key={column.name} style={{ width: widths[index] }} />)}
+          <col style={{ width: 128 }} />
+        </colgroup>
         <thead>
           <tr>
-            {schema.columns.map((column) => <th key={column.name}>{column.name}</th>)}
-            <th>操作</th>
+            <th className="database-row-number" scope="col">#</th>
+            {schema.columns.map((column) => <th key={column.name} scope="col">{column.name}</th>)}
+            <th className="database-actions-cell" scope="col">操作</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={JSON.stringify(primaryKey(schema, row))}>
+          {rows.map((row, index) => (
+            <tr key={hasPrimaryKey ? JSON.stringify(primaryKey(schema, row)) : offset + index}>
+              <td className="database-row-number">{offset + index + 1}</td>
               {schema.columns.map((column) => (
                 <td key={column.name} title={displayValue(row[column.name])}>
-                  {displayValue(row[column.name])}
+                  <span className="database-cell-value">{row[column.name] === null ? <span className="database-null">NULL</span> : displayValue(row[column.name])}</span>
                 </td>
               ))}
-              <td>
+              <td className="database-actions-cell">
                 <div className="database-row-actions">
                   <button onClick={() => onEdit(row)}>查看</button>
                   {deletable ? (
@@ -256,6 +306,31 @@ function DatabaseRowsTable({
             </tr>
           ))}
         </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DatabaseSchemaTable({ error, loading, schema }: {
+  error: string;
+  loading: boolean;
+  schema: AdminTableSchema | null;
+}) {
+  if (!schema) return <p className="database-empty">{loading ? "正在读取字段结构" : error ? "字段读取失败，请点击刷新重试" : "暂无字段"}</p>;
+  return (
+    <div className="database-grid-scroll" tabIndex={0} aria-label="数据表字段结构">
+      <table className="database-grid database-schema-grid">
+        <colgroup><col style={{ width: 48 }} /><col /><col style={{ width: 120 }} /><col style={{ width: 140 }} /><col style={{ width: 110 }} /></colgroup>
+        <thead><tr><th className="database-row-number" scope="col">#</th><th scope="col">字段名</th><th scope="col">类型</th><th scope="col">约束</th><th scope="col">显示权限</th></tr></thead>
+        <tbody>{schema.columns.map((column, index) => (
+          <tr key={column.name}>
+            <td className="database-row-number">{index + 1}</td>
+            <td>{column.name}</td>
+            <td>{column.type || "—"}</td>
+            <td>{column.primaryKey ? "主键" : column.nullable ? "允许空值" : "非空"}</td>
+            <td>{column.sensitive ? "已脱敏" : column.editable ? "可编辑" : "只读"}</td>
+          </tr>
+        ))}</tbody>
       </table>
     </div>
   );

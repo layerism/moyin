@@ -53,7 +53,7 @@ export function ProfilePage({ identity, onBack, onLogout, onPasswordChanged }: {
       <div className="profile-sidebar-bottom"><button className="profile-logout" type="button" disabled={leaving} onClick={() => void logout()}><ProfileIcon name="logout" />{leaving ? "正在退出…" : "退出登录"}</button>{error && <p role="alert">{error}</p>}</div>
     </aside>
     <section className="profile-content" aria-label={items.find(item => item.id === section)?.label}>
-      <header className="profile-banner"><div><p>账户中心</p><h1>{items.find(item => item.id === section)?.label}</h1><span>管理你的账户信息与安全设置</span></div><span className="profile-banner-badge">{roleName}</span></header>
+      {section !== "database" && <header className="profile-banner"><div><p>账户中心</p><h1>{items.find(item => item.id === section)?.label}</h1><span>管理你的账户信息与安全设置</span></div><span className="profile-banner-badge">{roleName}</span></header>}
       {section === "personal" && <div className="profile-overview">
         <article className="profile-card"><h2>基本信息</h2><div className="profile-identity"><span className="profile-avatar">{Array.from(identity.name)[0] ?? "用"}</span><div><strong>{identity.name}</strong><span className="profile-role">{roleName}</span></div></div><dl><div><dt>姓名</dt><dd>{identity.name}</dd></div><div><dt>账号</dt><dd>{identity.employeeNo ?? "—"}</dd></div><div><dt>角色</dt><dd>{roleName}</dd></div></dl></article>
         <article className="profile-card profile-security-summary"><span className="profile-security-icon"><ProfileIcon name="security" /></span><h2>安全手机号</h2><p>绑定手机号后，可通过短信验证找回密码。</p><button className="primary-action" type="button" onClick={() => setSection("security")}>查看安全设置</button></article>

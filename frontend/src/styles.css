@@ -2876,14 +2876,12 @@ button {
 }
 
 .database-admin-header {
-  min-height: 68px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 0 24px;
-  border-bottom: 1px solid #d8dee8;
-  background: #fff;
+  gap: 12px;
+  padding: 8px 16px;
 }
 
 .database-admin-header > div {
@@ -2893,106 +2891,40 @@ button {
   gap: 12px;
 }
 
-.database-admin-header strong,
-.database-admin-header small {
-  display: block;
-}
-
-.database-admin-header strong {
+.database-admin-header h1 {
+  margin: 0;
   font-size: 18px;
 }
 
-.database-admin-header small {
-  margin-top: 3px;
-  overflow: hidden;
+.database-table-count,
+.database-admin-identity {
   color: #667085;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 12px;
+}
+
+.database-admin-identity {
+  margin-left: auto;
 }
 
 .database-admin-header > button,
 .database-pagination button,
 .database-table-toolbar button {
-  min-height: 36px;
-  padding: 0 13px;
+  min-height: 32px;
+  padding: 0 10px;
   border: 1px solid #cfd7e5;
   border-radius: 6px;
   background: #fff;
   color: #344054;
-  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .database-admin-layout {
   min-width: 0;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
-  overflow: hidden;
-}
-
-.database-table-nav {
-  min-height: 0;
-  padding: 22px 14px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  border-right: 1px solid #d8dee8;
-  background: #fff;
-}
-
-.database-table-nav h2,
-.database-table-nav p {
-  margin: 0 8px;
-}
-
-.database-table-nav h2 {
-  font-size: 16px;
-}
-
-.database-table-nav p {
-  margin-top: 4px;
-  color: #667085;
-  font-size: 12px;
-}
-
-.database-table-nav nav {
-  display: grid;
-  gap: 3px;
-  margin-top: 16px;
-}
-
-.database-table-nav button {
-  min-width: 0;
-  min-height: 38px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0 10px;
-  border-radius: 5px;
-  background: transparent;
-  color: #344054;
-  text-align: left;
-}
-
-.database-table-nav button.active {
-  background: #eaf2ff;
-  color: #175cd3;
-  font-weight: 800;
-}
-
-.database-table-nav button span {
+  padding: 0 16px 16px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.database-table-nav button small {
-  min-width: 28px;
-  padding: 2px 5px;
-  border-radius: 4px;
-  background: #eef1f5;
-  color: #667085;
-  text-align: center;
 }
 
 .database-table-main {
@@ -3000,48 +2932,87 @@ button {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  flex: 1;
   overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 10px;
+  background: #fff;
 }
 
 .database-table-toolbar {
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 16px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #d8dee8;
 }
 
-.database-table-toolbar p,
-.database-table-toolbar h1 {
-  margin: 0;
-}
-
-.database-table-toolbar p {
-  margin-bottom: 4px;
+.database-table-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   color: #667085;
   font-size: 12px;
-  font-weight: 700;
 }
 
-.database-table-toolbar h1 {
-  overflow: hidden;
-  font-size: 23px;
-  text-overflow: ellipsis;
+.database-table-picker > span {
+  flex-shrink: 0;
+}
+
+.database-table-picker select {
+  width: 280px;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #cfd7e5;
+  border-radius: 6px;
+  background: #fff;
+  color: #172033;
+  font: 13px ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.database-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.database-record-count {
+  color: #667085;
+  font-size: 12px;
   white-space: nowrap;
 }
 
-.database-table-toolbar > div:last-child {
+.database-view-switch {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  padding: 2px;
+  border: 1px solid #e1e7f0;
+  border-radius: 6px;
+  background: #f3f6fb;
+}
+
+.database-view-switch button {
+  min-height: 26px;
+  border: 0;
+  background: transparent;
   color: #667085;
-  font-size: 13px;
+}
+
+.database-view-switch button[aria-pressed="true"] {
+  background: #fff;
+  color: #175cd3;
+  box-shadow: 0 1px 3px #17203315;
 }
 
 .database-admin-message {
-  margin: 0 0 12px;
+  margin: 8px 12px;
   padding: 9px 11px;
   border: 1px solid #abefc6;
   background: #ecfdf3;
@@ -3057,29 +3028,79 @@ button {
 
 .database-grid-scroll {
   width: 100%;
+  min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
   overflow: auto;
-  border: 1px solid #d8dee8;
   background: #fff;
 }
 
 .database-grid {
   min-width: 100%;
-  border-collapse: collapse;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 12px;
   white-space: nowrap;
 }
 
 .database-grid th,
 .database-grid td {
-  max-width: 260px;
-  padding: 10px 12px;
-  overflow: hidden;
+  padding: 8px 10px;
   border-right: 1px solid #edf0f4;
   border-bottom: 1px solid #edf0f4;
   text-align: left;
+  vertical-align: middle;
+}
+
+.database-cell-value {
+  display: block;
+  overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.database-grid th {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.database-null {
+  color: #98a2b3;
+  font-style: italic;
+}
+
+.database-grid .database-row-number {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  color: #667085;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.database-grid .database-actions-cell {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  border-left: 1px solid #edf0f4;
+  background: #fff;
+}
+
+.database-grid th.database-row-number,
+.database-grid th.database-actions-cell {
+  z-index: 3;
+  background: #f8fafc;
+}
+
+.database-schema-grid {
+  width: 100%;
+  min-width: 620px;
+}
+
+.database-schema-grid td {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .database-grid th {
@@ -3092,6 +3113,11 @@ button {
 }
 
 .database-grid tbody tr:hover {
+  background: #f8fbff;
+}
+
+.database-grid tbody tr:hover .database-actions-cell,
+.database-grid tbody tr:hover .database-row-number {
   background: #f8fbff;
 }
 
@@ -3122,7 +3148,6 @@ button {
   display: grid;
   place-items: center;
   margin: 0;
-  border: 1px solid #d8dee8;
   background: #fff;
   color: #667085;
 }
@@ -3131,10 +3156,17 @@ button {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 14px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 10px;
+  padding: 8px 12px;
+  border-top: 1px solid #d8dee8;
   color: #667085;
   font-size: 13px;
+}
+
+.database-record-range {
+  margin-right: auto;
 }
 
 .database-editor-backdrop {
@@ -3392,38 +3424,20 @@ button {
 
 @media (max-width: 760px) {
   .database-admin-header {
-    align-items: flex-start;
-    padding: 14px 16px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
   }
 
   .database-admin-layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
+    padding: 0 12px 12px;
   }
 
-  .database-table-nav {
-    padding: 12px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-right: 0;
-    border-bottom: 1px solid #d8dee8;
+  .database-table-picker {
+    flex: 1 1 100%;
   }
 
-  .database-table-nav nav {
-    display: flex;
-  }
-
-  .database-table-nav button {
-    min-width: 180px;
-  }
-
-  .database-table-main {
-    padding: 16px;
-  }
-
-  .database-table-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
+  .database-table-picker select {
+    flex: 1;
   }
 }
 
@@ -13302,7 +13316,8 @@ td {
 .profile-security-setting > p { color: #718096; font-size: 14px; line-height: 1.7; }
 .profile-card .primary-action { min-height: 42px; background: #2773f6; color: white; border: 0; border-radius: 8px; padding: 10px 18px; cursor: pointer; }
 .profile-embedded > main { min-height: 0; background: transparent; }
-.profile-embedded .database-admin-header { border-radius: 12px; }
+.profile-embedded .database-admin-header { padding: 0 2px 10px; }
+.profile-embedded .database-admin-layout { padding: 0; }
 .profile-embedded .database-admin-header > button { display: none; }
 .profile-embedded .model-admin-content { max-width: none; padding-left: 0; padding-right: 0; }
 @media (max-width: 850px) {
@@ -13321,7 +13336,10 @@ td {
   .profile-card { padding: 22px; }
 }
 
-.profile-embedded .database-admin-page { height: max(520px, calc(100dvh - 230px)); border-radius: 12px; }
+.profile-embedded .database-admin-page { height: max(520px, calc(100dvh - 48px)); }
+@media (min-width: 601px) and (max-width: 850px) {
+  .profile-embedded .database-admin-page { height: max(520px, calc(100dvh - 32px)); }
+}
 
 /* Node-specific script editor. */
 .node-script-config-toggle { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #bad0ff; border-radius: 8px; background: #edf4ff; color: #2468e8; cursor: pointer; }
