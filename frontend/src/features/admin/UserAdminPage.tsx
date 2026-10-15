@@ -19,7 +19,7 @@ async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> 
   return value;
 }
 
-const labels: Record<string, string> = { student_accounts: '学生账号', teacher_accounts: '教师账号', flows: '流程', flow_instances: '学生流程实例', node_submissions: '提交', uploaded_files: '上传文件', flow_roster_entries: '流程名单', audit_jobs: '审核任务', student_sessions: '学生登录会话', teacher_sessions: '教师登录会话' };
+const labels: Record<string, string> = { student_accounts: '学生账号', teacher_accounts: '教师账号', flows: '流程', flow_instances: '学生流程实例', node_submissions: '提交', student_uploaded_files: '上传文件', flow_roster_entries: '流程名单', audit_jobs: '审核任务', student_sessions: '学生登录会话', teacher_sessions: '教师登录会话' };
 
 export function UserAdminPage() {
   const [tab, setTab] = useState<'users' | 'registration-allowlist'>('users');

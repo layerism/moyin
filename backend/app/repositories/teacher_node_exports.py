@@ -192,7 +192,7 @@ def get_node_submission_export(
                 f"""
                 SELECT submission_id, original_name, content_type, size_bytes,
                        page_count, storage_key
-                FROM uploaded_files
+                FROM student_uploaded_files
                 WHERE submission_id IN ({placeholders})
                 ORDER BY submission_id, display_order, created_at, id
                 """,

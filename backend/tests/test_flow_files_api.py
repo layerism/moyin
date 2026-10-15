@@ -150,7 +150,7 @@ def test_upload_persists_metadata_and_submit_attaches_it(client):
     assert storage.objects[file_record["storageKey"]] == b"pdf-content"
     with sqlite3.connect(settings.database_path) as connection:
         row = connection.execute(
-            "SELECT submission_id, sha256, size_bytes FROM uploaded_files WHERE id = ?",
+            "SELECT submission_id, sha256, size_bytes FROM student_uploaded_files WHERE id = ?",
             (file_record["fileId"],),
         ).fetchone()
     assert row[0]
@@ -218,7 +218,7 @@ def test_confirmation_scan_upload_rejects_wrong_filename_before_storage(client):
     assert storage.objects == {}
     with sqlite3.connect(settings.database_path) as connection:
         assert connection.execute(
-            "SELECT COUNT(*) FROM uploaded_files WHERE node_instance_id = ?", (node_id,)
+            "SELECT COUNT(*) FROM student_uploaded_files WHERE node_instance_id = ?", (node_id,)
         ).fetchone()[0] == 0
 
 
@@ -267,7 +267,7 @@ def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
             "SELECT COUNT(*) FROM audit_jobs WHERE node_instance_id = ?", (node_id,)
         ).fetchone()[0] == 0
         assert connection.execute(
-            "SELECT submission_id FROM uploaded_files WHERE id = ?",
+            "SELECT submission_id FROM student_uploaded_files WHERE id = ?",
             (invalid_scan["fileId"],),
         ).fetchone()[0] is None
 
@@ -294,6 +294,6 @@ def test_confirmation_submit_rejects_wrong_scan_filename_before_audit(client):
             "SELECT COUNT(*) FROM audit_jobs WHERE node_instance_id = ?", (node_id,)
         ).fetchone()[0] == 1
         assert connection.execute(
-            "SELECT submission_id FROM uploaded_files WHERE id = ?",
+            "SELECT submission_id FROM student_uploaded_files WHERE id = ?",
             (valid_scan.json()["fileId"],),
         ).fetchone()[0] is not None

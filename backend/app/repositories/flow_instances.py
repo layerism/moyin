@@ -1167,7 +1167,7 @@ def get_teacher_submission_detail(
         )
         scans = connection.execute(
             """SELECT id, original_name, content_type, size_bytes, page_count, storage_key
-               FROM uploaded_files WHERE submission_id = ?
+               FROM student_uploaded_files WHERE submission_id = ?
                ORDER BY display_order, created_at, id""",
             (row["submission_id"],),
         ).fetchall() if row["submission_id"] else []

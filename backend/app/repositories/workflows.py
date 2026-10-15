@@ -997,7 +997,7 @@ def _node_invalidation_before_data(
         (node["id"],),
     ).fetchall()
     uploaded_files = connection.execute(
-        "SELECT * FROM uploaded_files WHERE node_instance_id = ? ORDER BY created_at, id",
+        "SELECT * FROM student_uploaded_files WHERE node_instance_id = ? ORDER BY created_at, id",
         (node["id"],),
     ).fetchall()
     audit_jobs = connection.execute(

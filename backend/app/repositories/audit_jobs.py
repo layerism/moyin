@@ -165,7 +165,7 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
         file_rows = connection.execute(
             """
             SELECT id, original_name, storage_key, content_type, size_bytes, sha256, page_count
-            FROM uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at, id
+            FROM student_uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at, id
             """,
             (job["submission_id"],),
         ).fetchall()
@@ -285,7 +285,7 @@ def manual_approve_audit_job(
         if int(row["submission_attempt"]) != int(row["node_attempt"]):
             raise AuditJobConflictError("学生提交已变化，请刷新后重新审核")
         file_count = connection.execute(
-            "SELECT COUNT(*) AS count FROM uploaded_files WHERE submission_id = ?",
+            "SELECT COUNT(*) AS count FROM student_uploaded_files WHERE submission_id = ?",
             (submission_id,),
         ).fetchone()["count"]
         if int(file_count) == 0:

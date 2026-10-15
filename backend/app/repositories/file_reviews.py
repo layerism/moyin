@@ -72,7 +72,7 @@ def file_review_evidence(connection, instance_id, config, node_key):
         WHERE n.flow_instance_id = ? AND n.node_key = ?''', (instance_id, node_key)).fetchone()
     submission_id = row['id'] if row else None
     files = connection.execute('''SELECT id, original_name, content_type, size_bytes, storage_key
-        FROM uploaded_files WHERE submission_id = ? ORDER BY created_at, id''', (submission_id,)).fetchall()
+        FROM student_uploaded_files WHERE submission_id = ? ORDER BY created_at, id''', (submission_id,)).fetchall()
     # Neither AI results nor mutable node status belong in the teacher's evidence.
     source = {'nodeKey': node_key, 'title': node['title'], 'kind': node['kind'],
               'requirement': node.get('requirement', ''), 'infoFields': [], 'answerSheet': None,

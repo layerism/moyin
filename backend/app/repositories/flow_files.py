@@ -109,21 +109,21 @@ def replace_uploaded_file(
         connection.execute("BEGIN IMMEDIATE")
         old_rows = connection.execute(
             """
-            SELECT storage_key FROM uploaded_files
+            SELECT storage_key FROM student_uploaded_files
             WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
             """,
             (node_instance_id, student_id),
         ).fetchall()
         connection.execute(
             """
-            DELETE FROM uploaded_files
+            DELETE FROM student_uploaded_files
             WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
             """,
             (node_instance_id, student_id),
         )
         connection.execute(
             """
-            INSERT INTO uploaded_files
+            INSERT INTO student_uploaded_files
                 (id, node_instance_id, student_account_id, storage_key,
                  original_name, content_type, size_bytes, sha256, etag, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -161,7 +161,7 @@ def get_uploaded_file_for_node(
         """
         SELECT id, node_instance_id, student_account_id, submission_id,
                storage_key, original_name, content_type, size_bytes, sha256, etag
-        FROM uploaded_files
+        FROM student_uploaded_files
         WHERE id = ? AND node_instance_id = ? AND student_account_id = ?
           AND submission_id IS NULL
         """,
@@ -175,7 +175,7 @@ def get_uploaded_file_for_node(
 def attach_uploaded_file(connection, file_id: str, submission_id: str) -> None:
     updated = connection.execute(
         """
-        UPDATE uploaded_files SET submission_id = ?
+        UPDATE student_uploaded_files SET submission_id = ?
         WHERE id = ? AND submission_id IS NULL
         """,
         (submission_id, file_id),
@@ -199,7 +199,7 @@ def list_pending_scans(node_instance_id: str, student_id: int) -> list[dict[str,
     with get_connection() as connection:
         rows = connection.execute(
             """
-            SELECT * FROM uploaded_files
+            SELECT * FROM student_uploaded_files
             WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
             ORDER BY display_order, created_at, id
             """,
@@ -226,7 +226,7 @@ def add_pending_scan(
             """
             SELECT COUNT(*) AS file_count, COALESCE(SUM(page_count), 0) AS pages,
                    COALESCE(SUM(size_bytes), 0) AS bytes
-            FROM uploaded_files
+            FROM student_uploaded_files
             WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
             """,
             (node_instance_id, student_id),
@@ -241,7 +241,7 @@ def add_pending_scan(
         now = utc_now_iso()
         connection.execute(
             """
-            INSERT INTO uploaded_files
+            INSERT INTO student_uploaded_files
                 (id, node_instance_id, student_account_id, storage_key, original_name,
                  content_type, size_bytes, sha256, etag, page_count, display_order, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -259,23 +259,23 @@ def delete_pending_scan(node_instance_id: str, student_id: int, file_id: str) ->
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         row = connection.execute(
-            """SELECT storage_key FROM uploaded_files
+            """SELECT storage_key FROM student_uploaded_files
                WHERE id = ? AND node_instance_id = ? AND student_account_id = ?
                  AND submission_id IS NULL""",
             (file_id, node_instance_id, student_id),
         ).fetchone()
         if row is None:
             raise KeyError(file_id)
-        connection.execute("DELETE FROM uploaded_files WHERE id = ?", (file_id,))
+        connection.execute("DELETE FROM student_uploaded_files WHERE id = ?", (file_id,))
         remaining = connection.execute(
-            """SELECT id FROM uploaded_files
+            """SELECT id FROM student_uploaded_files
                WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
                ORDER BY display_order, created_at, id""",
             (node_instance_id, student_id),
         ).fetchall()
         for order, item in enumerate(remaining):
             connection.execute(
-                "UPDATE uploaded_files SET display_order = ? WHERE id = ?", (order, item["id"])
+                "UPDATE student_uploaded_files SET display_order = ? WHERE id = ?", (order, item["id"])
             )
     return str(row["storage_key"])
 
@@ -286,7 +286,7 @@ def reorder_pending_scans(
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         rows = connection.execute(
-            """SELECT * FROM uploaded_files
+            """SELECT * FROM student_uploaded_files
                WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
                ORDER BY display_order, created_at, id""",
             (node_instance_id, student_id),
@@ -296,7 +296,7 @@ def reorder_pending_scans(
         by_id = {row["id"]: row for row in rows}
         for order, file_id in enumerate(file_ids):
             connection.execute(
-                "UPDATE uploaded_files SET display_order = ? WHERE id = ?", (order, file_id)
+                "UPDATE student_uploaded_files SET display_order = ? WHERE id = ?", (order, file_id)
             )
     return [{**_scan_file(by_id[file_id]), "order": order} for order, file_id in enumerate(file_ids)]
 
@@ -305,7 +305,7 @@ def get_pending_scans_for_submit(
     connection: Any, node_instance_id: str, student_id: int
 ) -> list[dict[str, object]]:
     rows = connection.execute(
-        """SELECT * FROM uploaded_files
+        """SELECT * FROM student_uploaded_files
            WHERE node_instance_id = ? AND student_account_id = ? AND submission_id IS NULL
            ORDER BY display_order, created_at, id""",
         (node_instance_id, student_id),
@@ -318,7 +318,7 @@ def attach_uploaded_files(connection: Any, file_ids: list[str], submission_id: s
         raise FileContextError("请先上传扫描件")
     placeholders = ",".join("?" for _ in file_ids)
     updated = connection.execute(
-        f"UPDATE uploaded_files SET submission_id = ? WHERE id IN ({placeholders}) AND submission_id IS NULL",
+        f"UPDATE student_uploaded_files SET submission_id = ? WHERE id IN ({placeholders}) AND submission_id IS NULL",
         (submission_id, *file_ids),
     ).rowcount
     if updated != len(file_ids):
@@ -330,7 +330,7 @@ def get_uploaded_file_for_download(file_id: str, student_id: int) -> dict[str, o
         row = connection.execute(
             """
             SELECT u.*, v.flow_id
-            FROM uploaded_files u
+            FROM student_uploaded_files u
             JOIN node_instances n ON n.id = u.node_instance_id
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id

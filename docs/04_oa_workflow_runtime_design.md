@@ -75,7 +75,7 @@
 | `node_instances` | `id`, `flow_instance_id`, `node_key`, `status`, `opened_at`, `submitted_at`, `approved_at`, `attempt_no` | 学生节点状态 |
 | `node_drafts` | `node_instance_id`, `payload`, `updated_at` | 当前暂存数据 |
 | `submissions` | `id`, `node_instance_id`, `attempt_no`, `payload_snapshot`, `submitted_at`, `status` | 不可变提交版本 |
-| `uploaded_files` | `id`, `node_instance_id`, `student_account_id`, `submission_id`, `storage_key`, `original_name`, `content_type`, `size_bytes`, `sha256`, `etag` | OSS 附件元数据；上传后暂存，提交成功后关联 submission |
+| `student_uploaded_files` | `id`, `node_instance_id`, `student_account_id`, `submission_id`, `storage_key`, `original_name`, `content_type`, `size_bytes`, `sha256`, `etag` | OSS 附件元数据；上传后暂存，提交成功后关联 submission |
 | `node_deadline_overrides` | `flow_instance_id`, `node_key`, `deadline_at`, `reason`, `created_by`, `created_at` | 个别学生延期 |
 | `audit_logs` | `id`, `actor_id`, `action`, `entity_type`, `entity_id`, `before_data`, `after_data`, `reason`, `created_at` | 统一审计记录 |
 
@@ -85,7 +85,7 @@
 - `flow_instances(flow_version_id, student_user_id)` 唯一；
 - `node_instances(flow_instance_id, node_key)` 唯一；
 - `submissions(node_instance_id, attempt_no)` 唯一；
-- `uploaded_files(storage_key)` 唯一；未提交附件只能被所属学生和节点引用；
+- `student_uploaded_files(storage_key)` 唯一；未提交附件只能被所属学生和节点引用；
 - 所有状态迁移在数据库事务中完成。
 
 ## 5. 状态模型

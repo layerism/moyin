@@ -83,7 +83,7 @@ def run_next_task(stopping=None):
                               {'submissionId': task['submission_id'], 'stepIndex': task['step_index'],
                                'attempt': task['attempt_count'] + 1, 'snapshot': snapshot}, utc_now_iso())
         connection.execute("UPDATE file_review_ai_tasks SET status = 'running', attempt_count = attempt_count + 1 WHERE id = ?", (task['id'],))
-        files = connection.execute('SELECT * FROM uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at', (task['submission_id'],)).fetchall()
+        files = connection.execute('SELECT * FROM student_uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at', (task['submission_id'],)).fetchall()
         materials = [AuditMaterial(id=f['id'], name=f['original_name'], storage_key=f['storage_key'], content_type=f['content_type'], size=f['size_bytes'], sha256=f['sha256'], page_count=f['page_count']) for f in files]
     last_cancellation_check = 0.0
 

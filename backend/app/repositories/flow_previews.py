@@ -57,7 +57,7 @@ def mark_preview_for_cleanup(teacher_id: int) -> list[str]:
         rows = connection.execute(
             """
             SELECT u.storage_key
-            FROM uploaded_files u
+            FROM student_uploaded_files u
             JOIN node_instances n ON n.id = u.node_instance_id
             WHERE n.flow_instance_id = ?
             UNION ALL

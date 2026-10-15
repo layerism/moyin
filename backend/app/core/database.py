@@ -351,7 +351,7 @@ CREATE TABLE IF NOT EXISTS node_submissions (
     UNIQUE(node_instance_id, idempotency_key)
 );
 
-CREATE TABLE IF NOT EXISTS uploaded_files (
+CREATE TABLE IF NOT EXISTS student_uploaded_files (
     id TEXT PRIMARY KEY,
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
     student_account_id INTEGER NOT NULL REFERENCES student_accounts(id) ON DELETE CASCADE,
@@ -381,10 +381,10 @@ CREATE INDEX IF NOT EXISTS idx_template_download_events_student
     ON template_download_events(student_account_id, node_instance_id);
 
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_node
-    ON uploaded_files(node_instance_id, student_account_id);
+    ON student_uploaded_files(node_instance_id, student_account_id);
 
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_submission
-    ON uploaded_files(submission_id);
+    ON student_uploaded_files(submission_id);
 
 CREATE TABLE IF NOT EXISTS file_review_runs (
     submission_id TEXT PRIMARY KEY REFERENCES node_submissions(id) ON DELETE CASCADE,
@@ -498,6 +498,7 @@ def initialize_database() -> None:
         _apply_node_submissions_rename(connection)
         _apply_flow_groups_rename(connection)
         _apply_node_deadline_overrides_rename(connection)
+        _apply_student_uploaded_files_rename(connection)
         connection.executescript(SCHEMA)
         _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema
@@ -586,6 +587,15 @@ def _apply_node_deadline_overrides_rename(connection: sqlite3.Connection) -> Non
     ).fetchone()
     if legacy is not None:
         connection.execute("ALTER TABLE student_deadline_overrides RENAME TO node_deadline_overrides")
+
+
+def _apply_student_uploaded_files_rename(connection: sqlite3.Connection) -> None:
+    # Rename before SCHEMA creates the table, preserving rows, columns and indexes.
+    legacy = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'uploaded_files'"
+    ).fetchone()
+    if legacy is not None:
+        connection.execute("ALTER TABLE uploaded_files RENAME TO student_uploaded_files")
 
 
 def _apply_registration_allowlist_migration(connection: sqlite3.Connection) -> None:
@@ -793,15 +803,15 @@ def _apply_workflow_groups_migration(connection: sqlite3.Connection) -> None:
 def _apply_scan_file_metadata_migration(connection: sqlite3.Connection) -> None:
     migration_id = "20260810_add_scan_file_metadata"
     columns = {
-        row["name"] for row in connection.execute("PRAGMA table_info(uploaded_files)").fetchall()
+        row["name"] for row in connection.execute("PRAGMA table_info(student_uploaded_files)").fetchall()
     }
     if "page_count" not in columns:
         connection.execute(
-            "ALTER TABLE uploaded_files ADD COLUMN page_count INTEGER NOT NULL DEFAULT 1 CHECK(page_count > 0)"
+            "ALTER TABLE student_uploaded_files ADD COLUMN page_count INTEGER NOT NULL DEFAULT 1 CHECK(page_count > 0)"
         )
     if "display_order" not in columns:
         connection.execute(
-            "ALTER TABLE uploaded_files ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0 CHECK(display_order >= 0)"
+            "ALTER TABLE student_uploaded_files ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0 CHECK(display_order >= 0)"
         )
     connection.execute(
         "INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)",
