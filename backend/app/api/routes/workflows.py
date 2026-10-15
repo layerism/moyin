@@ -1,7 +1,7 @@
 import hashlib
 from io import BytesIO
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Literal
 
 from app.repositories.node_copy import copy_node
 from app.services.image_compression import compress_image_to_jpeg
@@ -223,6 +223,50 @@ def put_confirmation_parameters_route(flow_id: str, node_key: str, payload: Conf
                                       payload.params.model_dump(), "confirmation")
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="已发布确认承诺节点或材料不存在") from exc
+    except NodeParametersConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+BasicNodeKind = Literal["answer_sheet", "announcement", "or_gate"]
+
+
+class BasicNodeParams(BaseModel):
+    title: str = Field(min_length=1, max_length=50)
+    requirement: str
+    startAt: str | None = None
+    deadlineAt: str | None = None
+    model_config = {"extra": "forbid"}
+
+
+class BasicParametersRequest(BaseModel):
+    expectedGeneration: int = Field(ge=0)
+    params: BasicNodeParams
+
+
+@router.get("/{flow_id}/nodes/{node_key}/parameters/{kind}")
+def get_basic_parameters_route(flow_id: str, node_key: str, kind: BasicNodeKind,
+                               teacher=Depends(get_current_teacher)):
+    from app.repositories.published_node_parameters import get_node_parameters
+    try:
+        return get_node_parameters(flow_id, node_key, int(teacher["id"]), kind)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布节点不存在") from exc
+
+
+@router.put("/{flow_id}/nodes/{node_key}/parameters/{kind}")
+def put_basic_parameters_route(flow_id: str, node_key: str, kind: BasicNodeKind,
+                               payload: BasicParametersRequest, teacher=Depends(get_current_teacher)):
+    from app.repositories.published_node_parameters import update_node_parameters, NodeParametersConflict
+    params = payload.params.model_dump(exclude_unset=True)
+    if any(value is None for value in params.values()):
+        raise HTTPException(status_code=422, detail="节点参数不能为 null")
+    try:
+        return update_node_parameters(flow_id, node_key, int(teacher["id"]),
+                                      payload.expectedGeneration, params, kind)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="已发布节点或材料不存在") from exc
     except NodeParametersConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:

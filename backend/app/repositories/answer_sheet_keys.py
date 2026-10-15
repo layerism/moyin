@@ -138,7 +138,7 @@ def get_version_answer_key(
         SELECT r.grading_snapshot, r.grading_hash, r.generation, r.updated_at
         FROM answer_sheet_key_revisions r
         JOIN flow_versions v ON v.flow_id = r.flow_id
-        WHERE v.id = ? AND r.node_key = ?
+        WHERE v.id = ? AND r.node_key = ? AND v.status != 'preview'
         ORDER BY r.generation DESC LIMIT 1
         """,
         (flow_version_id, node_key),
@@ -151,6 +151,24 @@ def get_version_answer_key(
         "generation": int(revision["generation"]),
         "updatedAt": str(revision["updated_at"]),
     }
+
+
+def get_graded_answer_key(connection: Any, flow_version_id: str, node_key: str,
+                          used_hash: str) -> dict[str, Any] | None:
+    """Resolve the actual grading basis without substituting the latest answers."""
+    row = connection.execute(
+        """SELECT r.grading_snapshot FROM answer_sheet_key_revisions r
+        JOIN flow_versions v ON v.flow_id = r.flow_id
+        WHERE v.id = ? AND r.node_key = ? AND r.grading_hash = ?
+        UNION ALL
+        SELECT k.grading_snapshot FROM flow_version_answer_keys k
+        JOIN flow_versions original ON original.id = k.flow_version_id
+        JOIN flow_versions current ON current.flow_id = original.flow_id
+        WHERE current.id = ? AND k.node_key = ? AND k.grading_hash = ?
+        LIMIT 1""",
+        (flow_version_id, node_key, used_hash, flow_version_id, node_key, used_hash),
+    ).fetchone()
+    return json.loads(row['grading_snapshot']) if row else None
 
 
 def composite_draft_hash(

@@ -34,7 +34,7 @@ from app.repositories.answer_sheet_grades import (
     insert_answer_sheet_grade,
     student_grade_view,
 )
-from app.repositories.answer_sheet_keys import get_version_answer_key
+from app.repositories.answer_sheet_keys import get_version_answer_key, get_graded_answer_key
 from app.repositories.flow_files import (
     FileContextError,
     attach_uploaded_file,
@@ -294,9 +294,10 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 and after_deadline
                 and grade is not None
             ):
-                answer_key = get_version_answer_key(
-                    connection, str(instance["flow_version_id"]), str(row["node_key"])
-                )["gradingKey"]
+                answer_key = get_graded_answer_key(
+                    connection, str(instance["flow_version_id"]), str(row["node_key"]),
+                    grade["gradingHash"],
+                )
             rejection = current_rejection(connection, row["id"])
             rejection_files = []
             if rejection and rejection["feedback_id"]:

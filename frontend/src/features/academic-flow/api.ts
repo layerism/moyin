@@ -34,6 +34,10 @@ export type FormParametersPolicy = {
   params: FormParameters;
 };
 
+export type BasicParameters = Pick<FormParameters, "title" | "requirement"> & Partial<Pick<FormParameters, "startAt" | "deadlineAt">>;
+export type BasicParametersPolicy = { generation: number; params: BasicParameters };
+export type BasicNodeKind = "answer_sheet" | "announcement" | "or_gate";
+
 export type FileParameters = FormParameters & {
   fileLimitMb: string;
   referenceAssets: NonNullable<AcademicFlowNode["referenceAssets"]>;
@@ -600,6 +604,13 @@ export const workflowApi = {
     return request<NodeAuditPolicy>(
       `/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/audit-policy`,
     );
+  },
+  getBasicParameters(flowId: string, nodeKey: string, kind: BasicNodeKind) {
+    return request<BasicParametersPolicy>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/parameters/${kind}`);
+  },
+  updateBasicParameters(flowId: string, nodeKey: string, kind: BasicNodeKind, payload: { expectedGeneration: number; params: BasicParameters }) {
+    return request<BasicParametersPolicy>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/parameters/${kind}`,
+      { method: "PUT", body: JSON.stringify(payload) });
   },
   getConfirmationParameters(flowId: string, nodeKey: string) {
     return request<ConfirmationParametersPolicy>(`/api/workflows/${encodeURIComponent(flowId)}/nodes/${encodeURIComponent(nodeKey)}/confirmation-parameters`);

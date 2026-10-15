@@ -2,8 +2,7 @@ import json
 from typing import Any
 
 from app.core.database import get_connection
-from app.domain.answer_sheet import grade_answer_sheet, validate_private_answer_key
-from app.repositories.answer_sheet_grades import replace_answer_sheet_grade
+from app.domain.answer_sheet import validate_private_answer_key
 from app.repositories.answer_sheet_keys import (
     canonical_json,
     get_version_answer_key,
@@ -132,55 +131,6 @@ def update_node_answer_key_policy(
             ),
         )
 
-        submissions = connection.execute(
-            """
-            SELECT s.id, s.payload_snapshot, v.id AS flow_version_id,
-                   v.config_snapshot
-            FROM submissions s
-            JOIN node_instances n ON n.id = s.node_instance_id
-            JOIN flow_instances i ON i.id = n.flow_instance_id
-            JOIN student_accounts a ON a.id = i.student_account_id
-            JOIN flow_versions v ON v.id = i.flow_version_id
-            WHERE v.flow_id = ? AND n.node_key = ?
-              AND a.account_kind = 'normal'
-            ORDER BY s.submitted_at, s.id
-            """,
-            (flow_id, node_key),
-        ).fetchall()
-        version_nodes: dict[str, dict[str, Any]] = {}
-        for submission in submissions:
-            version_id = str(submission["flow_version_id"])
-            node = version_nodes.get(version_id)
-            if node is None:
-                node = next(
-                    (
-                        item
-                        for item in json.loads(submission["config_snapshot"]).get("nodes", [])
-                        if str(item.get("id")) == node_key
-                        and item.get("kind") == "answer_sheet"
-                    ),
-                    None,
-                )
-                if node is None:
-                    raise AnswerSheetPolicyConflictError(
-                        "历史流程版本中的答题卡结构缺失，无法重新判分"
-                    )
-                validate_private_answer_key(
-                    node, grading_key, require_publishable=True
-                )
-                version_nodes[version_id] = node
-            result = grade_answer_sheet(
-                node, grading_key, json.loads(submission["payload_snapshot"])
-            )
-            replace_answer_sheet_grade(
-                connection,
-                str(submission["id"]),
-                result,
-                next_hash,
-                teacher_id,
-                now,
-            )
-
         connection.execute(
             """
             INSERT INTO audit_logs
@@ -201,7 +151,7 @@ def update_node_answer_key_policy(
                     {
                         "generation": next_generation,
                         "gradingHash": next_hash,
-                        "regradedSubmissionCount": len(submissions),
+                        "regradedSubmissionCount": 0,
                     }
                 ),
                 now,
@@ -209,5 +159,5 @@ def update_node_answer_key_policy(
         )
         return {
             **_policy_view(connection, flow_id, node_key, teacher_id),
-            "regradedSubmissionCount": len(submissions),
+            "regradedSubmissionCount": 0,
         }

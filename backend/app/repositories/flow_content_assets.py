@@ -219,6 +219,11 @@ def remove_content_asset(
     ).fetchone()
     if referenced is not None:
         raise ContentAssetError("已发布版本引用的图片不可删除")
+    from app.repositories.published_node_parameters import stored_parameters
+    for entry in stored_parameters(connection, flow_id).values():
+        targets = _MARKDOWN_IMAGE_TARGET.findall(str(entry['params'].get('requirement') or ''))
+        if f'asset://{asset_id}' in targets:
+            raise ContentAssetError("生效公告引用的图片不可删除")
     connection.execute("DELETE FROM flow_content_assets WHERE id = ?", (asset_id,))
     return {"storageKey": str(row["storage_key"])}
 
@@ -265,14 +270,18 @@ def get_student_content_asset(
         if instance is None:
             raise KeyError(asset_id)
         assert_student_roster_access(connection, str(instance["flow_id"]), student_id)
+        from app.repositories.flow_runtime_state import version_config
+        config = version_config(connection, str(instance['flow_version_id']))
+        node_keys = [node['id'] for node in config['nodes']
+                     if asset_id in referenced_content_asset_ids(node)]
+        if not node_keys:
+            raise KeyError(asset_id)
+        placeholders = ','.join('?' for _ in node_keys)
         row = connection.execute(
-            """
-            SELECT a.id, a.storage_key, a.original_name, a.content_type, a.size_bytes
-            FROM flow_version_content_assets va
-            JOIN flow_content_assets a ON a.id = va.content_asset_id
-            WHERE va.flow_version_id = ? AND va.content_asset_id = ?
-            """,
-            (instance["flow_version_id"], asset_id),
+            f"""SELECT id, storage_key, original_name, content_type, size_bytes
+            FROM flow_content_assets WHERE flow_id = ? AND id = ?
+            AND node_key IN ({placeholders})""",
+            (instance['flow_id'], asset_id, *node_keys),
         ).fetchone()
         if row is None:
             raise KeyError(asset_id)

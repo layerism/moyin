@@ -55,8 +55,13 @@ FORM_PROGRESS_PRESERVING_FIELDS = {"title", "requirement", "startAt", "deadlineA
 
 
 def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
+    editable_fields = REVISION_EDITABLE_NODE_FIELDS
+    if node.get("kind") in {"answer_sheet", "announcement"}:
+        editable_fields = FORM_PROGRESS_PRESERVING_FIELDS
+    elif node.get("kind") == "or_gate":
+        editable_fields = {"title", "requirement"}
     snapshot = {
-        key: value for key, value in node.items() if key not in REVISION_EDITABLE_NODE_FIELDS
+        key: value for key, value in node.items() if key not in editable_fields
     }
     if node.get("kind") == "file":
         snapshot.pop("fileLimitMb", None)
@@ -124,12 +129,15 @@ def business_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
 
 def progress_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
     snapshot = business_node_snapshot(node)
-    if node.get("kind") == "form":
+    if node.get("kind") in {"form", "answer_sheet", "announcement"}:
         for field in FORM_PROGRESS_PRESERVING_FIELDS:
             snapshot.pop(field, None)
     if node.get("kind") in {"file", "confirmation"}:
         for field in (*FORM_PROGRESS_PRESERVING_FIELDS, "fileLimitMb", "referenceAssets"):
             snapshot.pop(field, None)
+    if node.get("kind") == "or_gate":
+        snapshot.pop("title", None)
+        snapshot.pop("requirement", None)
     return snapshot
 
 

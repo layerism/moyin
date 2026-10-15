@@ -27,7 +27,7 @@ import {
   getFileTypeRestrictionPreset,
   nodeTemplates,
 } from "./academicFlowData";
-import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy, type FormParameters, type FormParametersPolicy, type MaterialParameters, type MaterialParametersPolicy } from "./api";
+import { ApiError, FLOW_PREVIEW_TOKEN_KEY, workflowApi, type AnswerKeyPolicy, type ReviewStepPolicy, type BasicParameters, type BasicParametersPolicy, type BasicNodeKind, type MaterialParameters, type MaterialParametersPolicy } from "./api";
 import {
   getAuditScriptParameterError,
   type NodeAuditPolicy,
@@ -693,7 +693,7 @@ export function AcademicFlowDesigner({
     }));
   };
 
-  const applyPublishedNodeParameters = (nodeId: string, policy: FormParametersPolicy | MaterialParametersPolicy) => {
+  const applyPublishedNodeParameters = (nodeId: string, policy: BasicParametersPolicy | MaterialParametersPolicy) => {
     const apply = (current: AcademicProcess): AcademicProcess => ({
       ...current,
       nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, ...policy.params } : node),
@@ -719,7 +719,7 @@ export function AcademicFlowDesigner({
       },
     }));
     setActionNotice(
-      `标准答案已更新，已重新判定 ${policy.regradedSubmissionCount ?? 0} 份答卷`,
+      "标准答案已保存，后续提交使用新答案；历史成绩保留",
     );
   };
 
@@ -1006,7 +1006,7 @@ export function AcademicFlowDesigner({
             onUpdateNode={updateNode}
             onUpdateAnswerSheet={updateAnswerSheet}
             onAuditPolicySaved={(policy) => applyPublishedAuditPolicy(inspectorNode.id, policy)}
-            onFormParametersSaved={(policy) => applyPublishedNodeParameters(inspectorNode.id, policy)}
+            onBasicParametersSaved={(policy) => applyPublishedNodeParameters(inspectorNode.id, policy)}
             onMaterialParametersSaved={(policy) => applyPublishedNodeParameters(inspectorNode.id, policy)}
             onAnswerKeyPolicySaved={(policy) => applyPublishedAnswerKeyPolicy(inspectorNode.id, policy)}
             publishedAuditPolicy={workingProcess.published && protectedNodeIds.includes(inspectorNode.id)}
@@ -2433,7 +2433,7 @@ function NodeInspector({
   onUpdateAnswerSheet,
   onAnswerKeyPolicySaved,
   onAuditPolicySaved,
-  onFormParametersSaved,
+  onBasicParametersSaved,
   onMaterialParametersSaved,
   publishedAuditPolicy,
   publishedRevision,
@@ -2464,12 +2464,12 @@ function NodeInspector({
   ) => void;
   onAnswerKeyPolicySaved: (policy: AnswerKeyPolicy) => void;
   onAuditPolicySaved: (policy: NodeAuditPolicy) => void;
-  onFormParametersSaved: (policy: FormParametersPolicy) => void;
+  onBasicParametersSaved: (policy: BasicParametersPolicy) => void;
   onMaterialParametersSaved: (policy: MaterialParametersPolicy) => void;
   publishedAuditPolicy: boolean;
   publishedRevision: boolean;
 }) {
-  const hasPublishedForm = publishedAuditPolicy && sourceNode?.kind === "form";
+  const hasPublishedBasic = publishedAuditPolicy && Boolean(sourceNode && ["form", "answer_sheet", "announcement", "or_gate"].includes(sourceNode.kind));
   const hasPublishedMaterial = publishedAuditPolicy && (sourceNode?.kind === "file" || sourceNode?.kind === "confirmation");
   const [materialPolicy, setMaterialPolicy] = useState<MaterialParametersPolicy | null>(null);
   const [materialDraft, setMaterialDraft] = useState<MaterialParameters | null>(null);
@@ -2511,27 +2511,28 @@ function NodeInspector({
     if (!hasPublishedMaterial) { onDeleteDraftReference(assetId); return; }
     setMaterialDraft((current) => current && ({ ...current, referenceAssets: current.referenceAssets.filter((item) => item.assetId !== assetId) }));
   };
-  const [formPolicy, setFormPolicy] = useState<FormParametersPolicy | null>(null);
-  const [formDraft, setFormDraft] = useState<FormParameters | null>(null);
-  const [formSaving, setFormSaving] = useState(false);
-  const [formError, setFormError] = useState("");
-  const formNodeKey = sourceNode?.id ?? "";
+  const [basicPolicy, setBasicPolicy] = useState<BasicParametersPolicy | null>(null);
+  const [basicDraft, setBasicDraft] = useState<BasicParameters | null>(null);
+  const [basicSaving, setBasicSaving] = useState(false);
+  const [basicError, setBasicError] = useState("");
+  const basicNodeKey = sourceNode?.id ?? "";
   useEffect(() => {
-    if (!hasPublishedForm) return;
+    if (!hasPublishedBasic) return;
     let cancelled = false;
-    workflowApi.getFormParameters(flowId, formNodeKey).then((policy) => {
+    (sourceNode?.kind === "form" ? workflowApi.getFormParameters(flowId, basicNodeKey)
+      : workflowApi.getBasicParameters(flowId, basicNodeKey, sourceNode!.kind as BasicNodeKind)).then((policy) => {
       if (cancelled) return;
-      setFormPolicy(policy);
-      setFormDraft(policy.params);
+      setBasicPolicy(policy);
+      setBasicDraft(policy.params);
     }).catch((reason) => {
-      if (!cancelled) setFormError(reason instanceof Error ? reason.message : "读取表单配置失败");
+      if (!cancelled) setBasicError(reason instanceof Error ? reason.message : "读取节点配置失败");
     });
     return () => { cancelled = true; };
-  }, [flowId, formNodeKey, hasPublishedForm]);
+  }, [flowId, basicNodeKey, hasPublishedBasic, sourceNode?.kind]);
   const node = sourceNode && hasPublishedMaterial && materialDraft ? { ...sourceNode, ...materialDraft, referenceAsset: null }
-    : sourceNode && hasPublishedForm && formDraft ? { ...sourceNode, ...formDraft } : sourceNode;
-  const editingLocked = parentEditingLocked || materialBusy || (hasPublishedMaterial && !materialPolicy) || formSaving || (hasPublishedForm && !formPolicy);
-  const formChanged = Boolean(formPolicy && formDraft && JSON.stringify(formPolicy.params) !== JSON.stringify(formDraft));
+    : sourceNode && hasPublishedBasic && basicDraft ? { ...sourceNode, ...basicDraft } : sourceNode;
+  const editingLocked = parentEditingLocked || materialBusy || (hasPublishedMaterial && !materialPolicy) || basicSaving || (hasPublishedBasic && !basicPolicy);
+  const basicChanged = Boolean(basicPolicy && basicDraft && JSON.stringify(basicPolicy.params) !== JSON.stringify(basicDraft));
   const onUpdateNode = (nodeId: string, patch: Partial<AcademicFlowNode>) => {
     if (hasPublishedMaterial) {
       setMaterialError("");
@@ -2543,16 +2544,18 @@ function NodeInspector({
       }));
       return;
     }
-    if (!hasPublishedForm) {
+    if (!hasPublishedBasic) {
       onUpdateDraftNode(nodeId, patch);
       return;
     }
-    setFormError("");
-    setFormDraft((current) => current && ({
+    setBasicError("");
+    setBasicDraft((current) => current && ({
       title: patch.title ?? current.title,
       requirement: patch.requirement ?? current.requirement,
-      startAt: "startAt" in patch ? patch.startAt ?? "" : current.startAt,
-      deadlineAt: "deadlineAt" in patch ? patch.deadlineAt ?? "" : current.deadlineAt,
+      ...(sourceNode?.kind === "or_gate" ? {} : {
+        startAt: "startAt" in patch ? patch.startAt ?? "" : current.startAt,
+        deadlineAt: "deadlineAt" in patch ? patch.deadlineAt ?? "" : current.deadlineAt,
+      }),
     }));
   };
   const [timeSettingsOpen, setTimeSettingsOpen] = useState(false);
@@ -2568,7 +2571,6 @@ function NodeInspector({
   const [answerKeyDraft, setAnswerKeyDraft] = useState<AcademicProcess["answerSheetKeys"][string] | null>(null);
   const [answerKeyError, setAnswerKeyError] = useState("");
   const [answerKeySaving, setAnswerKeySaving] = useState(false);
-  const [answerKeyConfirmOpen, setAnswerKeyConfirmOpen] = useState(false);
   const nodeKey = node?.id ?? "";
   const hasPublishedAuditPolicy = Boolean(
     publishedAuditPolicy && node && (node.auditScriptId || node.scanAuditEnabled),
@@ -2625,7 +2627,6 @@ function NodeInspector({
     setAnswerKeyDraft(null);
     setAnswerKeyError("");
     setAnswerKeySaving(false);
-    setAnswerKeyConfirmOpen(false);
     if (!hasPublishedAnswerKeyPolicy) return;
     let cancelled = false;
     workflowApi.getNodeAnswerKeyPolicy(flowId, nodeKey).then((value) => {
@@ -2670,11 +2671,11 @@ function NodeInspector({
   const requiresAuditModel = Boolean(node?.kind === "confirmation" && node.scanAuditEnabled);
   const missingAuditModel = requiresAuditModel && !(hasPublishedAuditPolicy ? auditModelCardId : node?.auditModelCardId);
 
-  const persistPoliciesAndClose = useCallback(async (saveAnswerKey: boolean) => {
+  const persistPoliciesAndClose = useCallback(async () => {
     setMaterialBusy(hasPublishedMaterial);
-    setFormSaving(hasPublishedForm && formChanged);
+    setBasicSaving(hasPublishedBasic && basicChanged);
     setAuditPolicySaving(auditPolicyChanged || reviewStepChanged);
-    setAnswerKeySaving(saveAnswerKey && answerKeyChanged);
+    setAnswerKeySaving(answerKeyChanged);
     setAuditPolicyError("");
     setAnswerKeyError("");
     let answerKeySaved = false;
@@ -2687,17 +2688,21 @@ function NodeInspector({
               params: { ...materialDraft, fileLimitMb: materialDraft.fileLimitMb ?? sourceNode?.fileLimitMb ?? "" } });
         setMaterialPolicy(saved); setMaterialDraft(saved.params); onMaterialParametersSaved(saved);
       }
-      if (hasPublishedForm && formPolicy && formDraft && formChanged) {
-        setFormError("");
-        const saved = await workflowApi.updateFormParameters(flowId, nodeKey, {
-          expectedGeneration: formPolicy.generation,
-          params: formDraft,
-        });
-        setFormPolicy(saved);
-        setFormDraft(saved.params);
-        onFormParametersSaved(saved);
+      if (hasPublishedBasic && basicPolicy && basicDraft && basicChanged) {
+        setBasicError("");
+        const saved = sourceNode?.kind === "form"
+          ? await workflowApi.updateFormParameters(flowId, nodeKey, {
+              expectedGeneration: basicPolicy.generation,
+              params: { ...basicDraft, startAt: basicDraft.startAt ?? "", deadlineAt: basicDraft.deadlineAt ?? "" },
+            })
+          : await workflowApi.updateBasicParameters(flowId, nodeKey, sourceNode!.kind as BasicNodeKind, {
+              expectedGeneration: basicPolicy.generation, params: basicDraft,
+            });
+        setBasicPolicy(saved);
+        setBasicDraft(saved.params);
+        onBasicParametersSaved(saved);
       }
-      if (saveAnswerKey && answerKeyChanged && answerKeyPolicy && answerKeyDraft) {
+      if (answerKeyChanged && answerKeyPolicy && answerKeyDraft) {
         const updatedAnswerKey = await workflowApi.updateNodeAnswerKeyPolicy(flowId, nodeKey, {
           expectedGeneration: answerKeyPolicy.generation,
           gradingKey: answerKeyDraft,
@@ -2733,23 +2738,22 @@ function NodeInspector({
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : "保存节点配置失败";
       if (hasPublishedMaterial) setMaterialError(message);
-      else if (hasPublishedForm) setFormError(message);
-      else if (saveAnswerKey && answerKeyChanged && !answerKeySaved) setAnswerKeyError(message);
+      else if (hasPublishedBasic) setBasicError(message);
+      else if (answerKeyChanged && !answerKeySaved) setAnswerKeyError(message);
       else setAuditPolicyError(message);
     } finally {
       setMaterialBusy(false);
-      setFormSaving(false);
+      setBasicSaving(false);
       setAuditPolicySaving(false);
       setAnswerKeySaving(false);
-      setAnswerKeyConfirmOpen(false);
     }
   }, [
     hasPublishedMaterial, materialPolicy, materialDraft, materialChanged, onMaterialParametersSaved, cleanupMaterialUploads, sourceNode,
-    hasPublishedForm,
-    formChanged,
-    formPolicy,
-    formDraft,
-    onFormParametersSaved,
+    hasPublishedBasic,
+    basicChanged,
+    basicPolicy,
+    basicDraft,
+    onBasicParametersSaved,
     answerKeyChanged,
     answerKeyDraft,
     answerKeyPolicy,
@@ -2770,8 +2774,8 @@ function NodeInspector({
   ]);
 
   const closeInspector = useCallback(async (requireModel = false) => {
-    if (auditPolicySaving || answerKeySaving || formSaving || materialBusy) return;
-    if ((hasPublishedForm || hasPublishedMaterial) && !requireModel) {
+    if (parentEditingLocked || auditPolicySaving || answerKeySaving || basicSaving || materialBusy) return;
+    if ((hasPublishedBasic || hasPublishedMaterial) && !requireModel) {
       if (hasPublishedMaterial) {
         setMaterialBusy(true);
         try { await cleanupMaterialUploads(materialPolicy?.params.referenceAssets.map((item) => item.assetId) ?? []); }
@@ -2782,7 +2786,7 @@ function NodeInspector({
       return;
     }
     if (requireModel && hasPublishedMaterial && !materialPolicy) return;
-    if (requireModel && hasPublishedForm && !formPolicy) return;
+    if (requireModel && hasPublishedBasic && !basicPolicy) return;
     if (requireModel && hasPublishedAnswerKeyPolicy && !answerKeyPolicy) return;
     if (requireModel && hasPublishedAuditPolicy && !auditPolicy) return;
     if (requireModel && hasPublishedReviewStepPolicy && !reviewStepPolicy) return;
@@ -2807,16 +2811,12 @@ function NodeInspector({
         return;
       }
     }
-    if (answerKeyChanged) {
-      setAnswerKeyConfirmOpen(true);
-      return;
-    }
-    await persistPoliciesAndClose(false);
+    await persistPoliciesAndClose();
   }, [
-    materialBusy, materialPolicy, hasPublishedMaterial, cleanupMaterialUploads,
-    formSaving,
-    formPolicy,
-    hasPublishedForm,
+    parentEditingLocked, materialBusy, materialPolicy, hasPublishedMaterial, cleanupMaterialUploads,
+    basicSaving,
+    basicPolicy,
+    hasPublishedBasic,
     onClose,
     answerKeyChanged,
     answerKeyPolicy,
@@ -2841,10 +2841,6 @@ function NodeInspector({
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (answerKeyConfirmOpen) {
-        if (!answerKeySaving) setAnswerKeyConfirmOpen(false);
-        return;
-      }
       if (timeSettingsOpen) {
         setTimeSettingsOpen(false);
         return;
@@ -2857,7 +2853,7 @@ function NodeInspector({
       window.removeEventListener("keydown", closeOnEscape);
       document.body.style.overflow = previousOverflow;
     };
-  }, [answerKeyConfirmOpen, answerKeySaving, closeInspector, timeSettingsOpen]);
+  }, [closeInspector, timeSettingsOpen]);
 
   if (!node) {
     return null;
@@ -2927,9 +2923,9 @@ function NodeInspector({
               />
           </label>
           <button
-            aria-label={hasPublishedForm || hasPublishedMaterial ? "取消节点修改并关闭" : "关闭节点设置"}
-            disabled={materialBusy || formSaving || auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
-            onClick={() => void closeInspector(!(hasPublishedForm || hasPublishedMaterial))}
+            aria-label={hasPublishedBasic || hasPublishedMaterial ? "取消节点修改并关闭" : "关闭节点设置"}
+            disabled={parentEditingLocked || materialBusy || basicSaving || answerKeySaving || auditPolicySaving || (hasPublishedAuditPolicy && !auditPolicy)}
+            onClick={() => void closeInspector(!(hasPublishedBasic || hasPublishedMaterial))}
             type="button"
           >
             ×
@@ -2937,11 +2933,18 @@ function NodeInspector({
         </header>
         {node.kind === "announcement" ? (
           <AnnouncementEditor
-            disabled={announcementEditingLocked}
+            disabled={announcementEditingLocked || basicSaving || (hasPublishedBasic && !basicPolicy)}
             flowId={flowId}
             key={node.id}
             nodeId={node.id}
-            onChange={(requirement) => onUpdateAnnouncementRequirement(node.id, requirement)}
+            onChange={(requirement) => {
+              if (hasPublishedBasic) {
+                setBasicError("");
+                setBasicDraft((current) => current && ({ ...current,
+                  requirement: typeof requirement === "function" ? requirement(current.requirement) : requirement,
+                }));
+              } else onUpdateAnnouncementRequirement(node.id, requirement);
+            }}
             onUpload={onUploadAnnouncementImage}
             onUploadFile={onUploadAnnouncementFile}
             value={node.requirement}
@@ -2994,14 +2997,14 @@ function NodeInspector({
           <div className="node-inspector-revision-strip" role="note">
             <strong className="revision-strip-title">
               <span aria-hidden="true">↻</span>
-              {hasPublishedMaterial ? (node.kind === "confirmation" ? "已发布确认承诺节点" : "已发布文件节点") : hasPublishedForm ? "已发布表单" : "发布后修订"}
+              {hasPublishedMaterial ? (node.kind === "confirmation" ? "已发布确认承诺节点" : "已发布文件节点") : hasPublishedBasic ? "已发布节点" : "发布后修订"}
             </strong>
             {hasPublishedMaterial ? <span className="revision-strip-detail">模板、格式及审核结构已锁定 · 学生进度保留</span>
-              : hasPublishedForm ? <span className="revision-strip-detail">字段结构已锁定 · 学生进度保留</span>
+              : hasPublishedBasic ? <span className="revision-strip-detail">固定配置已锁定 · 学生进度保留</span>
               : <span className="revision-strip-detail">{node.kind === "file" || node.kind === "confirmation" ? "基本信息/材料/时间" : node.kind === "branch" || node.kind === "or_gate" ? "基本信息" : "基本信息/时间"} · 重新发布生效</span>}
             <span className="revision-strip-detail is-immediate">
               <i aria-hidden="true">⚡</i>
-              {hasPublishedMaterial ? "可变配置 · 完成立即生效" : hasPublishedForm ? "基本信息/时间 · 完成立即生效" : "审核规则 · 完成立即生效"}
+              {hasPublishedMaterial || hasPublishedBasic ? "可变配置 · 完成立即生效" : "审核规则 · 完成立即生效"}
             </span>
           </div>
         ) : null}
@@ -3228,18 +3231,17 @@ function NodeInspector({
         </div>
         <footer className="node-inspector-footer">
           <span
-            className={materialError || formError || answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
-            role={materialError || formError || answerKeyError || auditPolicyError ? "alert" : undefined}
+            className={materialError || basicError || answerKeyError || auditPolicyError ? "node-inspector-footer-error" : undefined}
+            role={materialError || basicError || answerKeyError || auditPolicyError ? "alert" : undefined}
           >
-            {materialError ? materialError : hasPublishedMaterial
+            {answerKeyError ? answerKeyError : materialError ? materialError : hasPublishedMaterial
               ? auditPolicyError ? auditPolicyError : materialBusy ? "正在保存或上传…" : !materialPolicy ? "正在读取节点配置…" : "点击完成保存可变配置，立即生效；模板和格式不可修改。"
-              : formError ? formError
-              : hasPublishedForm
-                ? formSaving ? "正在保存表单配置…"
-                  : !formPolicy ? "正在读取表单配置…"
-                    : "点击完成后，标题、说明和时间立即生效，无需重新发布。"
-              : answerKeyError
-              ? answerKeyError
+              : basicError ? basicError
+              : hasPublishedBasic
+                ? basicSaving ? "正在保存节点配置…"
+                  : !basicPolicy || (hasPublishedAnswerKeyPolicy && !answerKeyPolicy) ? "正在读取节点配置…"
+                    : answerKeyChanged ? "点击完成保存新答案，后续提交使用新答案；历史成绩保留。"
+                    : "点击完成保存可变配置，立即生效；已有进度和成绩保留。"
               : auditPolicyError
               ? auditPolicyError
               : hasPublishedAnswerKeyPolicy && !answerKeyPolicy
@@ -3251,13 +3253,13 @@ function NodeInspector({
                 : answerKeySaving || auditPolicySaving
                   ? "正在保存并更新相关结果…"
                   : answerKeyChanged
-                    ? "点击完成后，标准答案立即更新并重新判定全部历史答卷。"
+                    ? "点击完成后，标准答案立即更新，后续提交使用新答案，历史成绩保留。"
                   : hasPublishedAuditPolicy && auditPolicyChanged
                     ? "点击完成后，审核规则立即更新未完成审核。"
                   : hasPublishedReviewStepPolicy && reviewStepChanged
                     ? "点击完成后，新提交将使用更新后的审核参数；已提交批次保持原规则。"
                     : publishedRevision && hasPublishedAnswerKeyPolicy
-                      ? "标题、说明和时间重新发布后生效；标准答案在完成时立即保存并重新判分。"
+                      ? "可变配置与标准答案在完成时立即保存，历史成绩保留。"
                       : publishedRevision
                         ? "标题、说明和时间重新发布后生效；审核规则在完成时立即保存。"
                       : hasPublishedAuditPolicy
@@ -3270,14 +3272,14 @@ function NodeInspector({
           </span>
           <button
             className="primary-action"
-            disabled={materialBusy || (hasPublishedMaterial && !materialPolicy) || formSaving || (hasPublishedForm && !formPolicy) || answerKeySaving || auditPolicySaving
+            disabled={parentEditingLocked || materialBusy || (hasPublishedMaterial && !materialPolicy) || basicSaving || (hasPublishedBasic && !basicPolicy) || answerKeySaving || auditPolicySaving
               || (hasPublishedAnswerKeyPolicy && !answerKeyPolicy)
               || (hasPublishedAuditPolicy && !auditPolicy)
               || (hasPublishedReviewStepPolicy && !reviewStepPolicy)}
             onClick={() => void closeInspector(true)}
             type="button"
           >
-            {materialBusy || formSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
+            {materialBusy || basicSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
           </button>
         </footer>
       </aside>
@@ -3291,46 +3293,6 @@ function NodeInspector({
             setTimeSettingsOpen(false);
           }}
         />
-      ) : null}
-      {answerKeyConfirmOpen ? (
-        <div
-          className="node-time-dialog-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !answerKeySaving) {
-              setAnswerKeyConfirmOpen(false);
-            }
-          }}
-        >
-          <section
-            aria-labelledby="answer-key-confirm-title"
-            aria-modal="true"
-            className="node-time-dialog answer-key-confirm-dialog"
-            role="dialog"
-          >
-            <header>
-              <h2 id="answer-key-confirm-title">确认修改标准答案</h2>
-              <button
-                aria-label="取消修改标准答案"
-                disabled={answerKeySaving}
-                onClick={() => setAnswerKeyConfirmOpen(false)}
-                type="button"
-              >×</button>
-            </header>
-            <div className="node-time-dialog-body">
-              <p>保存后，系统会立即使用新答案重新判定该节点的全部历史答卷，学生看到的成绩也会随之更新。</p>
-              <p>学生的作答次数、提交记录、节点状态和后续流程不会改变；旧成绩将保留用于审计。</p>
-            </div>
-            <footer>
-              <button disabled={answerKeySaving} onClick={() => setAnswerKeyConfirmOpen(false)} type="button">取消</button>
-              <button
-                className="primary-action"
-                disabled={answerKeySaving}
-                onClick={() => void persistPoliciesAndClose(true)}
-                type="button"
-              >{answerKeySaving ? "重新判分中…" : "确认保存并重新判分"}</button>
-            </footer>
-          </section>
-        </div>
       ) : null}
     </div>
   );

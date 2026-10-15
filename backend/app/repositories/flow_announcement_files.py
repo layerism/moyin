@@ -173,17 +173,15 @@ def get_student_announcement_file(
         if instance is None:
             raise KeyError(asset_id)
         assert_student_roster_access(connection, str(instance["flow_id"]), student_id)
+        from app.repositories.flow_runtime_state import version_config
+        node = node_by_key(version_config(connection, str(instance['flow_version_id'])), node_key)
+        if asset_id not in referenced_announcement_file_ids(node):
+            raise KeyError(asset_id)
         row = connection.execute(
-            """
-            SELECT a.id, a.storage_key, a.original_name, a.content_type, a.size_bytes
-            FROM flow_version_announcement_files va
-            JOIN flow_announcement_files a
-              ON a.id = va.announcement_file_id
-             AND a.flow_id = ? AND a.node_key = va.node_key
-            WHERE va.flow_version_id = ? AND va.node_key = ?
-              AND va.announcement_file_id = ?
-            """,
-            (instance["flow_id"], instance["flow_version_id"], node_key, asset_id),
+            """SELECT id, storage_key, original_name, content_type, size_bytes
+            FROM flow_announcement_files
+            WHERE flow_id = ? AND node_key = ? AND id = ?""",
+            (instance['flow_id'], node_key, asset_id),
         ).fetchone()
         if row is None:
             raise KeyError(asset_id)

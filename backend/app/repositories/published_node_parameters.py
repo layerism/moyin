@@ -1,4 +1,4 @@
-"""Published file/confirmation parameters stored separately from nodes in the existing JSON document."""
+"""Published mutable node parameters stored separately from nodes in the existing JSON document."""
 import copy
 import json
 
@@ -8,8 +8,16 @@ from app.domain.workflow import validate_flow_config
 from app.services.security import utc_now_iso
 
 KEY = 'publishedNodeParameters'
-FIELDS = ('title', 'requirement', 'startAt', 'deadlineAt', 'referenceAssets')
-KINDS = {'file', 'confirmation'}
+BASE_FIELDS = ('title', 'requirement')
+TIMED_FIELDS = (*BASE_FIELDS, 'startAt', 'deadlineAt')
+FIELDS = {
+    'file': (*TIMED_FIELDS, 'referenceAssets', 'fileLimitMb'),
+    'confirmation': (*TIMED_FIELDS, 'referenceAssets'),
+    'answer_sheet': TIMED_FIELDS,
+    'announcement': TIMED_FIELDS,
+    'or_gate': BASE_FIELDS,
+}
+KINDS = set(FIELDS)
 
 
 class NodeParametersConflict(ValueError):
@@ -53,11 +61,13 @@ def published_node(connection, flow_id, node_key, teacher_id, kind):
 
 
 def parameter_view(connection, flow_id, node):
+    params = {field: node.get(field) or '' for field in FIELDS[node['kind']]}
+    if 'referenceAssets' in params:
+        params['referenceAssets'] = reference_assets(node)
+    if 'fileLimitMb' in params:
+        params['fileLimitMb'] = str(node.get('fileLimitMb', '20'))
     return {'generation': stored_parameters(connection, flow_id).get(node['id'], {}).get('generation', 0),
-            'params': {'title': node['title'], 'requirement': node.get('requirement') or '',
-                       'startAt': node.get('startAt') or '', 'deadlineAt': node.get('deadlineAt') or '',
-                       'referenceAssets': reference_assets(node),
-                       **({'fileLimitMb': str(node.get('fileLimitMb', '20'))} if node['kind'] == 'file' else {})}}
+            'params': params}
 
 
 def get_node_parameters(flow_id, node_key, teacher_id, kind):
@@ -75,7 +85,7 @@ def update_node_parameters(flow_id, node_key, teacher_id, expected_generation, p
         before = parameter_view(connection, flow_id, node)
         if before['generation'] != expected_generation:
             raise NodeParametersConflict('节点配置已变化，请重新打开后再保存')
-        if set(params) != (set(FIELDS) | ({'fileLimitMb'} if kind == 'file' else set())):
+        if set(params) != set(FIELDS[kind]):
             raise ValueError('节点参数不完整或包含不可修改项')
         if params == before['params']:
             return before
@@ -85,6 +95,11 @@ def update_node_parameters(flow_id, node_key, teacher_id, expected_generation, p
         node.pop('referenceAsset', None)
         validate_flow_config(config)
         validate_version_templates(connection, flow_id, config)
+        if kind == 'announcement':
+            from app.repositories.flow_content_assets import validate_content_assets
+            from app.repositories.flow_announcement_files import validate_announcement_files
+            validate_content_assets(connection, flow_id, config)
+            validate_announcement_files(connection, flow_id, config)
         draft = json.loads(connection.execute('SELECT draft_config FROM flows WHERE id = ?', (flow_id,)).fetchone()['draft_config'])
         after = {'generation': before['generation'] + 1, 'params': params}
         draft.setdefault(KEY, {})[node_key] = after
