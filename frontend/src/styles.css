@@ -3041,16 +3041,18 @@ button {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 12px;
+  line-height: 1.5;
   white-space: nowrap;
 }
 
 .database-grid th,
 .database-grid td {
-  padding: 8px 10px;
+  padding: 5px 8px;
   border-right: 1px solid #edf0f4;
   border-bottom: 1px solid #edf0f4;
   text-align: left;
   vertical-align: middle;
+  font-size: inherit;
 }
 
 .database-cell-value {
@@ -3109,7 +3111,7 @@ button {
   top: 0;
   background: #f8fafc;
   color: #475467;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .database-grid tbody tr:hover {
@@ -3122,23 +3124,25 @@ button {
 }
 
 .database-grid td button {
-  min-height: 28px;
-  padding: 0 9px;
-  border: 1px solid #b8cff5;
-  border-radius: 5px;
-  background: #f3f7ff;
+  min-height: 22px;
+  padding: 0 6px;
+  border: 1px solid #d5e2f7;
+  border-radius: 4px;
+  background: #fafcff;
   color: #175cd3;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .database-row-actions {
   display: flex;
-  gap: 6px;
+  gap: 5px;
 }
 
 .database-grid td button.danger {
   border-color: #fecdca;
-  background: #fff6f5;
+  background: #fffafa;
   color: #b42318;
 }
 
