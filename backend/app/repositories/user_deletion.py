@@ -16,7 +16,7 @@ ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_sourc
          'uploaded_files', 'template_download_events', 'node_submissions', 'node_drafts',
          'student_deadline_overrides', 'flow_preview_sessions', 'node_instances', 'flow_instances',
          'flow_version_assets', 'flow_version_answer_keys',
-         'share_tokens', 'flow_versions', 'answer_sheet_drafts',
+         'flow_versions', 'answer_sheet_drafts',
          'answer_sheet_key_revisions',
          'flow_assets', 'flow_roster_entries', 'flows',
          'flow_groups',
@@ -66,7 +66,7 @@ def scope(db, kind, account_id):
         children(table, 'node_instance_id', 'node_instances')
     for table in ['answer_sheet_grades', 'answer_sheet_grade_history', 'file_review_runs', 'file_review_ai_tasks', 'file_review_feedback_context']:
         children(table, 'submission_id', 'node_submissions')
-    for table in ['flow_version_assets', 'flow_version_answer_keys', 'share_tokens']:
+    for table in ['flow_version_assets', 'flow_version_answer_keys']:
         children(table, 'flow_version_id', 'flow_versions')
     for table in ['answer_sheet_drafts', 'answer_sheet_key_revisions', 'flow_assets', 'flow_roster_entries']:
         children(table, 'flow_id', 'flows')

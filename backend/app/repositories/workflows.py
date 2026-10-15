@@ -1665,17 +1665,6 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
                 (flow_id,),
             ).fetchall()
         ]
-        token_ids = [
-            token["id"]
-            for token in connection.execute(
-                """
-                SELECT t.id FROM share_tokens t
-                JOIN flow_versions v ON v.id = t.flow_version_id
-                WHERE v.flow_id = ?
-                """,
-                (flow_id,),
-            ).fetchall()
-        ]
 
         connection.execute(
             """
@@ -1693,11 +1682,6 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
             connection.execute(
                 "DELETE FROM audit_logs WHERE entity_id = ? OR entity_id LIKE ?",
                 (instance_id, f"{instance_id}:%"),
-            )
-        for token_id in token_ids:
-            connection.execute(
-                "DELETE FROM audit_logs WHERE entity_type = 'share_token' AND entity_id = ?",
-                (token_id,),
             )
 
         connection.execute(
@@ -1745,14 +1729,6 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
         connection.execute(
             """
             DELETE FROM flow_instances WHERE flow_version_id IN (
-                SELECT id FROM flow_versions WHERE flow_id = ?
-            )
-            """,
-            (flow_id,),
-        )
-        connection.execute(
-            """
-            DELETE FROM share_tokens WHERE flow_version_id IN (
                 SELECT id FROM flow_versions WHERE flow_id = ?
             )
             """,

@@ -34,7 +34,6 @@
 - 学生登录后只能列出姓名和学号同时匹配有效名单记录的已发布流程。
 - 学生选择流程时，服务端再次校验账号、名单授权和最新发布版本。
 - 名单被撤销后，历史实例仍保留，但读取、暂存和提交均被拒绝。
-- 历史 `share_tokens` 表只用于旧数据库兼容和流程删除清理，不参与访问授权。
 
 ### 3.3 学生运行域
 
@@ -57,7 +56,6 @@
 | `flows` | `id`, `name`, `description`, `owner_id`, `status`, `draft_config`, `created_at`, `updated_at` | 流程主体和当前草稿 |
 | `flow_versions` | `id`, `flow_id`, `version_no`, `config_snapshot`, `config_hash`, `published_by`, `published_at`, `status` | 不可变发布快照 |
 | `flow_node_runtime_configs` | `flow_version_id`, `node_key`, `deadline_at`, `updated_by`, `updated_at` | 发布后允许修改的节点运行参数 |
-| `share_tokens` | `id`, `flow_version_id`, `token_hash`, `token_value`, `status`, `expires_at`, `created_by`, `created_at` | 仅保留历史兼容和流程删除清理，不再生成或用于访问 |
 | `flow_roster_entries` | `id`, `flow_id`, `student_no`, `name`, `status`, `updated_by`, `created_at`, `updated_at` | 流程级学生访问名单 |
 
 `config_snapshot` 保存设计器导出的完整配置，包括：

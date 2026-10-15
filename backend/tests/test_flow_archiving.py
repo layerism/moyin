@@ -142,10 +142,6 @@ def test_delete_removes_flow_owned_data_and_retains_accounts_and_audit(
                 "SELECT COUNT(*) AS count FROM flow_version_assets WHERE flow_version_id = ?",
                 (version_id,),
             ).fetchone()["count"],
-            "share_tokens": connection.execute(
-                "SELECT COUNT(*) AS count FROM share_tokens WHERE flow_version_id = ?",
-                (version_id,),
-            ).fetchone()["count"],
             "flow_instances": connection.execute(
                 "SELECT COUNT(*) AS count FROM flow_instances WHERE id = ?", (instance_id,)
             ).fetchone()["count"],

@@ -1026,7 +1026,6 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
         "flow_versions",
         "flows",
         "flow_version_assets",
-        "share_tokens",
         "flow_instances",
         "node_instances",
         "node_drafts",

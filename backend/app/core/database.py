@@ -265,17 +265,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_flow_version_assets_template
 CREATE INDEX IF NOT EXISTS idx_flow_version_assets_asset
     ON flow_version_assets(asset_id, asset_kind);
 
-CREATE TABLE IF NOT EXISTS share_tokens (
-    id TEXT PRIMARY KEY,
-    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
-    token_hash TEXT NOT NULL UNIQUE,
-    token_value TEXT,
-    status TEXT NOT NULL DEFAULT 'active',
-    expires_at TEXT,
-    created_by TEXT NOT NULL,
-    created_at TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS flow_instances (
     id TEXT PRIMARY KEY,
     flow_version_id TEXT NOT NULL REFERENCES flow_versions(id),
@@ -620,6 +609,22 @@ def initialize_database() -> None:
     from app.core.flow_template_migration import migrate_flow_templates
     with get_connection() as connection:
         migrate_flow_templates(connection)
+    with get_connection() as connection:
+        _apply_share_tokens_removal(connection)
+
+
+def _apply_share_tokens_removal(connection: sqlite3.Connection) -> None:
+    migration_id = "20261015_remove_share_tokens"
+    connection.execute("BEGIN IMMEDIATE")
+    if connection.execute(
+        "SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)
+    ).fetchone():
+        return
+    connection.execute("DROP TABLE IF EXISTS share_tokens")
+    connection.execute(
+        "INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+        (migration_id, datetime.now(UTC).isoformat()),
+    )
 
 
 def _apply_node_submissions_rename(connection: sqlite3.Connection) -> None:
