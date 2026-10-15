@@ -63,7 +63,8 @@ export function StudentAccountPage({
               <span className="student-flow-icon"><WorkflowIcon name="flow" /></span>
               <strong className="student-flow-name" title={flow.name}>{flow.name}</strong>
               <span className="student-flow-time" title={`首次发布：${new Date(flow.publishedAt).toLocaleString("zh-CN")}`}>
-                <time dateTime={flow.publishedAt}>{new Date(flow.publishedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })}</time>
+                <span>发布于</span>
+                <time dateTime={flow.publishedAt}>{new Date(flow.publishedAt).toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })}</time>
               </span>
               <em className={`student-flow-status is-${flow.status}`}>
                 {openingFlowId === flow.flowId

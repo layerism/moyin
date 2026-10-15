@@ -10598,14 +10598,14 @@ button {
 }
 .student-account-list { display: grid; gap: 6px; }
 .student-account-list > button {
-  display: grid; grid-template-columns: 30px minmax(0, 1fr) 112px 76px 16px;
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) 148px 76px 16px;
   min-height: 52px; align-items: center; gap: 12px; padding: 9px 12px;
   border: 1px solid #d8dee8; border-radius: 7px; background: #fff; text-align: left;
 }
 .student-account-list > button:hover:not(:disabled) { border-color: #76a7fa; background: #f5f9ff; }
 .student-flow-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 6px; background: #edf3ff; color: #3973c9; }
 .student-flow-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
-.student-flow-time { color: #667085; font-size: 12px; font-variant-numeric: tabular-nums; }
+.student-flow-time { display: grid; gap: 2px; color: #667085; font-size: 12px; font-variant-numeric: tabular-nums; }
 .student-flow-chevron { color: #98a2b3; }
 .student-flow-chevron svg { width: 16px; height: 16px; }
 .student-account-list .student-flow-status {
