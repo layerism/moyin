@@ -38,7 +38,7 @@ def upload_personal_file(
     try:
         with get_connection() as db:
             db.execute(
-                """INSERT INTO personal_drive_files
+                """INSERT INTO teacher_drive_files
                 (id, owner_teacher_id, original_name, content_type, size_bytes, storage_key, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (file_id, owner_id, filename, content_type, size, key, utc_now_iso()),
@@ -76,7 +76,7 @@ def delete_personal_file(
             db.execute("BEGIN IMMEDIATE")
             row = get_file(db, file_id, int(teacher["id"]))
             get_object_storage().delete_object(row["storage_key"])
-            db.execute("DELETE FROM personal_drive_files WHERE id = ?", (file_id,))
+            db.execute("DELETE FROM teacher_drive_files WHERE id = ?", (file_id,))
     except KeyError as exc:
         raise HTTPException(404, detail="个人文件不存在") from exc
     except ObjectStorageError as exc:

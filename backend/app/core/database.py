@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS teacher_accounts (
     updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS personal_drive_files (
+CREATE TABLE IF NOT EXISTS teacher_drive_files (
     id TEXT PRIMARY KEY,
     owner_teacher_id INTEGER NOT NULL REFERENCES teacher_accounts(id),
     original_name TEXT NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS personal_drive_files (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_personal_drive_owner
-    ON personal_drive_files(owner_teacher_id, created_at);
+    ON teacher_drive_files(owner_teacher_id, created_at);
 
 CREATE TABLE IF NOT EXISTS teacher_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -499,6 +499,7 @@ def initialize_database() -> None:
         _apply_flow_groups_rename(connection)
         _apply_node_deadline_overrides_rename(connection)
         _apply_student_uploaded_files_rename(connection)
+        _apply_teacher_drive_files_rename(connection)
         connection.executescript(SCHEMA)
         _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema
@@ -596,6 +597,15 @@ def _apply_student_uploaded_files_rename(connection: sqlite3.Connection) -> None
     ).fetchone()
     if legacy is not None:
         connection.execute("ALTER TABLE uploaded_files RENAME TO student_uploaded_files")
+
+
+def _apply_teacher_drive_files_rename(connection: sqlite3.Connection) -> None:
+    # Rename before SCHEMA creates the table, preserving rows, columns and indexes.
+    legacy = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'personal_drive_files'"
+    ).fetchone()
+    if legacy is not None:
+        connection.execute("ALTER TABLE personal_drive_files RENAME TO teacher_drive_files")
 
 
 def _apply_registration_allowlist_migration(connection: sqlite3.Connection) -> None:

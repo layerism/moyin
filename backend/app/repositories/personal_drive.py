@@ -15,14 +15,14 @@ def serialize_file(row: sqlite3.Row) -> dict[str, object]:
 def list_files(owner_id: int) -> list[dict[str, object]]:
     with get_connection() as db:
         return [serialize_file(row) for row in db.execute(
-            "SELECT * FROM personal_drive_files WHERE owner_teacher_id = ? ORDER BY created_at DESC, id",
+            "SELECT * FROM teacher_drive_files WHERE owner_teacher_id = ? ORDER BY created_at DESC, id",
             (owner_id,),
         )]
 
 
 def get_file(db: sqlite3.Connection, file_id: str, owner_id: int) -> sqlite3.Row:
     row = db.execute(
-        "SELECT * FROM personal_drive_files WHERE id = ? AND owner_teacher_id = ?",
+        "SELECT * FROM teacher_drive_files WHERE id = ? AND owner_teacher_id = ?",
         (file_id, owner_id),
     ).fetchone()
     if row is None:

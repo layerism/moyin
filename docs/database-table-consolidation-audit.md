@@ -72,7 +72,7 @@
 | `flow_assets` | 167 | 教师为某流程节点保存的一份资源 | 保存老师上传的填写模板、参考示例、正文图片和公告附件的文件名、大小、存储位置及所属节点。文件本身放在 OSS；节点当前配置和发布、预览快照直接通过文件 ID 引用这里。上传但未被采用的文件可以留在此表；学生提交的文件另存。 |
 | `student_uploaded_files` | 401 | 学生上传的一份原始文件或扫描材料 | 保存学生上传的论文、表格或扫描件的文件信息，包括属于谁、哪个节点、存储位置、页数和顺序。刚上传时可以尚未提交，正式提交后再记下对应的提交记录。 |
 | `template_download_events` | 44 | 某节点实例对某份主模板的下载记录 | 记录某学生在某节点下载了哪份主模板及下载时间，供系统检查下载情况。同一节点实例和同一模板只保留一条记录，不是每下载一次就新增一行。 |
-| `personal_drive_files` | 0 | 教师个人文件区的一份文件 | 保存教师个人文件区中的文件名、大小、存储位置及所属教师。这些文件单独管理，不会仅因上传到个人文件区就自动成为某个流程的模板或学生作业。 |
+| `teacher_drive_files` | 0 | 教师个人文件区的一份文件 | 保存教师个人文件区中的文件名、大小、存储位置及所属教师。这些文件单独管理，不会仅因上传到个人文件区就自动成为某个流程的模板或学生作业。 |
 
 相关代码：[flow_assets.py](../backend/app/repositories/flow_assets.py)、[flow_templates.py](../backend/app/repositories/flow_templates.py)、[flow_content_assets.py](../backend/app/repositories/flow_content_assets.py)、[flow_announcement_files.py](../backend/app/repositories/flow_announcement_files.py)、[flow_files.py](../backend/app/repositories/flow_files.py)、[routes/personal_drive.py](../backend/app/api/routes/personal_drive.py)、[repositories/personal_drive.py](../backend/app/repositories/personal_drive.py)。
 
