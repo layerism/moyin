@@ -294,6 +294,16 @@ function splitTableGroup(
     }
   }
   if (rows.slice(start, end).some((row) => row.dataset.docxCantSplit === "1")) return null;
+  // The renderer carries w:trHeight into inline height. Splitting only the text
+  // cannot distribute a row's reserved writing space between two pages. Keep
+  // height-constrained rows (and their vertical merge group) intact instead of
+  // discarding that space or duplicating the full height on both fragments.
+  // The caller can still split at row boundaries or move the group to a new page;
+  // oversized groups use the existing visible-overflow fallback and warning.
+  const hasReservedHeight = (element: HTMLElement) =>
+    [element.style.height, element.style.minHeight].some((value) => parseFloat(value) > 0);
+  if (rows.slice(start, end).some((row) => hasReservedHeight(row)
+    || Array.from(row.cells).some(hasReservedHeight))) return null;
   const remainder = source.cloneNode(true) as HTMLTableElement;
   while (table.rows.length > end) table.deleteRow(table.rows.length - 1);
   const group = (target: HTMLTableElement) => Array.from(target.rows).slice(start, end);
