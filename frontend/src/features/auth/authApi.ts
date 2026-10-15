@@ -19,6 +19,7 @@ export type RoleCredentials = {
 export type StudentFlowSummary = {
   flowId: string;
   instanceId: string | null;
+  publishedAt: string;
   lastActiveAt: string | null;
   name: string;
   status: "completed" | "in_progress" | "not_started";

@@ -17,7 +17,6 @@ export function StudentAccountPage({
   onPasswordChanged: () => void;
 }) {
   const [flows, setFlows] = useState<StudentFlowSummary[]>([]);
-  const [newestFirst, setNewestFirst] = useState(true);
   const [notice, setNotice] = useState("");
   const [openingFlowId, setOpeningFlowId] = useState<string | null>(null);
 
@@ -37,13 +36,6 @@ export function StudentAccountPage({
     }
   };
 
-  const sortedFlows = [...flows].sort((a, b) => {
-    if (!a.lastActiveAt) return b.lastActiveAt ? 1 : 0;
-    if (!b.lastActiveAt) return -1;
-    const difference = Date.parse(b.lastActiveAt) - Date.parse(a.lastActiveAt);
-    return newestFirst ? difference : -difference;
-  });
-
   return (
     <main className="student-account-page">
       <header>
@@ -59,12 +51,10 @@ export function StudentAccountPage({
         {notice ? <p className="role-auth-error">{notice}</p> : null}
         <div className="student-flow-list-heading">
           <span>流程列表</span>
-          <button type="button" onClick={() => setNewestFirst((value) => !value)}>
-            最近访问 · {newestFirst ? "从新到旧 ↓" : "从旧到新 ↑"}
-          </button>
+          <span>首次发布时间 · 从早到晚</span>
         </div>
         <div className="student-account-list">
-          {sortedFlows.map((flow) => (
+          {flows.map((flow) => (
             <button
               disabled={openingFlowId !== null}
               key={flow.flowId}
@@ -72,8 +62,8 @@ export function StudentAccountPage({
             >
               <span className="student-flow-icon"><WorkflowIcon name="flow" /></span>
               <strong className="student-flow-name" title={flow.name}>{flow.name}</strong>
-              <span className="student-flow-time" title={flow.lastActiveAt ? `最近访问：${new Date(flow.lastActiveAt).toLocaleString("zh-CN")}` : "尚未访问"}>
-                {flow.lastActiveAt ? <time dateTime={flow.lastActiveAt}>{new Date(flow.lastActiveAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })}</time> : "尚未访问"}
+              <span className="student-flow-time" title={`首次发布：${new Date(flow.publishedAt).toLocaleString("zh-CN")}`}>
+                <time dateTime={flow.publishedAt}>{new Date(flow.publishedAt).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })}</time>
               </span>
               <em className={`student-flow-status is-${flow.status}`}>
                 {openingFlowId === flow.flowId

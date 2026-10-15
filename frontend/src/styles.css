@@ -10596,7 +10596,6 @@ button {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   margin-top: 22px; margin-bottom: 8px; color: #667085; font-size: 12px;
 }
-.student-flow-list-heading > button { border: 0; background: transparent; color: inherit; font: inherit; padding: 4px; }
 .student-account-list { display: grid; gap: 6px; }
 .student-account-list > button {
   display: grid; grid-template-columns: 30px minmax(0, 1fr) 112px 76px 16px;

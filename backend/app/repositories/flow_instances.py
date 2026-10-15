@@ -443,7 +443,12 @@ def list_student_flows(student_id: int) -> list[dict[str, object]]:
             """
             SELECT f.id AS flow_id, f.name,
                    i.id AS instance_id, i.status AS instance_status,
-                   i.last_active_at
+                   i.last_active_at,
+                   (
+                       SELECT MIN(history.published_at)
+                       FROM flow_versions history
+                       WHERE history.flow_id = f.id AND history.status != 'preview'
+                   ) AS first_published_at
             FROM student_accounts a
             JOIN flow_roster_entries r
               ON r.student_no = a.student_no
@@ -461,8 +466,7 @@ def list_student_flows(student_id: int) -> list[dict[str, object]]:
               ON i.flow_version_id = v.id
              AND i.student_account_id = a.id
             WHERE a.id = ? AND a.status = 'active'
-            ORDER BY CASE WHEN i.last_active_at IS NULL THEN 1 ELSE 0 END,
-                     COALESCE(i.last_active_at, f.updated_at) DESC, f.id
+            ORDER BY first_published_at ASC, f.id ASC
             """,
             (student_id,),
         ).fetchall()
@@ -470,6 +474,7 @@ def list_student_flows(student_id: int) -> list[dict[str, object]]:
         {
             "flowId": row["flow_id"],
             "instanceId": row["instance_id"],
+            "publishedAt": row["first_published_at"],
             "name": row["name"],
             "status": row["instance_status"] or "not_started",
             "lastActiveAt": row["last_active_at"],
