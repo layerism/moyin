@@ -1,8 +1,8 @@
 # 数据库表现状说明
 
-结构核对时间：2026-10-15 21:24:06；行数统计时间：2026-10-15 21:09:57（Asia/Shanghai）。
+核对时间：2026-10-15 22:30:58（Asia/Shanghai）。
 
-**当前本地数据库共有 42 张非 SQLite 内部表，本文逐表覆盖全部 42 张。** 按业务职责分为 7 组；按名称前缀统计，Flow 类 8 张、Node 类 5 张，其余 29 张，没有独立的 `workflow_*` 表。业务分组与名称前缀是两种统计口径，不能相加。
+**当前本地数据库共有 41 张非 SQLite 内部表，本文逐表覆盖全部 41 张。** 按业务职责分为 7 组；按名称前缀统计，Flow 类 7 张、Node 类 5 张，其余 29 张，没有独立的 `workflow_*` 表。业务分组与名称前缀是两种统计口径，不能相加。
 
 本文以当前源码和 `backend/storage/app.db` 为准。结构、约束及索引以 SQLite 实际定义为准，覆盖基础建表和初始化增量迁移。标准答案保存在流程节点配置中，成绩在读取时计算，不设答题卡专用表。
 
@@ -15,11 +15,11 @@
 | 账号、登录与注册 | 8 | 身份、会话、注册准入及密码找回 |
 | 流程定义、分组与准入 | 4 | 流程/模板定义、版本、分组及名单 |
 | 学生运行、输入与进度 | 7 | 流程实例、节点状态、暂存、提交、返工与个别延期 |
-| 文件资源与下载 | 5 | 教师资源、版本引用、学生文件、下载与个人文件 |
+| 文件资源与下载 | 4 | 教师资源、版本引用、学生文件、下载与个人文件 |
 | 审核任务、人工处理与反馈 | 11 | 自动审核、步骤进度、人工结论和反馈材料 |
 | 审核脚本运行与模型配置 | 3 | 脚本状态、模型连接卡及兼容绑定结构 |
 | 系统审计与后台任务 | 4 | 操作记录、迁移标记、导出及删除清理任务 |
-| **合计** | **42** | 每张表只归入一个业务分组 |
+| **合计** | **41** | 每张表只归入一个业务分组 |
 
 相关代码：[database.py](../backend/app/core/database.py)、[sms_recovery.py](../backend/app/services/sms_recovery.py)、[model_ownership.py](../backend/app/services/model_ownership.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)。
 
@@ -65,12 +65,11 @@
 
 相关代码：[flow_instances.py](../backend/app/repositories/flow_instances.py)、[flow_previews.py](../backend/app/repositories/flow_previews.py)、[node_progress.py](../backend/app/repositories/node_progress.py)、[branch_state.py](../backend/app/repositories/branch_state.py)、[flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)。
 
-### 2.4 文件资源与下载：5 张
+### 2.4 文件资源与下载：4 张
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
-| `flow_assets` | 167 | 教师为某流程节点保存的一份资源 | 保存老师上传的填写模板、参考示例、正文图片和公告附件的文件名、大小、存储位置及所属节点。文件本身放在 OSS，这里只登记文件信息，不保存学生提交的文件。 |
-| `flow_version_assets` | 104 | 某版本某节点对一份资源的冻结引用 | 记录“某次发布的某个节点使用哪份老师资源”，指向 `flow_assets` 中的文件，不再复制文件内容。同一版本的同一节点最多指定一个主模板；其他资源还可能在节点配置中被引用。 |
+| `flow_assets` | 167 | 教师为某流程节点保存的一份资源 | 保存老师上传的填写模板、参考示例、正文图片和公告附件的文件名、大小、存储位置及所属节点。文件本身放在 OSS；节点当前配置和发布、预览快照直接通过文件 ID 引用这里。上传但未被采用的文件可以留在此表；学生提交的文件另存。 |
 | `uploaded_files` | 401 | 学生上传的一份原始文件或扫描材料 | 保存学生上传的论文、表格或扫描件的文件信息，包括属于谁、哪个节点、存储位置、页数和顺序。刚上传时可以尚未提交，正式提交后再记下对应的提交记录。 |
 | `template_download_events` | 44 | 某节点实例对某份主模板的下载记录 | 记录某学生在某节点下载了哪份主模板及下载时间，供系统检查下载情况。同一节点实例和同一模板只保留一条记录，不是每下载一次就新增一行。 |
 | `personal_drive_files` | 0 | 教师个人文件区的一份文件 | 保存教师个人文件区中的文件名、大小、存储位置及所属教师。这些文件单独管理，不会仅因上传到个人文件区就自动成为某个流程的模板或学生作业。 |
@@ -110,11 +109,11 @@
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
 | `audit_logs` | 2,042 | 一次业务操作或执行依据记录 | 记录谁在什么时候做了什么，例如修改流程、撤销某学生的通过状态；按操作保存修改前后内容和原因。审核实际采用的参数也可记在这里，用来追查处理依据。 |
-| `schema_migrations` | 21 | 一项已执行的数据库迁移标记 | 记录哪些数据库升级已经完成，以及完成时间。服务下次启动时先查这张表，避免把同一次升级重复执行；它不保存老师或学生的业务内容。 |
+| `schema_migrations` | 22 | 一项已执行的数据库迁移标记 | 记录哪些数据库升级已经完成，以及完成时间。服务下次启动时先查这张表，避免把同一次升级重复执行；它不保存老师或学生的业务内容。 |
 | `material_export_jobs` | 5 | 教师对某发布版本发起的一次材料导出任务 | 老师点击导出材料后，记录导出哪个流程版本、是否排队或完成、结果文件名及何时过期。相同教师对同一版本已有任务在排队或执行时，复用该任务，避免重复打包。 |
 | `user_deletion_jobs` | 11 | 账号删除后的一个 OSS 文件清理任务 | 删除账号后，记录还需要从 OSS 删除哪些文件。后台按清单逐个清理，并更新剩余文件和失败原因；这样数据库记录已删除后，外部文件仍有明确的清理清单。 |
 
-相关代码：[workflows.py](../backend/app/repositories/workflows.py)、[node_progress.py](../backend/app/repositories/node_progress.py)、[audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[database_admin.py](../backend/app/repositories/database_admin.py)、[database.py](../backend/app/core/database.py)、[answer_sheet_migration.py](../backend/app/core/answer_sheet_migration.py)、[flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[node_configuration_migration.py](../backend/app/core/node_configuration_migration.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)、[export_jobs.py](../backend/app/repositories/export_jobs.py)、[export_job_worker.py](../backend/app/services/export_job_worker.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)、[user_deletion_worker.py](../backend/app/services/user_deletion_worker.py)。
+相关代码：[workflows.py](../backend/app/repositories/workflows.py)、[node_progress.py](../backend/app/repositories/node_progress.py)、[audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[database_admin.py](../backend/app/repositories/database_admin.py)、[database.py](../backend/app/core/database.py)、[answer_sheet_migration.py](../backend/app/core/answer_sheet_migration.py)、[flow_asset_reference_migration.py](../backend/app/core/flow_asset_reference_migration.py)、[flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[node_configuration_migration.py](../backend/app/core/node_configuration_migration.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)、[export_jobs.py](../backend/app/repositories/export_jobs.py)、[export_job_worker.py](../backend/app/services/export_job_worker.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)、[user_deletion_worker.py](../backend/app/services/user_deletion_worker.py)。
 
 ## 3. 当前配置、模板与学生数据如何连接
 
@@ -169,7 +168,11 @@
 
 `flow_assets.asset_kind='template'` 包括节点的主模板和参考材料，不表示“流程模板库中的一条模板”。`content` 用于正文或题目图片，`announcement` 用于公告附件。当前三类资源分别为 157、9、1 条。
 
-`flow_version_assets` 保存版本冻结引用，当前三类引用分别为 86、14、7 条。当前配置中的参考材料等引用还存在于 JSON 中，资源归属和是否可删除不能只查这一张关联表。教师提供的文件、学生上传的原件、教师反馈文件分别由 `flow_assets`、`uploaded_files`、`manual_feedback_files` 管理；数据库保存元数据，文件内容在 OSS。
+资源引用直接保存在节点 JSON：`templateAsset.assetId` 指定主模板，`referenceAssets[].assetId` 指定参考示例，题目图片及公告附件通过正文中的 `asset://文件ID` 引用。正式运行时，主模板等固定项沿用发布快照，允许修改的参考材料等取当前配置；预览使用自己的快照。教师提供的文件、学生上传的原件、教师反馈文件分别由 `flow_assets`、`uploaded_files`、`manual_feedback_files` 管理；数据库保存元数据，文件内容在 OSS。
+
+删除资源前，后端在同一事务中检查所有流程当前配置、所有保留的版本快照及模板下载记录；仍被引用的文件不能删除。下载时同时检查学生身份、流程准入、有效节点配置中的引用和文件归属。配置中的引用由后端校验，JSON 本身没有数据库外键约束。
+
+相关代码：[node_assets.py](../backend/app/domain/node_assets.py)、[flow_assets.py](../backend/app/repositories/flow_assets.py)、[flow_templates.py](../backend/app/repositories/flow_templates.py)、[flow_content_assets.py](../backend/app/repositories/flow_content_assets.py)、[flow_announcement_files.py](../backend/app/repositories/flow_announcement_files.py)。
 
 ### 3.5 标准答案、成绩和审核执行依据
 
@@ -213,8 +216,8 @@ flowchart LR
     F --> V[flow_versions]
     F --> R[flow_roster_entries]
     F --> A[flow_assets]
-    V --> VA[flow_version_assets]
-    VA --> A
+    F -. 当前配置中的文件ID .-> A
+    V -. 快照中的文件ID .-> A
     V --> I[flow_instances]
     SA[student_accounts] --> I
     I --> N[node_instances]
@@ -239,7 +242,7 @@ flowchart LR
 
 | 范围 | 主要源码 |
 | --- | --- |
-| 建表及初始化迁移 | [database.py](../backend/app/core/database.py)、[answer_sheet_migration.py](../backend/app/core/answer_sheet_migration.py)、[flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)、[sms_recovery.py](../backend/app/services/sms_recovery.py)、[model_ownership.py](../backend/app/services/model_ownership.py) |
+| 建表及初始化迁移 | [database.py](../backend/app/core/database.py)、[answer_sheet_migration.py](../backend/app/core/answer_sheet_migration.py)、[flow_asset_reference_migration.py](../backend/app/core/flow_asset_reference_migration.py)、[flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)、[sms_recovery.py](../backend/app/services/sms_recovery.py)、[model_ownership.py](../backend/app/services/model_ownership.py) |
 | 流程、固定模板及运行配置 | [workflows.py](../backend/app/repositories/workflows.py)、[workflow_blueprints.py](../backend/app/repositories/workflow_blueprints.py)、[flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)、[node_configuration.py](../backend/app/domain/node_configuration.py) |
 | 名单、预览与学生节点 | [flow_roster.py](../backend/app/repositories/flow_roster.py)、[flow_previews.py](../backend/app/repositories/flow_previews.py)、[flow_instances.py](../backend/app/repositories/flow_instances.py)、[branch_state.py](../backend/app/repositories/branch_state.py) |
 | 答案与成绩 | [answer_sheet_keys.py](../backend/app/repositories/answer_sheet_keys.py)、[answer_sheet_policies.py](../backend/app/repositories/answer_sheet_policies.py)、[answer_sheet_grades.py](../backend/app/repositories/answer_sheet_grades.py)、[teacher_node_exports.py](../backend/app/repositories/teacher_node_exports.py) |

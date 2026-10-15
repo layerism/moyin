@@ -26,7 +26,6 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
         frozenset({"student_no", "name", "status"}), deletable=True
     ),
     "flow_assets": TablePolicy(),
-    "flow_version_assets": TablePolicy(),
     "flow_versions": TablePolicy(deletable=True),
     "flows": TablePolicy(
         frozenset({"name", "description", "owner_id", "status", "draft_config"}),

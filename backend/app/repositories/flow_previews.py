@@ -5,12 +5,11 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.repositories.flow_assets import bind_version_asset
 from app.core.database import get_connection
 from app.domain.workflow_runtime import incoming_nodes
 from app.repositories.answer_sheet_keys import get_draft_answer_keys, set_answer_sheet_keys
-from app.repositories.flow_content_assets import freeze_content_asset_refs
-from app.repositories.flow_announcement_files import freeze_announcement_file_refs
+from app.repositories.flow_content_assets import validate_content_assets
+from app.repositories.flow_announcement_files import validate_announcement_files
 from app.repositories.flow_instances import get_instance
 from app.repositories.workflows import canonical_json, prepare_runtime_config
 from app.services.security import hash_password, utc_now_iso
@@ -160,7 +159,9 @@ def create_preview(flow_id: str, teacher_id: int) -> tuple[dict[str, object], st
         if flow is None:
             raise KeyError(flow_id)
         config = json.loads(flow["draft_config"])
-        version_templates = prepare_runtime_config(connection, flow_id, config)
+        prepare_runtime_config(connection, flow_id, config)
+        validate_content_assets(connection, flow_id, config)
+        validate_announcement_files(connection, flow_id, config)
         set_answer_sheet_keys(config, get_draft_answer_keys(connection, flow_id), require_publishable=True)
         snapshot = canonical_json(config)
         config_hash = hashlib.sha256(snapshot.encode("utf-8")).hexdigest()
@@ -174,10 +175,6 @@ def create_preview(flow_id: str, teacher_id: int) -> tuple[dict[str, object], st
             """,
             (version_id, flow_id, snapshot, config_hash, str(teacher_id), now),
         )
-        freeze_content_asset_refs(connection, flow_id, version_id, config)
-        freeze_announcement_file_refs(connection, flow_id, version_id, config)
-        for node_key, asset_id in version_templates.items():
-            bind_version_asset(connection, version_id, node_key, asset_id, 'template')
         connection.execute(
             """
             INSERT INTO flow_instances

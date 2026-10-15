@@ -7,6 +7,7 @@ from typing import Any
 
 from app.repositories.branch_state import node_is_ready, resolve_routes
 from app.core.database import get_connection
+from app.repositories.flow_assets import get_node_template
 from app.domain.answer_sheet import (
     normalize_answer_sheet_submission,
 )
@@ -255,19 +256,12 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                         "UPDATE node_instances SET status = ?, opened_at = ? WHERE id = ?",
                         (status, utc_now_iso() if status == "available" else row["opened_at"], row["id"]),
                     )
-            template = connection.execute(
-                """
-                SELECT a.id, a.original_name, a.content_type, a.size_bytes,
-                       e.downloaded_at
-                FROM flow_version_assets t
-                JOIN flow_assets a ON a.asset_kind = 'template' AND a.id = t.asset_id
-                LEFT JOIN template_download_events e
-                  ON e.node_instance_id = ? AND e.template_asset_id = a.id
-                 AND e.student_account_id = ?
-                WHERE t.asset_kind = 'template' AND t.flow_version_id = ? AND t.node_key = ?
-                """,
-                (row["id"], instance["student_account_id"], instance["flow_version_id"], row["node_key"]),
-            ).fetchone()
+            template = get_node_template(connection, instance['flow_id'], config_node)
+            downloaded = connection.execute(
+                """SELECT downloaded_at FROM template_download_events
+                   WHERE node_instance_id = ? AND template_asset_id = ? AND student_account_id = ?""",
+                (row['id'], template['id'], instance['student_account_id']),
+            ).fetchone() if template else None
             requires_resubmission = int(row["attempt_reset_no"]) > 0 and row["attempt_no"] == row["attempt_reset_no"]
             answer_key = (
                 get_version_answer_key(connection, str(instance["flow_version_id"]), str(row["node_key"]))["gradingKey"]
@@ -339,7 +333,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                         "originalName": template["original_name"],
                         "sizeBytes": template["size_bytes"],
                     } if template else None,
-                    "templateDownloaded": bool(template and template["downloaded_at"]),
+                    "templateDownloaded": bool(downloaded),
                     "submittedAt": row["submitted_at"],
                     "approvedAt": row["approved_at"],
                     "manualReview": None,

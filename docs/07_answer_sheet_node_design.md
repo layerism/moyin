@@ -344,7 +344,7 @@ Markdown AST
 | `flows.draft_config.nodes[]._configMeta.answerKey` | 答案修改次数、修改人和时间，不保存旧答案 |
 | `flow_versions.config_snapshot` | 发布题目结构；只有预览快照包含自己的标准答案 |
 | `node_drafts` / `node_submissions` | 学生暂存 / 正式作答 |
-| `flow_assets` / `flow_version_assets` | 教师题图及版本引用 |
+| `flow_assets` | 教师题图元数据；当前配置和版本快照中的题目直接引用文件 ID |
 
 成绩由后端读取时计算，不设答案表、成绩表或成绩历史表。教师编辑 API 仍传递独立的 `answerSheetKeys` 映射；后端在同一事务中合入配置，学生 API 则剔除私有答案字段。
 

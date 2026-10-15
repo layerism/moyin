@@ -6,7 +6,7 @@ from typing import Any
 
 from app.domain.node_assets import reference_assets, asset_entries
 from app.repositories.branch_state import node_is_ready
-from app.repositories.flow_assets import insert_asset
+from app.repositories.flow_assets import asset_is_referenced, get_node_template, insert_asset
 from app.core.database import get_connection
 from app.domain.workflow_runtime import (
     node_by_key,
@@ -224,18 +224,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
 def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
-        referenced = connection.execute(
-            "SELECT 1 FROM flow_version_assets WHERE asset_kind = 'template' AND asset_id = ? LIMIT 1", (asset_id,)
-        ).fetchone()
-        reference = connection.execute(
-            "SELECT 1 FROM flow_versions v, json_each(v.config_snapshot, '$.nodes') n WHERE json_extract(n.value, '$.referenceAsset.assetId') = ? OR EXISTS (SELECT 1 FROM json_each(n.value, '$.referenceAssets') a WHERE json_extract(a.value, '$.assetId') = ?) LIMIT 1", (asset_id, asset_id),
-        ).fetchone()
-        draft_reference = connection.execute(
-            """SELECT 1 FROM flows f, json_each(f.draft_config, '$.nodes') n
-               WHERE json_extract(n.value, '$.referenceAsset.assetId') = ?
-                  OR json_extract(n.value, '$.templateAsset.assetId') = ? OR EXISTS (SELECT 1 FROM json_each(n.value, '$.referenceAssets') a WHERE json_extract(a.value, '$.assetId') = ?) LIMIT 1""", (asset_id, asset_id, asset_id),
-        ).fetchone()
-        if referenced is not None or reference is not None or draft_reference is not None:
+        if asset_is_referenced(connection, asset_id, 'template'):
             return None
         row = connection.execute(
             "SELECT id, storage_key FROM flow_assets WHERE asset_kind = 'template' AND id = ?", (asset_id,)
@@ -245,8 +234,7 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
         return dict(row) if row else None
 
 
-def validate_version_templates(connection: Any, flow_id: str, config: dict[str, Any]) -> dict[str, str]:
-    result: dict[str, str] = {}
+def validate_version_templates(connection: Any, flow_id: str, config: dict[str, Any]) -> None:
     for node in config["nodes"]:
         for field, template in asset_entries(node):
             if not template:
@@ -278,24 +266,17 @@ def validate_version_templates(connection: Any, flow_id: str, config: dict[str, 
                     validate_file_metadata(node, row["original_name"], row["size_bytes"])
                 except ValueError as exc:
                     raise TemplateMutationError(str(exc)) from exc
-            if field == "templateAsset":
-                result[node["id"]] = row["id"]
-    return result
 
 
 def get_version_template_original_name(
     connection: Any, flow_version_id: str, node_key: str
 ) -> str | None:
-    row = connection.execute(
-        """
-        SELECT a.original_name
-        FROM flow_version_assets t
-        JOIN flow_assets a ON a.asset_kind = 'template' AND a.id = t.asset_id
-        WHERE t.asset_kind = 'template' AND t.flow_version_id = ? AND t.node_key = ?
-        """,
-        (flow_version_id, node_key),
-    ).fetchone()
-    return str(row["original_name"]) if row else None
+    version = connection.execute('SELECT flow_id FROM flow_versions WHERE id = ?', (flow_version_id,)).fetchone()
+    if version is None:
+        raise KeyError(flow_version_id)
+    node = node_by_key(version_config(connection, flow_version_id), node_key)
+    asset = get_node_template(connection, version['flow_id'], node)
+    return str(asset['original_name']) if asset else None
 
 
 def get_student_template(node_instance_id: str, student_id: int) -> dict[str, object]:
@@ -304,14 +285,11 @@ def get_student_template(node_instance_id: str, student_id: int) -> dict[str, ob
         row = connection.execute(
             """
             SELECT n.id, n.node_key, n.flow_instance_id, n.status,
-                   i.flow_version_id, i.student_account_id, v.flow_id, v.config_snapshot,
-                   a.id AS asset_id, a.storage_key, a.original_name, a.content_type, a.size_bytes
+                   i.flow_version_id, i.student_account_id, v.flow_id, v.config_snapshot
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
               AND v.status IN ('published', 'preview')
-            JOIN flow_version_assets t ON t.asset_kind = 'template' AND t.flow_version_id = v.id AND t.node_key = n.node_key
-            JOIN flow_assets a ON a.asset_kind = 'template' AND a.id = t.asset_id
             WHERE n.id = ? AND i.student_account_id = ?
             """,
             (node_instance_id, student_id),
@@ -330,7 +308,11 @@ def get_student_template(node_instance_id: str, student_id: int) -> dict[str, ob
             "available", "draft", "rejected", "scheduled", "locked", "expired"
         }:
             raise TemplateDownloadError("当前节点尚未开放或已截止")
-        return dict(row)
+        asset = get_node_template(connection, row['flow_id'], node)
+        if asset is None:
+            raise KeyError(node_instance_id)
+        return {**dict(row), 'asset_id': asset['id'],
+                **{key: asset[key] for key in ('storage_key', 'original_name', 'content_type', 'size_bytes')}}
 
 
 def record_template_download(node_instance_id: str, template_asset_id: str, student_id: int) -> None:
@@ -372,6 +354,7 @@ def validate_reference_metadata(filename: str, size_bytes: int) -> None:
 
 def get_student_reference(node_instance_id: str, student_id: int, asset_id: str | None = None) -> dict[str, object]:
     with get_connection() as connection:
+        connection.execute("BEGIN")
         row = connection.execute("""SELECT n.node_key, v.flow_id, v.id AS flow_version_id, v.config_snapshot
             FROM node_instances n JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id

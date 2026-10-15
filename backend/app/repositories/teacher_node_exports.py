@@ -4,6 +4,7 @@ from graphlib import TopologicalSorter
 from typing import Any
 
 from app.core.database import get_connection
+from app.repositories.flow_assets import get_node_template
 from app.repositories.flow_runtime_state import version_config
 from app.domain.workflow_runtime import incoming_nodes, node_by_key
 from app.repositories.answer_sheet_grades import calculate_answer_sheet_grade
@@ -128,6 +129,7 @@ def get_node_submission_export(
         except KeyError as exc:
             raise TeacherNodeExportError("所选节点不属于当前发布版本") from exc
 
+        template = get_node_template(connection, version["flow_id"], node)
         roster_filter = ""
         roster_params: tuple[int, ...] = ()
         if roster_entry_ids is not None:
@@ -158,10 +160,9 @@ def get_node_submission_export(
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
              AND s.status IN (?, ?, ?, ?)
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
-            LEFT JOIN flow_version_assets vt ON vt.asset_kind = 'template' AND vt.flow_version_id = ? AND vt.node_key = ?
             LEFT JOIN template_download_events e
               ON e.node_instance_id = n.id
-             AND e.template_asset_id = vt.asset_id
+             AND e.template_asset_id = ?
              AND e.student_account_id = a.id
             WHERE r.flow_id = ? AND r.status = 'active'{roster_filter}
             ORDER BY r.student_no
@@ -170,8 +171,7 @@ def get_node_submission_export(
                 version_id,
                 node_key,
                 *CURRENT_SUBMISSION_STATUSES,
-                version_id,
-                node_key,
+                template['id'] if template else None,
                 version["flow_id"],
                 *roster_params,
             ),

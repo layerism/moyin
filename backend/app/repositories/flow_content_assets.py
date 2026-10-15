@@ -1,8 +1,8 @@
-import re
 import uuid
 from typing import Any
 
-from app.repositories.flow_assets import bind_version_asset, insert_asset
+from app.repositories.flow_assets import asset_is_referenced, insert_asset
+from app.domain.node_assets import ContentAssetError, referenced_content_asset_ids
 from app.core.database import get_connection
 from app.domain.workflow_runtime import node_by_key
 from app.repositories.flow_roster import assert_student_roster_access
@@ -11,12 +11,6 @@ from app.services.security import utc_now_iso
 
 CONTENT_ASSET_TYPES = {"image/jpeg", "image/png", "image/webp"}
 CONTENT_ASSET_LIMIT_BYTES = 5 * 1024 * 1024
-_ASSET_REFERENCE = re.compile(r"asset://([A-Za-z0-9-]+)")
-_MARKDOWN_IMAGE_TARGET = re.compile(r"!\[[^\]]*\]\(([^)\s]+)")
-
-
-class ContentAssetError(ValueError):
-    pass
 
 
 def get_editable_content_node(
@@ -55,27 +49,6 @@ def get_editable_content_node(
         return dict(node)
 
 
-def referenced_content_asset_ids(node: dict[str, Any]) -> set[str]:
-    if node.get("kind") == "announcement":
-        targets = _MARKDOWN_IMAGE_TARGET.findall(str(node.get("requirement") or ""))
-        if any(_ASSET_REFERENCE.fullmatch(target) is None for target in targets):
-            raise ContentAssetError("公告图片必须先上传到当前流程的 OSS")
-        return {target.removeprefix("asset://") for target in targets}
-    if node.get("kind") != "answer_sheet":
-        return set()
-    references: set[str] = set()
-    for question in node.get("answerSheet", {}).get("questions", []):
-        if not isinstance(question, dict):
-            continue
-        references.update(_ASSET_REFERENCE.findall(str(question.get("content") or "")))
-        for option in question.get("options", []):
-            if isinstance(option, dict):
-                references.update(
-                    _ASSET_REFERENCE.findall(str(option.get("content") or ""))
-                )
-    return references
-
-
 def validate_content_assets(
     connection: Any, flow_id: str, config: dict[str, Any]
 ) -> dict[str, set[str]]:
@@ -96,18 +69,6 @@ def validate_content_assets(
             raise ContentAssetError("节点包含不存在或不属于当前节点的图片")
         result[str(node["id"])] = references
     return result
-
-
-def freeze_content_asset_refs(
-    connection: Any,
-    flow_id: str,
-    flow_version_id: str,
-    config: dict[str, Any],
-) -> None:
-    references = validate_content_assets(connection, flow_id, config)
-    for node_key, asset_ids in references.items():
-        for asset_id in sorted(asset_ids):
-            bind_version_asset(connection, flow_version_id, node_key, asset_id, 'content')
 
 
 def save_content_asset(
@@ -192,17 +153,8 @@ def remove_content_asset(
     ).fetchone()
     if row is None:
         raise KeyError(asset_id)
-    referenced = connection.execute(
-        "SELECT 1 FROM flow_version_assets WHERE asset_kind = 'content' AND asset_id = ?",
-        (asset_id,),
-    ).fetchone()
-    if referenced is not None:
-        raise ContentAssetError("已发布版本引用的图片不可删除")
-    from app.repositories.node_configuration import current_config
-    for node in current_config(connection, flow_id).get('nodes', []):
-        targets = _MARKDOWN_IMAGE_TARGET.findall(str(node.get('requirement') or ''))
-        if f'asset://{asset_id}' in targets:
-            raise ContentAssetError("生效公告引用的图片不可删除")
+    if asset_is_referenced(connection, asset_id, 'content'):
+        raise ContentAssetError("流程配置或版本仍引用的图片不可删除")
     connection.execute("DELETE FROM flow_assets WHERE asset_kind = 'content' AND id = ?", (asset_id,))
     return {"storageKey": str(row["storage_key"])}
 
@@ -215,27 +167,11 @@ def delete_content_asset(
         return remove_content_asset(connection, flow_id, asset_id, teacher_id)
 
 
-def get_version_content_asset(
-    connection: Any, flow_version_id: str, node_key: str, asset_id: str
-) -> dict[str, object]:
-    row = connection.execute(
-        """
-        SELECT a.id, a.storage_key, a.original_name, a.content_type, a.size_bytes
-        FROM flow_version_assets va
-        JOIN flow_assets a ON a.asset_kind = 'content' AND a.id = va.asset_id
-        WHERE va.asset_kind = 'content' AND va.flow_version_id = ? AND va.node_key = ? AND va.asset_id = ?
-        """,
-        (flow_version_id, node_key, asset_id),
-    ).fetchone()
-    if row is None:
-        raise KeyError(asset_id)
-    return dict(row)
-
-
 def get_student_content_asset(
     instance_id: str, asset_id: str, student_id: int
 ) -> dict[str, object]:
     with get_connection() as connection:
+        connection.execute("BEGIN")
         instance = connection.execute(
             """
             SELECT i.flow_version_id, v.flow_id

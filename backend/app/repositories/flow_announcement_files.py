@@ -1,11 +1,11 @@
 """Private files linked from announcement Markdown and its version snapshots."""
 
 import json
-import re
 import uuid
 from typing import Any
 
-from app.repositories.flow_assets import bind_version_asset, insert_asset
+from app.repositories.flow_assets import insert_asset
+from app.domain.node_assets import AnnouncementFileError, referenced_announcement_file_ids
 from app.core.database import get_connection
 from app.domain.workflow_runtime import node_by_key
 from app.repositories.flow_roster import assert_student_roster_access
@@ -19,31 +19,6 @@ ANNOUNCEMENT_FILE_TYPES = {
     ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 ANNOUNCEMENT_FILE_LIMIT_BYTES = 50 * 1024 * 1024
-ANNOUNCEMENT_FILE_LIMIT_COUNT = 10
-_ASSET_TARGET = re.compile(r"asset://[A-Za-z0-9-]+")
-_IMAGE_LINK = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
-_FILE_LINK = re.compile(r"(?<!!)\[[^\]]*\]\((asset://[^)\s]+)\)")
-
-
-class AnnouncementFileError(ValueError):
-    pass
-
-
-def referenced_announcement_file_ids(node: dict[str, Any]) -> set[str]:
-    if node.get("kind") != "announcement":
-        return set()
-    markdown = str(node.get("requirement") or "")
-    file_links = _FILE_LINK.findall(markdown)
-    if any(_ASSET_TARGET.fullmatch(target) is None for target in file_links):
-        raise AnnouncementFileError("公告附件引用格式无效")
-    remaining = _IMAGE_LINK.sub("", markdown)
-    remaining = _FILE_LINK.sub("", remaining)
-    if "asset://" in remaining:
-        raise AnnouncementFileError("公告包含无法识别的资源引用")
-    references = {target.removeprefix("asset://") for target in file_links}
-    if len(references) > ANNOUNCEMENT_FILE_LIMIT_COUNT:
-        raise AnnouncementFileError("每个公告最多引用 10 份附件")
-    return references
 
 
 def validate_announcement_files(
@@ -66,14 +41,6 @@ def validate_announcement_files(
             raise AnnouncementFileError("公告包含不存在或不属于当前节点的附件")
         result[str(node["id"])] = references
     return result
-
-
-def freeze_announcement_file_refs(
-    connection: Any, flow_id: str, version_id: str, config: dict[str, Any]
-) -> None:
-    for node_key, asset_ids in validate_announcement_files(connection, flow_id, config).items():
-        for asset_id in sorted(asset_ids):
-            bind_version_asset(connection, version_id, node_key, asset_id, 'announcement')
 
 
 def get_editable_announcement_node(flow_id: str, node_key: str, teacher_id: int) -> None:
@@ -150,6 +117,7 @@ def get_student_announcement_file(
     instance_id: str, node_key: str, asset_id: str, student_id: int
 ) -> dict[str, object]:
     with get_connection() as connection:
+        connection.execute("BEGIN")
         instance = connection.execute(
             """
             SELECT i.flow_version_id, v.flow_id

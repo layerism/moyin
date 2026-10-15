@@ -51,7 +51,6 @@ def test_super_admin_lists_tables_and_redacts_sensitive_values(client: TestClien
     assert "teacher_accounts" in table_names
     assert {
         "flow_assets",
-        "flow_version_assets",
     } <= table_names
     assert rows.status_code == 200
     assert rows.json()["rows"][0]["password_hash"] == "******"

@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from app.repositories.branch_state import node_is_ready
 from app.core.database import get_connection
+from app.repositories.flow_assets import get_node_template
 from app.domain.workflow import confirmation_requires_scans
 from app.domain.workflow_runtime import pending_node_status
 from app.repositories.flow_roster import assert_student_roster_access
@@ -38,17 +39,15 @@ MAX_SCAN_TOTAL_BYTES = 30 * 1024 * 1024
 
 def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadContext:
     with get_connection() as connection:
+        connection.execute("BEGIN")
         row = connection.execute(
             """
             SELECT n.id, n.status, n.flow_instance_id, n.node_key,
                    i.flow_version_id, i.student_account_id,
-                   v.flow_id, v.config_snapshot, t.asset_id AS template_asset_id,
-                   a.original_name AS template_original_name
+                   v.flow_id, v.config_snapshot
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
-            LEFT JOIN flow_version_assets t ON t.asset_kind = 'template' AND t.flow_version_id = v.id AND t.node_key = n.node_key
-            LEFT JOIN flow_assets a ON a.asset_kind = 'template' AND a.id = t.asset_id
             WHERE n.id = ? AND i.student_account_id = ?
               AND v.status IN ('published', 'preview')
             """,
@@ -72,10 +71,12 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
             "available", "draft", "rejected", "scheduled", "locked", "expired"
         }:
             raise FileContextError("当前节点尚未开放或已截止")
-        if row["template_asset_id"] and not row["template_original_name"]:
-            raise FileContextError("当前节点模板配置异常，请联系教师")
-        if row["template_asset_id"] and not template_downloaded(
-            connection, row["id"], row["template_asset_id"], student_id
+        try:
+            template = get_node_template(connection, row['flow_id'], config_node)
+        except KeyError as exc:
+            raise FileContextError("当前节点模板配置异常，请联系教师") from exc
+        if template and not template_downloaded(
+            connection, row["id"], template['id'], student_id
         ):
             raise FileContextError("请先下载当前节点模板")
     return FileUploadContext(
@@ -86,8 +87,8 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
         node_key=row["node_key"],
         status=row["status"],
         config_node=config_node,
-        template_asset_id=row["template_asset_id"],
-        template_original_name=row["template_original_name"],
+        template_asset_id=template["id"] if template else None,
+        template_original_name=template["original_name"] if template else None,
         upload_mode="single" if config_node.get("kind") == "file" else "scan_set",
     )
 

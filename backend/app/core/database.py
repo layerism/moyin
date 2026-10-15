@@ -221,19 +221,6 @@ CREATE TABLE IF NOT EXISTS flow_assets (
 CREATE INDEX IF NOT EXISTS idx_flow_assets_node
     ON flow_assets(flow_id, node_key, asset_kind);
 
-CREATE TABLE IF NOT EXISTS flow_version_assets (
-    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    asset_id TEXT NOT NULL,
-    asset_kind TEXT NOT NULL,
-    PRIMARY KEY(flow_version_id, node_key, asset_kind, asset_id),
-    FOREIGN KEY(asset_id, asset_kind) REFERENCES flow_assets(id, asset_kind) ON DELETE RESTRICT
-);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_flow_version_assets_template
-    ON flow_version_assets(flow_version_id, node_key) WHERE asset_kind = 'template';
-CREATE INDEX IF NOT EXISTS idx_flow_version_assets_asset
-    ON flow_version_assets(asset_id, asset_kind);
-
 CREATE TABLE IF NOT EXISTS flow_instances (
     id TEXT PRIMARY KEY,
     flow_version_id TEXT NOT NULL REFERENCES flow_versions(id),
@@ -554,6 +541,9 @@ def initialize_database() -> None:
     from app.core.answer_sheet_migration import migrate_answer_sheets
     with get_connection() as connection:
         migrate_answer_sheets(connection)
+    from app.core.flow_asset_reference_migration import migrate_flow_asset_references
+    with get_connection() as connection:
+        migrate_flow_asset_references(connection)
 
 
 def _apply_share_tokens_removal(connection: sqlite3.Connection) -> None:

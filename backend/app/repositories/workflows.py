@@ -10,7 +10,7 @@ from sqlite3 import Connection
 from app.domain.node_assets import asset_entries
 from app.domain.node_configuration import REVISION_FIELDS, public_config
 from app.core.config import settings
-from app.repositories.flow_assets import bind_version_asset, insert_asset
+from app.repositories.flow_assets import insert_asset
 from app.core.database import get_connection
 from app.domain.answer_sheet import AnswerSheetConfigError
 from app.repositories.flow_runtime_state import (
@@ -40,12 +40,10 @@ from app.repositories.answer_sheet_keys import (
 from app.repositories.published_node_parameters import apply_node_parameters, stored_draft
 from app.repositories.flow_content_assets import (
     ContentAssetError,
-    freeze_content_asset_refs,
     validate_content_assets,
 )
 from app.repositories.flow_announcement_files import (
     AnnouncementFileError,
-    freeze_announcement_file_refs,
     validate_announcement_files,
 )
 from app.repositories.workflow_groups import require_owned_workflow_group
@@ -237,14 +235,14 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
 
 def prepare_runtime_config(
     connection: Any, flow_id: str, config: dict[str, Any]
-) -> dict[str, str]:
+) -> None:
     apply_node_parameters(connection, flow_id, config)
     _bind_confirmation_visual_audits(config)
     _refresh_file_audit_script_configs(config)
     validate_flow_config(config, require_publishable=True)
     _validate_audit_script_nodes(config)
     validate_flow_models(connection, flow_id, config, require_configured=True)
-    return validate_version_templates(connection, flow_id, config)
+    validate_version_templates(connection, flow_id, config)
 
 
 def _latest_published_version(connection: Any, flow_id: str, teacher_id: int) -> Any:
@@ -1392,7 +1390,7 @@ def publish_flow(
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可发布")
         config = supplied_config if supplied_config is not None else json.loads(flow["draft_config"])
-        version_templates = prepare_runtime_config(connection, flow_id, config)
+        prepare_runtime_config(connection, flow_id, config)
         current_keys = (
             supplied_answer_sheet_keys
             if supplied_answer_sheet_keys is not None
@@ -1472,10 +1470,6 @@ def publish_flow(
             """,
             (version_id, flow_id, version_no, snapshot, config_hash, str(teacher_id), now),
         )
-        freeze_content_asset_refs(connection, flow_id, version_id, config)
-        freeze_announcement_file_refs(connection, flow_id, version_id, config)
-        for node_key, asset_id in version_templates.items():
-            bind_version_asset(connection, version_id, node_key, asset_id, 'template')
         if baseline is not None:
             analysis = plan["analysis"]
             migrated_student_count = _migrate_instances(

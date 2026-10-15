@@ -2,6 +2,8 @@
 import json
 from datetime import UTC, datetime
 
+from app.core.flow_asset_reference_migration import assert_version_asset_reference
+
 
 MIGRATION_ID = "20261015_consolidate_flow_tables"
 ASSET_TABLES = (
@@ -23,10 +25,8 @@ def migrate_flow_tables(connection):
                 f"INSERT INTO flow_assets ({columns}, asset_kind) SELECT {columns}, ? FROM {assets}", (kind,),
             )
         if references in tables:
-            connection.execute(
-                f"""INSERT INTO flow_version_assets (flow_version_id, node_key, asset_id, asset_kind)
-                    SELECT flow_version_id, node_key, {asset_column}, ? FROM {references}""", (kind,),
-            )
+            for row in connection.execute(f'SELECT flow_version_id, node_key, {asset_column} FROM {references}'):
+                assert_version_asset_reference(connection, row['flow_version_id'], row['node_key'], row[asset_column], kind)
 
     # The download event continues to reference a template, not an arbitrary resource kind.
     if any(row['table'] == 'flow_template_assets'
