@@ -269,15 +269,15 @@ function DatabaseRowsTable({
   if (loading && rows.length === 0) return <p className="database-empty">正在读取数据库记录</p>;
   if (error && rows.length === 0) return <p className="database-empty">记录读取失败，请点击刷新重试</p>;
   if (!schema || rows.length === 0) return <p className="database-empty">该表暂无记录</p>;
-  const widths = schema.columns.map((column) => column.type.toUpperCase().includes("INT") ? 110 : 200);
+  const widths = schema.columns.map((column) => column.type.toUpperCase().includes("INT") ? 88 : 160);
   const hasPrimaryKey = schema.columns.some((column) => column.primaryKey);
   return (
     <div className="database-grid-scroll" key={`${schema.name}-${offset}`} tabIndex={0} aria-label={`${schema.name} 数据记录，可横向滚动查看全部字段`}>
-      <table className="database-grid" style={{ width: widths.reduce((sum, width) => sum + width, 176) }}>
+      <table className="database-grid" style={{ width: widths.reduce((sum, width) => sum + width, 144) }}>
         <colgroup>
-          <col style={{ width: 48 }} />
+          <col style={{ width: 40 }} />
           {schema.columns.map((column, index) => <col key={column.name} style={{ width: widths[index] }} />)}
-          <col style={{ width: 128 }} />
+          <col style={{ width: 104 }} />
         </colgroup>
         <thead>
           <tr>
