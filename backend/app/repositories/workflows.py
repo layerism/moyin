@@ -1022,7 +1022,7 @@ def _node_invalidation_before_data(
         (node["id"],),
     ).fetchall()
     template_downloads = connection.execute(
-        "SELECT * FROM template_download_events WHERE node_instance_id = ?",
+        "SELECT * FROM node_template_download_events WHERE node_instance_id = ?",
         (node["id"],),
     ).fetchall()
     manual_rejections = connection.execute(

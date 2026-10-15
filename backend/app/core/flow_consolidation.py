@@ -30,8 +30,8 @@ def migrate_flow_tables(connection):
 
     # The download event continues to reference a template, not an arbitrary resource kind.
     if any(row['table'] == 'flow_template_assets'
-           for row in connection.execute('PRAGMA foreign_key_list(template_download_events)')):
-        connection.execute("""CREATE TABLE template_download_events_consolidated (
+           for row in connection.execute('PRAGMA foreign_key_list(node_template_download_events)')):
+        connection.execute("""CREATE TABLE node_template_download_events_consolidated (
             node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
             template_asset_id TEXT NOT NULL,
             asset_kind TEXT NOT NULL DEFAULT 'template' CHECK (asset_kind = 'template'),
@@ -41,13 +41,13 @@ def migrate_flow_tables(connection):
             FOREIGN KEY(template_asset_id, asset_kind)
                 REFERENCES flow_assets(id, asset_kind) ON DELETE RESTRICT
         )""")
-        connection.execute("""INSERT INTO template_download_events_consolidated
+        connection.execute("""INSERT INTO node_template_download_events_consolidated
             (node_instance_id, template_asset_id, student_account_id, downloaded_at)
             SELECT node_instance_id, template_asset_id, student_account_id, downloaded_at
-            FROM template_download_events""")
-        connection.execute("DROP TABLE template_download_events")
-        connection.execute("ALTER TABLE template_download_events_consolidated RENAME TO template_download_events")
-        connection.execute("CREATE INDEX idx_template_download_events_student ON template_download_events(student_account_id, node_instance_id)")
+            FROM node_template_download_events""")
+        connection.execute("DROP TABLE node_template_download_events")
+        connection.execute("ALTER TABLE node_template_download_events_consolidated RENAME TO node_template_download_events")
+        connection.execute("CREATE INDEX idx_template_download_events_student ON node_template_download_events(student_account_id, node_instance_id)")
 
     drafts = {}
 

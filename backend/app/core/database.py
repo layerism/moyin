@@ -367,7 +367,7 @@ CREATE TABLE IF NOT EXISTS student_uploaded_files (
     created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS template_download_events (
+CREATE TABLE IF NOT EXISTS node_template_download_events (
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
     template_asset_id TEXT NOT NULL,
     asset_kind TEXT NOT NULL DEFAULT 'template' CHECK (asset_kind = 'template'),
@@ -378,7 +378,7 @@ CREATE TABLE IF NOT EXISTS template_download_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_template_download_events_student
-    ON template_download_events(student_account_id, node_instance_id);
+    ON node_template_download_events(student_account_id, node_instance_id);
 
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_node
     ON student_uploaded_files(node_instance_id, student_account_id);
@@ -500,6 +500,7 @@ def initialize_database() -> None:
         _apply_node_deadline_overrides_rename(connection)
         _apply_student_uploaded_files_rename(connection)
         _apply_teacher_drive_files_rename(connection)
+        _apply_node_template_download_events_rename(connection)
         connection.executescript(SCHEMA)
         _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema
@@ -606,6 +607,15 @@ def _apply_teacher_drive_files_rename(connection: sqlite3.Connection) -> None:
     ).fetchone()
     if legacy is not None:
         connection.execute("ALTER TABLE personal_drive_files RENAME TO teacher_drive_files")
+
+
+def _apply_node_template_download_events_rename(connection: sqlite3.Connection) -> None:
+    # Rename before SCHEMA creates the table, preserving rows, columns and indexes.
+    legacy = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'template_download_events'"
+    ).fetchone()
+    if legacy is not None:
+        connection.execute("ALTER TABLE template_download_events RENAME TO node_template_download_events")
 
 
 def _apply_registration_allowlist_migration(connection: sqlite3.Connection) -> None:

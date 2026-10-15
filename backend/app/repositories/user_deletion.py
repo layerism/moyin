@@ -12,7 +12,7 @@ from app.services.security import utc_now_iso
 ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_source_reviews',
          'manual_feedback_drafts', 'manual_feedback', 'manual_feedback_files', 'manual_reviews',
          'file_review_ai_tasks', 'file_review_runs', 'audit_jobs',
-         'student_uploaded_files', 'template_download_events', 'node_submissions', 'node_drafts',
+         'student_uploaded_files', 'node_template_download_events', 'node_submissions', 'node_drafts',
          'node_deadline_overrides', 'flow_preview_sessions', 'node_instances', 'flow_instances',
          'flow_versions',
          'flow_assets', 'flow_roster_entries', 'flows',
@@ -59,7 +59,7 @@ def scope(db, kind, account_id):
     children('node_submissions', 'node_instance_id', 'node_instances')
     for table in ['manual_reviews', 'manual_feedback_files', 'manual_feedback', 'node_deadline_overrides']:
         children(table, 'flow_instance_id', 'flow_instances')
-    for table in ['manual_source_reviews', 'manual_feedback_drafts', 'manual_node_rejections', 'node_drafts', 'student_uploaded_files', 'template_download_events', 'audit_jobs']:
+    for table in ['manual_source_reviews', 'manual_feedback_drafts', 'manual_node_rejections', 'node_drafts', 'student_uploaded_files', 'node_template_download_events', 'audit_jobs']:
         children(table, 'node_instance_id', 'node_instances')
     for table in ['file_review_runs', 'file_review_ai_tasks', 'file_review_feedback_context']:
         children(table, 'submission_id', 'node_submissions')
@@ -82,6 +82,8 @@ def scope(db, kind, account_id):
                 select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:uploaded_files', key))
             if table == 'teacher_drive_files':
                 select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:personal_drive_files', key))
+            if table == 'node_template_download_events':
+                select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:template_download_events', key))
             if table == 'node_deadline_overrides':
                 select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:student_deadline_overrides', key))
             if table == 'flow_groups':

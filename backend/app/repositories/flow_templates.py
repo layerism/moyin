@@ -319,7 +319,7 @@ def record_template_download(node_instance_id: str, template_asset_id: str, stud
     with get_connection() as connection:
         connection.execute(
             """
-            INSERT INTO template_download_events
+            INSERT INTO node_template_download_events
                 (node_instance_id, template_asset_id, student_account_id, downloaded_at)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(node_instance_id, template_asset_id)
@@ -334,7 +334,7 @@ def template_downloaded(
 ) -> bool:
     return connection.execute(
         """
-        SELECT 1 FROM template_download_events
+        SELECT 1 FROM node_template_download_events
         WHERE node_instance_id = ? AND template_asset_id = ? AND student_account_id = ?
         """,
         (node_instance_id, template_asset_id, student_id),

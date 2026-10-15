@@ -258,7 +258,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     )
             template = get_node_template(connection, instance['flow_id'], config_node)
             downloaded = connection.execute(
-                """SELECT downloaded_at FROM template_download_events
+                """SELECT downloaded_at FROM node_template_download_events
                    WHERE node_instance_id = ? AND template_asset_id = ? AND student_account_id = ?""",
                 (row['id'], template['id'], instance['student_account_id']),
             ).fetchone() if template else None

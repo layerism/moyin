@@ -43,5 +43,5 @@ def asset_is_referenced(connection, asset_id, asset_kind):
                 return True
     # Download records are evidence too, even if no config currently uses the file.
     return asset_kind == 'template' and connection.execute(
-        'SELECT 1 FROM template_download_events WHERE template_asset_id = ? LIMIT 1', (asset_id,)
+        'SELECT 1 FROM node_template_download_events WHERE template_asset_id = ? LIMIT 1', (asset_id,)
     ).fetchone() is not None
