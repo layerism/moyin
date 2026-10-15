@@ -466,7 +466,7 @@ def list_student_flows(student_id: int) -> list[dict[str, object]]:
               ON i.flow_version_id = v.id
              AND i.student_account_id = a.id
             WHERE a.id = ? AND a.status = 'active'
-            ORDER BY first_published_at ASC, f.id ASC
+            ORDER BY first_published_at DESC, f.id ASC
             """,
             (student_id,),
         ).fetchall()

@@ -51,7 +51,7 @@ export function StudentAccountPage({
         {notice ? <p className="role-auth-error">{notice}</p> : null}
         <div className="student-flow-list-heading">
           <span>流程列表</span>
-          <span>首次发布时间 · 从早到晚</span>
+          <span>首次发布时间 · 从新到旧</span>
         </div>
         <div className="student-account-list">
           {flows.map((flow) => (
