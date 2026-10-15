@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { AuthIdentity } from "../auth/authApi";
+import { DatabaseJsonPreview, formatJsonContainer } from "./DatabaseJsonPreview";
 import {
   databaseAdminApi,
   type AdminColumn,
@@ -508,6 +509,10 @@ function DatabaseRowEditor({
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(schema.columns.map((column) => [column.name, displayValue(row[column.name])])),
   );
+  const [jsonPreview, setJsonPreview] = useState<{ field: string; json: string } | null>(null);
+  const formattedValues = useMemo(() => Object.fromEntries(
+    Object.entries(values).map(([name, value]) => [name, formatJsonContainer(value)]),
+  ), [values]);
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -552,7 +557,15 @@ function DatabaseRowEditor({
         <div className="database-field-list">
           {schema.columns.map((column) => (
             <label key={column.name}>
-              <span>{column.name}<em>{column.primaryKey ? "主键" : column.editable ? "可编辑" : "只读"}</em></span>
+              <span>{column.name}<span className="database-field-actions">
+                <em>{column.primaryKey ? "主键" : column.editable ? "可编辑" : "只读"}</em>
+                {formattedValues[column.name] !== null ? (
+                  <button type="button" onClick={(event) => {
+                    event.preventDefault();
+                    setJsonPreview({ field: column.name, json: formattedValues[column.name]! });
+                  }}>查看 JSON</button>
+                ) : null}
+              </span></span>
               <textarea
                 disabled={!column.editable}
                 onChange={(event) => setValues((current) => ({ ...current, [column.name]: event.target.value }))}
@@ -585,6 +598,7 @@ function DatabaseRowEditor({
           </button>
         </footer>
       </aside>
+      {jsonPreview ? <DatabaseJsonPreview {...jsonPreview} onClose={() => setJsonPreview(null)} /> : null}
     </div>
   );
 }

@@ -3249,6 +3249,93 @@ button {
   font-weight: 500;
 }
 
+.database-field-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.database-field-actions button {
+  padding: 3px 7px;
+  border: 1px solid #cfd7e5;
+  border-radius: 5px;
+  background: #fff;
+  color: #2458a6;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.database-json-preview {
+  width: min(900px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #fff;
+  color: #172033;
+  box-shadow: 0 18px 48px rgb(15 23 42 / 18%);
+}
+
+.database-json-preview[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.database-json-preview::backdrop {
+  background: rgb(15 23 42 / 42%);
+}
+
+.database-json-preview > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #d8dee8;
+}
+
+.database-json-preview h2 {
+  margin: 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.database-json-preview p {
+  margin: 4px 0 0;
+  color: #667085;
+  font-size: 12px;
+}
+
+.database-json-preview header button {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.database-json-preview pre {
+  min-height: 0;
+  margin: 0;
+  padding: 20px;
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+  background: #f5f7fa;
+  font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.database-json-preview code { font: inherit; }
+.database-json-key { color: #0550ae; }
+.database-json-string { color: #116329; }
+.database-json-number { color: #953800; }
+.database-json-literal { color: #8250df; }
+
 .database-field-list textarea,
 .database-field-list input {
   width: 100%;
