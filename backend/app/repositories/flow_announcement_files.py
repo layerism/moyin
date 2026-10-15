@@ -5,6 +5,7 @@ import re
 import uuid
 from typing import Any
 
+from app.repositories.flow_assets import bind_version_asset, insert_asset
 from app.core.database import get_connection
 from app.domain.workflow_runtime import node_by_key
 from app.repositories.flow_roster import assert_student_roster_access
@@ -56,8 +57,8 @@ def validate_announcement_files(
         placeholders = ",".join("?" for _ in references)
         rows = connection.execute(
             f"""
-            SELECT id FROM flow_announcement_files
-            WHERE flow_id = ? AND node_key = ? AND id IN ({placeholders})
+            SELECT id FROM flow_assets
+            WHERE asset_kind = 'announcement' AND flow_id = ? AND node_key = ? AND id IN ({placeholders})
             """,
             (flow_id, node["id"], *sorted(references)),
         ).fetchall()
@@ -72,14 +73,7 @@ def freeze_announcement_file_refs(
 ) -> None:
     for node_key, asset_ids in validate_announcement_files(connection, flow_id, config).items():
         for asset_id in sorted(asset_ids):
-            connection.execute(
-                """
-                INSERT INTO flow_version_announcement_files
-                    (flow_version_id, node_key, announcement_file_id)
-                VALUES (?, ?, ?)
-                """,
-                (version_id, node_key, asset_id),
-            )
+            bind_version_asset(connection, version_id, node_key, asset_id, 'announcement')
 
 
 def get_editable_announcement_node(flow_id: str, node_key: str, teacher_id: int) -> None:
@@ -121,15 +115,11 @@ def create_announcement_file(
         if node.get("kind") != "announcement":
             raise AnnouncementFileError("当前节点不支持公告附件")
         asset_id = str(uuid.uuid4())
-        connection.execute(
-            """
-            INSERT INTO flow_announcement_files
-                (id, flow_id, node_key, storage_key, original_name, content_type,
-                 size_bytes, sha256, etag, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (asset_id, flow_id, node_key, storage_key, original_name, content_type,
-             size_bytes, sha256, etag, teacher_id, utc_now_iso()),
+        insert_asset(connection, 'announcement',
+            id=asset_id, flow_id=flow_id, node_key=node_key,
+            storage_key=storage_key, original_name=original_name, content_type=content_type,
+            size_bytes=size_bytes, sha256=sha256, etag=etag,
+            created_by=teacher_id, created_at=utc_now_iso(),
         )
     return {
         "assetId": asset_id, "originalName": original_name,
@@ -144,9 +134,9 @@ def get_teacher_announcement_file(
         row = connection.execute(
             """
             SELECT a.id, a.storage_key, a.original_name, a.content_type, a.size_bytes
-            FROM flow_announcement_files a
+            FROM flow_assets a
             JOIN flows f ON f.id = a.flow_id
-            WHERE a.flow_id = ? AND a.node_key = ? AND a.id = ?
+            WHERE a.asset_kind = 'announcement' AND a.flow_id = ? AND a.node_key = ? AND a.id = ?
               AND f.owner_id = ? AND f.status != 'archived'
             """,
             (flow_id, node_key, asset_id, str(teacher_id)),
@@ -179,8 +169,8 @@ def get_student_announcement_file(
             raise KeyError(asset_id)
         row = connection.execute(
             """SELECT id, storage_key, original_name, content_type, size_bytes
-            FROM flow_announcement_files
-            WHERE flow_id = ? AND node_key = ? AND id = ?""",
+            FROM flow_assets
+            WHERE asset_kind = 'announcement' AND flow_id = ? AND node_key = ? AND id = ?""",
             (instance['flow_id'], node_key, asset_id),
         ).fetchone()
         if row is None:

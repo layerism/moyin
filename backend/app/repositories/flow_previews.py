@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.repositories.flow_assets import bind_version_asset
 from app.core.database import get_connection
 from app.domain.workflow_runtime import incoming_nodes
 from app.repositories.audit_policies import sync_preview_audit_policies
@@ -94,6 +95,8 @@ def delete_marked_preview(teacher_id: int) -> None:
             "DELETE FROM flow_instances WHERE id = ?",
             (session["flow_instance_id"],),
         )
+        from app.repositories.published_node_parameters import remove_version_parameters
+        remove_version_parameters(connection, session['flow_version_id'])
         connection.execute(
             """
             DELETE FROM flow_versions
@@ -178,14 +181,7 @@ def create_preview(flow_id: str, teacher_id: int) -> tuple[dict[str, object], st
         freeze_content_asset_refs(connection, flow_id, version_id, config)
         freeze_announcement_file_refs(connection, flow_id, version_id, config)
         for node_key, asset_id in version_templates.items():
-            connection.execute(
-                """
-                INSERT INTO flow_version_templates
-                    (flow_version_id, node_key, template_asset_id)
-                VALUES (?, ?, ?)
-                """,
-                (version_id, node_key, asset_id),
-            )
+            bind_version_asset(connection, version_id, node_key, asset_id, 'template')
         connection.execute(
             """
             INSERT INTO flow_instances

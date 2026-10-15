@@ -2,6 +2,7 @@ import re
 import uuid
 from typing import Any
 
+from app.repositories.flow_assets import bind_version_asset, insert_asset
 from app.core.database import get_connection
 from app.domain.workflow_runtime import node_by_key
 from app.repositories.flow_roster import assert_student_roster_access
@@ -86,8 +87,8 @@ def validate_content_assets(
         placeholders = ",".join("?" for _ in references)
         rows = connection.execute(
             f"""
-            SELECT id FROM flow_content_assets
-            WHERE flow_id = ? AND node_key = ? AND id IN ({placeholders})
+            SELECT id FROM flow_assets
+            WHERE asset_kind = 'content' AND flow_id = ? AND node_key = ? AND id IN ({placeholders})
             """,
             (flow_id, node["id"], *sorted(references)),
         ).fetchall()
@@ -106,14 +107,7 @@ def freeze_content_asset_refs(
     references = validate_content_assets(connection, flow_id, config)
     for node_key, asset_ids in references.items():
         for asset_id in sorted(asset_ids):
-            connection.execute(
-                """
-                INSERT INTO flow_version_content_assets
-                    (flow_version_id, node_key, content_asset_id)
-                VALUES (?, ?, ?)
-                """,
-                (flow_version_id, node_key, asset_id),
-            )
+            bind_version_asset(connection, flow_version_id, node_key, asset_id, 'content')
 
 
 def save_content_asset(
@@ -164,26 +158,11 @@ def save_content_asset(
         raise ContentAssetError("已发布答题卡节点不可新增或替换题图")
     asset_id = str(uuid.uuid4())
     now = utc_now_iso()
-    connection.execute(
-        """
-        INSERT INTO flow_content_assets
-            (id, flow_id, node_key, storage_key, original_name, content_type,
-             size_bytes, sha256, etag, created_by, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            asset_id,
-            flow_id,
-            node_key,
-            storage_key,
-            original_name,
-            content_type,
-            size_bytes,
-            sha256,
-            etag,
-            teacher_id,
-            now,
-        ),
+    insert_asset(connection, 'content',
+        id=asset_id, flow_id=flow_id, node_key=node_key,
+        storage_key=storage_key, original_name=original_name, content_type=content_type,
+        size_bytes=size_bytes, sha256=sha256, etag=etag,
+        created_by=teacher_id, created_at=now,
     )
     return {
         "assetId": asset_id,
@@ -205,16 +184,16 @@ def remove_content_asset(
 ) -> dict[str, str]:
     row = connection.execute(
         """
-        SELECT a.storage_key FROM flow_content_assets a
+        SELECT a.storage_key FROM flow_assets a
         JOIN flows f ON f.id = a.flow_id
-        WHERE a.id = ? AND a.flow_id = ? AND f.owner_id = ? AND f.status != 'archived'
+        WHERE a.asset_kind = 'content' AND a.id = ? AND a.flow_id = ? AND f.owner_id = ? AND f.status != 'archived'
         """,
         (asset_id, flow_id, str(teacher_id)),
     ).fetchone()
     if row is None:
         raise KeyError(asset_id)
     referenced = connection.execute(
-        "SELECT 1 FROM flow_version_content_assets WHERE content_asset_id = ?",
+        "SELECT 1 FROM flow_version_assets WHERE asset_kind = 'content' AND asset_id = ?",
         (asset_id,),
     ).fetchone()
     if referenced is not None:
@@ -224,7 +203,7 @@ def remove_content_asset(
         targets = _MARKDOWN_IMAGE_TARGET.findall(str(entry['params'].get('requirement') or ''))
         if f'asset://{asset_id}' in targets:
             raise ContentAssetError("生效公告引用的图片不可删除")
-    connection.execute("DELETE FROM flow_content_assets WHERE id = ?", (asset_id,))
+    connection.execute("DELETE FROM flow_assets WHERE asset_kind = 'content' AND id = ?", (asset_id,))
     return {"storageKey": str(row["storage_key"])}
 
 
@@ -242,9 +221,9 @@ def get_version_content_asset(
     row = connection.execute(
         """
         SELECT a.id, a.storage_key, a.original_name, a.content_type, a.size_bytes
-        FROM flow_version_content_assets va
-        JOIN flow_content_assets a ON a.id = va.content_asset_id
-        WHERE va.flow_version_id = ? AND va.node_key = ? AND va.content_asset_id = ?
+        FROM flow_version_assets va
+        JOIN flow_assets a ON a.asset_kind = 'content' AND a.id = va.asset_id
+        WHERE va.asset_kind = 'content' AND va.flow_version_id = ? AND va.node_key = ? AND va.asset_id = ?
         """,
         (flow_version_id, node_key, asset_id),
     ).fetchone()
@@ -279,7 +258,7 @@ def get_student_content_asset(
         placeholders = ','.join('?' for _ in node_keys)
         row = connection.execute(
             f"""SELECT id, storage_key, original_name, content_type, size_bytes
-            FROM flow_content_assets WHERE flow_id = ? AND id = ?
+            FROM flow_assets WHERE asset_kind = 'content' AND flow_id = ? AND id = ?
             AND node_key IN ({placeholders})""",
             (instance['flow_id'], asset_id, *node_keys),
         ).fetchone()
@@ -295,9 +274,9 @@ def get_teacher_content_asset(
         row = connection.execute(
             """
             SELECT a.id, a.storage_key, a.original_name, a.content_type, a.size_bytes
-            FROM flow_content_assets a
+            FROM flow_assets a
             JOIN flows f ON f.id = a.flow_id
-            WHERE a.flow_id = ? AND a.id = ? AND f.owner_id = ?
+            WHERE a.asset_kind = 'content' AND a.flow_id = ? AND a.id = ? AND f.owner_id = ?
               AND f.status != 'archived'
             """,
             (flow_id, asset_id, str(teacher_id)),

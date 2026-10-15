@@ -6,6 +6,7 @@ from typing import Any
 
 from app.domain.node_assets import reference_assets, asset_entries
 from app.repositories.branch_state import node_is_ready
+from app.repositories.flow_assets import insert_asset
 from app.core.database import get_connection
 from app.domain.workflow_runtime import (
     node_by_key,
@@ -113,15 +114,11 @@ def save_template_asset(
         if replace_asset_id and not any(item["assetId"] == replace_asset_id for item in references):
             raise TemplateMutationError("待替换的参考文件不存在")
         old_id = replace_asset_id if reference else (node.get("templateAsset") or {}).get("assetId")
-        connection.execute(
-            """
-            INSERT INTO flow_template_assets
-                (id, flow_id, node_key, storage_key, original_name, content_type,
-                 size_bytes, sha256, etag, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (asset_id, flow_id, node_key, storage_key, original_name, content_type,
-             size_bytes, sha256, etag, teacher_id, now),
+        insert_asset(connection, 'template',
+            id=asset_id, flow_id=flow_id, node_key=node_key,
+            storage_key=storage_key, original_name=original_name, content_type=content_type,
+            size_bytes=size_bytes, sha256=sha256, etag=etag,
+            created_by=teacher_id, created_at=now,
         )
         metadata = {
             "assetId": asset_id,
@@ -181,7 +178,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
             # only releases uploaded assets that no longer have a reference.
             if not reference_id:
                 raise TemplateMutationError('请选择参考文件')
-            asset = connection.execute('SELECT id, storage_key FROM flow_template_assets WHERE id = ? AND flow_id = ? AND node_key = ?',
+            asset = connection.execute("SELECT id, storage_key FROM flow_assets WHERE asset_kind = 'template' AND id = ? AND flow_id = ? AND node_key = ?",
                                        (reference_id, flow_id, node_key)).fetchone()
             if asset is None:
                 raise KeyError(reference_id)
@@ -199,7 +196,7 @@ def remove_template_asset(flow_id: str, node_key: str, teacher_id: int, referenc
         if not asset_id:
             return None
         asset = connection.execute(
-            "SELECT id, storage_key FROM flow_template_assets WHERE id = ? AND flow_id = ? AND node_key = ?",
+            "SELECT id, storage_key FROM flow_assets WHERE asset_kind = 'template' AND id = ? AND flow_id = ? AND node_key = ?",
             (asset_id, flow_id, node_key),
         ).fetchone()
         if asset is None:
@@ -228,7 +225,7 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         referenced = connection.execute(
-            "SELECT 1 FROM flow_version_templates WHERE template_asset_id = ? LIMIT 1", (asset_id,)
+            "SELECT 1 FROM flow_version_assets WHERE asset_kind = 'template' AND asset_id = ? LIMIT 1", (asset_id,)
         ).fetchone()
         reference = connection.execute(
             "SELECT 1 FROM flow_versions v, json_each(v.config_snapshot, '$.nodes') n WHERE json_extract(n.value, '$.referenceAsset.assetId') = ? OR EXISTS (SELECT 1 FROM json_each(n.value, '$.referenceAssets') a WHERE json_extract(a.value, '$.assetId') = ?) LIMIT 1", (asset_id, asset_id),
@@ -246,10 +243,10 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
         if referenced is not None or reference is not None or draft_reference is not None or live_reference is not None:
             return None
         row = connection.execute(
-            "SELECT id, storage_key FROM flow_template_assets WHERE id = ?", (asset_id,)
+            "SELECT id, storage_key FROM flow_assets WHERE asset_kind = 'template' AND id = ?", (asset_id,)
         ).fetchone()
         if row is not None:
-            connection.execute("DELETE FROM flow_template_assets WHERE id = ?", (asset_id,))
+            connection.execute("DELETE FROM flow_assets WHERE asset_kind = 'template' AND id = ?", (asset_id,))
         return dict(row) if row else None
 
 
@@ -262,7 +259,7 @@ def validate_version_templates(connection: Any, flow_id: str, config: dict[str, 
             row = connection.execute(
                 """
                 SELECT id, flow_id, node_key, original_name, content_type, size_bytes, sha256
-                FROM flow_template_assets WHERE id = ?
+                FROM flow_assets WHERE asset_kind = 'template' AND id = ?
                 """,
                 (template.get("assetId"),),
             ).fetchone()
@@ -297,9 +294,9 @@ def get_version_template_original_name(
     row = connection.execute(
         """
         SELECT a.original_name
-        FROM flow_version_templates t
-        JOIN flow_template_assets a ON a.id = t.template_asset_id
-        WHERE t.flow_version_id = ? AND t.node_key = ?
+        FROM flow_version_assets t
+        JOIN flow_assets a ON a.asset_kind = 'template' AND a.id = t.asset_id
+        WHERE t.asset_kind = 'template' AND t.flow_version_id = ? AND t.node_key = ?
         """,
         (flow_version_id, node_key),
     ).fetchone()
@@ -318,9 +315,8 @@ def get_student_template(node_instance_id: str, student_id: int) -> dict[str, ob
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
               AND v.status IN ('published', 'preview')
-            JOIN flow_version_templates t
-              ON t.flow_version_id = v.id AND t.node_key = n.node_key
-            JOIN flow_template_assets a ON a.id = t.template_asset_id
+            JOIN flow_version_assets t ON t.asset_kind = 'template' AND t.flow_version_id = v.id AND t.node_key = n.node_key
+            JOIN flow_assets a ON a.asset_kind = 'template' AND a.id = t.asset_id
             WHERE n.id = ? AND i.student_account_id = ?
             """,
             (node_instance_id, student_id),
@@ -393,7 +389,7 @@ def get_student_reference(node_instance_id: str, student_id: int, asset_id: str 
         asset = next((item for item in reference_assets(node) if asset_id is None or item['assetId'] == asset_id), None)
         if node.get('kind') not in {'file', 'confirmation'} or not asset:
             raise KeyError(node_instance_id)
-        record = connection.execute('SELECT * FROM flow_template_assets WHERE id = ? AND flow_id = ? AND node_key = ?',
+        record = connection.execute("SELECT * FROM flow_assets WHERE asset_kind = 'template' AND id = ? AND flow_id = ? AND node_key = ?",
             (asset['assetId'], row['flow_id'], row['node_key'])).fetchone()
         if record is None:
             raise KeyError(node_instance_id)
@@ -403,9 +399,9 @@ def get_student_reference(node_instance_id: str, student_id: int, asset_id: str 
 def get_teacher_material_asset(flow_id: str, node_key: str, asset_id: str, teacher_id: int) -> dict[str, object]:
     with get_connection() as connection:
         row = connection.execute(
-            """SELECT a.* FROM flow_template_assets a
+            """SELECT a.* FROM flow_assets a
                JOIN flows f ON f.id = a.flow_id
-               WHERE a.id = ? AND a.flow_id = ? AND a.node_key = ?
+               WHERE a.asset_kind = 'template' AND a.id = ? AND a.flow_id = ? AND a.node_key = ?
                  AND f.owner_id = ? AND f.status != 'archived'""",
             (asset_id, flow_id, node_key, str(teacher_id)),
         ).fetchone()

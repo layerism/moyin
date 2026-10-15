@@ -9,6 +9,7 @@ from sqlite3 import Connection
 
 from app.domain.node_assets import asset_entries
 from app.core.config import settings
+from app.repositories.flow_assets import bind_version_asset, insert_asset
 from app.core.database import get_connection
 from app.domain.answer_sheet import AnswerSheetConfigError
 from app.repositories.flow_runtime_state import (
@@ -37,7 +38,6 @@ from app.repositories.answer_sheet_keys import (
     validate_publishable_answer_sheet_keys,
 )
 from app.repositories.audit_policies import sync_published_audit_policies
-from app.repositories.form_parameters import apply_form_parameters
 from app.repositories.published_node_parameters import apply_node_parameters, stored_draft
 from app.repositories.flow_content_assets import (
     ContentAssetError,
@@ -239,7 +239,6 @@ def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
 def prepare_runtime_config(
     connection: Any, flow_id: str, config: dict[str, Any]
 ) -> dict[str, str]:
-    apply_form_parameters(connection, flow_id, config)
     apply_node_parameters(connection, flow_id, config)
     _bind_confirmation_visual_audits(config)
     _refresh_file_audit_script_configs(config)
@@ -593,7 +592,7 @@ def copy_flow_definition(
                 if not template:
                     continue
                 asset = connection.execute(
-                    "SELECT * FROM flow_template_assets WHERE id = ?",
+                    "SELECT * FROM flow_assets WHERE asset_kind = 'template' AND id = ?",
                     (template.get("assetId"),),
                 ).fetchone()
                 if asset is None or asset["flow_id"] != flow_id or asset["node_key"] != node["id"]:
@@ -616,7 +615,7 @@ def copy_flow_definition(
         for node_key, asset_ids in content_references.items():
             for asset_id in sorted(asset_ids):
                 asset = connection.execute(
-                    "SELECT * FROM flow_content_assets WHERE id = ?",
+                    "SELECT * FROM flow_assets WHERE asset_kind = 'content' AND id = ?",
                     (asset_id,),
                 ).fetchone()
                 if asset is None:
@@ -626,7 +625,7 @@ def copy_flow_definition(
         for node_key, asset_ids in announcement_file_references.items():
             for asset_id in sorted(asset_ids):
                 asset = connection.execute(
-                    "SELECT * FROM flow_announcement_files WHERE id = ?", (asset_id,)
+                    "SELECT * FROM flow_assets WHERE asset_kind = 'announcement' AND id = ?", (asset_id,)
                 ).fetchone()
                 if asset is None:
                     raise FlowValidationError("公告附件无效，无法复制")
@@ -775,46 +774,25 @@ def copy_flow_definition(
                 ),
             )
             for asset in new_assets:
-                connection.execute(
-                    """
-                    INSERT INTO flow_template_assets
-                        (id, flow_id, node_key, storage_key, original_name, content_type,
-                         size_bytes, sha256, etag, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        asset["id"], new_flow_id, asset["node_key"], asset["storage_key"],
-                        asset["original_name"], asset["content_type"], asset["size_bytes"],
-                        asset["sha256"], asset["etag"], teacher_id, now,
-                    ),
+                insert_asset(connection, 'template',
+                    id=asset["id"], flow_id=new_flow_id, node_key=asset["node_key"],
+                    storage_key=asset["storage_key"], original_name=asset["original_name"], content_type=asset["content_type"],
+                    size_bytes=asset["size_bytes"], sha256=asset["sha256"], etag=asset["etag"],
+                    created_by=teacher_id, created_at=now,
                 )
             for asset in new_content_assets:
-                connection.execute(
-                    """
-                    INSERT INTO flow_content_assets
-                        (id, flow_id, node_key, storage_key, original_name, content_type,
-                         size_bytes, sha256, etag, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        asset["id"], new_flow_id, asset["node_key"], asset["storage_key"],
-                        asset["original_name"], asset["content_type"], asset["size_bytes"],
-                        asset["sha256"], asset["etag"], teacher_id, now,
-                    ),
+                insert_asset(connection, 'content',
+                    id=asset["id"], flow_id=new_flow_id, node_key=asset["node_key"],
+                    storage_key=asset["storage_key"], original_name=asset["original_name"], content_type=asset["content_type"],
+                    size_bytes=asset["size_bytes"], sha256=asset["sha256"], etag=asset["etag"],
+                    created_by=teacher_id, created_at=now,
                 )
             for asset in new_announcement_files:
-                connection.execute(
-                    """
-                    INSERT INTO flow_announcement_files
-                        (id, flow_id, node_key, storage_key, original_name, content_type,
-                         size_bytes, sha256, etag, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        asset["id"], new_flow_id, asset["node_key"], asset["storage_key"],
-                        asset["original_name"], asset["content_type"], asset["size_bytes"],
-                        asset["sha256"], asset["etag"], teacher_id, now,
-                    ),
+                insert_asset(connection, 'announcement',
+                    id=asset["id"], flow_id=new_flow_id, node_key=asset["node_key"],
+                    storage_key=asset["storage_key"], original_name=asset["original_name"], content_type=asset["content_type"],
+                    size_bytes=asset["size_bytes"], sha256=asset["sha256"], etag=asset["etag"],
+                    created_by=teacher_id, created_at=now,
                 )
             if finalize is not None:
                 finalize(connection, new_flow_id)
@@ -862,7 +840,6 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
             raise KeyError(flow_id)
         published = _latest_published_version(connection, flow_id, teacher_id)
         draft_config = json.loads(row["draft_config"])
-        apply_form_parameters(connection, flow_id, draft_config)
         apply_node_parameters(connection, flow_id, draft_config)
         apply_published_node_models(connection, flow_id, draft_config)
         draft_answer_sheet_keys = get_answer_sheet_drafts(connection, flow_id)
@@ -939,7 +916,6 @@ def save_draft(
             raise KeyError(flow_id)
         if flow["status"] == "archived":
             raise ArchivedFlowError("已归档流程不可编辑")
-        apply_form_parameters(connection, flow_id, config)
         apply_node_parameters(connection, flow_id, config)
         _bind_confirmation_visual_audits(config)
         validate_flow_config(config)
@@ -1510,21 +1486,6 @@ def publish_flow(
         freeze_answer_sheet_keys(connection, flow_id, version_id, config)
         freeze_content_asset_refs(connection, flow_id, version_id, config)
         freeze_announcement_file_refs(connection, flow_id, version_id, config)
-        for node in config["nodes"]:
-            connection.execute(
-                """
-                INSERT INTO flow_node_runtime_configs
-                    (flow_version_id, node_key, deadline_at, updated_by, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    version_id,
-                    node["id"],
-                    node.get("deadlineAt"),
-                    str(teacher_id),
-                    now,
-                ),
-            )
         sync_published_audit_policies(
             connection,
             flow_id,
@@ -1534,14 +1495,7 @@ def publish_flow(
             published_node_keys,
         )
         for node_key, asset_id in version_templates.items():
-            connection.execute(
-                """
-                INSERT INTO flow_version_templates
-                    (flow_version_id, node_key, template_asset_id)
-                VALUES (?, ?, ?)
-                """,
-                (version_id, node_key, asset_id),
-            )
+            bind_version_asset(connection, version_id, node_key, asset_id, 'template')
         if baseline is not None:
             analysis = plan["analysis"]
             migrated_student_count = _migrate_instances(
@@ -1786,14 +1740,6 @@ def delete_flow(flow_id: str, teacher_id: int) -> None:
         connection.execute(
             """
             DELETE FROM flow_instances WHERE flow_version_id IN (
-                SELECT id FROM flow_versions WHERE flow_id = ?
-            )
-            """,
-            (flow_id,),
-        )
-        connection.execute(
-            """
-            DELETE FROM flow_node_runtime_configs WHERE flow_version_id IN (
                 SELECT id FROM flow_versions WHERE flow_id = ?
             )
             """,

@@ -156,11 +156,10 @@ def get_node_submission_export(
              AND s.status IN (?, ?, ?, ?)
             LEFT JOIN audit_jobs j ON j.submission_id = s.id
             LEFT JOIN answer_sheet_grades g ON g.submission_id = s.id
-            LEFT JOIN flow_version_templates vt
-              ON vt.flow_version_id = ? AND vt.node_key = ?
+            LEFT JOIN flow_version_assets vt ON vt.asset_kind = 'template' AND vt.flow_version_id = ? AND vt.node_key = ?
             LEFT JOIN template_download_events e
               ON e.node_instance_id = n.id
-             AND e.template_asset_id = vt.template_asset_id
+             AND e.template_asset_id = vt.asset_id
              AND e.student_account_id = a.id
             WHERE r.flow_id = ? AND r.status = 'active'{roster_filter}
             ORDER BY r.student_no

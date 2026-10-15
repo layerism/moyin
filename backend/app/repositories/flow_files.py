@@ -42,15 +42,13 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
             """
             SELECT n.id, n.status, n.flow_instance_id, n.node_key,
                    i.flow_version_id, i.student_account_id,
-                   v.flow_id, v.config_snapshot, t.template_asset_id,
+                   v.flow_id, v.config_snapshot, t.asset_id AS template_asset_id,
                    a.original_name AS template_original_name
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
-            LEFT JOIN flow_version_templates t
-              ON t.flow_version_id = v.id AND t.node_key = n.node_key
-            LEFT JOIN flow_template_assets a
-              ON a.id = t.template_asset_id
+            LEFT JOIN flow_version_assets t ON t.asset_kind = 'template' AND t.flow_version_id = v.id AND t.node_key = n.node_key
+            LEFT JOIN flow_assets a ON a.asset_kind = 'template' AND a.id = t.asset_id
             WHERE n.id = ? AND i.student_account_id = ?
               AND v.status IN ('published', 'preview')
             """,

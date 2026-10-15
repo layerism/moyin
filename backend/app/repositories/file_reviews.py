@@ -118,9 +118,9 @@ def file_review_detail(connection, row, config, node, status):
         asset_id = metadata.get('assetId')
         if not asset_id:
             continue
-        asset = connection.execute('''SELECT a.id, a.original_name, a.storage_key FROM flow_template_assets a
+        asset = connection.execute('''SELECT a.id, a.original_name, a.storage_key FROM flow_assets a
             JOIN flow_versions v ON v.flow_id = a.flow_id
-            WHERE v.id = ? AND a.id = ? AND a.node_key = ?''',
+            WHERE a.asset_kind = 'template' AND v.id = ? AND a.id = ? AND a.node_key = ?''',
             (row['flow_version_id'], asset_id, row['node_key'])).fetchone()
         if asset:
             reference_files.append({**dict(asset), 'label': label})

@@ -249,17 +249,9 @@ CREATE TABLE IF NOT EXISTS answer_sheet_key_revisions (
 CREATE INDEX IF NOT EXISTS idx_answer_sheet_key_revisions_latest
     ON answer_sheet_key_revisions(flow_id, node_key, generation DESC);
 
-CREATE TABLE IF NOT EXISTS flow_node_runtime_configs (
-    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    deadline_at TEXT,
-    updated_by TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY(flow_version_id, node_key)
-);
-
-CREATE TABLE IF NOT EXISTS flow_template_assets (
+CREATE TABLE IF NOT EXISTS flow_assets (
     id TEXT PRIMARY KEY,
+    asset_kind TEXT NOT NULL CHECK (asset_kind IN ('template', 'content', 'announcement')),
     flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
     storage_key TEXT NOT NULL UNIQUE,
@@ -269,71 +261,35 @@ CREATE TABLE IF NOT EXISTS flow_template_assets (
     sha256 TEXT NOT NULL,
     etag TEXT NOT NULL,
     created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_flow_template_assets_node
-    ON flow_template_assets(flow_id, node_key);
-
-CREATE TABLE IF NOT EXISTS flow_content_assets (
-    id TEXT PRIMARY KEY,
-    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    storage_key TEXT NOT NULL UNIQUE,
-    original_name TEXT NOT NULL,
-    content_type TEXT NOT NULL CHECK (content_type IN ('image/png', 'image/jpeg', 'image/webp')),
-    size_bytes INTEGER NOT NULL CHECK (size_bytes BETWEEN 1 AND 5242880),
-    sha256 TEXT NOT NULL,
-    etag TEXT NOT NULL,
-    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_flow_content_assets_node
-    ON flow_content_assets(flow_id, node_key);
-
-CREATE TABLE IF NOT EXISTS flow_announcement_files (
-    id TEXT PRIMARY KEY,
-    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    storage_key TEXT NOT NULL UNIQUE,
-    original_name TEXT NOT NULL,
-    content_type TEXT NOT NULL CHECK (content_type IN (
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    created_at TEXT NOT NULL,
+    UNIQUE(id, asset_kind),
+    CHECK (asset_kind != 'content' OR (
+        content_type IN ('image/png', 'image/jpeg', 'image/webp')
+        AND size_bytes BETWEEN 1 AND 5242880
     )),
-    size_bytes INTEGER NOT NULL CHECK (size_bytes BETWEEN 1 AND 52428800),
-    sha256 TEXT NOT NULL,
-    etag TEXT NOT NULL,
-    created_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    created_at TEXT NOT NULL
+    CHECK (asset_kind != 'announcement' OR (
+        content_type IN ('application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+        AND size_bytes BETWEEN 1 AND 52428800
+    ))
 );
+CREATE INDEX IF NOT EXISTS idx_flow_assets_node
+    ON flow_assets(flow_id, node_key, asset_kind);
 
-CREATE INDEX IF NOT EXISTS idx_flow_announcement_files_node
-    ON flow_announcement_files(flow_id, node_key);
-
-CREATE TABLE IF NOT EXISTS flow_version_templates (
+CREATE TABLE IF NOT EXISTS flow_version_assets (
     flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
-    template_asset_id TEXT NOT NULL REFERENCES flow_template_assets(id) ON DELETE RESTRICT,
-    PRIMARY KEY(flow_version_id, node_key)
+    asset_id TEXT NOT NULL,
+    asset_kind TEXT NOT NULL,
+    PRIMARY KEY(flow_version_id, node_key, asset_kind, asset_id),
+    FOREIGN KEY(asset_id, asset_kind) REFERENCES flow_assets(id, asset_kind) ON DELETE RESTRICT
 );
-
-CREATE TABLE IF NOT EXISTS flow_version_content_assets (
-    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    content_asset_id TEXT NOT NULL REFERENCES flow_content_assets(id) ON DELETE RESTRICT,
-    PRIMARY KEY(flow_version_id, node_key, content_asset_id)
-);
-
-CREATE TABLE IF NOT EXISTS flow_version_announcement_files (
-    flow_version_id TEXT NOT NULL REFERENCES flow_versions(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    announcement_file_id TEXT NOT NULL REFERENCES flow_announcement_files(id) ON DELETE RESTRICT,
-    PRIMARY KEY(flow_version_id, node_key, announcement_file_id)
-);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_flow_version_assets_template
+    ON flow_version_assets(flow_version_id, node_key) WHERE asset_kind = 'template';
+CREATE INDEX IF NOT EXISTS idx_flow_version_assets_asset
+    ON flow_version_assets(asset_id, asset_kind);
 
 CREATE TABLE IF NOT EXISTS share_tokens (
     id TEXT PRIMARY KEY,
@@ -523,10 +479,12 @@ CREATE TABLE IF NOT EXISTS uploaded_files (
 
 CREATE TABLE IF NOT EXISTS template_download_events (
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
-    template_asset_id TEXT NOT NULL REFERENCES flow_template_assets(id) ON DELETE RESTRICT,
+    template_asset_id TEXT NOT NULL,
+    asset_kind TEXT NOT NULL DEFAULT 'template' CHECK (asset_kind = 'template'),
     student_account_id INTEGER NOT NULL REFERENCES student_accounts(id) ON DELETE CASCADE,
     downloaded_at TEXT NOT NULL,
-    PRIMARY KEY(node_instance_id, template_asset_id)
+    PRIMARY KEY(node_instance_id, template_asset_id),
+    FOREIGN KEY(template_asset_id, asset_kind) REFERENCES flow_assets(id, asset_kind) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_template_download_events_student
@@ -620,16 +578,6 @@ CREATE TABLE IF NOT EXISTS node_audit_policies (
     PRIMARY KEY(flow_id, node_key)
 );
 
-CREATE TABLE IF NOT EXISTS node_form_parameters (
-    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    params_json TEXT NOT NULL,
-    generation INTEGER NOT NULL CHECK (generation > 0),
-    updated_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY(flow_id, node_key)
-);
-
 CREATE TABLE IF NOT EXISTS node_review_step_policies (
     flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
@@ -702,6 +650,9 @@ def initialize_database() -> None:
             connection.execute("ALTER TABLE node_instances ADD COLUMN attempt_reset_no INTEGER NOT NULL DEFAULT 0")
         if "or_winner_node_key" not in columns:
             connection.execute("ALTER TABLE node_instances ADD COLUMN or_winner_node_key TEXT")
+    from app.core.flow_consolidation import migrate_flow_tables
+    with get_connection() as connection:
+        migrate_flow_tables(connection)
     _initialize_super_admin()
     from app.services.audit_model_connections import initialize_model_connections, initialize_model_thinking, initialize_model_billing
     initialize_model_connections()

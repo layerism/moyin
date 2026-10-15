@@ -6,7 +6,6 @@ from app.repositories.branch_state import resolve_routes
 from app.domain.workflow_runtime import node_by_key, pending_node_status
 from app.services.security import utc_now_iso
 from app.repositories.branch_state import sync_branch_states
-from app.repositories.form_parameters import apply_form_parameters
 from app.repositories.published_node_parameters import apply_node_parameters
 
 
@@ -106,14 +105,6 @@ def version_config(connection, version_id: str) -> dict[str, Any]:
     if row is None:
         raise KeyError(version_id)
     config = json.loads(row["config_snapshot"])
-    deadlines = {item["node_key"]: item["deadline_at"] for item in connection.execute(
-        "SELECT node_key, deadline_at FROM flow_node_runtime_configs WHERE flow_version_id = ?",
-        (version_id,),
-    )}
-    for node in config["nodes"]:
-        if node["id"] in deadlines:
-            node["deadlineAt"] = deadlines[node["id"]]
-    if row["status"] != "preview":
-        apply_form_parameters(connection, row["flow_id"], config)
-        apply_node_parameters(connection, row["flow_id"], config)
+    apply_node_parameters(connection, row["flow_id"], config,
+                          version_id=version_id, preview=row["status"] == "preview")
     return config

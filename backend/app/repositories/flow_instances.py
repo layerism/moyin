@@ -261,12 +261,12 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 """
                 SELECT a.id, a.original_name, a.content_type, a.size_bytes,
                        e.downloaded_at
-                FROM flow_version_templates t
-                JOIN flow_template_assets a ON a.id = t.template_asset_id
+                FROM flow_version_assets t
+                JOIN flow_assets a ON a.asset_kind = 'template' AND a.id = t.asset_id
                 LEFT JOIN template_download_events e
                   ON e.node_instance_id = ? AND e.template_asset_id = a.id
                  AND e.student_account_id = ?
-                WHERE t.flow_version_id = ? AND t.node_key = ?
+                WHERE t.asset_kind = 'template' AND t.flow_version_id = ? AND t.node_key = ?
                 """,
                 (row["id"], instance["student_account_id"], instance["flow_version_id"], row["node_key"]),
             ).fetchone()
@@ -932,15 +932,12 @@ def _set_student_deadline(connection, instance_id, node_key, deadline_at, reason
                i.flow_version_id,
                v.config_snapshot,
                n.status AS node_status,
-               r.deadline_at AS global_deadline,
                o.deadline_at AS override_deadline
         FROM flow_instances i
         JOIN flow_versions v ON v.id = i.flow_version_id
         JOIN flows f ON f.id = v.flow_id
         JOIN node_instances n
           ON n.flow_instance_id = i.id AND n.node_key = ?
-        LEFT JOIN flow_node_runtime_configs r
-          ON r.flow_version_id = i.flow_version_id AND r.node_key = n.node_key
         LEFT JOIN student_deadline_overrides o
           ON o.flow_instance_id = i.id AND o.node_key = n.node_key
         WHERE i.id = ? AND f.owner_id = ? AND v.status = 'published'
@@ -1079,7 +1076,6 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
                    n.id AS node_instance_id,
                    n.node_key,
                    n.status,
-                   r.deadline_at AS global_deadline,
                    o.deadline_at AS override_deadline
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
@@ -1087,8 +1083,6 @@ def get_version_progress(version_id: str, teacher_id: int) -> dict[str, object]:
             JOIN flow_roster_entries roster
               ON roster.student_no = a.student_no AND roster.name = a.name
              AND roster.flow_id = ? AND roster.status = 'active'
-            LEFT JOIN flow_node_runtime_configs r
-              ON r.flow_version_id = i.flow_version_id AND r.node_key = n.node_key
             LEFT JOIN student_deadline_overrides o
               ON o.flow_instance_id = i.id AND o.node_key = n.node_key
             WHERE i.flow_version_id = ?

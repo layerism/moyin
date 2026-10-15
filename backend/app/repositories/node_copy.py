@@ -10,6 +10,7 @@ from app.domain.workflow import validate_flow_config
 from app.repositories.flow_content_assets import validate_content_assets
 from app.repositories.flow_announcement_files import validate_announcement_files
 from app.repositories.flow_templates import validate_version_templates
+from app.repositories.flow_assets import insert_asset
 from app.services.node_models import validate_flow_models
 from app.services.object_storage import get_object_storage, object_key
 from app.services.security import utc_now_iso
@@ -37,14 +38,14 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
             validate_flow_models(db, flow_id, config)
             assets = []
             for _, metadata in asset_entries(node):
-                row = db.execute("SELECT * FROM flow_template_assets WHERE id = ?", (metadata["assetId"],)).fetchone()
-                assets.append(("flow_template_assets", metadata, dict(row)))
+                row = db.execute("SELECT * FROM flow_assets WHERE id = ? AND asset_kind = 'template'", (metadata["assetId"],)).fetchone()
+                assets.append(("template", metadata, dict(row)))
             for asset_id in references.get(node["id"], set()):
-                row = db.execute("SELECT * FROM flow_content_assets WHERE id = ?", (asset_id,)).fetchone()
-                assets.append(("flow_content_assets", None, dict(row)))
+                row = db.execute("SELECT * FROM flow_assets WHERE id = ? AND asset_kind = 'content'", (asset_id,)).fetchone()
+                assets.append(("content", None, dict(row)))
             for asset_id in announcement_files.get(node["id"], set()):
-                row = db.execute("SELECT * FROM flow_announcement_files WHERE id = ?", (asset_id,)).fetchone()
-                assets.append(("flow_announcement_files", None, dict(row)))
+                row = db.execute("SELECT * FROM flow_assets WHERE id = ? AND asset_kind = 'announcement'", (asset_id,)).fetchone()
+                assets.append(("announcement", None, dict(row)))
             node["id"] = str(uuid.uuid4())
             node["status"] = "disabled"
             for branch in node.get("branches", []):
@@ -67,18 +68,16 @@ def copy_node(flow_id: str, source: dict, teacher_id: int) -> dict:
                     copied_history[new_id] = item
                 node["fileReviewConfigHistory"] = copied_history
             storage = get_object_storage() if assets else None
-            for table, metadata, asset in assets:
+            for asset_kind, metadata, asset in assets:
                 new_id = str(uuid.uuid4())
                 key = object_key(settings.oss_prefix, "node-copies", flow_id, node["id"], new_id, asset["original_name"])
                 uploaded = storage.copy_object(asset["storage_key"], key)
                 copied_keys.append(key)
-                db.execute(
-                    f"""INSERT INTO {table}
-                    (id, flow_id, node_key, storage_key, original_name, content_type,
-                     size_bytes, sha256, etag, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (new_id, flow_id, node["id"], key, asset["original_name"], asset["content_type"],
-                     asset["size_bytes"], asset["sha256"], uploaded.etag, teacher_id, utc_now_iso()),
+                insert_asset(
+                    db, asset_kind, id=new_id, flow_id=flow_id, node_key=node['id'],
+                    storage_key=key, original_name=asset['original_name'], content_type=asset['content_type'],
+                    size_bytes=asset['size_bytes'], sha256=asset['sha256'], etag=uploaded.etag,
+                    created_by=teacher_id, created_at=utc_now_iso(),
                 )
                 if metadata is not None:
                     metadata["assetId"] = new_id

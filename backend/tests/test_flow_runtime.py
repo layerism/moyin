@@ -253,11 +253,10 @@ def test_expired_approved_form_can_be_amended_after_teacher_extension(
 
     with get_connection() as connection:
         connection.execute(
-            """
-            UPDATE flow_node_runtime_configs SET deadline_at = ?
-            WHERE flow_version_id = ? AND node_key = 'n1'
-            """,
-            ("2020-01-01T00:00:00+00:00", published["flowVersionId"]),
+            """UPDATE flows SET draft_config = json_set(draft_config,
+               '$.publishedNodeParameters.n1', json(?)) WHERE id = ?""",
+            (json.dumps({"generation": 1, "params": {"deadlineAt": "2020-01-01T00:00:00+00:00"}}),
+             published["flowId"]),
         )
 
     expired_draft = client.put(

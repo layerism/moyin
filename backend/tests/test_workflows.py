@@ -104,10 +104,10 @@ def add_template_assets(flow_id: str, count: int = 1) -> dict[str, object]:
             )
             connection.execute(
                 """
-                INSERT INTO flow_template_assets
-                    (id, flow_id, node_key, storage_key, original_name, content_type,
+                INSERT INTO flow_assets
+                    (asset_kind, id, flow_id, node_key, storage_key, original_name, content_type,
                      size_bytes, sha256, etag, created_by, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES ('template', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     asset_id, flow_id, node_id, f"source/{asset_id}",
@@ -717,14 +717,6 @@ def test_historical_node_cannot_be_deleted_when_latest_legacy_version_omits_it(
                 hashlib.sha256(snapshot.encode()).hexdigest(),
                 str(teacher_id),
             ),
-        )
-        connection.execute(
-            """
-            INSERT INTO flow_node_runtime_configs
-                (flow_version_id, node_key, deadline_at, updated_by, updated_at)
-            VALUES ('legacy-v2', 'n2', NULL, ?, '2026-07-14T00:00:00+00:00')
-            """,
-            (str(teacher_id),),
         )
 
     rejected_draft = client.put(

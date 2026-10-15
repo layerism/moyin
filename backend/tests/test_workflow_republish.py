@@ -12,6 +12,7 @@ import pytest
 from app.core.config import settings
 from app.core.database import get_connection
 from app.main import app
+from app.repositories.flow_runtime_state import version_config
 from app.repositories import flow_instances
 from app.repositories.workflows import canonical_json, publish_flow
 from tests.teacher_auth_helpers import login_teacher, provision_teacher
@@ -265,15 +266,6 @@ def _insert_legacy_published_version(
                 now,
             ),
         )
-        for node in config["nodes"]:  # type: ignore[index]
-            connection.execute(
-                """
-                INSERT INTO flow_node_runtime_configs
-                    (flow_version_id, node_key, deadline_at, updated_by, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (version_id, node["id"], node.get("deadlineAt"), str(teacher_id), now),
-            )
     return version_id
 
 
@@ -797,13 +789,8 @@ def test_republish_inherits_existing_global_deadline_for_old_node(
     assert _nodes(migrated)["left"]["effectiveDeadline"] == inherited_deadline
     assert _nodes(migrated)["left"]["status"] == "available"
     with get_connection() as connection:
-        deadline = connection.execute(
-            """
-            SELECT deadline_at FROM flow_node_runtime_configs
-            WHERE flow_version_id = ? AND node_key = 'left'
-            """,
-            (republished["flowVersionId"],),
-        ).fetchone()["deadline_at"]
+        config = version_config(connection, republished["flowVersionId"])
+        deadline = next(node.get("deadlineAt") for node in config["nodes"] if node["id"] == "left")
     assert deadline == inherited_deadline
 
 
@@ -840,20 +827,10 @@ def test_republish_restores_deadline_from_deep_history_without_instances(
     republished = _save_and_republish(client, context, deepcopy(BASE_CONFIG))
 
     with get_connection() as connection:
-        deadline = connection.execute(
-            """
-            SELECT deadline_at FROM flow_node_runtime_configs
-            WHERE flow_version_id = ? AND node_key = 'left'
-            """,
-            (republished["flowVersionId"],),
-        ).fetchone()["deadline_at"]
-        legacy_has_left = connection.execute(
-            """
-            SELECT 1 FROM flow_node_runtime_configs
-            WHERE flow_version_id = ? AND node_key = 'left'
-            """,
-            (version_two,),
-        ).fetchone()
+        config = version_config(connection, republished["flowVersionId"])
+        deadline = next(node.get("deadlineAt") for node in config["nodes"] if node["id"] == "left")
+        legacy_has_left = next((node for node in version_config(connection, version_two)["nodes"]
+                                if node["id"] == "left"), None)
     assert legacy_has_left is None
     assert deadline == inherited_deadline
 
@@ -1047,7 +1024,8 @@ def test_forced_migration_failure_rolls_back_every_republish_change(
     ]
     tables = (
         "flow_versions",
-        "flow_node_runtime_configs",
+        "flows",
+        "flow_version_assets",
         "share_tokens",
         "flow_instances",
         "node_instances",

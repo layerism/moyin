@@ -29,14 +29,9 @@ TABLE_POLICIES: dict[str, TablePolicy] = {
     "flow_roster_entries": TablePolicy(
         frozenset({"student_no", "name", "status"}), deletable=True
     ),
-    "flow_node_runtime_configs": TablePolicy(
-        frozenset({"deadline_at"}), deletable=True
-    ),
-    "flow_content_assets": TablePolicy(),
-    "flow_announcement_files": TablePolicy(),
+    "flow_assets": TablePolicy(),
     "flow_version_answer_keys": TablePolicy(),
-    "flow_version_content_assets": TablePolicy(),
-    "flow_version_announcement_files": TablePolicy(),
+    "flow_version_assets": TablePolicy(),
     "flow_versions": TablePolicy(deletable=True),
     "flows": TablePolicy(
         frozenset({"name", "description", "owner_id", "status", "draft_config"}),
@@ -239,6 +234,9 @@ def delete_admin_row(
             if before is None:
                 raise KeyError(table)
             redacted_before = _redact_row(dict(before))
+            if table == 'flow_versions':
+                from app.repositories.published_node_parameters import remove_version_parameters
+                remove_version_parameters(connection, before['id'])
             connection.execute(
                 f"DELETE FROM {_quoted_identifier(table)} WHERE {where_clause}", key_values
             )
