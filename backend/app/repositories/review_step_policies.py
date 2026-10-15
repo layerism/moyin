@@ -30,41 +30,16 @@ def _published_node(connection, flow_id, node_key, teacher_id):
     return node
 
 
-def _stored_items(connection, flow_id, node_key):
-    row = connection.execute(
-        'SELECT steps_json, generation, updated_at FROM node_review_step_policies WHERE flow_id = ? AND node_key = ?',
-        (flow_id, node_key),
-    ).fetchone()
-    return row, json.loads(row['steps_json']) if row else None
-
-
-def effective_review_step_node(connection, flow_id, node):
-    if not structured_steps(node):
-        return node
-    _, items = _stored_items(connection, flow_id, node['id'])
-    if items is None:
-        return node
-    base_ai = [step for step in node['fileReviewSteps'] if step['kind'] != 'manual']
-    if [(step['id'], step.get('auditScriptId')) for step in base_ai] != [
-        (item['id'], item['auditScriptId']) for item in items
-    ]:
-        return node
-    overrides = {item['id']: item for item in items}
-    steps = [{**step, 'auditScriptParams': overrides[step['id']]['auditScriptParams'],
-              'auditModelCardId': overrides[step['id']]['auditModelCardId']}
-             if step['kind'] != 'manual' else step for step in node['fileReviewSteps']]
-    return {**node, 'fileReviewSteps': steps}
-
-
 def _response(connection, flow_id, node_key, node):
-    row, _ = _stored_items(connection, flow_id, node_key)
-    effective = effective_review_step_node(connection, flow_id, node)
+    from app.repositories.node_configuration import current_node, node_metadata
+    from app.domain.node_configuration import apply_current_parameters
+    current = current_node(connection, flow_id, node_key)
+    metadata = node_metadata(current, 'review')
+    apply_current_parameters(node, current)
     return {
-        'flowId': flow_id,
-        'nodeKey': node_key,
-        'generation': int(row['generation']) if row else 1,
-        'steps': effective['fileReviewSteps'],
-        'updatedAt': row['updated_at'] if row else None,
+        'flowId': flow_id, 'nodeKey': node_key,
+        'generation': metadata['generation'], 'steps': node['fileReviewSteps'],
+        'updatedAt': metadata.get('updatedAt'),
     }
 
 
@@ -79,8 +54,9 @@ def update_review_step_policy(flow_id, node_key, teacher_id, expected_generation
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
         node = _published_node(connection, flow_id, node_key, teacher_id)
-        row, _ = _stored_items(connection, flow_id, node_key)
-        generation = int(row['generation']) if row else 1
+        from app.repositories.node_configuration import current_node, node_metadata, save_node
+        current = current_node(connection, flow_id, node_key)
+        generation = node_metadata(current, 'review')['generation']
         if generation != expected_generation:
             raise ReviewStepPolicyConflict('审核规则已被修改，请重新加载')
         base_ai = [step for step in node['fileReviewSteps'] if step['kind'] != 'manual']
@@ -102,23 +78,17 @@ def update_review_step_policy(flow_id, node_key, teacher_id, expected_generation
                 raise ValueError('请选择审核模型')
             items.append({'id': base['id'], 'auditScriptId': script_id,
                           'auditScriptParams': validated, 'auditModelCardId': model_id})
-        current = effective_review_step_node(connection, flow_id, node)
         current_ai = [step for step in current['fileReviewSteps'] if step['kind'] != 'manual']
         if all(item['auditScriptParams'] == (step.get('auditScriptParams') or {})
                and item['auditModelCardId'] == (step.get('auditModelCardId') or None)
                for item, step in zip(items, current_ai)):
             return _response(connection, flow_id, node_key, node)
-        connection.execute(
-            """INSERT INTO node_review_step_policies
-               (flow_id, node_key, steps_json, generation, updated_by, updated_at)
-               VALUES (?, ?, ?, 2, ?, ?)
-               ON CONFLICT(flow_id, node_key) DO UPDATE SET
-                 steps_json = excluded.steps_json,
-                 generation = node_review_step_policies.generation + 1,
-                 updated_by = excluded.updated_by,
-                 updated_at = excluded.updated_at""",
-            (flow_id, node_key, json.dumps(items, ensure_ascii=False, sort_keys=True), teacher_id, now),
-        )
+        overrides = {item['id']: item for item in items}
+        steps = [{**step, 'auditScriptParams': overrides[step['id']]['auditScriptParams'],
+                  'auditModelCardId': overrides[step['id']]['auditModelCardId']}
+                 if step['kind'] != 'manual' else step for step in node['fileReviewSteps']]
+        save_node(connection, flow_id, node_key, {'fileReviewSteps': steps}, 'review',
+                  teacher_id, generation + 1, now=now)
         connection.execute(
             """INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, before_data, after_data, created_at)
                VALUES (?, 'review_step_policy_updated', 'review_step_policy', ?, ?, ?, ?)""",

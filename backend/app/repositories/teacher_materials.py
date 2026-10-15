@@ -2,6 +2,7 @@ import json
 from dataclasses import dataclass
 
 from app.core.database import get_connection
+from app.repositories.flow_runtime_state import version_config
 from app.domain.workflow import confirmation_requires_scans
 from app.domain.workflow_runtime import node_by_key
 
@@ -106,6 +107,7 @@ def list_teacher_material_library(
             (str(teacher_id),),
         ).fetchall()
         version_ids = [str(row["version_id"]) for row in version_rows]
+        configurations = {key: version_config(connection, key) for key in version_ids}
         file_rows = []
         if version_ids:
             placeholders = ", ".join("?" for _ in version_ids)
@@ -144,7 +146,7 @@ def list_teacher_material_library(
     material_nodes_by_version: dict[str, list[dict[str, object]]] = {}
     for row in version_rows:
         version_id = str(row["version_id"])
-        config = json.loads(row["config_snapshot"])
+        config = configurations[version_id]
         material_nodes_by_version[version_id] = _material_nodes(config)
 
     students_by_node: dict[
@@ -278,7 +280,7 @@ def get_version_materials(
         if version is None:
             raise KeyError(version_id)
 
-        config = json.loads(version["config_snapshot"])
+        config = version_config(connection, version_id)
         material_nodes = _material_nodes(config)
         node_positions = {
             str(node["id"]): (index, str(node.get("title") or node["id"]))
@@ -356,7 +358,7 @@ def get_node_instance_materials(
         context = connection.execute(
             """
             SELECT n.node_key, n.attempt_no, a.student_no, a.name AS student_name,
-                   v.config_snapshot, f.name AS flow_name
+                   v.id AS version_id, v.config_snapshot, f.name AS flow_name
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN student_accounts a ON a.id = i.student_account_id
@@ -368,7 +370,7 @@ def get_node_instance_materials(
         ).fetchone()
         if context is None:
             raise KeyError(node_instance_id)
-        config = json.loads(context["config_snapshot"])
+        config = version_config(connection, context["version_id"])
         node = node_by_key(config, str(context["node_key"]))
         if not (node.get("kind") == "file" or confirmation_requires_scans(node)):
             raise TeacherMaterialSelectionError("当前节点不产生上传材料")

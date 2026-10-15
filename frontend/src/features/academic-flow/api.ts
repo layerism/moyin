@@ -67,6 +67,7 @@ export type WorkflowTemplate = {
 };
 
 export type ServerFlow = {
+  editableNodeFields: Partial<Record<AcademicFlowNode["kind"], Array<keyof AcademicFlowNode>>>;
   answerSheetKeys: Record<string, AnswerSheetPrivateKey>;
   config: AcademicFlowConfig;
   createdAt: string;

@@ -2,21 +2,14 @@ import type { AcademicFlowEdge, AcademicFlowNode, AcademicProcess } from "../../
 
 type IdentifiedNode = { id: string };
 
-const PUBLISHED_NODE_REVISION_FIELDS = new Set<keyof AcademicFlowNode>([
-  "deadlineAt",
-  "requirement",
-  "startAt",
-  "title",
-]);
-
 export function filterPublishedNodeRevisionPatch(
   value: Partial<AcademicFlowNode>,
   kind?: AcademicFlowNode["kind"],
+  editableFields?: AcademicProcess["editableNodeFields"],
 ): Partial<AcademicFlowNode> {
   return Object.fromEntries(
     Object.entries(value).filter(([key]) =>
-      PUBLISHED_NODE_REVISION_FIELDS.has(key as keyof AcademicFlowNode)
-      || (kind === "file" && ["fileLimitMb"].includes(key)),
+      Boolean(kind && editableFields?.[kind]?.includes(key as keyof AcademicFlowNode)),
     ),
   ) as Partial<AcademicFlowNode>;
 }

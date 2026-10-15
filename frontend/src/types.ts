@@ -245,6 +245,7 @@ export type AcademicFlowConfig = {
 };
 
 export type AcademicProcess = {
+  editableNodeFields?: Partial<Record<AcademicFlowNodeKind, Array<keyof AcademicFlowNode>>>;
   answerSheetKeys: Record<string, AnswerSheetPrivateKey>;
   createdAt: string;
   description: string;

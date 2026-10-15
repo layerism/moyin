@@ -1,6 +1,5 @@
 import hashlib
 import json
-from typing import Any
 
 from app.core.database import get_connection
 from app.services.audit_script_catalog import find_audit_script
@@ -22,186 +21,36 @@ def policy_hash(script_id: str, params: dict[str, object], model_card_id: str | 
     ).hexdigest()
 
 
-def node_policy_values(node: dict[str, Any]) -> tuple[str, dict[str, object]] | None:
-    script_id = node.get("auditScriptId")
-    if not isinstance(script_id, str) or not script_id:
-        return None
-    # Keep immutable legacy snapshots loadable after the old script is retired.
-    if script_id == "confirmation-visual-audit":
-        return None
-    params = dict(node.get("auditScriptParams") or {})
-    if node.get("kind") == "confirmation":
-        params["scanAuditMode"] = node.get("scanAuditMode")
-        params["scanAuditPrompt"] = str(node.get("scanAuditPrompt") or "").strip()
-        params.pop("scanAuditThreshold", None)
-        if (
-            node.get("scanAuditMode") == "score"
-            and node.get("scanAuditThreshold") is not None
-        ):
-            params["scanAuditThreshold"] = node["scanAuditThreshold"]
-    record = find_audit_script(script_id)
-    return script_id, validate_script_params(record.config, params)
-
-
-def sync_published_audit_policies(
-    connection,
-    flow_id: str,
-    config: dict[str, Any],
-    actor_id: int,
-    now: str,
-    existing_node_keys: set[str] | None = None,
-) -> None:
-    for node in config.get("nodes", []):
-        values = node_policy_values(node)
-        if values is None:
-            continue
-        script_id, params = values
-        statement = """
-            INSERT INTO node_audit_policies
-                (flow_id, node_key, script_id, mode, prompt, params_json, model_card_id,
-                 generation, policy_hash, updated_by, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
-        """
-        if existing_node_keys is None or str(node["id"]) in existing_node_keys:
-            statement += " ON CONFLICT(flow_id, node_key) DO NOTHING"
-        else:
-            statement += """
-                ON CONFLICT(flow_id, node_key) DO UPDATE SET
-                    script_id = excluded.script_id,
-                    mode = excluded.mode,
-                    prompt = excluded.prompt,
-                    params_json = excluded.params_json,
-                    model_card_id = excluded.model_card_id,
-                    generation = CASE
-                        WHEN node_audit_policies.policy_hash = excluded.policy_hash
-                        THEN node_audit_policies.generation
-                        ELSE node_audit_policies.generation + 1
-                    END,
-                    policy_hash = excluded.policy_hash,
-                    updated_by = excluded.updated_by,
-                    updated_at = excluded.updated_at
-            """
-        connection.execute(
-            statement,
-            (
-                flow_id,
-                node["id"],
-                script_id,
-                params.get("scanAuditMode"),
-                params.get("scanAuditPrompt", ""),
-                canonical_json(params),
-                node.get("auditModelCardId") or None,
-                policy_hash(script_id, params, node.get("auditModelCardId") or None),
-                actor_id,
-                now,
-            ),
-        )
-
-
-def sync_preview_audit_policies(
-    connection,
-    flow_id: str,
-    config: dict[str, Any],
-    actor_id: int,
-    now: str,
-) -> None:
-    published = connection.execute(
-        """
-        SELECT config_snapshot FROM flow_versions
-        WHERE flow_id = ? AND status = 'published'
-        ORDER BY version_no DESC LIMIT 1
-        """,
-        (flow_id,),
-    ).fetchone()
-    published_node_keys = {
-        str(node["id"])
-        for node in (json.loads(published["config_snapshot"]).get("nodes", []) if published else [])
-        if node.get("auditScriptId")
-    }
-    sync_published_audit_policies(connection, flow_id, config, actor_id, now)
-    for node in config.get("nodes", []):
-        node_key = str(node["id"])
-        if node_key in published_node_keys:
-            continue
-        values = node_policy_values(node)
-        if values is None:
-            continue
-        script_id, params = values
-        next_hash = policy_hash(script_id, params, node.get("auditModelCardId") or None)
-        connection.execute(
-            """
-            UPDATE node_audit_policies
-            SET script_id = ?, mode = ?, prompt = ?, params_json = ?, model_card_id = ?,
-                generation = CASE WHEN policy_hash = ? THEN generation ELSE generation + 1 END,
-                policy_hash = ?, updated_by = ?, updated_at = ?
-            WHERE flow_id = ? AND node_key = ?
-            """,
-            (
-                script_id,
-                params.get("scanAuditMode"),
-                params.get("scanAuditPrompt", ""),
-                canonical_json(params),
-                node.get("auditModelCardId") or None,
-                next_hash,
-                next_hash,
-                actor_id,
-                now,
-                flow_id,
-                node_key,
-            ),
-        )
-
-
-def synchronize_existing_audit_policies() -> None:
-    with get_connection() as connection:
-        connection.execute("BEGIN IMMEDIATE")
-        rows = connection.execute(
-            """
-            SELECT v.flow_id, v.config_snapshot, CAST(v.published_by AS INTEGER) AS actor_id,
-                   v.published_at
-            FROM flow_versions v
-            WHERE v.status = 'published'
-              AND v.version_no = (
-                SELECT MAX(v2.version_no) FROM flow_versions v2
-                WHERE v2.flow_id = v.flow_id AND v2.status = 'published'
-              )
-            """
-        ).fetchall()
-        for row in rows:
-            sync_published_audit_policies(
-                connection,
-                str(row["flow_id"]),
-                json.loads(row["config_snapshot"]),
-                int(row["actor_id"]),
-                str(row["published_at"]),
-            )
-
-
-def resolve_effective_audit_policy(connection, flow_id: str, node_key: str) -> dict[str, object]:
-    row = connection.execute(
-        "SELECT * FROM node_audit_policies WHERE flow_id = ? AND node_key = ?",
-        (flow_id, node_key),
-    ).fetchone()
-    if row is None:
-        raise AuditPolicyConflictError("当前节点审核规则不可用，请联系教师")
+def resolve_effective_audit_policy(connection, flow_id: str, node_key: str, version_id: str | None = None) -> dict[str, object]:
+    from app.repositories.node_configuration import current_node, node_metadata
+    if version_id:
+        from app.repositories.flow_runtime_state import version_config
+        config = version_config(connection, version_id)
+        node = next((n for n in config['nodes'] if n['id'] == node_key), None)
+        if node is None:
+            raise KeyError(node_key)
+    else:
+        node = current_node(connection, flow_id, node_key)
+    script_id = node.get('auditScriptId')
+    if not script_id:
+        raise KeyError(node_key)
+    params = dict(node.get('auditScriptParams') or {})
+    metadata = node_metadata(node, 'audit')
+    model_id = node.get('auditModelCardId') or None
     return {
-        "flowId": row["flow_id"],
-        "nodeKey": row["node_key"],
-        "scriptId": row["script_id"],
-        "modelCardId": row["model_card_id"],
-        "mode": row["mode"],
-        "prompt": row["prompt"],
-        "params": json.loads(row["params_json"]),
-        "generation": int(row["generation"]),
-        "policyHash": row["policy_hash"],
-        "updatedAt": row["updated_at"],
+        'flowId': flow_id, 'nodeKey': node_key, 'scriptId': script_id,
+        'modelCardId': model_id, 'mode': params.get('scanAuditMode'),
+        'prompt': params.get('scanAuditPrompt', ''), 'params': params,
+        'generation': metadata['generation'],
+        'policyHash': policy_hash(script_id, params, model_id),
+        'updatedAt': metadata.get('updatedAt'),
     }
 
 
 def resolve_effective_audit_binding(
-    connection, flow_id: str, node_key: str, script_id: str,
+    connection, flow_id: str, node_key: str, script_id: str, version_id: str | None = None,
 ) -> dict[str, object]:
-    policy = resolve_effective_audit_policy(connection, flow_id, node_key)
+    policy = resolve_effective_audit_policy(connection, flow_id, node_key, version_id)
     if policy["scriptId"] != script_id:
         raise AuditPolicyConflictError("当前节点审核脚本不一致，请重新提交")
     record = find_audit_script(script_id)
@@ -216,6 +65,7 @@ def resolve_effective_audit_binding(
         "scriptContentHash": state["content_hash"],
         "policyGeneration": int(policy["generation"]),
         "policyHash": policy["policyHash"],
+        "modelCardId": policy["modelCardId"],
         "params": validate_script_params(record.config, policy["params"]),
         "settings": validate_script_settings(record.config, default_script_settings(record.config)),
     }
@@ -249,15 +99,12 @@ def update_node_audit_policy(
             "SELECT 1 FROM flows WHERE id = ? AND owner_id = ? AND status != 'archived'",
             (flow_id, str(teacher_id)),
         ).fetchone()
-        row = connection.execute(
-            "SELECT * FROM node_audit_policies WHERE flow_id = ? AND node_key = ?",
-            (flow_id, node_key),
-        ).fetchone()
-        if owner is None or row is None:
+        if owner is None:
             raise KeyError(node_key)
-        if int(row["generation"]) != expected_generation:
+        policy = resolve_effective_audit_policy(connection, flow_id, node_key)
+        if int(policy['generation']) != expected_generation:
             raise AuditPolicyConflictError("审核规则已被修改，请重新加载")
-        record = find_audit_script(str(row["script_id"]))
+        record = find_audit_script(str(policy["scriptId"]))
         validated = validate_script_params(record.config, params)
         if validated.get("scanAuditMode") == "score":
             threshold = validated.get("scanAuditThreshold")
@@ -275,34 +122,17 @@ def update_node_audit_policy(
         live_review_node = bool(version and any(node['id'] == node_key and node.get('kind') in {'file', 'confirmation'}
                          for node in json.loads(version['config_snapshot'])['nodes']))
         next_hash = policy_hash(record.id, validated, model_card_id)
-        changed = next_hash != row["policy_hash"]
+        changed = next_hash != policy["policyHash"]
         if changed:
-            connection.execute(
-                """
-                UPDATE node_audit_policies
-                SET mode = ?, prompt = ?, params_json = ?, model_card_id = ?, generation = generation + 1,
-                    policy_hash = ?, updated_by = ?, updated_at = ?
-                WHERE flow_id = ? AND node_key = ?
-                """,
-                (
-                    validated.get("scanAuditMode"),
-                    validated.get("scanAuditPrompt", ""),
-                    canonical_json(validated),
-                    model_card_id,
-                    next_hash,
-                    teacher_id,
-                    now,
-                    flow_id,
-                    node_key,
-                ),
-            )
-            draft = json.loads(connection.execute("SELECT draft_config FROM flows WHERE id = ?", (flow_id,)).fetchone()["draft_config"])
-            for node in draft.get("nodes", []):
-                if node["id"] == node_key:
-                    node.pop("auditModelCardId", None)
-                    if model_card_id:
-                        node["auditModelCardId"] = model_card_id
-            connection.execute("UPDATE flows SET draft_config = ? WHERE id = ?", (canonical_json(draft), flow_id))
+            from app.repositories.node_configuration import save_node
+            patch = {'auditScriptParams': validated, 'auditModelCardId': model_card_id}
+            save_node(connection, flow_id, node_key, patch, 'audit', teacher_id,
+                      expected_generation + 1, now=now)
+            connection.execute("""INSERT INTO audit_logs
+                (actor_id, action, entity_type, entity_id, before_data, after_data, created_at)
+                VALUES (?, 'audit_policy_updated', 'flow_node', ?, ?, ?, ?)""",
+                (str(teacher_id), f'{flow_id}:{node_key}', canonical_json(policy),
+                 canonical_json({'generation': expected_generation + 1, **patch}), now))
     if not changed or live_review_node:
         return get_node_audit_policy(flow_id, node_key, teacher_id)
     from app.repositories.audit_jobs import cancel_audit_jobs_for_policy

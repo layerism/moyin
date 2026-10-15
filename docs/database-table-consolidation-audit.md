@@ -2,11 +2,11 @@
 
 更新日期：2026-10-15（重新核对当前源码与本地数据库）。
 
-**当前结构：源码与本地数据库均有 17 张目标表，Flow 类 8 张、Node 类 5 张、Workflow 类 4 张。** 第一批资源和参数存储精简已落地；模板三表仍被现有接口使用，`flows` 尚无 `kind`、`is_shared` 字段。“模板内容固定、复制后独立使用”及 14 张表的目标仍是讨论方案，不是当前实现。
+**当前结构：源码与本地数据库均有 15 张目标表，Flow 类 8 张、Node 类 3 张、Workflow 类 4 张。** 第一批资源精简及本次节点参数统一存储已落地；模板三表仍被现有接口使用，`flows` 尚无 `kind`、`is_shared` 字段。“模板内容固定、复制后独立使用”及进一步缩减到 12 张目标表的方向仍是讨论方案，不是当前实现。
 
-文档面向项目全部数据库表，文件名不限定前缀。本轮逐表核对范围仍为 `flow`、`node`、`workflow` 前缀，包含 `flows`；本地共有 53 张非 SQLite 内部表，其余 36 张仅按依赖追查，不宣称已完成全库逐表审计。
+文档面向项目全部数据库表，文件名不限定前缀。本轮逐表核对范围仍为 `flow`、`node`、`workflow` 前缀，包含 `flows`；本地共有 51 张非 SQLite 内部表，其余 36 张仅按依赖追查，不宣称已完成全库逐表审计。
 
-依据根目录 [MEMORY.md](../MEMORY.md) 的事实来源顺序，核对建表与迁移、仓储读写、模板 API 和前端请求定义；以 SQLite `mode=ro`、`query_only` 在同一只读事务内复核结构与行数。下列数量包含归档、停用和预览相关记录，不是当前活跃业务量。未运行测试、构建、HTTP 或浏览器验证，未修改业务代码、数据库或重启服务。
+依据根目录 [MEMORY.md](../MEMORY.md) 的事实来源顺序，核对建表与迁移、仓储读写、模板 API 和前端请求定义；以 SQLite `mode=ro`、`query_only` 在同一只读事务内复核结构与行数。下列数量包含归档、停用和预览相关记录，不是当前活跃业务量。本次已修改业务代码、执行数据库迁移并本地重启服务；验证范围为静态审计、迁移数据核对及启动日志，未运行测试、构建、HTTP 或浏览器验证。
 
 ## 1. 当前各表的职责和作用
 
@@ -14,8 +14,8 @@
 
 | 表名 | 本地行数 | 一条记录表示什么 | 职责与主要读写场景 |
 | --- | ---: | --- | --- |
-| `flows` | 30 | 一个流程定义 | 主键 `id`；保存名称、归属、草稿 JSON、分组和生命周期。模板快照及模板编辑草稿也各占一条流程记录；`draft_config.publishedNodeParameters` 保存独立于草稿节点内容的发布后参数 |
-| `flow_versions` | 33 | 某流程的一次发布或预览 | 按 `(flow_id, version_no)` 唯一；保存配置快照及 hash，关联实例、私有答案和资源引用。当前正式发布 13 条、停用 19 条、预览 1 条；实际运行还会叠加生效参数 |
+| `flows` | 30 | 一个流程定义 | 主键 `id`；保存名称、归属、草稿 JSON、分组和生命周期。模板快照及模板编辑草稿也各占一条流程记录；当前节点参数直接保存在 `draft_config.nodes`；节点 `_configMeta` 仅记录普通参数、单脚本审核和多步骤审核各自的修改代次、修改人和时间，不重复保存参数值 |
+| `flow_versions` | 33 | 某流程的一次发布或预览 | 按 `(flow_id, version_no)` 唯一；保存配置快照及 hash，关联实例、私有答案和资源引用。当前正式发布 13 条、停用 19 条、预览 1 条；正式运行以版本确定节点/连线和固定结构，再读取当前节点允许实时修改的字段；预览只读自己的快照 |
 | `flow_instances` | 233 | 一个学生在一个版本中的执行实例 | 按 `(flow_version_id, student_account_id)` 唯一；正式学生进入时按需创建，预览也创建实例。保存整体状态及活动时间，不作为名单授权依据 |
 | `flow_roster_entries` | 375 | 某流程对一个学号的准入授权 | 按 `(flow_id, student_no)` 唯一；保存姓名、学号及有效/撤销状态。正式访问持续校验名单，不要求学生已创建实例；有效预览会话走专用授权路径 |
 | `flow_preview_sessions` | 1 | 某教师的一次学生视角预览会话 | 教师、版本、实例各有唯一约束；关联预览学生及令牌 hash，保存有效期和 active/cleaning 状态，负责预览授权及临时数据清理 |
@@ -25,23 +25,21 @@
 
 当前存储有三处需要区分：
 
-- **生效配置**：版本快照 → 迁移保留的 `versionOverrides[version_id]` → 非预览流程的共享 `params`。普通草稿保存保留该独立参数区域；正式学生个别延期由 `student_deadline_overrides` 优先处理，预览实例的有效截止时间直接返回空。
-- **资源与引用**：`flow_assets` 保存资源实体，`flow_version_assets` 保存版本引用；参考材料、草稿和发布后参数中的引用仍需检查 JSON。`asset_kind='template'` 表示节点主模板或参考文件，不等于流程模板库中的模板条目。正文图片限制 5 MiB，公告附件限制 50 MiB，二者保留格式 CHECK。
+- **生效配置**：普通参数、单脚本 `auditScriptParams`、多步骤 `fileReviewSteps[].auditScriptParams` 及模型引用均直接维护在节点内。后端白名单决定允许修改和读取的字段，保存后立即生效；已发布节点的普通草稿保存保留服务端最新生效参数，避免旧页面覆盖。分支节点仍沿用原来的修订发布路径。正式学生个别延期继续由 `student_deadline_overrides` 优先处理；预览沿用既有时间处理。
+- **资源与引用**：`flow_assets` 保存资源实体，`flow_version_assets` 保存版本引用；参考材料及当前节点中的引用仍需检查 JSON。`asset_kind='template'` 表示节点主模板或参考文件，不等于流程模板库中的模板条目。正文图片限制 5 MiB，公告附件限制 50 MiB，二者保留格式 CHECK。
 - **私有答案**：`answer_sheet_drafts` 保存编辑内容，`flow_version_answer_keys` 保存发布依据，`answer_sheet_key_revisions` 保存后续修订；这些职责不能因字段相似而混用。
 
 依据：[database.py](../backend/app/core/database.py)、[workflows.py](../backend/app/repositories/workflows.py)、[flow_assets.py](../backend/app/repositories/flow_assets.py)、[flow_roster.py](../backend/app/repositories/flow_roster.py)、[flow_previews.py](../backend/app/repositories/flow_previews.py)、[answer_sheet_keys.py](../backend/app/repositories/answer_sheet_keys.py)、[flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)、[published_node_parameters.py](../backend/app/repositories/published_node_parameters.py)。
 
-### 1.2 Node 类：5 张
+### 1.2 Node 类：3 张
 
 | 表名 | 本地行数 | 一条记录表示什么 | 职责与主要读写场景 |
 | --- | ---: | --- | --- |
 | `node_instances` | 1,092 | 一个学生流程实例中的一个节点 | 按 `(flow_instance_id, node_key)` 唯一；保存状态、开放/提交/通过时间、尝试次数与重置基线、或节点胜出前驱。关联草稿、提交和审核；节点定义仍在配置 JSON 中 |
 | `node_drafts` | 10 | 一个节点实例尚未正式提交的输入 | 以 `node_instance_id` 为主键，一实例至多一份；暂存覆盖，成功提交后删除，撤销通过时可恢复。它不是提交历史；已通过节点也可能存在新草稿 |
 | `node_redo_dependencies` | 0 | 某学生实例中一次返工产生的等待关系 | 主键为实例、源节点、目标节点；教师撤销通过时记录，路径判断时阻塞目标，源节点重新通过后清理。0 行仅表示当前没有这类记录 |
-| `node_audit_policies` | 2 | 某流程节点的独立脚本审核生效策略 | 主键 `(flow_id, node_key)`；保存独立脚本、参数、模型卡、修改代次及 hash，供审核绑定与任务有效性判断。`model_card_id` 由增量迁移增加并有外键 |
-| `node_review_step_policies` | 7 | 某流程节点多步骤审核中的参数覆盖 | 主键 `(flow_id, node_key)`；`steps_json` 保存多步骤参数及模型覆盖，保持发布步骤 ID 和脚本结构。无记录时用发布配置；有记录时修改代次大于 1 |
 
-两张审核策略表保存不同执行模式的配置，不能从主键相同推断数据重复。
+`node_audit_policies` 和 `node_review_step_policies` 已迁移并删除：原单脚本策略迁入对应节点，原多步骤参数覆盖合并到对应审核步骤。两类接口保留，但底层共用节点配置，不再单独存储；审核任务保留实际执行参数快照及历史记录。`publishedNodeParameters` 已移除。
 
 依据：[flow_instances.py](../backend/app/repositories/flow_instances.py)、[manual_review_state.py](../backend/app/repositories/manual_review_state.py)、[node_progress.py](../backend/app/repositories/node_progress.py)、[branch_state.py](../backend/app/repositories/branch_state.py)、[audit_policies.py](../backend/app/repositories/audit_policies.py)、[review_step_policies.py](../backend/app/repositories/review_step_policies.py)、[node_models.py](../backend/app/services/node_models.py)。
 
@@ -64,7 +62,7 @@
 
 ```mermaid
 flowchart LR
-    G[workflow_groups 分组] --> F[flows 定义、草稿与共享参数]
+    G[workflow_groups 分组] --> F[flows 定义与节点当前配置]
     F --> V[flow_versions 发布或预览快照]
     V --> K[flow_version_answer_keys 私有答案]
     V --> I[flow_instances 学生执行]
@@ -73,8 +71,6 @@ flowchart LR
     N --> S[submissions 正式提交]
     F --> R[flow_roster_entries 准入授权]
     F --> A[flow_assets 教师资源]
-    F --> P[node_audit_policies 独立审核策略]
-    F --> Q[node_review_step_policies 多步骤参数]
     I --> X[node_redo_dependencies 返工关系]
     E[flow_preview_sessions 预览会话] --> V
     E --> I
@@ -85,6 +81,15 @@ flowchart LR
     BD[workflow_blueprint_drafts 编辑关联] --> F
 ```
 
-箭头表示业务关联，不表示外键方向或全部基数；图中 `submissions` 用于说明提交边界，不计入本次 17 张目标表。流程定义、学生状态、暂存和正式提交具有不同生命周期，不能仅因部分字段类似就合并。
+箭头表示业务关联，不表示外键方向或全部基数；图中 `submissions` 用于说明提交边界，不计入本次 15 张目标表。流程定义、学生状态、暂存和正式提交具有不同生命周期，不能仅因部分字段类似就合并。
 
-只读核对结果：目标表集合与当前建表定义一致，`PRAGMA foreign_key_check` 无违例。以上属于结构和静态调用核对，不代表所有业务路径已通过运行验证。
+### 1.5 本次节点配置整改结果
+
+- 整改前检查点：`7e974a4`。SQLite 完整备份：`backend/storage/backups/node-config-consolidation-20261015-141243.db`，备份完整性检查为 `ok`。回退必须配对恢复该代码检查点与数据库备份。
+- 迁移 ID：`20261015_node_configuration`。事务内核对 513 个普通参数值、2 条单脚本策略和 7 条多步骤策略，保持参数、模型引用及修改代次；其余 48 张表数据摘要未变，包含全部 33 条版本记录、1,092 条节点状态、495 条提交。迁移仅额外写入配置迁移审计和迁移标记。
+- 当前库没有历史 `versionOverrides`。升级迁移仍支持其物化到对应版本，记录原始配置及修改证据；当前库未走该兼容分支，全部发布/预览快照保持原样。
+- 单脚本任务的正常执行和服务恢复共用同一配置有效性规则；正式任务领取时读取当前参数，已开始执行的任务保留执行快照。预览审核从预览版本取参；多步骤审核也统一经过运行配置入口。
+- 模型引用检查、资源引用检查、账号清理、复制、模板下载开放时间、教师进度及导出均已调整。前端普通字段过滤读取后端白名单；学生响应剔除审核参数、模型引用及服务端元信息。
+- 两张旧策略表不再建表，运行代码不再查询；旧名称只用于历史升级迁移。当前共 51 张非 SQLite 内部表，目标前缀表共 15 张，外键检查无违例。
+- 本地重启：`bash deploy/run_dev.sh`；后端 `127.0.0.1:9000` 启动完成，前端 `6173` 就绪，未使用 Docker。
+- 验证边界：Python 语法和本地导入符号静态检查、Git diff 检查及数据库迁移核对已完成；未运行测试、构建或浏览器，不能视为完整业务回归。历史测试中的截止时间写入方式已同步新存储，但未执行测试。

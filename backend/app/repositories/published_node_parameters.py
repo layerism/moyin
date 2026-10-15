@@ -1,4 +1,4 @@
-"""Published mutable node parameters stored separately from nodes in the existing JSON document."""
+"""Published parameter API backed directly by workflow nodes."""
 import copy
 import json
 
@@ -7,73 +7,39 @@ from app.domain.node_assets import reference_assets
 from app.domain.workflow import validate_flow_config
 from app.services.security import utc_now_iso
 
-KEY = 'publishedNodeParameters'
-BASE_FIELDS = ('title', 'requirement')
-TIMED_FIELDS = (*BASE_FIELDS, 'startAt', 'deadlineAt')
-FIELDS = {
-    'form': TIMED_FIELDS,
-    'file': (*TIMED_FIELDS, 'referenceAssets', 'fileLimitMb'),
-    'confirmation': (*TIMED_FIELDS, 'referenceAssets'),
-    'answer_sheet': TIMED_FIELDS,
-    'announcement': TIMED_FIELDS,
-    'or_gate': BASE_FIELDS,
-}
-KINDS = set(FIELDS)
+from app.domain.node_configuration import FIELDS, META_KEY, apply_current_parameters
+from app.repositories.node_configuration import current_config, current_node, node_metadata, save_node
 
 
 class NodeParametersConflict(ValueError):
     pass
 
 
-def stored_parameters(connection, flow_id):
-    row = connection.execute('SELECT draft_config FROM flows WHERE id = ?', (flow_id,)).fetchone()
-    return json.loads(row['draft_config']).get(KEY, {}) if row else {}
-
-
 def apply_node_parameters(connection, flow_id, config, *, version_id=None, preview=False):
-    entries = stored_parameters(connection, flow_id)
-    config.pop(KEY, None)
+    if preview:
+        return
+    current = {n['id']: n for n in current_config(connection, flow_id).get('nodes', [])}
+    if version_id is None:
+        published_ids = {row[0] for row in connection.execute(
+            """SELECT json_extract(n.value, '$.id') FROM flow_versions v,
+               json_each(v.config_snapshot, '$.nodes') n
+               WHERE v.flow_id = ? AND v.status = 'published'""", (flow_id,))}
+    else:
+        published_ids = {n['id'] for n in config.get('nodes', [])}
     for node in config.get('nodes', []):
-        entry = entries.get(node['id'], {})
-        if version_id:
-            override = entry.get('versionOverrides', {}).get(version_id, {})
-            node.update(copy.deepcopy(override.get('params', {})))
-        if not preview and node.get('kind') in KINDS and entry:
-            node.update(copy.deepcopy(entry.get('params', {})))
-            if 'referenceAssets' in entry.get('params', {}):
-                node.pop('referenceAsset', None)
+        node.pop(META_KEY, None)
+        if node['id'] in published_ids and node['id'] in current:
+            apply_current_parameters(node, current[node['id']])
 
 
 def stored_draft(connection, flow_id, config):
     result = copy.deepcopy(config)
-    result.pop(KEY, None)
-    entries = stored_parameters(connection, flow_id)
-    if entries:
-        result[KEY] = entries
+    current = {n['id']: n for n in current_config(connection, flow_id).get('nodes', [])}
+    for node in result.get('nodes', []):
+        node.pop(META_KEY, None)
+        if META_KEY in current.get(node['id'], {}):
+            node[META_KEY] = copy.deepcopy(current[node['id']][META_KEY])
     return json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(',', ':'))
-
-
-def remove_version_parameters(connection, version_id):
-    row = connection.execute('''SELECT f.id, f.draft_config FROM flows f
-        JOIN flow_versions v ON v.flow_id = f.id WHERE v.id = ?''', (version_id,)).fetchone()
-    if row is None:
-        return
-    draft = json.loads(row['draft_config'])
-    entries = draft.get(KEY, {})
-    changed = False
-    for node_key, entry in list(entries.items()):
-        versions = entry.get('versionOverrides', {})
-        if version_id not in versions:
-            continue
-        del versions[version_id]
-        changed = True
-        if not versions:
-            entry.pop('versionOverrides')
-            if not entry.get('params') and entry.get('generation', 0) == 0:
-                del entries[node_key]
-    if changed:
-        connection.execute('UPDATE flows SET draft_config = ? WHERE id = ?',
-                           (json.dumps(draft, ensure_ascii=False), row['id']))
 
 
 def published_node(connection, flow_id, node_key, teacher_id, kind):
@@ -95,7 +61,7 @@ def parameter_view(connection, flow_id, node):
         params['referenceAssets'] = reference_assets(node)
     if 'fileLimitMb' in params:
         params['fileLimitMb'] = str(node.get('fileLimitMb', '20'))
-    return {'generation': stored_parameters(connection, flow_id).get(node['id'], {}).get('generation', 0),
+    return {'generation': node_metadata(current_node(connection, flow_id, node['id']), 'parameters')['generation'],
             'params': params}
 
 
@@ -130,17 +96,9 @@ def update_node_parameters(flow_id, node_key, teacher_id, expected_generation, p
             from app.repositories.flow_announcement_files import validate_announcement_files
             validate_content_assets(connection, flow_id, config)
             validate_announcement_files(connection, flow_id, config)
-        draft = json.loads(connection.execute('SELECT draft_config FROM flows WHERE id = ?', (flow_id,)).fetchone()['draft_config'])
         after = {'generation': before['generation'] + 1, 'params': params}
-        entries = draft.setdefault(KEY, {})
-        entries[node_key] = {**entries.get(node_key, {}), **after,
-                             'updatedBy': teacher_id, 'updatedAt': now}
-        for item in draft['nodes']:
-            if item['id'] == node_key:
-                item.update(params)
-                item.pop('referenceAsset', None)
-        connection.execute('UPDATE flows SET draft_config = ?, updated_at = ? WHERE id = ?',
-                           (json.dumps(draft, ensure_ascii=False), now, flow_id))
+        save_node(connection, flow_id, node_key, params, 'parameters', teacher_id,
+                  after['generation'], now=now)
         connection.execute('''INSERT INTO audit_logs
             (actor_id, action, entity_type, entity_id, before_data, after_data, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)''',

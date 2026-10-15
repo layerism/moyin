@@ -33,14 +33,14 @@ def validate_node_model(connection, owner_id: str, script_id: str | None, card_i
 
 
 def published_node_models(connection, flow_id: str) -> dict[str, str | None]:
-    return {row["node_key"]: row["model_card_id"] for row in connection.execute(
-        """SELECT p.node_key, p.model_card_id FROM node_audit_policies p
-           WHERE p.flow_id = ? AND EXISTS (
-             SELECT 1 FROM flow_versions v, json_each(v.config_snapshot, '$.nodes') n
-             WHERE v.flow_id = p.flow_id AND v.status = 'published'
-               AND json_extract(n.value, '$.id') = p.node_key
-           )""", (flow_id,)
-    )}
+    from app.repositories.node_configuration import current_config
+    published = {row[0] for row in connection.execute(
+        """SELECT json_extract(n.value, '$.id') FROM flow_versions v,
+           json_each(v.config_snapshot, '$.nodes') n
+           WHERE v.flow_id = ? AND v.status = 'published'""", (flow_id,))}
+    return {node['id']: node.get('auditModelCardId')
+            for node in current_config(connection, flow_id).get('nodes', [])
+            if node['id'] in published and node.get('auditScriptId')}
 
 
 def apply_published_node_models(connection, flow_id: str, config: dict) -> None:
@@ -77,15 +77,10 @@ def model_node_usages(connection, owner_id: int) -> list[dict]:
         references.extend((key, step.get("auditModelCardId")) for key, node in nodes.items()
                           for step in node.get("fileReviewSteps", []) if isinstance(step, dict))
         for version in connection.execute("SELECT config_snapshot FROM flow_versions WHERE flow_id = ?", (flow["id"],)):
-            references.extend((node["id"], step.get("auditModelCardId")) for node in json.loads(version["config_snapshot"]).get("nodes", [])
+            version_nodes = json.loads(version['config_snapshot']).get('nodes', [])
+            references.extend((node['id'], node.get('auditModelCardId')) for node in version_nodes)
+            references.extend((node["id"], step.get("auditModelCardId")) for node in version_nodes
                               for step in node.get("fileReviewSteps", []) if isinstance(step, dict))
-        references.extend((row["node_key"], row["model_card_id"]) for row in connection.execute(
-            "SELECT node_key, model_card_id FROM node_audit_policies WHERE flow_id = ?", (flow["id"],)
-        ))
-        references.extend((row['node_key'], step.get('auditModelCardId'))
-                          for row in connection.execute(
-                              'SELECT node_key, steps_json FROM node_review_step_policies WHERE flow_id = ?', (flow['id'],))
-                          for step in json.loads(row['steps_json']))
         for node_key, card_id in references:
             if card_id:
                 key = (flow["id"], node_key, card_id)
@@ -95,22 +90,22 @@ def model_node_usages(connection, owner_id: int) -> list[dict]:
 
 
 def initialize_node_models() -> None:
-    from app.repositories.audit_policies import policy_hash, sync_published_audit_policies
+    from app.repositories.audit_policies import policy_hash
     migration_id = "20260914_node_model_selection"
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         if connection.execute("SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)).fetchone():
             return
-        connection.execute("ALTER TABLE node_audit_policies ADD COLUMN model_card_id TEXT REFERENCES audit_model_cards(id) ON DELETE RESTRICT")
+        legacy = connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'node_audit_policies'").fetchone()
         now = datetime.now(UTC).isoformat()
-        # Populate missing effective policies without changing immutable published snapshots.
-        for row in connection.execute("""SELECT * FROM flow_versions v WHERE status = 'published'
-            AND version_no = (SELECT MAX(version_no) FROM flow_versions WHERE flow_id = v.flow_id AND status = 'published')""").fetchall():
-            sync_published_audit_policies(connection, row["flow_id"], json.loads(row["config_snapshot"]), int(row["published_by"]), now)
-        connection.execute("""UPDATE node_audit_policies SET model_card_id = (
-            SELECT b.card_id FROM audit_model_bindings b JOIN flows f ON f.id = node_audit_policies.flow_id
-            WHERE CAST(b.owner_teacher_id AS TEXT) = f.owner_id AND b.script_id = node_audit_policies.script_id
-        )""")
+        if legacy:
+            columns = {row['name'] for row in connection.execute('PRAGMA table_info(node_audit_policies)')}
+            if 'model_card_id' not in columns:
+                connection.execute("ALTER TABLE node_audit_policies ADD COLUMN model_card_id TEXT REFERENCES audit_model_cards(id) ON DELETE RESTRICT")
+            connection.execute("""UPDATE node_audit_policies SET model_card_id = (
+                SELECT b.card_id FROM audit_model_bindings b JOIN flows f ON f.id = node_audit_policies.flow_id
+                WHERE CAST(b.owner_teacher_id AS TEXT) = f.owner_id AND b.script_id = node_audit_policies.script_id
+            )""")
         for flow in connection.execute("SELECT id, owner_id, draft_config FROM flows").fetchall():
             bindings = {row["script_id"]: row["card_id"] for row in connection.execute(
                 "SELECT script_id, card_id FROM audit_model_bindings WHERE CAST(owner_teacher_id AS TEXT) = ?", (flow["owner_id"],)
@@ -124,7 +119,7 @@ def initialize_node_models() -> None:
             connection.execute("UPDATE flows SET draft_config = ? WHERE id = ?", (json.dumps(config, ensure_ascii=False), flow["id"]))
         # This is an equivalent binding migration, not a policy change. Keep matching
         # queued jobs on the same generation while updating the hash representation.
-        for policy in connection.execute("SELECT * FROM node_audit_policies").fetchall():
+        for policy in connection.execute("SELECT * FROM node_audit_policies").fetchall() if legacy else []:
             next_hash = policy_hash(policy["script_id"], json.loads(policy["params_json"]), policy["model_card_id"])
             connection.execute("UPDATE audit_jobs SET policy_hash = ? WHERE flow_id = ? AND node_key = ? AND policy_generation = ? AND policy_hash = ? AND status IN ('pending', 'running')",
                                (next_hash, policy["flow_id"], policy["node_key"], policy["generation"], policy["policy_hash"]))

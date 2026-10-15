@@ -3,6 +3,7 @@ import type { ServerFlow } from "./api";
 
 export function mapServerFlow(flow: ServerFlow): AcademicProcess {
   return {
+    editableNodeFields: flow.editableNodeFields,
     answerSheetKeys: flow.answerSheetKeys ?? {},
     createdAt: new Date(flow.createdAt).toLocaleString("zh-CN"),
     description: flow.description,

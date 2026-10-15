@@ -8,7 +8,7 @@ from app.domain.workflow_revision import reachable_successors
 from app.domain.workflow_runtime import node_by_key, parse_datetime, pending_node_status
 from app.repositories.branch_state import node_is_ready
 from app.repositories.flow_instances import _set_student_deadline, get_version_progress
-from app.repositories.flow_runtime_state import effective_deadline
+from app.repositories.flow_runtime_state import effective_deadline, version_config
 from app.repositories.manual_review_state import invalidate_nodes
 from app.services.security import utc_now_iso
 
@@ -24,7 +24,7 @@ def _context(connection, instance_id, node_key, teacher_id):
         (instance_id, str(teacher_id))).fetchone()
     if row is None:
         raise KeyError(instance_id)
-    config = json.loads(row['config_snapshot'])
+    config = version_config(connection, row['flow_version_id'])
     node_by_key(config, node_key)
     return row, config
 
@@ -63,7 +63,7 @@ def get_impact(instance_id, node_key, teacher_id):
 def get_node_progress(version_id, node_key, teacher_id):
     progress = get_version_progress(version_id, teacher_id)
     with get_connection() as connection:
-        config = json.loads(connection.execute('SELECT config_snapshot FROM flow_versions WHERE id = ?', (version_id,)).fetchone()[0])
+        config = version_config(connection, version_id)
         node = node_by_key(config, node_key)
         students = []
         for student in progress['students']:

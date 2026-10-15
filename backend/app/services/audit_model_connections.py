@@ -183,17 +183,9 @@ def model_config(script_id: str, flow_id: str, node_key: str, card_id: str | Non
     if kind is None:
         return {}
     with get_connection() as connection:
-        row = connection.execute(
-            """SELECT c.* FROM flows f
-               JOIN node_audit_policies p ON p.flow_id = f.id
-               JOIN audit_model_cards c ON c.id = p.model_card_id AND CAST(c.owner_teacher_id AS TEXT) = f.owner_id
-               WHERE f.id = ? AND p.node_key = ? AND p.script_id = ?""",
-            (flow_id, node_key, script_id),
-        ).fetchone()
-        if card_id:
-            row = connection.execute("""SELECT c.* FROM flows f JOIN audit_model_cards c
-                ON CAST(c.owner_teacher_id AS TEXT) = f.owner_id WHERE f.id = ? AND c.id = ?""",
-                (flow_id, card_id)).fetchone()
+        row = connection.execute("""SELECT c.* FROM flows f JOIN audit_model_cards c
+            ON CAST(c.owner_teacher_id AS TEXT) = f.owner_id WHERE f.id = ? AND c.id = ?""",
+            (flow_id, card_id)).fetchone()
     if row is None or not row["encrypted_api_key"] or not row["api_url"] or not row["model"]:
         raise PublisherModelNotConfigured("当前节点尚未配置发布者自己的审核模型，请联系发布者配置后重试")
     return _card_config(row)

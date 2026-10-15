@@ -235,12 +235,7 @@ def delete_unreferenced_asset(asset_id: str) -> dict[str, object] | None:
                WHERE json_extract(n.value, '$.referenceAsset.assetId') = ?
                   OR json_extract(n.value, '$.templateAsset.assetId') = ? OR EXISTS (SELECT 1 FROM json_each(n.value, '$.referenceAssets') a WHERE json_extract(a.value, '$.assetId') = ?) LIMIT 1""", (asset_id, asset_id, asset_id),
         ).fetchone()
-        live_reference = connection.execute(
-            """SELECT 1 FROM flows f, json_each(f.draft_config, '$.publishedNodeParameters') p,
-               json_each(p.value, '$.params.referenceAssets') a
-               WHERE json_extract(a.value, '$.assetId') = ? LIMIT 1""", (asset_id,),
-        ).fetchone()
-        if referenced is not None or reference is not None or draft_reference is not None or live_reference is not None:
+        if referenced is not None or reference is not None or draft_reference is not None:
             return None
         row = connection.execute(
             "SELECT id, storage_key FROM flow_assets WHERE asset_kind = 'template' AND id = ?", (asset_id,)
@@ -324,7 +319,7 @@ def get_student_template(node_instance_id: str, student_id: int) -> dict[str, ob
         if row is None:
             raise KeyError(node_instance_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
-        config = json.loads(row["config_snapshot"])
+        config = version_config(connection, row["flow_version_id"])
         node = node_by_key(config, row["node_key"])
         state = pending_node_status(
             node_is_ready(connection, row["flow_instance_id"], config, row["node_key"]),

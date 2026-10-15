@@ -198,9 +198,9 @@ def remove_content_asset(
     ).fetchone()
     if referenced is not None:
         raise ContentAssetError("已发布版本引用的图片不可删除")
-    from app.repositories.published_node_parameters import stored_parameters
-    for entry in stored_parameters(connection, flow_id).values():
-        targets = _MARKDOWN_IMAGE_TARGET.findall(str(entry['params'].get('requirement') or ''))
+    from app.repositories.node_configuration import current_config
+    for node in current_config(connection, flow_id).get('nodes', []):
+        targets = _MARKDOWN_IMAGE_TARGET.findall(str(node.get('requirement') or ''))
         if f'asset://{asset_id}' in targets:
             raise ContentAssetError("生效公告引用的图片不可删除")
     connection.execute("DELETE FROM flow_assets WHERE asset_kind = 'content' AND id = ?", (asset_id,))

@@ -564,30 +564,6 @@ CREATE TABLE IF NOT EXISTS audit_script_runtime_states (
     updated_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS node_audit_policies (
-    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    script_id TEXT NOT NULL,
-    mode TEXT,
-    prompt TEXT NOT NULL DEFAULT '',
-    params_json TEXT NOT NULL,
-    generation INTEGER NOT NULL CHECK (generation > 0),
-    policy_hash TEXT NOT NULL,
-    updated_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY(flow_id, node_key)
-);
-
-CREATE TABLE IF NOT EXISTS node_review_step_policies (
-    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    steps_json TEXT NOT NULL,
-    generation INTEGER NOT NULL CHECK (generation > 1),
-    updated_by INTEGER NOT NULL REFERENCES teacher_accounts(id),
-    updated_at TEXT NOT NULL,
-    PRIMARY KEY(flow_id, node_key)
-);
-
 CREATE TABLE IF NOT EXISTS audit_model_cards (
     id TEXT PRIMARY KEY,
     vendor TEXT NOT NULL,
@@ -662,6 +638,9 @@ def initialize_database() -> None:
     initialize_model_ownership()
     from app.services.node_models import initialize_node_models
     initialize_node_models()
+    from app.core.node_configuration_migration import migrate_node_configuration
+    with get_connection() as connection:
+        migrate_node_configuration(connection)
 
 
 def _apply_registration_allowlist_migration(connection: sqlite3.Connection) -> None:

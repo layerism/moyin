@@ -18,7 +18,7 @@ ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_sourc
          'flow_version_assets', 'flow_version_answer_keys',
          'share_tokens', 'workflow_blueprint_versions',
          'workflow_blueprints', 'flow_versions', 'answer_sheet_drafts',
-         'answer_sheet_key_revisions', 'node_audit_policies',
+         'answer_sheet_key_revisions',
          'flow_assets', 'flow_roster_entries', 'flows',
          'workflow_groups',
          'personal_drive_files', 'audit_model_bindings', 'audit_model_cards', 'teacher_invitations',
@@ -73,7 +73,7 @@ def scope(db, kind, account_id):
         children(table, 'submission_id', 'submissions')
     for table in ['flow_version_assets', 'flow_version_answer_keys', 'share_tokens']:
         children(table, 'flow_version_id', 'flow_versions')
-    for table in ['answer_sheet_drafts', 'answer_sheet_key_revisions', 'node_audit_policies', 'flow_assets', 'flow_roster_entries']:
+    for table in ['answer_sheet_drafts', 'answer_sheet_key_revisions', 'flow_assets', 'flow_roster_entries']:
         children(table, 'flow_id', 'flows')
     for role in ['student', 'teacher']:
         children(f'{role}_sessions', f'{role}_account_id', f'{role}_accounts')

@@ -630,7 +630,7 @@ export function AcademicFlowDesigner({
     if (editorLocked) return;
     let nextValue = { ...value };
     if (workingProcess.published && protectedNodeIds.includes(nodeId)) {
-      nextValue = filterPublishedNodeRevisionPatch(nextValue, workingProcess.nodes.find((node) => node.id === nodeId)?.kind);
+      nextValue = filterPublishedNodeRevisionPatch(nextValue, workingProcess.nodes.find((node) => node.id === nodeId)?.kind, workingProcess.editableNodeFields);
     }
     if (Object.keys(nextValue).length === 0) {
       return;

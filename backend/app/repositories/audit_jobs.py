@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from app.core.database import get_connection
-from app.repositories.audit_policies import AuditPolicyConflictError, resolve_effective_audit_binding
+from app.repositories.audit_policies import AuditPolicyConflictError, resolve_effective_audit_binding, resolve_effective_audit_policy
 from app.repositories.flow_roster import assert_student_roster_access
 from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready, version_config
 from app.repositories.workflows import canonical_json
@@ -152,9 +152,8 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
         ).fetchone()
         model_id = None
         if _uses_live_review_parameters(connection, job):
-            binding = resolve_effective_audit_binding(connection, job['flow_id'], job['node_key'], job['script_id'])
-            model_id = connection.execute('SELECT model_card_id FROM node_audit_policies WHERE flow_id = ? AND node_key = ?',
-                                          (job['flow_id'], job['node_key'])).fetchone()['model_card_id']
+            binding = resolve_effective_audit_binding(connection, job['flow_id'], job['node_key'], job['script_id'], job['flow_version_id'])
+            model_id = binding['modelCardId']
             connection.execute("""UPDATE audit_jobs SET policy_generation = ?, policy_hash = ?,
                 effective_params_json = ?, effective_settings_json = ? WHERE id = ?""",
                 (binding['policyGeneration'], binding['policyHash'], canonical_json(binding['params']),
@@ -442,16 +441,11 @@ def recover_audit_jobs() -> None:
                    OR r.content_hash != j.script_content_hash)
             """
         ).fetchall()
-        stale_policies = connection.execute(
-            """
-            SELECT j.id FROM audit_jobs j
-            LEFT JOIN node_audit_policies p
-              ON p.flow_id = j.flow_id AND p.node_key = j.node_key
-            WHERE j.status IN ('pending', 'running')
-              AND (p.flow_id IS NULL OR p.generation != j.policy_generation
-                   OR p.policy_hash != j.policy_hash)
-            """
-        ).fetchall()
+        pending = connection.execute("""SELECT j.*, i.flow_version_id FROM audit_jobs j
+            JOIN node_instances n ON n.id = j.node_instance_id
+            JOIN flow_instances i ON i.id = n.flow_instance_id
+            WHERE j.status IN ('pending', 'running')""").fetchall()
+        stale_policies = [job for job in pending if not _policy_matches(connection, job)]
         expired_previews = connection.execute(
             """
             SELECT j.id FROM audit_jobs j
@@ -516,7 +510,7 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
             return task["flow_instance_id"]
         row = connection.execute(
             """
-            SELECT n.id, n.status, n.flow_instance_id, i.student_account_id, v.flow_id,
+            SELECT n.id, n.status, n.flow_instance_id, i.student_account_id, i.flow_version_id, v.flow_id,
                    s.id AS submission_id, j.id AS job_id, j.status AS job_status,
                    j.script_id, j.node_key
             FROM node_instances n
@@ -537,7 +531,7 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
         _record_execution(connection, 'audit_job', row['job_id'], dict(previous), now)
         try:
             binding = resolve_effective_audit_binding(
-                connection, row["flow_id"], row["node_key"], row["script_id"]
+                connection, row["flow_id"], row["node_key"], row["script_id"], row["flow_version_id"]
             )
         except (AuditPolicyConflictError, AuditScriptCatalogError, AuditScriptParameterError) as exc:
             raise AuditJobConflictError(str(exc)) from exc
@@ -584,16 +578,23 @@ def _generation_matches(connection, job) -> bool:
         "SELECT generation, content_hash, status FROM audit_script_runtime_states WHERE script_id = ?",
         (job["script_id"],),
     ).fetchone()
-    policy = connection.execute(
-        "SELECT generation, policy_hash FROM node_audit_policies WHERE flow_id = ? AND node_key = ?",
-        (job["flow_id"], job["node_key"]),
-    ).fetchone()
     return bool(
         state and state["status"] == "ready"
         and int(state["generation"]) == int(job["script_generation"])
         and state["content_hash"] == job["script_content_hash"]
-        and (_uses_live_review_parameters(connection, job) or (policy and int(policy["generation"]) == int(job["policy_generation"])
-        and policy["policy_hash"] == job["policy_hash"]))
+        and _policy_matches(connection, job)
+    )
+
+
+def _policy_matches(connection, job):
+    try:
+        policy = resolve_effective_audit_policy(connection, job['flow_id'], job['node_key'], job['flow_version_id'])
+    except KeyError:
+        return False
+    return policy['scriptId'] == job['script_id'] and (
+        _uses_live_review_parameters(connection, job)
+        or (int(policy['generation']) == int(job['policy_generation'])
+            and policy['policyHash'] == job['policy_hash'])
     )
 
 

@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from app.domain.node_assets import reference_assets
+from app.domain.node_configuration import REVISION_FIELDS, META_KEY
 
 
 class PublishedNodeDeletionError(ValueError):
@@ -55,13 +56,15 @@ FORM_PROGRESS_PRESERVING_FIELDS = {"title", "requirement", "startAt", "deadlineA
 
 
 def _locked_node_snapshot(node: dict[str, Any]) -> dict[str, Any]:
-    editable_fields = REVISION_EDITABLE_NODE_FIELDS
+    editable_fields = set(REVISION_FIELDS.get(node.get('kind'), REVISION_EDITABLE_NODE_FIELDS))
+    if node.get('kind') not in {'answer_sheet', 'announcement', 'or_gate'}:
+        editable_fields |= {'auditModelCardId', 'fileReviewConfigHistory'}
     if node.get("kind") in {"answer_sheet", "announcement"}:
         editable_fields = FORM_PROGRESS_PRESERVING_FIELDS
     elif node.get("kind") == "or_gate":
         editable_fields = {"title", "requirement"}
     snapshot = {
-        key: value for key, value in node.items() if key not in editable_fields
+        key: value for key, value in node.items() if key not in editable_fields and key != META_KEY
     }
     if node.get("kind") == "file":
         snapshot.pop("fileLimitMb", None)

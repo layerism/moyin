@@ -66,13 +66,11 @@ def run_next_task(stopping=None):
         task = dict(task)
         snapshot = json.loads(task['snapshot_json'])
         from app.repositories.flow_runtime_state import version_config
-        from app.repositories.review_step_policies import effective_review_step_node
         from app.services.audit_script_catalog import find_audit_script
         from app.services.audit_script_parameters import validate_script_params
         config = version_config(connection, task['flow_version_id'])
         node = next(n for n in config['nodes'] if n['id'] == task['node_key'])
         if node.get('kind') in {'file', 'confirmation'}:
-            node = effective_review_step_node(connection, task['flow_id'], node)
             step = node['fileReviewSteps'][task['step_index']]
             record = find_audit_script(snapshot['auditScriptId'])
             snapshot['params'] = validate_script_params(record.config, step.get('auditScriptParams') or {})

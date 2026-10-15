@@ -11,7 +11,6 @@ from app.repositories.audit_jobs import (
     fail_audit_job,
     recover_audit_jobs,
 )
-from app.repositories.audit_policies import synchronize_existing_audit_policies
 from app.services.audit_script_catalog import synchronize_audit_script_states
 from app.services.audit_script_executor import (
     AuditScriptExecutionCancelled,
@@ -40,7 +39,6 @@ class AuditWorkerPool:
 
 async def start_audit_worker_pool(worker_count: int) -> AuditWorkerPool:
     await asyncio.to_thread(synchronize_audit_script_states)
-    await asyncio.to_thread(synchronize_existing_audit_policies)
     await asyncio.to_thread(recover_audit_jobs)
     from app.repositories.file_review_tasks import recover_tasks
     await asyncio.to_thread(recover_tasks)

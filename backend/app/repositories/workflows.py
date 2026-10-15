@@ -8,6 +8,7 @@ from typing import Any, Callable
 from sqlite3 import Connection
 
 from app.domain.node_assets import asset_entries
+from app.domain.node_configuration import REVISION_FIELDS, public_config
 from app.core.config import settings
 from app.repositories.flow_assets import bind_version_asset, insert_asset
 from app.core.database import get_connection
@@ -37,7 +38,6 @@ from app.repositories.answer_sheet_keys import (
     validate_answer_sheet_key_map,
     validate_publishable_answer_sheet_keys,
 )
-from app.repositories.audit_policies import sync_published_audit_policies
 from app.repositories.published_node_parameters import apply_node_parameters, stored_draft
 from app.repositories.flow_content_assets import (
     ContentAssetError,
@@ -200,7 +200,7 @@ def _matches_published_version(connection, flow_id, published, config, answer_ke
     apply_published_node_models(connection, flow_id, candidate)
     keys = {str(node['id']): get_version_answer_key(connection, published['id'], node['id'])['gradingKey']
             for node in baseline.get('nodes', []) if node.get('kind') == 'answer_sheet'}
-    return canonical_json(candidate) == canonical_json(baseline) and canonical_json(answer_keys) == canonical_json(keys)
+    return canonical_json(public_config(candidate)) == canonical_json(public_config(baseline)) and canonical_json(answer_keys) == canonical_json(keys)
 
 
 def _validate_audit_script_nodes(config: dict[str, Any]) -> None:
@@ -572,6 +572,7 @@ def copy_flow_definition(
         config = json.loads(source["draft_config"])
         apply_node_parameters(connection, flow_id, config)
         apply_published_node_models(connection, flow_id, config)
+        config = public_config(config)
         if source_owner != target_owner:
             for node in config.get("nodes", []):
                 node.pop("auditModelCardId", None)
@@ -863,7 +864,7 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         has_unpublished_changes = (
             published_config is not None
             and (
-                canonical_json(draft_config) != canonical_json(published_config)
+                canonical_json(public_config(draft_config)) != canonical_json(public_config(published_config))
                 or canonical_json(draft_answer_sheet_keys)
                 != canonical_json(published_answer_sheet_keys)
             )
@@ -877,11 +878,12 @@ def get_flow(flow_id: str, teacher_id: int) -> dict[str, object]:
         else [],
         "publishedVersionNo": published["version_no"] if published else None,
         "hasUnpublishedChanges": has_unpublished_changes,
+        "editableNodeFields": REVISION_FIELDS,
         "description": row["description"],
         "groupId": row["group_id"],
         "status": row["status"],
-        "config": visible_config,
-        "draftConfig": draft_config,
+        "config": public_config(visible_config),
+        "draftConfig": public_config(draft_config),
         "answerSheetKeys": draft_answer_sheet_keys,
         "createdAt": row["created_at"],
         "updatedAt": row["updated_at"],
@@ -1421,10 +1423,6 @@ def publish_flow(
             raise DraftRevisionConflictError("草稿已变更，请重新确认修订影响")
         published_versions = _published_versions(connection, flow_id, teacher_id)
         published = published_versions[-1] if published_versions else None
-        published_node_keys = {
-            str(node["id"])
-            for node in (json.loads(published["config_snapshot"]).get("nodes", []) if published else [])
-        }
         source_versions = _revision_source_versions(connection, flow_id, teacher_id)
         baseline = (
             published
@@ -1486,14 +1484,6 @@ def publish_flow(
         freeze_answer_sheet_keys(connection, flow_id, version_id, config)
         freeze_content_asset_refs(connection, flow_id, version_id, config)
         freeze_announcement_file_refs(connection, flow_id, version_id, config)
-        sync_published_audit_policies(
-            connection,
-            flow_id,
-            config,
-            teacher_id,
-            now,
-            published_node_keys,
-        )
         for node_key, asset_id in version_templates.items():
             bind_version_asset(connection, version_id, node_key, asset_id, 'template')
         if baseline is not None:
@@ -1571,6 +1561,7 @@ def get_revision_impact(
             if supplied_config is not None
             else json.loads(flow["draft_config"])
         )
+        prepare_runtime_config(connection, flow_id, config)
         _assert_valid_published_revision(connection, flow_id, config)
         validate_flow_config(config, require_publishable=True)
         current_keys = (

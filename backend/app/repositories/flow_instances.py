@@ -43,7 +43,6 @@ from app.repositories.flow_files import (
     get_uploaded_file_for_node,
 )
 from app.repositories.flow_roster import assert_student_roster_access
-from app.repositories.review_step_policies import effective_review_step_node
 from app.repositories.flow_templates import get_version_template_original_name
 from app.repositories.flow_runtime_state import (
     advance_downstream,
@@ -372,6 +371,9 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     for key, value in node.items()
                     if not (
                         key in {
+                            "_configMeta",
+                            "auditScriptParams",
+                            "auditModelCardId",
                             "fileReviewConfigHistory",
                             "auditScriptVersion",
                             "auditScriptHash",
@@ -587,8 +589,6 @@ def submit_node(
             config = version_config(connection, row["flow_version_id"])
             preview = is_preview_instance(connection, row["flow_instance_id"])
             node = node_by_key(config, row["node_key"])
-            if node.get("kind") in {"file", "confirmation"} and structured_steps(node):
-                node = effective_review_step_node(connection, str(row["flow_id"]), node)
             max_attempts = (
                 node.get("answerSheet", {}).get("gradingPolicy", {}).get("maxAttempts")
                 if node.get("kind") == "answer_sheet"
@@ -626,7 +626,7 @@ def submit_node(
             if has_audit_script:
                 try:
                     audit_binding = resolve_effective_audit_binding(
-                        connection, str(row["flow_id"]), str(row["node_key"]), str(script_id)
+                        connection, str(row["flow_id"]), str(row["node_key"]), str(script_id), row["flow_version_id"]
                     )
                 except (
                     AuditPolicyConflictError,

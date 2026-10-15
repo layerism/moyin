@@ -234,9 +234,6 @@ def delete_admin_row(
             if before is None:
                 raise KeyError(table)
             redacted_before = _redact_row(dict(before))
-            if table == 'flow_versions':
-                from app.repositories.published_node_parameters import remove_version_parameters
-                remove_version_parameters(connection, before['id'])
             connection.execute(
                 f"DELETE FROM {_quoted_identifier(table)} WHERE {where_clause}", key_values
             )

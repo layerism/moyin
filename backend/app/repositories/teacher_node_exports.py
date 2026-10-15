@@ -4,6 +4,7 @@ from graphlib import TopologicalSorter
 from typing import Any
 
 from app.core.database import get_connection
+from app.repositories.flow_runtime_state import version_config
 from app.domain.workflow_runtime import incoming_nodes, node_by_key
 from app.repositories.answer_sheet_keys import get_version_answer_key
 from app.repositories.review_step_exports import ReviewStepExport, get_review_step_exports
@@ -74,7 +75,7 @@ def get_version_submission_export(
         ).fetchone()
         if version is None:
             raise KeyError(version_id)
-        config = json.loads(version["config_snapshot"])
+        config = version_config(connection, version_id)
     # Register snapshot order first, then dependencies, for stable sibling ordering.
     predecessors = incoming_nodes(config)
     sorter = TopologicalSorter()
@@ -118,7 +119,7 @@ def get_node_submission_export(
         if version is None:
             raise KeyError(version_id)
 
-        config = json.loads(version["config_snapshot"])
+        config = version_config(connection, version_id)
         try:
             node = node_by_key(config, node_key)
         except KeyError as exc:

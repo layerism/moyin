@@ -252,12 +252,12 @@ def test_expired_approved_form_can_be_amended_after_teacher_extension(
     assert submitted.status_code == 200
 
     with get_connection() as connection:
-        connection.execute(
-            """UPDATE flows SET draft_config = json_set(draft_config,
-               '$.publishedNodeParameters.n1', json(?)) WHERE id = ?""",
-            (json.dumps({"generation": 1, "params": {"deadlineAt": "2020-01-01T00:00:00+00:00"}}),
-             published["flowId"]),
-        )
+        config = json.loads(connection.execute(
+            'SELECT draft_config FROM flows WHERE id = ?', (published['flowId'],)
+        ).fetchone()[0])
+        next(node for node in config['nodes'] if node['id'] == 'n1')['deadlineAt'] = '2020-01-01T00:00:00+00:00'
+        connection.execute('UPDATE flows SET draft_config = ? WHERE id = ?',
+                           (json.dumps(config), published['flowId']))
 
     expired_draft = client.put(
         f"/api/student/node-instances/{form['id']}/draft",
