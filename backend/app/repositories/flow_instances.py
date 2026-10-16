@@ -24,7 +24,7 @@ from app.domain.workflow_runtime import (
 )
 from app.repositories.audit_jobs import create_audit_job
 from app.domain.file_review_steps import structured_steps, step_kind
-from app.repositories.manual_review_state import review_evidence, current_rejection
+from app.repositories.manual_review_state import review_evidence
 from app.repositories.branch_state import sync_branch_states
 from app.repositories.audit_policies import (
     AuditPolicyConflictError,
@@ -287,13 +287,6 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             after_deadline = bool(
                 deadline_value is not None and deadline_value <= datetime.now(UTC)
             )
-            rejection = current_rejection(connection, row["id"])
-            rejection_files = []
-            if rejection and rejection["feedback_id"]:
-                from app.repositories.manual_feedback import file_items
-                saved_feedback = connection.execute("SELECT files_json FROM audit_manual_feedback WHERE id = ?", (rejection["feedback_id"],)).fetchone()
-                if saved_feedback:
-                    rejection_files = [file for file in file_items(connection, json.loads(saved_feedback["files_json"])) if file["sourceNodeKey"] == row["node_key"]]
             feedback = []
             reviews = []
             if (config_node.get("kind") in {"file", "confirmation"} and any(step_kind(step) == "manual" for step in config_node.get("fileReviewSteps", []))):
@@ -321,7 +314,6 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "reviewStage": current_review_stage,
                     "auditHistory": _audit_history(connection, row, config_node) if config_node.get("kind") in {"file", "confirmation"} else [],
                     "reviewTimeline": review_timeline(connection, row["id"], _audit_history(connection, row, config_node)) if config_node.get("kind") in {"file", "confirmation"} else [],
-                    "manualRejection": {"id": rejection["id"], "remark": rejection["remark"], "reviewedAt": rejection["created_at"], "files": rejection_files} if rejection else None,
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
                     "submission": _json_object(row["submission_payload"]),
@@ -338,7 +330,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "approvedAt": row["approved_at"],
                     "manualReview": None,
                     "audit": (_file_step_audit(connection, row, status) if structured_steps(config_node) else
-                        None if rejection or manual_file_rejection or current_review_stage == "manual" else _audit_summary(row, status, config_node)),
+                        None if manual_file_rejection or current_review_stage == "manual" else _audit_summary(row, status, config_node)),
                     "grade": (
                         student_grade_view(
                             grade,
@@ -538,8 +530,8 @@ def save_node_draft(
         )
         if not approved_resubmission:
             connection.execute(
-                "UPDATE node_instances SET status = ? WHERE id = ?",
-                ('rejected' if current_rejection(connection, node_instance_id) else 'draft', node_instance_id),
+                "UPDATE node_instances SET status = 'draft' WHERE id = ?",
+                (node_instance_id,),
             )
     return get_instance(row["flow_instance_id"], student_id)
 

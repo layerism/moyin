@@ -3,7 +3,7 @@ import type { NodeTemplateAsset } from "../../types";
 import { saveStudentFile } from "./saveStudentFile";
 import { FileReviewDialog } from "./FileReviewDialog";
 import { hasSequentialManualReview } from "./FileReviewStepsEditor";
-import { FeedbackDownload, ManualFeedbackList } from "./ManualFeedbackList";
+import { ManualFeedbackList } from "./ManualFeedbackList";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from "react";
 import Markdown from "react-markdown";
@@ -58,7 +58,6 @@ export function StudentRuntimePage({
   preview?: boolean;
 }) {
   const [instance, setInstance] = useState<RuntimeFlowInstance | null>(initialInstance ?? null);
-  const seenRejections = useRef<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, Record<string, unknown>>>({});
   const [notice, setNotice] = useState("");
   const [actionWarning, setActionWarning] = useState("");
@@ -88,14 +87,10 @@ export function StudentRuntimePage({
 
   useEffect(() => {
     if (!instance) return;
-    const newlyRejected = new Set(instance.nodeInstances.filter((node) => node.manualRejection && seenRejections.current[node.id] !== node.manualRejection.id).map((node) => node.id));
-    for (const node of instance.nodeInstances) {
-      if (node.manualRejection) seenRejections.current[node.id] = node.manualRejection.id;
-    }
     setDrafts((current) => {
       const next = { ...current };
       for (const node of instance.nodeInstances) {
-        if (!(node.id in next) || newlyRejected.has(node.id)) {
+        if (!(node.id in next)) {
           const configNode = instance.config.nodes.find((item) => item.id === node.nodeKey);
           next[node.id] = configNode?.kind === "branch" && node.requiresResubmission && node.draft.branchId
             ? node.draft
@@ -764,17 +759,8 @@ function RuntimeNodeDialog({
             开放时间：{new Date(runtime.effectiveStartAt).toLocaleString("zh-CN")} · {formatCountdown(runtime.effectiveStartAt, clock)}
           </p>
         ) : null}
-        {runtime.manualRejection ? <section className="runtime-manual-rejection" aria-label="教师审核意见">
-          <header><strong>教师审核未通过</strong><small>{formatDateTime(runtime.manualRejection.reviewedAt)}</small></header>
-          <p>{runtime.manualRejection.remark}</p>
-          <small>请根据审核意见修改本节点内容，并重新提交。</small>
-          {runtime.manualRejection.files.map((file) => <div className="manual-feedback-published-file" key={file.id}>
-            <span><strong>{file.name}</strong><small>对应原件：{file.sourceName}</small></span>
-            <FeedbackDownload fileId={file.id} filename={file.name} student>下载批改件</FeedbackDownload>
-          </div>)}
-        </section> : null}
         {runtime.progressResetReason != null ? <p className="runtime-state-hint">教师已撤销通过，需要重新完成。{runtime.progressResetReason ? `原因：${runtime.progressResetReason}` : ""}</p> : null}
-        {runtime.requiresResubmission && runtime.progressResetReason == null && !runtime.manualRejection && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
+        {runtime.requiresResubmission && runtime.progressResetReason == null && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
         {runtime.audit && !awaitingReview && !(["file", "confirmation"].includes(node.kind) && runtime.reviewTimeline?.length && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
         {(node.kind === "file" || (node.kind === "confirmation" && Boolean(node.fileReviewSteps?.length))) && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {["file", "confirmation"].includes(node.kind) && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}

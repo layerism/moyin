@@ -1025,10 +1025,6 @@ def _node_invalidation_before_data(
         "SELECT * FROM node_template_download_events WHERE node_instance_id = ?",
         (node["id"],),
     ).fetchall()
-    manual_rejections = connection.execute(
-        "SELECT * FROM audit_manual_node_rejections WHERE node_instance_id = ? ORDER BY created_at, id",
-        (node["id"],),
-    ).fetchall()
     manual_feedback = connection.execute(
         """SELECT f.*, c.submission_id, c.step_index
            FROM audit_manual_feedback f LEFT JOIN audit_manual_feedback_context c ON c.feedback_id = f.id
@@ -1082,7 +1078,6 @@ def _node_invalidation_before_data(
         "fileReviewRuns": [dict(run) for run in review_runs],
         "fileReviewAiTasks": [dict(task) for task in review_tasks],
         "templateDownloads": [dict(event) for event in template_downloads],
-        "manualRejections": [dict(rejection) for rejection in manual_rejections],
         "manualFeedback": [dict(feedback) for feedback in manual_feedback],
         "deadlineOverride": (
             {

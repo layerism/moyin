@@ -90,7 +90,6 @@ export type RuntimeNodeInstance = {
   approvedAt: string | null;
   feedback?: ManualFeedback[];
   sourceReviews?: ManualSourceReview[];
-  manualRejection?: { id: string; remark: string; reviewedAt: string; files: ManualFeedbackFile[] } | null;
   manualReview?: { remark: string; reviewedAt: string } | null;
   audit: RuntimeNodeAudit | null;
   attemptNo: number;

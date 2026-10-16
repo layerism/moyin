@@ -13087,12 +13087,6 @@ td {
 .manual-review-dialog .manual-source-reject { color: #b91c1c; border-color: #fecaca; background: #fff; }
 .manual-source-rejected, .manual-feedback-source > header .is-rejected { color: #b91c1c; }
 .manual-source-rejected { margin: 0; font-size: 13px; white-space: pre-wrap; }
-.runtime-manual-rejection { margin: 16px 24px; padding: 14px 16px; border: 1px solid #fecaca; border-radius: 8px; background: #fff7f7; }
-.runtime-manual-rejection > header { display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
-.runtime-manual-rejection > header strong { color: #b91c1c; font-size: 15px; }
-.runtime-manual-rejection small { color: #64748b; font-size: 12px; }
-.runtime-manual-rejection p { margin: 10px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.runtime-manual-rejection button { padding: 7px 10px; border: 1px solid #bfdbfe; border-radius: 6px; background: #eff6ff; color: #1d4ed8; cursor: pointer; }
 
 .dag-canvas.is-control-pressed:not(.is-selecting),
 .dag-canvas.is-control-pressed:not(.is-selecting) .flow-node { cursor: default; }

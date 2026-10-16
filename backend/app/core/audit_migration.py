@@ -9,7 +9,6 @@ MANUAL_AUDIT_TABLE_RENAMES = {
     'manual_feedback': 'audit_manual_feedback',
     'manual_feedback_drafts': 'audit_manual_feedback_drafts',
     'manual_feedback_files': 'audit_manual_feedback_files',
-    'manual_node_rejections': 'audit_manual_node_rejections',
     'audit_feedback_context': 'audit_manual_feedback_context',
 }
 
@@ -59,7 +58,7 @@ def rename_manual_audit_tables(connection):
             if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (old,)).fetchone():
                 connection.execute(f'ALTER TABLE {old} RENAME TO {new}')
         # SQLite renames autoindexes, but explicitly named indexes retain old names.
-        for old in ('manual_reviews', 'manual_feedback', 'manual_node_rejections'):
+        for old in ('manual_reviews', 'manual_feedback'):
             name = f'idx_{old}_node'
             index = connection.execute("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?", (name,)).fetchone()
             if index:
@@ -81,6 +80,20 @@ def remove_manual_source_reviews(connection):
         exists = connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone()
         if exists and connection.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone():
             raise ValueError('旧材料来源审核表仍有历史记录，删表已取消')
+        connection.execute(f'DROP TABLE IF EXISTS {table}')
+    connection.execute('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)',
+                       (migration_id, datetime.now(UTC).isoformat()))
+
+
+def remove_manual_node_rejections(connection):
+    migration_id = '20261016_remove_manual_node_rejections'
+    connection.execute('BEGIN IMMEDIATE')
+    if connection.execute('SELECT 1 FROM schema_migrations WHERE id = ?', (migration_id,)).fetchone():
+        return
+    for table in ('manual_node_rejections', 'audit_manual_node_rejections'):
+        exists = connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone()
+        if exists and connection.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone():
+            raise ValueError('旧节点退回表仍有历史记录，删表已取消')
         connection.execute(f'DROP TABLE IF EXISTS {table}')
     connection.execute('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)',
                        (migration_id, datetime.now(UTC).isoformat()))

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core.config import settings
-from app.core.audit_migration import AUDIT_JOBS_SCHEMA, rename_audit_tables, rename_manual_audit_tables, migrate_audit_jobs, remove_manual_source_reviews
+from app.core.audit_migration import AUDIT_JOBS_SCHEMA, rename_audit_tables, rename_manual_audit_tables, migrate_audit_jobs, remove_manual_source_reviews, remove_manual_node_rejections
 
 
 SCHEMA = """
@@ -311,19 +311,6 @@ CREATE TABLE IF NOT EXISTS audit_manual_feedback_context (
 );
 
 
-CREATE TABLE IF NOT EXISTS audit_manual_node_rejections (
-    id TEXT PRIMARY KEY,
-    node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
-    reviewer_node_instance_id TEXT REFERENCES node_instances(id) ON DELETE SET NULL,
-    feedback_id TEXT REFERENCES audit_manual_feedback(id) ON DELETE SET NULL,
-    attempt_no INTEGER NOT NULL,
-    teacher_id INTEGER NOT NULL,
-    remark TEXT NOT NULL,
-    created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_audit_manual_node_rejections_node
-    ON audit_manual_node_rejections(node_instance_id, attempt_no, created_at);
-
 CREATE TABLE IF NOT EXISTS node_drafts (
     node_instance_id TEXT PRIMARY KEY REFERENCES node_instances(id) ON DELETE CASCADE,
     payload TEXT NOT NULL,
@@ -503,6 +490,8 @@ def initialize_database() -> None:
         migrate_audit_jobs(connection)
     with get_connection() as connection:
         remove_manual_source_reviews(connection)
+    with get_connection() as connection:
+        remove_manual_node_rejections(connection)
 
 
 def _apply_audit_model_bindings_removal(connection: sqlite3.Connection) -> None:
