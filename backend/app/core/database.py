@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core.config import settings
+from app.core.audit_migration import AUDIT_JOBS_SCHEMA, rename_audit_tables, migrate_audit_jobs
 
 
 SCHEMA = """
@@ -313,7 +314,7 @@ CREATE TABLE IF NOT EXISTS manual_feedback (
     UNIQUE(node_instance_id, revision)
 );
 CREATE INDEX IF NOT EXISTS idx_manual_feedback_node ON manual_feedback(flow_instance_id, node_key);
-CREATE TABLE IF NOT EXISTS file_review_feedback_context (
+CREATE TABLE IF NOT EXISTS audit_feedback_context (
     feedback_id TEXT PRIMARY KEY REFERENCES manual_feedback(id) ON DELETE CASCADE,
     submission_id TEXT NOT NULL REFERENCES node_submissions(id) ON DELETE CASCADE,
     step_index INTEGER NOT NULL
@@ -386,51 +387,14 @@ CREATE INDEX IF NOT EXISTS idx_uploaded_files_node
 CREATE INDEX IF NOT EXISTS idx_uploaded_files_submission
     ON student_uploaded_files(submission_id);
 
-CREATE TABLE IF NOT EXISTS file_review_runs (
+CREATE TABLE IF NOT EXISTS audit_runs (
     submission_id TEXT PRIMARY KEY REFERENCES node_submissions(id) ON DELETE CASCADE,
     steps_json TEXT NOT NULL,
     step_index INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'rejected', 'cancelled'))
 );
 
-CREATE TABLE IF NOT EXISTS file_review_ai_tasks (
-    id TEXT PRIMARY KEY,
-    submission_id TEXT NOT NULL REFERENCES node_submissions(id) ON DELETE CASCADE,
-    step_index INTEGER NOT NULL,
-    snapshot_json TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('pending','running','succeeded','failed','cancelled')),
-    attempt_count INTEGER NOT NULL DEFAULT 0,
-    result_json TEXT,
-    created_at TEXT NOT NULL,
-    finished_at TEXT,
-    UNIQUE(submission_id, step_index)
-);
-CREATE INDEX IF NOT EXISTS idx_file_review_task_status ON file_review_ai_tasks(status, created_at);
-
-CREATE TABLE IF NOT EXISTS audit_jobs (
-    id TEXT PRIMARY KEY,
-    submission_id TEXT NOT NULL UNIQUE REFERENCES node_submissions(id) ON DELETE CASCADE,
-    node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
-    flow_id TEXT NOT NULL REFERENCES flows(id) ON DELETE CASCADE,
-    node_key TEXT NOT NULL,
-    script_id TEXT NOT NULL,
-    script_generation INTEGER NOT NULL CHECK (script_generation > 0),
-    script_content_hash TEXT NOT NULL,
-    policy_generation INTEGER NOT NULL CHECK (policy_generation > 0),
-    policy_hash TEXT NOT NULL,
-    effective_params_json TEXT NOT NULL,
-    effective_settings_json TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'succeeded', 'failed', 'cancelled')),
-    attempt_count INTEGER NOT NULL DEFAULT 0,
-    next_attempt_at TEXT NOT NULL,
-    result_json TEXT,
-    error_message TEXT,
-    cancellation_reason TEXT,
-    claimed_at TEXT,
-    finished_at TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
+""" + AUDIT_JOBS_SCHEMA + """
 
 CREATE INDEX IF NOT EXISTS idx_audit_jobs_claim
     ON audit_jobs(status, next_attempt_at, created_at);
@@ -495,6 +459,7 @@ def initialize_database() -> None:
         _apply_student_uploaded_files_rename(connection)
         _apply_teacher_drive_files_rename(connection)
         _apply_node_template_download_events_rename(connection)
+        rename_audit_tables(connection)
         connection.executescript(SCHEMA)
         _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema
@@ -543,6 +508,8 @@ def initialize_database() -> None:
     from app.core.flow_asset_reference_migration import migrate_flow_asset_references
     with get_connection() as connection:
         migrate_flow_asset_references(connection)
+    with get_connection() as connection:
+        migrate_audit_jobs(connection)
 
 
 def _apply_audit_model_bindings_removal(connection: sqlite3.Connection) -> None:

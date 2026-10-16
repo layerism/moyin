@@ -6,11 +6,11 @@ from app.repositories.manual_feedback import file_items
 
 
 def review_timeline(connection, node_id, audits):
-    runs = connection.execute('''SELECT r.*, s.attempt_no FROM file_review_runs r
+    runs = connection.execute('''SELECT r.*, s.attempt_no FROM audit_runs r
         JOIN node_submissions s ON s.id = r.submission_id WHERE s.node_instance_id = ?
         ORDER BY s.attempt_no DESC''', (node_id,)).fetchall()
     feedback = connection.execute('''SELECT f.*, c.submission_id, c.step_index FROM manual_feedback f
-        LEFT JOIN file_review_feedback_context c ON c.feedback_id = f.id
+        LEFT JOIN audit_feedback_context c ON c.feedback_id = f.id
         WHERE f.node_instance_id = ? ORDER BY f.created_at, f.revision''', (node_id,)).fetchall()
     decisions = connection.execute('SELECT * FROM manual_reviews WHERE node_instance_id = ? ORDER BY created_at, rowid', (node_id,)).fetchall()
     result = []

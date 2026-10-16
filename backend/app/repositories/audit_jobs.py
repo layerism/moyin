@@ -54,6 +54,8 @@ def create_audit_job(
     script_params: dict[str, object],
     script_settings: dict[str, object],
     now: str,
+    step_index: int | None = None,
+    snapshot: dict | None = None,
 ) -> str:
     job_id = str(uuid.uuid4())
     connection.execute(
@@ -61,14 +63,15 @@ def create_audit_job(
         INSERT INTO audit_jobs
             (id, submission_id, node_instance_id, flow_id, node_key, script_id,
              script_generation, script_content_hash, policy_generation, policy_hash,
-             effective_params_json, effective_settings_json, status,
+             effective_params_json, effective_settings_json, step_index, snapshot_json, max_retries, status,
              next_attempt_at, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
         """,
         (
             job_id, submission_id, node_instance_id, flow_id, node_key, script_id,
             script_generation, script_content_hash, policy_generation, policy_hash,
-            canonical_json(script_params), canonical_json(script_settings), now, now, now,
+            canonical_json(script_params), canonical_json(script_settings), step_index, canonical_json(snapshot or {}),
+            3 if step_index is None else 0, now, now, now,
         ),
     )
     return job_id
@@ -94,34 +97,23 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
             """
             SELECT j.id FROM audit_jobs j
             JOIN audit_script_runtime_states r ON r.script_id = j.script_id
+            JOIN node_submissions s ON s.id = j.submission_id
+            JOIN node_instances n ON n.id = j.node_instance_id
+            JOIN flow_instances i ON i.id = n.flow_instance_id
+            JOIN flow_versions v ON v.id = i.flow_version_id
+            LEFT JOIN audit_runs run ON run.submission_id = j.submission_id
             WHERE j.status = 'pending' AND j.next_attempt_at <= ?
-              AND NOT EXISTS (
-                SELECT 1 FROM file_review_runs r WHERE r.submission_id = j.submission_id
-                AND (r.status != 'active' OR json_extract(r.steps_json, '$[' || r.step_index || ']') != 'ai')
-              )
-              AND r.status = 'ready'
-              AND r.generation = j.script_generation
+              AND n.status = 'reviewing' AND n.attempt_no = s.attempt_no
+              AND ((j.step_index IS NULL AND (run.submission_id IS NULL OR
+                    (run.status = 'active' AND json_extract(run.steps_json, '$[' || run.step_index || ']') = 'ai')))
+                OR (j.step_index IS NOT NULL AND run.status = 'active' AND run.step_index = j.step_index))
+              AND r.status = 'ready' AND r.generation = j.script_generation
               AND r.content_hash = j.script_content_hash
-              AND (
-                SELECT COUNT(*) FROM audit_jobs active
-                WHERE active.script_id = j.script_id AND active.status = 'running'
-              ) + (SELECT COUNT(*) FROM file_review_ai_tasks active
-                   WHERE active.status = 'running' AND json_extract(active.snapshot_json, '$.auditScriptId') = j.script_id) < r.max_concurrency
-              AND (
-                NOT EXISTS (
-                  SELECT 1 FROM node_instances n
-                  JOIN flow_instances i ON i.id = n.flow_instance_id
-                  JOIN flow_versions v ON v.id = i.flow_version_id
-                  WHERE n.id = j.node_instance_id AND v.status = 'preview'
-                )
-                OR EXISTS (
-                  SELECT 1 FROM node_instances n
-                  JOIN flow_preview_sessions p ON p.flow_instance_id = n.flow_instance_id
-                  WHERE n.id = j.node_instance_id
-                    AND p.status = 'active' AND p.expires_at > ?
-                )
-              )
-            ORDER BY j.next_attempt_at, j.created_at
+              AND (SELECT COUNT(*) FROM audit_jobs active
+                   WHERE active.script_id = j.script_id AND active.status = 'running') < r.max_concurrency
+              AND (v.status != 'preview' OR EXISTS (SELECT 1 FROM flow_preview_sessions p
+                   WHERE p.flow_instance_id = i.id AND p.status = 'active' AND p.expires_at > ?))
+            ORDER BY j.step_index IS NULL, j.next_attempt_at, j.created_at, j.step_index
             LIMIT 1
             """,
             (now, now),
@@ -152,14 +144,15 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
         ).fetchone()
         model_id = None
         if _uses_live_review_parameters(connection, job):
-            binding = resolve_effective_audit_binding(connection, job['flow_id'], job['node_key'], job['script_id'], job['flow_version_id'])
+            binding = _resolve_job_binding(connection, job)
             model_id = binding['modelCardId']
             connection.execute("""UPDATE audit_jobs SET policy_generation = ?, policy_hash = ?,
-                effective_params_json = ?, effective_settings_json = ? WHERE id = ?""",
+                effective_params_json = ?, effective_settings_json = ?, snapshot_json = ? WHERE id = ?""",
                 (binding['policyGeneration'], binding['policyHash'], canonical_json(binding['params']),
-                 canonical_json(binding['settings']), job_id))
+                 canonical_json(binding['settings']), canonical_json(binding.get('snapshot', {})), job_id))
             job = {**dict(job), 'policy_generation': binding['policyGeneration'], 'policy_hash': binding['policyHash'],
-                   'effective_params_json': canonical_json(binding['params']), 'effective_settings_json': canonical_json(binding['settings'])}
+                   'effective_params_json': canonical_json(binding['params']), 'effective_settings_json': canonical_json(binding['settings']),
+                   'snapshot_json': canonical_json(binding.get('snapshot', {}))}
             _record_execution(connection, 'audit_job', job_id,
                               {**dict(job), 'modelCardId': model_id}, now)
         file_rows = connection.execute(
@@ -200,7 +193,7 @@ def claim_next_audit_job() -> ClaimedAuditJob | None:
 def audit_job_execution_allowed(job_id: str) -> bool:
     with get_connection() as connection:
         job = _current_job_context(connection, job_id)
-        return bool(job and job["job_status"] == "running" and _generation_matches(connection, job))
+        return bool(job and job["job_status"] == "running" and _audit_write_allowed(connection, job) and _generation_matches(connection, job))
 
 
 def complete_audit_job(job_id: str, result: dict[str, object]) -> None:
@@ -265,14 +258,14 @@ def manual_approve_audit_job(
             JOIN flows f ON f.id = v.flow_id
             LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
-            LEFT JOIN audit_jobs j ON j.submission_id = s.id
+            LEFT JOIN audit_jobs j ON j.submission_id = s.id AND j.step_index IS NULL
             WHERE n.id = ? AND f.owner_id = ? AND v.status = 'published'
             """,
             (node_instance_id, str(teacher_id)),
         ).fetchone()
         if row is None:
             raise KeyError(node_instance_id)
-        if connection.execute("SELECT 1 FROM file_review_runs WHERE submission_id = ?", (submission_id,)).fetchone():
+        if connection.execute("SELECT 1 FROM audit_runs WHERE submission_id = ?", (submission_id,)).fetchone():
             raise AuditJobConflictError("该文件使用顺序审核，请在文件节点的人工审核入口处理")
         if row["submission_id"] != submission_id:
             raise AuditJobConflictError("学生提交已变化，请刷新后重新审核")
@@ -362,7 +355,7 @@ def fail_audit_job(job_id: str, message: str, *, retry: bool = True) -> None:
             _record_execution(connection, 'audit_job', job_id,
                               {'attempt': job['attempt_count'], 'status': 'failed', 'error': message}, now_iso)
         attempt_count = int(job["attempt_count"])
-        if retry and attempt_count <= len(RETRY_DELAYS_SECONDS):
+        if retry and attempt_count <= min(job["max_retries"], len(RETRY_DELAYS_SECONDS)):
             next_attempt = now + timedelta(seconds=RETRY_DELAYS_SECONDS[attempt_count - 1])
             connection.execute(
                 """UPDATE audit_jobs SET status = 'pending', next_attempt_at = ?,
@@ -406,7 +399,10 @@ def _cancel_jobs(condition: str, values: tuple[object, ...], reason: str) -> lis
                 FROM audit_jobs j
                 JOIN node_submissions s ON s.id = j.submission_id
                 JOIN node_instances n ON n.id = j.node_instance_id
-                WHERE ({condition}) AND j.status IN ('pending', 'running')""",
+                WHERE j.status IN ('pending', 'running') AND j.submission_id IN (
+                    SELECT j.submission_id FROM audit_jobs j
+                    WHERE ({condition}) AND j.status IN ('pending', 'running')
+                )""",
             values,
         ).fetchall()
         running_ids = [str(row["id"]) for row in rows if row["status"] == "running"]
@@ -416,8 +412,8 @@ def _cancel_jobs(condition: str, values: tuple[object, ...], reason: str) -> lis
                    finished_at = ?, updated_at = ? WHERE id = ?""",
                 (reason, now, now, row["id"]),
             )
-            connection.execute("UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id = ?", (row["submission_id"],))
-            connection.execute("UPDATE node_submissions SET status = 'cancelled' WHERE id = ?", (row["submission_id"],))
+            connection.execute("UPDATE audit_runs SET status = 'cancelled' WHERE submission_id = ? AND status = 'active'", (row["submission_id"],))
+            connection.execute("UPDATE node_submissions SET status = 'cancelled' WHERE id = ? AND status IN ('reviewing', 'audit_error')", (row["submission_id"],))
             if int(row["submission_attempt"]) == int(row["node_attempt"]):
                 connection.execute(
                     """UPDATE node_instances SET status = 'available', approved_at = NULL
@@ -480,11 +476,11 @@ def recover_audit_jobs() -> None:
             JOIN node_submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             WHERE n.status = 'reviewing'
               AND NOT EXISTS (SELECT 1 FROM audit_jobs j WHERE j.submission_id = s.id)
-              AND NOT EXISTS (SELECT 1 FROM file_review_runs r WHERE r.submission_id = s.id AND r.status = 'active')
+              AND NOT EXISTS (SELECT 1 FROM audit_runs r WHERE r.submission_id = s.id AND r.status = 'active')
             """
         ).fetchall()
         for row in missing:
-            connection.execute("UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id = ?", (row["submission_id"],))
+            connection.execute("UPDATE audit_runs SET status = 'cancelled' WHERE submission_id = ?", (row["submission_id"],))
             connection.execute("UPDATE node_submissions SET status = 'cancelled' WHERE id = ?", (row["submission_id"],))
             connection.execute("UPDATE node_instances SET status = 'available' WHERE id = ?", (row["node_instance_id"],))
 
@@ -493,32 +489,19 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
     now = utc_now_iso()
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
-        task = connection.execute("""SELECT t.id, n.flow_instance_id, v.flow_id FROM file_review_ai_tasks t
-            JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
-            JOIN node_submissions s ON s.id = t.submission_id
-            JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
-            JOIN flow_instances i ON i.id = n.flow_instance_id JOIN flow_versions v ON v.id = i.flow_version_id
-            WHERE n.id = ? AND i.student_account_id = ? AND n.status = 'audit_error' AND t.status = 'failed'""",
-            (node_instance_id, student_id)).fetchone()
-        if task:
-            previous = connection.execute('SELECT * FROM file_review_ai_tasks WHERE id = ?', (task['id'],)).fetchone()
-            _record_execution(connection, 'file_review_task', task['id'], dict(previous), now)
-            assert_student_roster_access(connection, task["flow_id"], student_id)
-            connection.execute("UPDATE file_review_ai_tasks SET status = 'pending', finished_at = NULL WHERE id = ?", (task["id"],))
-            connection.execute("UPDATE node_instances SET status = 'reviewing' WHERE id = ?", (node_instance_id,))
-            connection.execute("UPDATE node_submissions SET status = 'reviewing' WHERE id = (SELECT submission_id FROM file_review_ai_tasks WHERE id = ?)", (task["id"],))
-            return task["flow_instance_id"]
         row = connection.execute(
             """
             SELECT n.id, n.status, n.flow_instance_id, i.student_account_id, i.flow_version_id, v.flow_id,
                    s.id AS submission_id, j.id AS job_id, j.status AS job_status,
-                   j.script_id, j.node_key
+                   j.script_id, j.node_key, j.step_index
             FROM node_instances n
             JOIN flow_instances i ON i.id = n.flow_instance_id
             JOIN flow_versions v ON v.id = i.flow_version_id
             JOIN node_submissions s ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
             JOIN audit_jobs j ON j.submission_id = s.id
+            LEFT JOIN audit_runs r ON r.submission_id = s.id
             WHERE n.id = ? AND i.student_account_id = ?
+              AND (j.step_index IS NULL OR (r.status = 'active' AND r.step_index = j.step_index))
             """,
             (node_instance_id, student_id),
         ).fetchone()
@@ -530,22 +513,20 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
         previous = connection.execute('SELECT * FROM audit_jobs WHERE id = ?', (row['job_id'],)).fetchone()
         _record_execution(connection, 'audit_job', row['job_id'], dict(previous), now)
         try:
-            binding = resolve_effective_audit_binding(
-                connection, row["flow_id"], row["node_key"], row["script_id"], row["flow_version_id"]
-            )
+            binding = _resolve_job_binding(connection, {**dict(previous), 'flow_version_id': row['flow_version_id']})
         except (AuditPolicyConflictError, AuditScriptCatalogError, AuditScriptParameterError) as exc:
             raise AuditJobConflictError(str(exc)) from exc
         connection.execute(
-            """UPDATE audit_jobs SET status = 'pending', attempt_count = 0,
+            """UPDATE audit_jobs SET status = 'pending', attempt_count = CASE WHEN step_index IS NULL THEN 0 ELSE attempt_count END,
                next_attempt_at = ?, result_json = NULL, error_message = NULL,
                cancellation_reason = NULL, claimed_at = NULL, finished_at = NULL,
                script_generation = ?, script_content_hash = ?,
                policy_generation = ?, policy_hash = ?,
-               effective_params_json = ?, effective_settings_json = ?,
+               effective_params_json = ?, effective_settings_json = ?, snapshot_json = ?,
                updated_at = ? WHERE id = ?""",
             (now, binding["scriptGeneration"], binding["scriptContentHash"],
              binding["policyGeneration"], binding["policyHash"],
-             canonical_json(binding["params"]), canonical_json(binding["settings"]),
+             canonical_json(binding["params"]), canonical_json(binding["settings"]), canonical_json(binding.get("snapshot", {})),
              now, row["job_id"]),
         )
         connection.execute("UPDATE node_submissions SET status = 'reviewing' WHERE id = ?", (row["submission_id"],))
@@ -556,7 +537,7 @@ def retry_audit_job(node_instance_id: str, student_id: int) -> str:
 def _current_job_context(connection, job_id: str):
     return connection.execute(
         """
-        SELECT j.status AS job_status, j.attempt_count, j.submission_id,
+        SELECT j.status AS job_status, j.attempt_count, j.submission_id, j.step_index, j.snapshot_json, j.max_retries,
                j.node_instance_id, j.flow_id, j.node_key, j.script_id,
                j.script_generation, j.script_content_hash, j.policy_generation, j.policy_hash,
                s.attempt_no AS submission_attempt, n.attempt_no AS node_attempt,
@@ -587,6 +568,12 @@ def _generation_matches(connection, job) -> bool:
 
 
 def _policy_matches(connection, job):
+    if job['step_index'] is not None:
+        try:
+            _review_step(connection, job)
+        except (KeyError, AuditPolicyConflictError):
+            return False
+        return True
     try:
         policy = resolve_effective_audit_policy(connection, job['flow_id'], job['node_key'], job['flow_version_id'])
     except KeyError:
@@ -603,6 +590,14 @@ def _is_current_attempt(job) -> bool:
 
 
 def _audit_write_allowed(connection, job) -> bool:
+    if not _is_current_attempt(job) or job['node_status'] not in {'reviewing', 'audit_error'}:
+        return False
+    run = connection.execute('SELECT * FROM audit_runs WHERE submission_id = ?', (job['submission_id'],)).fetchone()
+    if job['step_index'] is not None:
+        if run is None or run['status'] != 'active' or run['step_index'] != job['step_index']:
+            return False
+    elif run and (run['status'] != 'active' or json.loads(run['steps_json'])[run['step_index']] != 'ai'):
+        return False
     if job["version_status"] != "preview":
         return True
     return connection.execute(
@@ -610,3 +605,47 @@ def _audit_write_allowed(connection, job) -> bool:
            AND status = 'active' AND expires_at > ?""",
         (job["flow_instance_id"], utc_now_iso()),
     ).fetchone() is not None
+
+
+def _review_step(connection, job):
+    config = version_config(connection, job['flow_version_id'])
+    node = next((n for n in config['nodes'] if n['id'] == job['node_key']), None)
+    if node is None:
+        raise KeyError(job['node_key'])
+    steps = node.get('fileReviewSteps') or []
+    index = job['step_index']
+    snapshot = json.loads(job['snapshot_json'])
+    if index >= len(steps) or not isinstance(steps[index], dict):
+        raise AuditPolicyConflictError('审核步骤结构已变化，请重新提交')
+    step = steps[index]
+    if step.get('id') != snapshot.get('id') or step.get('auditScriptId') != job['script_id']:
+        raise AuditPolicyConflictError('审核步骤结构已变化，请重新提交')
+    return node, step
+
+
+def _resolve_job_binding(connection, job):
+    if job['step_index'] is None:
+        return resolve_effective_audit_binding(connection, job['flow_id'], job['node_key'],
+                                               job['script_id'], job['flow_version_id'])
+    from app.repositories.audit_policies import policy_hash
+    from app.repositories.node_configuration import node_metadata
+    from app.services.audit_script_catalog import find_audit_script
+    from app.services.audit_script_parameters import validate_script_params
+    node, step = _review_step(connection, job)
+    record = find_audit_script(job['script_id'])
+    params = validate_script_params(record.config, step.get('auditScriptParams') or {})
+    snapshot = {**json.loads(job['snapshot_json']), 'params': params, 'auditScriptParams': params,
+                'auditModelCardId': step.get('auditModelCardId')}
+    return {'scriptId': job['script_id'], 'scriptGeneration': job['script_generation'],
+            'scriptContentHash': job['script_content_hash'],
+            'policyGeneration': node_metadata(node, 'review')['generation'],
+            'policyHash': policy_hash(job['script_id'], params, step.get('auditModelCardId')),
+            'modelCardId': step.get('auditModelCardId'), 'params': params,
+            'settings': snapshot['settings'], 'snapshot': snapshot}
+
+
+def release_audit_job(job_id: str) -> None:
+    now = utc_now_iso()
+    with get_connection() as connection:
+        connection.execute("""UPDATE audit_jobs SET status = 'pending', claimed_at = NULL,
+            next_attempt_at = ?, updated_at = ? WHERE id = ? AND status = 'running'""", (now, now, job_id))

@@ -51,9 +51,9 @@
 <path d="M760 110H1000V590" class="edge" stroke-dasharray="7 5"/>
 <text x="1070" y="345" class="sub" text-anchor="middle">当前标准答案</text>
 <rect x="410" y="730" width="380" height="116" rx="10" fill="#fff" stroke="#a8b9cd"/>
-<text x="600" y="760" class="name" text-anchor="middle">audit_jobs</text>
-<text x="600" y="788" class="sub" text-anchor="middle">file_review_runs / file_review_ai_tasks</text>
-<text x="600" y="818" class="sub" text-anchor="middle">单脚本 / 多步骤审核</text>
+<text x="600" y="760" class="name" text-anchor="middle">audit_runs</text>
+<text x="600" y="788" class="sub" text-anchor="middle">audit_jobs</text>
+<text x="600" y="818" class="sub" text-anchor="middle">审核步骤推进 / 自动任务执行</text>
 <path d="M600 670V730" class="edge"/>
 <rect x="440" y="900" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
 <text x="600" y="931" class="name" style="font-size:17px" text-anchor="middle">manual_reviews / manual_feedback</text>

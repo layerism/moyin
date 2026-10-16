@@ -30,21 +30,21 @@ def get_review_step_exports(connection, submission_ids: list[str], node) -> dict
         return {}
     placeholders = ", ".join("?" for _ in submission_ids)
     runs = connection.execute(
-        f"SELECT * FROM file_review_runs WHERE submission_id IN ({placeholders})",
+        f"SELECT * FROM audit_runs WHERE submission_id IN ({placeholders})",
         tuple(submission_ids),
     ).fetchall()
     steps_by_submission = {row["submission_id"]: json.loads(row["steps_json"]) for row in runs}
     tasks = {
         (row["submission_id"], row["step_index"]): row
         for row in connection.execute(
-            f"SELECT * FROM file_review_ai_tasks WHERE submission_id IN ({placeholders})",
+            f"SELECT * FROM audit_jobs WHERE submission_id IN ({placeholders}) AND step_index IS NOT NULL",
             tuple(submission_ids),
         )
     }
     legacy_jobs = {
         row["submission_id"]: row
         for row in connection.execute(
-            f"SELECT * FROM audit_jobs WHERE submission_id IN ({placeholders})",
+            f"SELECT * FROM audit_jobs WHERE submission_id IN ({placeholders}) AND step_index IS NULL",
             tuple(submission_ids),
         )
     }

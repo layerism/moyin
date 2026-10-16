@@ -76,7 +76,7 @@ def add_feedback_file(node_instance_id, teacher_id, evidence_hash, revision, sou
             (id, flow_instance_id, node_instance_id, evidence_hash, source_file_id, source_name, original_name, storage_key, size_bytes, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
             (file_id, row['flow_instance_id'], node_instance_id, evidence_hash, source_file_id, source_file['original_name'], name, storage_key, size_bytes, utc_now_iso()))
-        embedded = connection.execute('SELECT 1 FROM file_review_runs r JOIN node_submissions s ON s.id = r.submission_id WHERE s.node_instance_id = ? AND s.attempt_no = ?',
+        embedded = connection.execute('SELECT 1 FROM audit_runs r JOIN node_submissions s ON s.id = r.submission_id WHERE s.node_instance_id = ? AND s.attempt_no = ?',
                                       (row['id'], row['attempt_no'])).fetchone()
         ids = [file['id'] for file in draft['files'] if embedded or file['sourceFileId'] != source_file_id] + [file_id]
         connection.execute('UPDATE manual_feedback_drafts SET files_json = ?, revision = revision + 1 WHERE node_instance_id = ?', (json.dumps(ids), node_instance_id))
@@ -108,9 +108,9 @@ def publish_feedback(connection, node_instance_id, teacher_id, evidence_hash, re
     sources = evidence.get('sources', [])
     if len(sources) == 1 and sources[0].get('nodeKey') == row['node_key']:
         submission_id = sources[0].get('submissionId')
-        run = connection.execute('SELECT step_index, steps_json FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+        run = connection.execute('SELECT step_index, steps_json FROM audit_runs WHERE submission_id = ?', (submission_id,)).fetchone()
         if run:
-            connection.execute('INSERT INTO file_review_feedback_context VALUES (?, ?, ?)',
+            connection.execute('INSERT INTO audit_feedback_context VALUES (?, ?, ?)',
                                (feedback_id, submission_id, min(run['step_index'], len(json.loads(run['steps_json'])) - 1)))
     connection.execute('UPDATE manual_feedback_drafts SET revision = revision + 1 WHERE node_instance_id = ?', (node_instance_id,))
 

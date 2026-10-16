@@ -216,7 +216,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             LEFT JOIN node_drafts d ON d.node_instance_id = n.id
             LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
-            LEFT JOIN audit_jobs j ON j.submission_id = s.id
+            LEFT JOIN audit_jobs j ON j.submission_id = s.id AND j.step_index IS NULL
             WHERE n.flow_instance_id = ?
             """,
             (instance_id,),
@@ -302,7 +302,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                 feedback = published_feedback(connection, instance_id, row["node_key"], evidence_hash)
             from app.repositories.file_reviews import review_stage
             current_review_stage = review_stage(connection, row["submission_id"]) if status == "reviewing" else None
-            manual_file_rejection = connection.execute("""SELECT 1 FROM file_review_runs
+            manual_file_rejection = connection.execute("""SELECT 1 FROM audit_runs
                 WHERE submission_id = ? AND status = 'rejected'
                 AND COALESCE(json_extract(steps_json, '$[' || step_index || '].kind'), json_extract(steps_json, '$[' || step_index || ']')) = 'manual'""",
                 (row["submission_id"],)).fetchone() if status in {"rejected", "expired"} else None
@@ -748,7 +748,7 @@ def submit_node(
                 except FileContextError as exc:
                     raise RuntimeConflictError(str(exc)) from exc
             if node.get("kind") in {"file", "confirmation"} and node.get("fileReviewSteps"):
-                connection.execute("INSERT INTO file_review_runs (submission_id, steps_json, status) VALUES (?, ?, 'active')",
+                connection.execute("INSERT INTO audit_runs (submission_id, steps_json, status) VALUES (?, ?, 'active')",
                                    (submission_id, canonical_json(node["fileReviewSteps"])))
                 if structured_steps(node):
                     from app.repositories.file_review_tasks import enqueue_steps
@@ -799,7 +799,7 @@ def submit_node(
 
 
 def _file_step_audit(connection, row, status):
-    task = connection.execute("""SELECT t.* FROM file_review_ai_tasks t JOIN file_review_runs r
+    task = connection.execute("""SELECT t.* FROM audit_jobs t JOIN audit_runs r
         ON r.submission_id = t.submission_id AND r.step_index = t.step_index
         WHERE t.submission_id = ?""", (row["submission_id"],)).fetchone()
     if task is None or task["status"] == "succeeded":
@@ -815,7 +815,7 @@ def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[di
     records = connection.execute(
         """SELECT j.id, j.script_id, j.result_json, j.finished_at, s.attempt_no
            FROM audit_jobs j JOIN node_submissions s ON s.id = j.submission_id
-           WHERE j.node_instance_id = ? AND j.status = 'succeeded'
+           WHERE j.node_instance_id = ? AND j.step_index IS NULL AND j.status = 'succeeded'
            ORDER BY s.attempt_no DESC, j.finished_at DESC""",
         (node_row["id"],),
     ).fetchall()
@@ -832,8 +832,8 @@ def _audit_history(connection, node_row, config_node: dict[str, Any]) -> list[di
             "reason": "" if _hide_score_report(record["script_id"], result) else (result.get("reason") if isinstance(result.get("reason"), str) else ""),
             "reviewedAt": record["finished_at"],
         })
-    tasks = connection.execute("""SELECT t.*, s.attempt_no FROM file_review_ai_tasks t
-        JOIN node_submissions s ON s.id = t.submission_id WHERE s.node_instance_id = ? AND t.status = 'succeeded'
+    tasks = connection.execute("""SELECT t.*, s.attempt_no FROM audit_jobs t
+        JOIN node_submissions s ON s.id = t.submission_id WHERE s.node_instance_id = ? AND t.step_index IS NOT NULL AND t.status = 'succeeded'
         ORDER BY s.attempt_no DESC, t.step_index""", (node_row["id"],)).fetchall()
     for task in tasks:
         result = _json_object(task["result_json"])
@@ -1127,7 +1127,7 @@ def get_teacher_submission_detail(
             JOIN flows f ON f.id = v.flow_id
             LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
-            LEFT JOIN audit_jobs j ON j.submission_id = s.id
+            LEFT JOIN audit_jobs j ON j.submission_id = s.id AND j.step_index IS NULL
             WHERE n.id = ? AND f.owner_id = ? AND v.status = 'published'
             """,
             (node_instance_id, str(teacher_id)),

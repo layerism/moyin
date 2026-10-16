@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import time
 from dataclasses import dataclass
 
 from app.repositories.audit_jobs import (
@@ -10,6 +11,7 @@ from app.repositories.audit_jobs import (
     complete_audit_job,
     fail_audit_job,
     recover_audit_jobs,
+    release_audit_job,
 )
 from app.services.audit_script_catalog import synchronize_audit_script_states
 from app.services.audit_script_executor import (
@@ -40,8 +42,6 @@ class AuditWorkerPool:
 async def start_audit_worker_pool(worker_count: int) -> AuditWorkerPool:
     await asyncio.to_thread(synchronize_audit_script_states)
     await asyncio.to_thread(recover_audit_jobs)
-    from app.repositories.file_review_tasks import recover_tasks
-    await asyncio.to_thread(recover_tasks)
     stop_event = asyncio.Event()
     tasks = [
         asyncio.create_task(_worker_loop(stop_event), name=f"audit-worker-{index + 1}")
@@ -70,9 +70,6 @@ def signal_audit_job_cancellations(job_ids: list[str]) -> None:
 
 async def _worker_loop(stop_event: asyncio.Event) -> None:
     while not stop_event.is_set():
-        from app.repositories.file_review_tasks import run_next_task
-        if await asyncio.to_thread(run_next_task, stop_event.is_set):
-            continue
         job = await asyncio.to_thread(claim_next_audit_job)
         if job is None:
             try:
@@ -83,6 +80,18 @@ async def _worker_loop(stop_event: asyncio.Event) -> None:
         cancellation = threading.Event()
         with _cancellation_lock:
             _cancellations[job.id] = cancellation
+        last_check = 0.0
+
+        def cancelled():
+            nonlocal last_check
+            if stop_event.is_set() or cancellation.is_set():
+                return True
+            now = time.monotonic()
+            if now - last_check < 1:
+                return False
+            last_check = now
+            return not audit_job_execution_allowed(job.id)
+
         try:
             if not await asyncio.to_thread(audit_job_execution_allowed, job.id):
                 await asyncio.to_thread(cancel_audit_job, job.id, "script_updated")
@@ -100,12 +109,16 @@ async def _worker_loop(stop_event: asyncio.Event) -> None:
                 descriptor,
                 job.materials,
                 {**job.context, "scriptParams": params, "scriptSettings": settings},
-                cancelled=cancellation.is_set,
+                cancelled=cancelled,
             )
             await asyncio.to_thread(complete_audit_job, job.id, result)
         except PublisherModelNotConfigured as exc:
             await asyncio.to_thread(fail_audit_job, job.id, str(exc), retry=False)
         except AuditScriptExecutionCancelled:
+            if stop_event.is_set():
+                await asyncio.to_thread(release_audit_job, job.id)
+            else:
+                await asyncio.to_thread(cancel_audit_job, job.id, "context_changed")
             logger.info("Audit job cancelled: %s", job.id)
         except (AuditScriptResolutionError, AuditScriptParameterError):
             logger.warning("Audit job %s failed: script_resolution", job.id)

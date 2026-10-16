@@ -1,8 +1,8 @@
 # 数据库表现状说明（按表名前缀）
 
-核对时间：2026-10-16 09:43:32（Asia/Shanghai）。
+核对时间：2026-10-16 10:06:08（Asia/Shanghai）。
 
-**当前本地数据库共有 40 张非 SQLite 内部表，本文逐表覆盖全部 40 张。** 按表名前缀整理为 13 组，其中 `flows` 与 `flow_*` 共 7 张，`node_*` 共 6 张，其余前缀共 27 张，没有独立的 `workflow_*` 表。
+**当前本地数据库共有 39 张非 SQLite 内部表，本文逐表覆盖全部 39 张。** 按表名前缀整理为 12 组，其中 `flows` 与 `flow_*` 共 7 张，`node_*` 共 6 张，其余前缀共 26 张，没有独立的 `workflow_*` 表。
 
 本文以当前源码和 `backend/storage/app.db` 为准。结构、约束及索引以 SQLite 实际定义为准，覆盖基础建表和初始化增量迁移。标准答案保存在流程节点配置中，成绩在读取时计算，不设答题卡专用表。
 
@@ -10,12 +10,11 @@
 
 ## 1. 按表名前缀概览
 
-按共同名称前缀分组，各组按前缀字母顺序排列，组内按完整表名字母顺序排列。`flows` 是流程主表，与 `flow_*` 合为一组；`file_review_*` 是文件审核表的共同前缀。每张表仅计入一组，前缀不表示数据库命名空间，也不等同于单一业务职责。
+按共同名称前缀分组，各组按前缀字母顺序排列，组内按完整表名字母顺序排列。`flows` 是流程主表，与 `flow_*` 合为一组。每张表仅计入一组，前缀不表示数据库命名空间，也不等同于单一业务职责。
 
 | 表名前缀 | 表数 | 保存的主要内容 |
 | --- | ---: | --- |
-| `audit_*` | 4 | 审核任务、模型、脚本状态与操作日志 |
-| `file_review_*` | 3 | 多步骤审核执行与反馈关联 |
+| `audit_*` | 6 | 审核流程、任务、反馈关联与运行管理 |
 | `flow_*` 与 `flows` | 7 | 流程定义、版本、资源、准入与实例 |
 | `manual_*` | 6 | 人工审核、反馈与兼容记录 |
 | `material_*` | 1 | 材料导出任务 |
@@ -27,34 +26,26 @@
 | `student_*` | 3 | 学生账号、会话与上传文件 |
 | `teacher_*` | 5 | 教师账号、会话、邀请、个人文件与常用评语 |
 | `user_*` | 1 | 账号删除后的文件清理任务 |
-| **合计** | **40** | 每张表只归入一个前缀分组 |
+| **合计** | **39** | 每张表只归入一个前缀分组 |
 
-相关代码：[database.py](../backend/app/core/database.py)、[sms_recovery.py](../backend/app/services/sms_recovery.py)、[model_ownership.py](../backend/app/services/model_ownership.py)、[flow_template_migration.py](../backend/app/core/flow_template_migration.py)。
+相关代码：[database.py](../backend/app/core/database.py)、[audit_migration.py](../backend/app/core/audit_migration.py)。
 
 ## 2. 按表名前缀说明职责与关联
 
-### 2.1 `audit_*`：审核任务、模型、脚本状态与操作日志（4 张）
+### 2.1 `audit_*`：审核流程、任务、反馈关联与运行管理（6 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
-| `audit_jobs` | 0 | 一次正式提交对应的单脚本审核任务 | 学生提交后，如果走单脚本自动审核，就记录一项待处理任务。保存审核哪次提交、用哪个脚本和哪些参数、是否执行完、失败后是否重试，以及最终结果。 |
+| `audit_feedback_context` | 181 | 一份正式反馈对应的审核提交与步骤 | 给一份已发布反馈标明“属于哪次学生提交、哪个审核步骤”。例如同一份论文经过两轮提交，系统据此区分老师这条意见针对的是哪一轮。 |
+| `audit_jobs` | 209 | 一次提交中的一个自动审核任务 | 统一保存单脚本和分步骤任务的脚本版本、执行参数、状态、重试次数与结果。`step_index` 为空表示单脚本任务；非空表示审核流程中的步骤序号。同一提交可有多个步骤任务，但每个步骤只有一条；任务按当前审核步骤领取，`max_retries` 控制自动重试次数。 |
 | `audit_logs` | 2,051 | 一次业务操作或执行依据记录 | 记录谁在什么时候做了什么，例如修改流程、撤销某学生的通过状态；按操作保存修改前后内容和原因。审核实际采用的参数也可记在这里，用来追查处理依据。 |
 | `audit_model_cards` | 7 | 某教师的一张模型连接卡 | 保存老师配置的大模型接口地址、模型名称、加密密钥及相关选项。节点只记下选用了哪张模型卡；实际调用模型时再读取这张卡，不在每个节点重复保存密钥。 |
+| `audit_runs` | 213 | 一次提交的顺序审核执行进度 | 某次提交需要按顺序完成多个审核步骤时，记录步骤列表、当前走到哪一步，以及是否完成或被退回。例如 AI 检查通过后，继续等待教师审核。 |
 | `audit_script_runtime_states` | 8 | 一个审核脚本的当前运行状态 | 记录每个审核脚本当前能否执行、是否正在更新、代码和配置是否变化，以及最多同时运行几个任务。完整脚本放在仓库文件中，这张表只保存运行管理信息。 |
 
-相关代码：[repositories/audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[services/audit_job_worker.py](../backend/app/services/audit_job_worker.py)、[services/audit_script_runtime.py](../backend/app/services/audit_script_runtime.py)、[services/audit_script_catalog.py](../backend/app/services/audit_script_catalog.py)、[services/audit_model_connections.py](../backend/app/services/audit_model_connections.py)、[services/node_models.py](../backend/app/services/node_models.py)、[services/model_ownership.py](../backend/app/services/model_ownership.py)、[repositories/database_admin.py](../backend/app/repositories/database_admin.py)。
+相关代码：[repositories/audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[services/audit_job_worker.py](../backend/app/services/audit_job_worker.py)、[services/audit_script_runtime.py](../backend/app/services/audit_script_runtime.py)、[services/audit_script_catalog.py](../backend/app/services/audit_script_catalog.py)、[services/audit_model_connections.py](../backend/app/services/audit_model_connections.py)、[services/node_models.py](../backend/app/services/node_models.py)、[services/model_ownership.py](../backend/app/services/model_ownership.py)、[repositories/database_admin.py](../backend/app/repositories/database_admin.py)、[repositories/file_reviews.py](../backend/app/repositories/file_reviews.py)、[repositories/file_review_tasks.py](../backend/app/repositories/file_review_tasks.py)。
 
-### 2.2 `file_review_*`：多步骤审核执行与反馈关联（3 张）
-
-| 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
-| --- | ---: | --- | --- |
-| `file_review_ai_tasks` | 209 | 一次提交中某个 AI 审核步骤的任务 | 为某次提交的每个 AI 审核步骤分别保存任务、执行参数和结果。例如第一步检查格式、第二步检查内容，会有两项任务；执行到对应步骤时读取允许更新的当前参数。 |
-| `file_review_feedback_context` | 181 | 一份正式反馈对应的审核提交与步骤 | 给一份已发布反馈标明“属于哪次学生提交、哪个审核步骤”。例如同一份论文经过两轮提交，系统据此区分老师这条意见针对的是哪一轮。 |
-| `file_review_runs` | 213 | 一次提交的多步骤审核执行进度 | 某次提交需要按顺序完成多个审核步骤时，记录步骤列表、当前走到哪一步，以及是否完成或被退回。例如 AI 检查通过后，继续等待教师审核。 |
-
-相关代码：[repositories/file_reviews.py](../backend/app/repositories/file_reviews.py)、[repositories/file_review_tasks.py](../backend/app/repositories/file_review_tasks.py)。
-
-### 2.3 `flow_*` 与 `flows`：流程定义、版本、资源、准入与实例（7 张）
+### 2.2 `flow_*` 与 `flows`：流程定义、版本、资源、准入与实例（7 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -68,7 +59,7 @@
 
 相关代码：[repositories/workflows.py](../backend/app/repositories/workflows.py)、[repositories/workflow_groups.py](../backend/app/repositories/workflow_groups.py)、[repositories/workflow_blueprints.py](../backend/app/repositories/workflow_blueprints.py)、[repositories/flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)、[repositories/flow_roster.py](../backend/app/repositories/flow_roster.py)、[repositories/flow_instances.py](../backend/app/repositories/flow_instances.py)、[repositories/flow_previews.py](../backend/app/repositories/flow_previews.py)、[repositories/flow_assets.py](../backend/app/repositories/flow_assets.py)、[repositories/flow_templates.py](../backend/app/repositories/flow_templates.py)、[repositories/flow_content_assets.py](../backend/app/repositories/flow_content_assets.py)、[repositories/flow_announcement_files.py](../backend/app/repositories/flow_announcement_files.py)、[domain/node_configuration.py](../backend/app/domain/node_configuration.py)。
 
-### 2.4 `manual_*`：人工审核、反馈与兼容记录（6 张）
+### 2.3 `manual_*`：人工审核、反馈与兼容记录（6 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -81,7 +72,7 @@
 
 相关代码：[repositories/manual_reviews.py](../backend/app/repositories/manual_reviews.py)、[repositories/manual_feedback.py](../backend/app/repositories/manual_feedback.py)、[repositories/manual_review_state.py](../backend/app/repositories/manual_review_state.py)、[repositories/workflows.py](../backend/app/repositories/workflows.py)、[repositories/user_deletion.py](../backend/app/repositories/user_deletion.py)。
 
-### 2.5 `material_*`：材料导出任务（1 张）
+### 2.4 `material_*`：材料导出任务（1 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -89,20 +80,20 @@
 
 相关代码：[repositories/export_jobs.py](../backend/app/repositories/export_jobs.py)、[services/export_job_worker.py](../backend/app/services/export_job_worker.py)。
 
-### 2.6 `node_*`：节点进度、输入、返工、延期与下载（6 张）
+### 2.5 `node_*`：节点进度、输入、返工、延期与下载（6 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
 | `node_deadline_overrides` | 2 | 某学生流程实例中某节点的个别截止时间 | 保存单个学生的特殊截止时间。例如全班 6 月 1 日截止，张三获准延至 6 月 5 日，这里记录张三、对应节点、新日期、原因和操作教师；其他学生仍用统一日期。 |
 | `node_drafts` | 10 | 一个节点实例当前暂存的学生输入 | 保存学生点击暂存后、尚未正式提交的内容。再次暂存会覆盖这份内容，成功提交后删除；部分撤销通过的操作会把上次提交恢复到这里，供学生修改。 |
-| `node_instances` | 1,092 | 一个学生流程实例中的一个节点状态 | 保存“张三的开题报告节点是否开放、提交过几次、是否通过”等状态，并记下相关时间。一个学生的一份流程进度中，每个节点只有一条状态记录。 |
+| `node_instances` | 1,073 | 一个学生流程实例中的一个节点状态 | 保存“张三的开题报告节点是否开放、提交过几次、是否通过”等状态，并记下相关时间。一个学生的一份流程进度中，每个节点只有一条状态记录。 |
 | `node_redo_dependencies` | 17 | 一个学生流程实例中一条返工等待关系 | 例如开题报告被撤销通过后，记录“张三的论文初稿必须等开题报告重新通过”。系统据此阻止他直接继续下游节点；每条记录只针对该学生的这份流程进度。 |
 | `node_submissions` | 502 | 某学生节点实例的一次正式提交 | 保存学生每次正式提交的内容、提交时间和第几次尝试。审核任务指向具体这次提交；答题卡成绩用当前这次提交的答案实时计算；同一次提交请求重复发送时，不应再生成第二条记录。 |
 | `node_template_download_events` | 44 | 某节点实例对某份主模板的下载记录 | 记录某学生在某节点下载了哪份主模板及下载时间，供系统检查下载情况。同一节点实例和同一模板只保留一条记录，不是每下载一次就新增一行。 |
 
 相关代码：[repositories/flow_instances.py](../backend/app/repositories/flow_instances.py)、[repositories/node_progress.py](../backend/app/repositories/node_progress.py)、[repositories/branch_state.py](../backend/app/repositories/branch_state.py)、[repositories/flow_templates.py](../backend/app/repositories/flow_templates.py)、[repositories/flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)。
 
-### 2.7 `password_*`：密码找回流程（1 张）
+### 2.6 `password_*`：密码找回流程（1 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -110,7 +101,7 @@
 
 相关代码：[api/routes/auth.py](../backend/app/api/routes/auth.py)、[services/sms_recovery.py](../backend/app/services/sms_recovery.py)。
 
-### 2.8 `registration_*`：学生注册准入（1 张）
+### 2.7 `registration_*`：学生注册准入（1 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -118,15 +109,15 @@
 
 相关代码：[repositories/registration_allowlist.py](../backend/app/repositories/registration_allowlist.py)、[api/routes/auth.py](../backend/app/api/routes/auth.py)。
 
-### 2.9 `schema_*`：数据库迁移标记（1 张）
+### 2.8 `schema_*`：数据库迁移标记（1 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
-| `schema_migrations` | 23 | 一项已执行的数据库迁移标记 | 记录哪些数据库升级已经完成，以及完成时间。服务下次启动时先查这张表，避免把同一次升级重复执行；它不保存老师或学生的业务内容。 |
+| `schema_migrations` | 24 | 一项已执行的数据库迁移标记 | 记录哪些数据库升级已经完成，以及完成时间。服务下次启动时先查这张表，避免把同一次升级重复执行；它不保存老师或学生的业务内容。 |
 
 相关代码：[core/database.py](../backend/app/core/database.py)、[core/answer_sheet_migration.py](../backend/app/core/answer_sheet_migration.py)、[core/flow_asset_reference_migration.py](../backend/app/core/flow_asset_reference_migration.py)、[core/flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[core/node_configuration_migration.py](../backend/app/core/node_configuration_migration.py)、[core/flow_template_migration.py](../backend/app/core/flow_template_migration.py)。
 
-### 2.10 `sms_*`：短信验证请求（1 张）
+### 2.9 `sms_*`：短信验证请求（1 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -134,17 +125,17 @@
 
 相关代码：[services/sms_recovery.py](../backend/app/services/sms_recovery.py)。
 
-### 2.11 `student_*`：学生账号、会话与上传文件（3 张）
+### 2.10 `student_*`：学生账号、会话与上传文件（3 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
 | `student_accounts` | 127 | 一个正式或预览学生账号 | 保存学生的学号、姓名、密码校验值和手机号。正式学生和教师预览时使用的模拟学生都在这里；模拟学生另记所属教师，同一学号不能重复注册。 |
-| `student_sessions` | 398 | 一次学生登录会话 | 学生登录后，记录账号、登录凭证的校验值和有效期。后续请求用它识别学生；旧记录也可能留在表中，因此行数不是当前在线学生数。 |
+| `student_sessions` | 399 | 一次学生登录会话 | 学生登录后，记录账号、登录凭证的校验值和有效期。后续请求用它识别学生；旧记录也可能留在表中，因此行数不是当前在线学生数。 |
 | `student_uploaded_files` | 402 | 学生上传的一份原始文件或扫描材料 | 保存学生上传的论文、表格或扫描件的文件信息，包括属于谁、哪个节点、存储位置、页数和顺序。刚上传时可以尚未提交，正式提交后再记下对应的提交记录。 |
 
 相关代码：[api/routes/auth.py](../backend/app/api/routes/auth.py)、[services/security.py](../backend/app/services/security.py)、[repositories/flow_previews.py](../backend/app/repositories/flow_previews.py)、[repositories/flow_files.py](../backend/app/repositories/flow_files.py)。
 
-### 2.12 `teacher_*`：教师账号、会话、邀请、个人文件与常用评语（5 张）
+### 2.11 `teacher_*`：教师账号、会话、邀请、个人文件与常用评语（5 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -156,7 +147,7 @@
 
 相关代码：[api/routes/auth.py](../backend/app/api/routes/auth.py)、[services/security.py](../backend/app/services/security.py)、[repositories/teacher_invitations.py](../backend/app/repositories/teacher_invitations.py)、[api/routes/personal_drive.py](../backend/app/api/routes/personal_drive.py)、[repositories/personal_drive.py](../backend/app/repositories/personal_drive.py)、[repositories/review_remarks.py](../backend/app/repositories/review_remarks.py)。
 
-### 2.13 `user_*`：账号删除后的文件清理任务（1 张）
+### 2.12 `user_*`：账号删除后的文件清理任务（1 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -181,24 +172,21 @@
 
 数据库外键只覆盖显式声明的关系。JSON 中的资源 ID、节点 ID，以及 `flows.owner_id`、部分操作人和通用审计实体标识由应用维护；外键检查通过不能证明所有 JSON 引用或业务权限都有效。
 
-## 5. 全表关系图（40 张）
+## 5. 全表关系图（39 张）
 
 每张表独立成节点，按名称前缀分组。实线由被引用表指向外键所在表；虚线为主要应用层关联。黄色节点为兼容表，迁移标记与删除清理任务独立列出。
 
 ```mermaid
 flowchart LR
-    subgraph P1["audit_*（4 张）"]
+    subgraph P1["audit_*（6 张）"]
+        audit_feedback_context["audit_feedback_context"]
         audit_jobs["audit_jobs"]
         audit_logs["audit_logs"]
         audit_model_cards["audit_model_cards"]
+        audit_runs["audit_runs"]
         audit_script_runtime_states["audit_script_runtime_states"]
     end
-    subgraph P2["file_review_*（3 张）"]
-        file_review_ai_tasks["file_review_ai_tasks"]
-        file_review_feedback_context["file_review_feedback_context"]
-        file_review_runs["file_review_runs"]
-    end
-    subgraph P3["flow_* 与 flows（7 张）"]
+    subgraph P2["flow_*  与  flows（7 张）"]
         flow_assets["flow_assets"]
         flow_groups["flow_groups"]
         flow_instances["flow_instances"]
@@ -207,7 +195,7 @@ flowchart LR
         flow_versions["flow_versions"]
         flows["flows"]
     end
-    subgraph P4["manual_*（6 张）"]
+    subgraph P3["manual_*（6 张）"]
         manual_feedback["manual_feedback"]
         manual_feedback_drafts["manual_feedback_drafts"]
         manual_feedback_files["manual_feedback_files"]
@@ -215,10 +203,10 @@ flowchart LR
         manual_reviews["manual_reviews"]
         manual_source_reviews["manual_source_reviews"]
     end
-    subgraph P5["material_*（1 张）"]
+    subgraph P4["material_*（1 张）"]
         material_export_jobs["material_export_jobs"]
     end
-    subgraph P6["node_*（6 张）"]
+    subgraph P5["node_*（6 张）"]
         node_deadline_overrides["node_deadline_overrides"]
         node_drafts["node_drafts"]
         node_instances["node_instances"]
@@ -226,35 +214,35 @@ flowchart LR
         node_submissions["node_submissions"]
         node_template_download_events["node_template_download_events"]
     end
-    subgraph P7["password_*（1 张）"]
+    subgraph P6["password_*（1 张）"]
         password_recoveries["password_recoveries"]
     end
-    subgraph P8["registration_*（1 张）"]
+    subgraph P7["registration_*（1 张）"]
         registration_allowlist["registration_allowlist"]
     end
-    subgraph P9["schema_*（1 张）"]
+    subgraph P8["schema_*（1 张）"]
         schema_migrations["schema_migrations"]
     end
-    subgraph P10["sms_*（1 张）"]
+    subgraph P9["sms_*（1 张）"]
         sms_challenges["sms_challenges"]
     end
-    subgraph P11["student_*（3 张）"]
+    subgraph P10["student_*（3 张）"]
         student_accounts["student_accounts"]
         student_sessions["student_sessions"]
         student_uploaded_files["student_uploaded_files"]
     end
-    subgraph P12["teacher_*（5 张）"]
+    subgraph P11["teacher_*（5 张）"]
         teacher_accounts["teacher_accounts"]
         teacher_drive_files["teacher_drive_files"]
         teacher_invitations["teacher_invitations"]
         teacher_review_remarks["teacher_review_remarks"]
         teacher_sessions["teacher_sessions"]
     end
-    subgraph P13["user_*（1 张）"]
+    subgraph P12["user_*（1 张）"]
         user_deletion_jobs["user_deletion_jobs"]
     end
 
-    %% 数据库实际声明的外键；同一对表的多个外键合并为一条连线
+    %% 数据库外键按表对合并
     flow_assets --> node_template_download_events
     flow_groups --> flows
     flow_instances --> flow_preview_sessions
@@ -272,7 +260,7 @@ flowchart LR
     flows --> flow_preview_sessions
     flows --> flow_roster_entries
     flows --> flow_versions
-    manual_feedback --> file_review_feedback_context
+    manual_feedback --> audit_feedback_context
     manual_feedback --> manual_node_rejections
     node_instances --> audit_jobs
     node_instances --> manual_feedback_drafts
@@ -282,10 +270,9 @@ flowchart LR
     node_instances --> node_submissions
     node_instances --> node_template_download_events
     node_instances --> student_uploaded_files
+    node_submissions --> audit_feedback_context
     node_submissions --> audit_jobs
-    node_submissions --> file_review_ai_tasks
-    node_submissions --> file_review_feedback_context
-    node_submissions --> file_review_runs
+    node_submissions --> audit_runs
     node_submissions --> student_uploaded_files
     student_accounts --> flow_instances
     student_accounts --> flow_preview_sessions
@@ -304,7 +291,7 @@ flowchart LR
     teacher_accounts --> teacher_review_remarks
     teacher_accounts --> teacher_sessions
 
-    %% 应用维护的关联，不是数据库外键
+    %% 应用层关联
     teacher_accounts -. "owner_id" .-> flows
     registration_allowlist -. "学号准入" .-> student_accounts
     flow_roster_entries -. "学号准入" .-> student_accounts
@@ -315,7 +302,6 @@ flowchart LR
     password_recoveries -. "recovery_hash" .-> sms_challenges
     audit_model_cards -. "节点模型卡引用" .-> flows
     audit_script_runtime_states -. "script_id" .-> audit_jobs
-    audit_script_runtime_states -. "snapshot_json.auditScriptId" .-> file_review_ai_tasks
     node_instances -. "node_instance_id" .-> manual_reviews
     node_instances -. "node_instance_id" .-> manual_feedback
     node_instances -. "node_instance_id" .-> manual_feedback_files
@@ -337,8 +323,7 @@ flowchart LR
 | 表名前缀或公共范围 | 主要源码 |
 | --- | --- |
 | 建表及初始化入口 | [database.py](../backend/app/core/database.py) |
-| `audit_*` | [repositories/audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[services/audit_job_worker.py](../backend/app/services/audit_job_worker.py)、[services/audit_script_runtime.py](../backend/app/services/audit_script_runtime.py)、[services/audit_script_catalog.py](../backend/app/services/audit_script_catalog.py)、[services/audit_model_connections.py](../backend/app/services/audit_model_connections.py)、[services/node_models.py](../backend/app/services/node_models.py)、[services/model_ownership.py](../backend/app/services/model_ownership.py)、[repositories/database_admin.py](../backend/app/repositories/database_admin.py) |
-| `file_review_*` | [repositories/file_reviews.py](../backend/app/repositories/file_reviews.py)、[repositories/file_review_tasks.py](../backend/app/repositories/file_review_tasks.py) |
+| `audit_*` | [audit_migration.py](../backend/app/core/audit_migration.py)、[file_reviews.py](../backend/app/repositories/file_reviews.py)、[file_review_tasks.py](../backend/app/repositories/file_review_tasks.py)、[repositories/audit_jobs.py](../backend/app/repositories/audit_jobs.py)、[services/audit_job_worker.py](../backend/app/services/audit_job_worker.py)、[services/audit_script_runtime.py](../backend/app/services/audit_script_runtime.py)、[services/audit_script_catalog.py](../backend/app/services/audit_script_catalog.py)、[services/audit_model_connections.py](../backend/app/services/audit_model_connections.py)、[services/node_models.py](../backend/app/services/node_models.py)、[services/model_ownership.py](../backend/app/services/model_ownership.py)、[repositories/database_admin.py](../backend/app/repositories/database_admin.py) |
 | `flow_*` 与 `flows` | [repositories/workflows.py](../backend/app/repositories/workflows.py)、[repositories/workflow_groups.py](../backend/app/repositories/workflow_groups.py)、[repositories/workflow_blueprints.py](../backend/app/repositories/workflow_blueprints.py)、[repositories/flow_runtime_state.py](../backend/app/repositories/flow_runtime_state.py)、[repositories/flow_roster.py](../backend/app/repositories/flow_roster.py)、[repositories/flow_instances.py](../backend/app/repositories/flow_instances.py)、[repositories/flow_previews.py](../backend/app/repositories/flow_previews.py)、[repositories/flow_assets.py](../backend/app/repositories/flow_assets.py)、[repositories/flow_templates.py](../backend/app/repositories/flow_templates.py)、[repositories/flow_content_assets.py](../backend/app/repositories/flow_content_assets.py)、[repositories/flow_announcement_files.py](../backend/app/repositories/flow_announcement_files.py)、[domain/node_configuration.py](../backend/app/domain/node_configuration.py) |
 | `manual_*` | [repositories/manual_reviews.py](../backend/app/repositories/manual_reviews.py)、[repositories/manual_feedback.py](../backend/app/repositories/manual_feedback.py)、[repositories/manual_review_state.py](../backend/app/repositories/manual_review_state.py)、[repositories/workflows.py](../backend/app/repositories/workflows.py)、[repositories/user_deletion.py](../backend/app/repositories/user_deletion.py) |
 | `material_*` | [repositories/export_jobs.py](../backend/app/repositories/export_jobs.py)、[services/export_job_worker.py](../backend/app/services/export_job_worker.py) |

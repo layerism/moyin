@@ -15,7 +15,7 @@ def has_manual_review(node):
 
 
 def review_stage(connection, submission_id):
-    run = connection.execute('SELECT * FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+    run = connection.execute('SELECT * FROM audit_runs WHERE submission_id = ?', (submission_id,)).fetchone()
     if run is None or run['status'] != 'active':
         return None
     steps = json.loads(run['steps_json'])
@@ -25,7 +25,7 @@ def review_stage(connection, submission_id):
 
 def finish_step(connection, submission_id, kind, passed, now):
     """Return False for legacy submissions; never complete a later step early."""
-    run = connection.execute('SELECT * FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+    run = connection.execute('SELECT * FROM audit_runs WHERE submission_id = ?', (submission_id,)).fetchone()
     if run is None:
         return False
     if review_stage(connection, submission_id) != kind:
@@ -39,13 +39,12 @@ def finish_step(connection, submission_id, kind, passed, now):
     next_index = run['step_index'] + (1 if passed else 0)
     completed = passed and next_index == len(json.loads(run['steps_json']))
     status = 'approved' if completed else 'reviewing' if passed else 'rejected'
-    connection.execute('UPDATE file_review_runs SET step_index = ?, status = ? WHERE submission_id = ?',
+    connection.execute('UPDATE audit_runs SET step_index = ?, status = ? WHERE submission_id = ?',
                        (next_index, 'completed' if completed else 'active' if passed else 'rejected', submission_id))
     connection.execute('UPDATE node_submissions SET status = ? WHERE id = ?', (status, submission_id))
     connection.execute('UPDATE node_instances SET status = ?, approved_at = ? WHERE id = ?',
                        (status, now if completed else None, row['id']))
     if not passed:
-        connection.execute("UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ? WHERE submission_id = ? AND status = 'pending'", (now, submission_id))
         connection.execute('''UPDATE audit_jobs SET status = 'cancelled', cancellation_reason = 'manual_rejected', finished_at = ?, updated_at = ? WHERE submission_id = ? AND status = 'pending' ''', (now, now, submission_id))
     if completed or not passed:
         from app.repositories.flow_runtime_state import advance_downstream, complete_flow_if_ready, version_config
@@ -57,7 +56,7 @@ def finish_step(connection, submission_id, kind, passed, now):
 
 
 def can_amend_review(connection, submission_id, status):
-    run = connection.execute('SELECT * FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+    run = connection.execute('SELECT * FROM audit_runs WHERE submission_id = ?', (submission_id,)).fetchone()
     if not run or status not in {'approved', 'rejected'}:
         return False
     steps = json.loads(run['steps_json'])
@@ -80,7 +79,7 @@ def file_review_evidence(connection, instance_id, config, node_key):
               'submittedAt': row['submitted_at'] if submission_id else None,
               'submission': json.loads(row['payload_snapshot']) if submission_id else {},
               'files': [dict(file) for file in files]}
-    run = connection.execute('SELECT step_index, steps_json, status FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+    run = connection.execute('SELECT step_index, steps_json, status FROM audit_runs WHERE submission_id = ?', (submission_id,)).fetchone()
     evidence = {'nodeKey': node_key, 'sources': [source]}
     if structured_steps(node) and run:
         evidence['reviewStepIndex'] = min(run['step_index'], len(json.loads(run['steps_json'])) - 1)
@@ -126,8 +125,8 @@ def file_review_detail(connection, row, config, node, status):
             reference_files.append({**dict(asset), 'label': label})
     prior_ai = []
     if submission_id:
-        for task in connection.execute('''SELECT step_index, snapshot_json, result_json FROM file_review_ai_tasks
-            WHERE submission_id = ? AND status = 'succeeded' ORDER BY step_index''', (submission_id,)):
+        for task in connection.execute('''SELECT step_index, snapshot_json, result_json FROM audit_jobs
+            WHERE submission_id = ? AND step_index IS NOT NULL AND status = 'succeeded' ORDER BY step_index''', (submission_id,)):
             result = json.loads(task['result_json'])
             snapshot = json.loads(task['snapshot_json'])
             prior_ai.append({'step': task['step_index'] + 1, 'scriptName': snapshot.get('scriptName', 'AI 审核'),
@@ -169,13 +168,8 @@ def decide_file_review(connection, row, config, node, status, teacher_id, eviden
             from app.repositories.manual_review_state import invalidate_nodes
             affected = reachable_successors(config, {row['node_key']})
             invalidate_nodes(connection, row['flow_instance_id'], config, affected, now)
-            for key in affected:
-                connection.execute('''UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ?
-                    WHERE status IN ('pending', 'running') AND submission_id IN
-                    (SELECT s.id FROM node_submissions s JOIN node_instances n ON n.id = s.node_instance_id
-                     WHERE n.flow_instance_id = ? AND n.node_key = ?)''', (now, row['flow_instance_id'], key))
-        run = connection.execute('SELECT steps_json FROM file_review_runs WHERE submission_id = ?', (submission_id,)).fetchone()
-        connection.execute("UPDATE file_review_runs SET status = 'active', step_index = ? WHERE submission_id = ?", (len(json.loads(run['steps_json'])) - 1, submission_id))
+        run = connection.execute('SELECT steps_json FROM audit_runs WHERE submission_id = ?', (submission_id,)).fetchone()
+        connection.execute("UPDATE audit_runs SET status = 'active', step_index = ? WHERE submission_id = ?", (len(json.loads(run['steps_json'])) - 1, submission_id))
         connection.execute("UPDATE node_instances SET status = 'reviewing', approved_at = NULL WHERE id = ?", (row['id'],))
     finish_step(connection, submission_id, 'manual', passed, now)
     return connection.execute('SELECT status FROM node_instances WHERE id = ?', (row['id'],)).fetchone()['status'] == 'approved'

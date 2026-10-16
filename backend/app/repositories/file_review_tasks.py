@@ -1,18 +1,16 @@
-"""Durable per-step AI tasks; reuse the script executor and its isolation contract."""
-import json
-import logging
-import time
-import uuid
-
-from app.core.database import get_connection
-from app.services.security import utc_now_iso
-
-logger = logging.getLogger(__name__)
+"""Enqueue structured review steps in the shared audit job queue."""
+from app.repositories.audit_jobs import create_audit_job
+from app.repositories.audit_policies import policy_hash
+from app.repositories.node_configuration import node_metadata
 
 
 def enqueue_steps(connection, submission_id, node, now):
     from app.services.audit_script_catalog import find_audit_script
     from app.services.audit_script_parameters import default_script_settings, validate_script_params, validate_script_settings
+    context = connection.execute('''SELECT n.id AS node_instance_id, n.node_key, v.flow_id
+        FROM node_submissions s JOIN node_instances n ON n.id = s.node_instance_id
+        JOIN flow_instances i ON i.id = n.flow_instance_id
+        JOIN flow_versions v ON v.id = i.flow_version_id WHERE s.id = ?''', (submission_id,)).fetchone()
     for index, step in enumerate(node['fileReviewSteps']):
         if step['kind'] == 'manual':
             continue
@@ -23,138 +21,10 @@ def enqueue_steps(connection, submission_id, node, now):
         snapshot = {**step, 'scriptName': record.name, 'generation': state['generation'], 'hash': state['content_hash'],
                     'params': validate_script_params(record.config, step.get('auditScriptParams') or {}),
                     'settings': validate_script_settings(record.config, default_script_settings(record.config))}
-        connection.execute('''INSERT INTO file_review_ai_tasks
-            (id, submission_id, step_index, snapshot_json, status, created_at)
-            VALUES (?, ?, ?, ?, 'pending', ?)''',
-            (str(uuid.uuid4()), submission_id, index, json.dumps(snapshot, ensure_ascii=False), now))
-
-
-def recover_tasks():
-    with get_connection() as connection:
-        connection.execute("UPDATE file_review_ai_tasks SET status = 'pending' WHERE status = 'running'")
-
-
-def run_next_task(stopping=None):
-    from app.services.audit_script_executor import AuditMaterial, AuditScriptExecutionCancelled, execute_audit_script
-    from app.services.audit_script_runtime import resolve_audit_script
-    with get_connection() as connection:
-        connection.execute('BEGIN IMMEDIATE')
-        task = connection.execute('''SELECT t.*, n.id AS node_instance_id, n.node_key, n.flow_instance_id,
-                v.flow_id, v.id AS flow_version_id, s.attempt_no
-            FROM file_review_ai_tasks t
-            JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
-            JOIN node_submissions s ON s.id = t.submission_id
-            JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
-            JOIN flow_instances i ON i.id = n.flow_instance_id
-            JOIN flow_versions v ON v.id = i.flow_version_id
-            LEFT JOIN audit_script_runtime_states script
-              ON script.script_id = json_extract(t.snapshot_json, '$.auditScriptId')
-            WHERE t.status = 'pending' AND n.status = 'reviewing'
-              AND (script.script_id IS NULL OR (
-                (SELECT COUNT(*) FROM file_review_ai_tasks active
-                 WHERE active.status = 'running'
-                   AND json_extract(active.snapshot_json, '$.auditScriptId') = script.script_id)
-                + (SELECT COUNT(*) FROM audit_jobs active
-                   WHERE active.status = 'running' AND active.script_id = script.script_id)
-                < script.max_concurrency
-              ))
-              AND (v.status != 'preview' OR EXISTS (SELECT 1 FROM flow_preview_sessions p
-                WHERE p.flow_instance_id = i.id AND p.status = 'active' AND p.expires_at > ?))
-            ORDER BY t.created_at, t.step_index LIMIT 1''', (utc_now_iso(),)).fetchone()
-        if task is None:
-            return False
-        task = dict(task)
-        snapshot = json.loads(task['snapshot_json'])
-        from app.repositories.flow_runtime_state import version_config
-        from app.services.audit_script_catalog import find_audit_script
-        from app.services.audit_script_parameters import validate_script_params
-        config = version_config(connection, task['flow_version_id'])
-        node = next(n for n in config['nodes'] if n['id'] == task['node_key'])
-        if node.get('kind') in {'file', 'confirmation'}:
-            step = node['fileReviewSteps'][task['step_index']]
-            record = find_audit_script(snapshot['auditScriptId'])
-            snapshot['params'] = validate_script_params(record.config, step.get('auditScriptParams') or {})
-            snapshot['auditScriptParams'] = snapshot['params']
-            snapshot['auditModelCardId'] = step.get('auditModelCardId')
-            connection.execute('UPDATE file_review_ai_tasks SET snapshot_json = ? WHERE id = ?',
-                               (json.dumps(snapshot, ensure_ascii=False), task['id']))
-            from app.repositories.audit_jobs import _record_execution
-            _record_execution(connection, 'file_review_task', task['id'],
-                              {'submissionId': task['submission_id'], 'stepIndex': task['step_index'],
-                               'attempt': task['attempt_count'] + 1, 'snapshot': snapshot}, utc_now_iso())
-        connection.execute("UPDATE file_review_ai_tasks SET status = 'running', attempt_count = attempt_count + 1 WHERE id = ?", (task['id'],))
-        files = connection.execute('SELECT * FROM student_uploaded_files WHERE submission_id = ? ORDER BY display_order, created_at', (task['submission_id'],)).fetchall()
-        materials = [AuditMaterial(id=f['id'], name=f['original_name'], storage_key=f['storage_key'], content_type=f['content_type'], size=f['size_bytes'], sha256=f['sha256'], page_count=f['page_count']) for f in files]
-    last_cancellation_check = 0.0
-
-    def cancelled():
-        nonlocal last_cancellation_check
-        if stopping is not None and stopping():
-            return True
-        now_monotonic = time.monotonic()
-        if now_monotonic - last_cancellation_check < 1:
-            return False
-        last_cancellation_check = now_monotonic
-        with get_connection() as connection:
-            if not _task_is_active(connection, task['id'], utc_now_iso()):
-                return True
-            state = connection.execute('SELECT generation, content_hash, status FROM audit_script_runtime_states WHERE script_id = ?',
-                                       (snapshot['auditScriptId'],)).fetchone()
-            return not state or state['status'] != 'ready' or state['generation'] != snapshot['generation'] or state['content_hash'] != snapshot['hash']
-
-    result = None
-    try:
-        descriptor = resolve_audit_script(snapshot['auditScriptId'], snapshot['generation'], snapshot['hash'])
-        result = execute_audit_script(descriptor, materials, {
-            'flowId': task['flow_id'], 'flowVersionId': task['flow_version_id'],
-            'flowInstanceId': task['flow_instance_id'], 'nodeKey': task['node_key'],
-            'nodeInstanceId': task['node_instance_id'], 'submissionId': task['submission_id'],
-            'attemptNo': task['attempt_no'], 'scriptParams': snapshot['params'], 'scriptSettings': snapshot['settings'],
-            'stepModelCardId': snapshot.get('auditModelCardId'),
-        }, cancelled=cancelled)
-    except AuditScriptExecutionCancelled:
-        if stopping is not None and stopping():
-            with get_connection() as connection:
-                connection.execute("UPDATE file_review_ai_tasks SET status = 'pending' WHERE id = ? AND status = 'running'", (task['id'],))
-            return True
-    except Exception as exc:
-        logger.warning('File review task %s failed: %s', task['id'], type(exc).__name__)
-    now = utc_now_iso()
-    with get_connection() as connection:
-        connection.execute('BEGIN IMMEDIATE')
-        current = _task_is_active(connection, task['id'], now)
-        if not current:
-            connection.execute("UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ? WHERE id = ?", (now, task['id']))
-            return True
-        state = connection.execute('SELECT generation, content_hash, status FROM audit_script_runtime_states WHERE script_id = ?',
-                                   (snapshot['auditScriptId'],)).fetchone()
-        if not state or state['status'] != 'ready' or state['generation'] != snapshot['generation'] or state['content_hash'] != snapshot['hash']:
-            connection.execute("UPDATE file_review_ai_tasks SET status = 'cancelled', finished_at = ? WHERE submission_id = ? AND status IN ('pending', 'running')", (now, task['submission_id']))
-            connection.execute("UPDATE file_review_runs SET status = 'cancelled' WHERE submission_id = ?", (task['submission_id'],))
-            connection.execute("UPDATE node_submissions SET status = 'cancelled' WHERE id = ?", (task['submission_id'],))
-            connection.execute("UPDATE node_instances SET status = 'available' WHERE id = ?", (task['node_instance_id'],))
-            return True
-        if node.get('kind') in {'file', 'confirmation'}:
-            from app.repositories.audit_jobs import _record_execution
-            _record_execution(connection, 'file_review_task', task['id'],
-                              {'attempt': task['attempt_count'] + 1, 'result': result,
-                               'status': 'failed' if result is None else 'succeeded'}, now)
-        if result is None:
-            connection.execute("UPDATE file_review_ai_tasks SET status = 'failed', finished_at = ? WHERE id = ?", (now, task['id']))
-            connection.execute("UPDATE node_instances SET status = 'audit_error' WHERE id = ?", (task['node_instance_id'],))
-            connection.execute("UPDATE node_submissions SET status = 'audit_error' WHERE id = ?", (task['submission_id'],))
-        else:
-            connection.execute("UPDATE file_review_ai_tasks SET status = 'succeeded', result_json = ?, finished_at = ? WHERE id = ?", (json.dumps(result, ensure_ascii=False), now, task['id']))
-            from app.repositories.file_reviews import finish_step
-            finish_step(connection, task['submission_id'], 'ai', result['passed'], now)
-    return True
-
-
-def _task_is_active(connection, task_id, now):
-    return connection.execute('''SELECT t.id FROM file_review_ai_tasks t
-            JOIN file_review_runs r ON r.submission_id = t.submission_id AND r.step_index = t.step_index AND r.status = 'active'
-            JOIN node_submissions s ON s.id = t.submission_id
-            JOIN node_instances n ON n.id = s.node_instance_id AND n.attempt_no = s.attempt_no
-            JOIN flow_instances i ON i.id = n.flow_instance_id JOIN flow_versions v ON v.id = i.flow_version_id
-            WHERE t.id = ? AND t.status = 'running' AND n.status = 'reviewing'
-            AND (v.status != 'preview' OR EXISTS (SELECT 1 FROM flow_preview_sessions p WHERE p.flow_instance_id = i.id AND p.status = 'active' AND p.expires_at > ?))''', (task_id, now)).fetchone()
+        create_audit_job(connection, submission_id=submission_id, node_instance_id=context['node_instance_id'],
+                         flow_id=context['flow_id'], node_key=context['node_key'], script_id=record.id,
+                         script_generation=state['generation'], script_content_hash=state['content_hash'],
+                         policy_generation=node_metadata(node, 'review')['generation'],
+                         policy_hash=policy_hash(record.id, snapshot['params'], step.get('auditModelCardId')),
+                         script_params=snapshot['params'], script_settings=snapshot['settings'],
+                         now=now, step_index=index, snapshot=snapshot)

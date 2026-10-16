@@ -159,7 +159,7 @@ def get_node_submission_export(
             LEFT JOIN node_submissions s
               ON s.node_instance_id = n.id AND s.attempt_no = n.attempt_no
              AND s.status IN (?, ?, ?, ?)
-            LEFT JOIN audit_jobs j ON j.submission_id = s.id
+            LEFT JOIN audit_jobs j ON j.submission_id = s.id AND j.step_index IS NULL
             LEFT JOIN node_template_download_events e
               ON e.node_instance_id = n.id
              AND e.template_asset_id = ?
