@@ -9,7 +9,7 @@ from app.core.database import get_connection
 from app.services.security import utc_now_iso
 
 # Order is child-first, including the RESTRICT references between assets/versions.
-ORDER = ['audit_manual_feedback_context', 'audit_manual_node_rejections', 'audit_manual_source_reviews',
+ORDER = ['audit_manual_feedback_context', 'audit_manual_node_rejections',
          'audit_manual_feedback_drafts', 'audit_manual_feedback', 'audit_manual_feedback_files', 'audit_manual_reviews',
          'audit_jobs', 'audit_runs',
          'student_uploaded_files', 'node_template_download_events', 'node_submissions', 'node_drafts',
@@ -58,7 +58,7 @@ def scope(db, kind, account_id):
     children('node_submissions', 'node_instance_id', 'node_instances')
     for table in ['audit_manual_reviews', 'audit_manual_feedback_files', 'audit_manual_feedback', 'node_deadline_overrides']:
         children(table, 'flow_instance_id', 'flow_instances')
-    for table in ['audit_manual_source_reviews', 'audit_manual_feedback_drafts', 'audit_manual_node_rejections', 'node_drafts', 'student_uploaded_files', 'node_template_download_events', 'audit_jobs']:
+    for table in ['audit_manual_feedback_drafts', 'audit_manual_node_rejections', 'node_drafts', 'student_uploaded_files', 'node_template_download_events', 'audit_jobs']:
         children(table, 'node_instance_id', 'node_instances')
     for table in ['audit_runs', 'audit_manual_feedback_context']:
         children(table, 'submission_id', 'node_submissions')
@@ -84,7 +84,6 @@ def scope(db, kind, account_id):
                 'audit_manual_feedback_drafts': ('manual_feedback_drafts',),
                 'audit_manual_feedback_files': ('manual_feedback_files',),
                 'audit_manual_node_rejections': ('manual_node_rejections',),
-                'audit_manual_source_reviews': ('manual_source_reviews',),
             }.get(table, ())
             for legacy_table in legacy_tables:
                 select('audit_logs', 'entity_type = ? AND entity_id = ?', ('database:' + legacy_table, key))

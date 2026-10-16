@@ -10,7 +10,6 @@ MANUAL_AUDIT_TABLE_RENAMES = {
     'manual_feedback_drafts': 'audit_manual_feedback_drafts',
     'manual_feedback_files': 'audit_manual_feedback_files',
     'manual_node_rejections': 'audit_manual_node_rejections',
-    'manual_source_reviews': 'audit_manual_source_reviews',
     'audit_feedback_context': 'audit_manual_feedback_context',
 }
 
@@ -71,6 +70,20 @@ def rename_manual_audit_tables(connection):
         raise
     finally:
         connection.execute('RELEASE audit_manual_rename')
+
+
+def remove_manual_source_reviews(connection):
+    migration_id = '20261016_remove_manual_source_reviews'
+    connection.execute('BEGIN IMMEDIATE')
+    if connection.execute('SELECT 1 FROM schema_migrations WHERE id = ?', (migration_id,)).fetchone():
+        return
+    for table in ('manual_source_reviews', 'audit_manual_source_reviews'):
+        exists = connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)).fetchone()
+        if exists and connection.execute(f'SELECT 1 FROM {table} LIMIT 1').fetchone():
+            raise ValueError('旧材料来源审核表仍有历史记录，删表已取消')
+        connection.execute(f'DROP TABLE IF EXISTS {table}')
+    connection.execute('INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)',
+                       (migration_id, datetime.now(UTC).isoformat()))
 
 
 def migrate_audit_jobs(connection):

@@ -1,8 +1,8 @@
 # 数据库表现状说明（按表名前缀）
 
-核对时间：2026-10-16 10:15:40（Asia/Shanghai）。
+核对时间：2026-10-16 11:27:00（Asia/Shanghai）。
 
-**当前本地数据库共有 39 张非 SQLite 内部表，本文逐表覆盖全部 39 张。** 按表名前缀整理为 11 组，其中 `flows` 与 `flow_*` 共 7 张，`node_*` 共 6 张，其余前缀共 26 张，没有独立的 `workflow_*` 表。
+**当前本地数据库共有 38 张非 SQLite 内部表，本文逐表覆盖全部 38 张。** 按表名前缀整理为 11 组，其中 `flows` 与 `flow_*` 共 7 张，`node_*` 共 6 张，其余前缀共 25 张，没有独立的 `workflow_*` 表。
 
 本文以当前源码和 `backend/storage/app.db` 为准。结构、约束及索引以 SQLite 实际定义为准，覆盖基础建表和初始化增量迁移。标准答案保存在流程节点配置中，成绩在读取时计算，不设答题卡专用表。
 
@@ -14,7 +14,7 @@
 
 | 表名前缀 | 表数 | 保存的主要内容 |
 | --- | ---: | --- |
-| `audit_*` | 12 | 审核流程、自动任务、人工审核与反馈、运行管理 |
+| `audit_*` | 11 | 审核流程、自动任务、人工审核与反馈、运行管理 |
 | `flow_*` 与 `flows` | 7 | 流程定义、版本、资源、准入与实例 |
 | `material_*` | 1 | 材料导出任务 |
 | `node_*` | 6 | 节点进度、输入、返工、延期与下载 |
@@ -25,13 +25,13 @@
 | `student_*` | 3 | 学生账号、会话与上传文件 |
 | `teacher_*` | 5 | 教师账号、会话、邀请、个人文件与常用评语 |
 | `user_*` | 1 | 账号删除后的文件清理任务 |
-| **合计** | **39** | 每张表只归入一个前缀分组 |
+| **合计** | **38** | 每张表只归入一个前缀分组 |
 
 相关代码：[database.py](../backend/app/core/database.py)、[audit_migration.py](../backend/app/core/audit_migration.py)。
 
 ## 2. 按表名前缀说明职责与关联
 
-### 2.1 `audit_*`：审核流程、自动任务、人工审核与反馈、运行管理（12 张）
+### 2.1 `audit_*`：审核流程、自动任务、人工审核与反馈、运行管理（11 张）
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
@@ -43,7 +43,6 @@
 | `audit_manual_feedback` | 181 | 一份正式发布的教师反馈 | 老师发布反馈时，保存评语、选中的批改文件、对应材料和发布时间。学生读取的是已发布且允许查看的反馈，不是老师仍在编辑的暂存内容。 |
 | `audit_manual_node_rejections` | 0 | 一条针对学生节点某次尝试的人工退回记录 | 用于记录某学生某次提交被老师退回，包括退回原因、相关反馈和操作教师。当前表为空，仍有读取旧退回信息及迁移、清理代码，没有常规新增入口。 |
 | `audit_manual_reviews` | 184 | 教师对一组材料作出的一次正式审核 | 老师正式作出审核决定时，保存审核了哪个学生的哪个节点、当时看到哪些材料、结论和评语。材料内容依据也会保存，便于分清老师审核的是哪次提交。 |
-| `audit_manual_source_reviews` | 0 | 一条按材料来源节点记录的人工审核记录 | 用于保存老师对某份材料来源节点的审核意见，例如注明审核的是哪个上游节点的材料。当前表为空，只保留旧记录读取、版本迁移和账号删除时的处理代码，没有常规新增入口。 |
 | `audit_model_cards` | 7 | 某教师的一张模型连接卡 | 保存老师配置的大模型接口地址、模型名称、加密密钥及相关选项。节点只记下选用了哪张模型卡；实际调用模型时再读取这张卡，不在每个节点重复保存密钥。 |
 | `audit_runs` | 213 | 一次提交的顺序审核执行进度 | 某次提交需要按顺序完成多个审核步骤时，记录步骤列表、当前走到哪一步，以及是否完成或被退回。例如 AI 检查通过后，继续等待教师审核。 |
 | `audit_script_runtime_states` | 8 | 一个审核脚本的当前运行状态 | 记录每个审核脚本当前能否执行、是否正在更新、代码和配置是否变化，以及最多同时运行几个任务。完整脚本放在仓库文件中，这张表只保存运行管理信息。 |
@@ -105,7 +104,7 @@
 
 | 表名 | 行数 | 一条记录表示什么 | 保存什么、什么时候用 |
 | --- | ---: | --- | --- |
-| `schema_migrations` | 24 | 一项已执行的数据库迁移标记 | 记录哪些数据库升级已经完成，以及完成时间。服务下次启动时先查这张表，避免把同一次升级重复执行；它不保存老师或学生的业务内容。 |
+| `schema_migrations` | 25 | 一项已执行的数据库迁移标记 | 记录哪些数据库升级已经完成，以及完成时间。服务下次启动时先查这张表，避免把同一次升级重复执行；它不保存老师或学生的业务内容。 |
 
 相关代码：[core/database.py](../backend/app/core/database.py)、[core/answer_sheet_migration.py](../backend/app/core/answer_sheet_migration.py)、[core/flow_asset_reference_migration.py](../backend/app/core/flow_asset_reference_migration.py)、[core/flow_consolidation.py](../backend/app/core/flow_consolidation.py)、[core/node_configuration_migration.py](../backend/app/core/node_configuration_migration.py)、[core/flow_template_migration.py](../backend/app/core/flow_template_migration.py)。
 
@@ -157,20 +156,19 @@
 
 | 表 | 当前保留情况 |
 | --- | --- |
-| `audit_manual_source_reviews` | 0 条；保留版本迁移读取与清理依赖，未发现常规新增入口 |
 | `audit_manual_node_rejections` | 0 条；保留退回信息读取、版本迁移及清理依赖，未发现常规新增入口 |
 
 相关代码：[workflows.py](../backend/app/repositories/workflows.py)、[node_models.py](../backend/app/services/node_models.py)、[manual_review_state.py](../backend/app/repositories/manual_review_state.py)、[answer_sheet_grades.py](../backend/app/repositories/answer_sheet_grades.py)、[user_deletion.py](../backend/app/repositories/user_deletion.py)。
 
 数据库外键只覆盖显式声明的关系。JSON 中的资源 ID、节点 ID，以及 `flows.owner_id`、部分操作人和通用审计实体标识由应用维护；外键检查通过不能证明所有 JSON 引用或业务权限都有效。
 
-## 5. 全表关系图（39 张）
+## 5. 全表关系图（38 张）
 
 每张表独立成节点，按名称前缀分组。实线由被引用表指向外键所在表；虚线为主要应用层关联。黄色节点为兼容表，迁移标记与删除清理任务独立列出。
 
 ```mermaid
 flowchart LR
-    subgraph P1["audit_*（12 张）"]
+    subgraph P1["audit_*（11 张）"]
         audit_jobs["audit_jobs"]
         audit_logs["audit_logs"]
         audit_manual_feedback["audit_manual_feedback"]
@@ -179,7 +177,6 @@ flowchart LR
         audit_manual_feedback_files["audit_manual_feedback_files"]
         audit_manual_node_rejections["audit_manual_node_rejections"]
         audit_manual_reviews["audit_manual_reviews"]
-        audit_manual_source_reviews["audit_manual_source_reviews"]
         audit_model_cards["audit_model_cards"]
         audit_runs["audit_runs"]
         audit_script_runtime_states["audit_script_runtime_states"]
@@ -255,7 +252,6 @@ flowchart LR
     node_instances --> audit_jobs
     node_instances --> audit_manual_feedback_drafts
     node_instances --> audit_manual_node_rejections
-    node_instances --> audit_manual_source_reviews
     node_instances --> node_drafts
     node_instances --> node_submissions
     node_instances --> node_template_download_events
@@ -302,7 +298,7 @@ flowchart LR
 
     classDef legacy fill:#fff5dc,stroke:#b88927,color:#513d17
     classDef standalone fill:#f1f4f8,stroke:#8896a8,color:#344154
-    class audit_manual_source_reviews,audit_manual_node_rejections legacy
+    class audit_manual_node_rejections legacy
     class schema_migrations,user_deletion_jobs standalone
 ```
 

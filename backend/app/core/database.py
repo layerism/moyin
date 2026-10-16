@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core.config import settings
-from app.core.audit_migration import AUDIT_JOBS_SCHEMA, rename_audit_tables, rename_manual_audit_tables, migrate_audit_jobs
+from app.core.audit_migration import AUDIT_JOBS_SCHEMA, rename_audit_tables, rename_manual_audit_tables, migrate_audit_jobs, remove_manual_source_reviews
 
 
 SCHEMA = """
@@ -273,16 +273,6 @@ CREATE TABLE IF NOT EXISTS audit_manual_reviews (
 );
 CREATE INDEX IF NOT EXISTS idx_audit_manual_reviews_node ON audit_manual_reviews(node_instance_id, created_at);
 
-CREATE TABLE IF NOT EXISTS audit_manual_source_reviews (
-    node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
-    evidence_hash TEXT NOT NULL,
-    source_node_key TEXT NOT NULL,
-    teacher_id INTEGER NOT NULL,
-    remark TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    PRIMARY KEY (node_instance_id, evidence_hash, source_node_key)
-);
-
 CREATE TABLE IF NOT EXISTS audit_manual_feedback_files (
     id TEXT PRIMARY KEY,
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
@@ -511,6 +501,8 @@ def initialize_database() -> None:
         migrate_flow_asset_references(connection)
     with get_connection() as connection:
         migrate_audit_jobs(connection)
+    with get_connection() as connection:
+        remove_manual_source_reviews(connection)
 
 
 def _apply_audit_model_bindings_removal(connection: sqlite3.Connection) -> None:
