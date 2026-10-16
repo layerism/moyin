@@ -633,10 +633,17 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
   for (const paragraph of Array.from(body.querySelectorAll<HTMLElement>("section.docx p"))) {
     const style = getComputedStyle(paragraph);
     const line = Number(style.getPropertyValue("--docx-line-value"));
-    if (!(line > 0)) continue;
     const rule = style.getPropertyValue("--docx-line-rule").trim() || "auto";
+    const grid = Number(style.getPropertyValue("--docx-line-grid"));
+    const useGrid = grid > 0 && style.getPropertyValue("--docx-snap-to-grid").trim() !== "0"
+      && (!paragraph.closest("td,th") || style.getPropertyValue("--docx-table-grid").trim() === "1");
+    if (!(line > 0) && !(rule === "auto" && useGrid)) continue;
     if (rule === "auto") {
-      paragraph.style.lineHeight = String(line / 240);
+      // --docx-line-grid is the section's linePitch in CSS pixels. For aligned
+      // paragraphs it supplies the single-line pitch, rather than the font size.
+      // An omitted spacing value uses single spacing after style inheritance.
+      const multiple = line > 0 ? line / 240 : 1;
+      paragraph.style.lineHeight = useGrid ? `${grid * multiple}px` : String(multiple);
       paragraph.style.minHeight = "1lh";
     } else if (rule === "exact") {
       paragraph.style.lineHeight = `${line / 20}pt`;
@@ -673,9 +680,9 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
     paragraph.dataset.docxKeepLines = entry.keepLines;
     paragraph.dataset.docxKeepNext = entry.keepNext;
     paragraph.dataset.docxWidow = entry.widow;
-    // Grid alignment also depends on baseline/font metrics and compatibility flags.
-    // Retain the library layout until that geometry is supported, rather than
-    // rounding every line upwards and silently changing pagination.
+    // Grid-based automatic line pitch is applied above. Exact baseline placement
+    // with mixed fonts, oversized runs and minimum spacing still needs additional
+    // geometry; retain the warning rather than claim full Word layout parity.
     if (entry.grid > 0 && entry.snap !== "0" && entry.rule !== "exact"
       && (!paragraph.closest("td,th") || entry.tableGrid === "1")) {
       warnings.add("此文档使用文档网格；网格基线对齐尚不能保证与 Word 一致。");
