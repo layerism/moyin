@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1040" viewBox="0 0 1200 1040" role="img" aria-labelledby="title desc">
+<title id="title">配置、模板与学生数据的核心表关系</title>
+<desc id="desc">流程关联版本、资源与名单，版本关联学生实例，实例关联节点，节点关联暂存与提交，提交关联原件、审核和反馈。流程中的标准答案与学生提交用于实时计算成绩。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="#60748e"/></marker></defs>
+<style>text{font-family:"Noto Sans CJK SC","Microsoft YaHei",sans-serif;fill:#24344b}.name{font-size:19px;font-weight:600}.sub{font-size:17px;fill:#53647b}.edge{fill:none;stroke:#60748e;stroke-width:2;marker-end:url(#arrow)}</style>
+<rect width="1200" height="1040" fill="#f7f9fc"/>
+<text x="40" y="38" class="name" text-anchor="start">核心表关系</text>
+<rect x="440" y="70" width="320" height="80" rx="10" fill="#eaf2ff" stroke="#a8b9cd"/>
+<text x="600" y="101" class="name" text-anchor="middle">flows</text>
+<text x="600" y="129" class="sub" text-anchor="middle">普通流程 / 固定模板 · 节点配置</text>
+<rect x="440" y="200" width="320" height="80" rx="10" fill="#eaf2ff" stroke="#a8b9cd"/>
+<text x="600" y="231" class="name" text-anchor="middle">flow_versions</text>
+<text x="600" y="259" class="sub" text-anchor="middle">发布 / 预览快照</text>
+<rect x="440" y="330" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="600" y="361" class="name" text-anchor="middle">flow_instances</text>
+<text x="600" y="389" class="sub" text-anchor="middle">学生在某版本下的流程实例</text>
+<rect x="440" y="460" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="600" y="491" class="name" text-anchor="middle">node_instances</text>
+<text x="600" y="519" class="sub" text-anchor="middle">学生节点状态</text>
+<rect x="440" y="590" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="600" y="621" class="name" text-anchor="middle">node_submissions</text>
+<text x="600" y="649" class="sub" text-anchor="middle">正式提交</text>
+<rect x="40" y="70" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="200" y="101" class="name" text-anchor="middle">flow_assets</text>
+<text x="200" y="129" class="sub" text-anchor="middle">教师资源</text>
+<rect x="40" y="200" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="200" y="231" class="name" text-anchor="middle">flow_roster_entries</text>
+<text x="200" y="259" class="sub" text-anchor="middle">流程准入名单</text>
+<rect x="40" y="330" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="200" y="361" class="name" text-anchor="middle">student_accounts</text>
+<text x="200" y="389" class="sub" text-anchor="middle">学生账号</text>
+<rect x="40" y="460" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="200" y="491" class="name" text-anchor="middle">node_drafts</text>
+<text x="200" y="519" class="sub" text-anchor="middle">暂存输入</text>
+<rect x="40" y="590" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="200" y="621" class="name" text-anchor="middle">student_uploaded_files</text>
+<text x="200" y="649" class="sub" text-anchor="middle">学生原件</text>
+<rect x="840" y="590" width="320" height="80" rx="10" fill="#eaf7f0" stroke="#a8b9cd"/>
+<text x="1000" y="621" class="name" text-anchor="middle">实时成绩</text>
+<text x="1000" y="649" class="sub" text-anchor="middle">当前标准答案 + 正式作答</text>
+<path d="M600 150V200" class="edge"/>
+<path d="M600 280V330" class="edge"/>
+<path d="M600 410V460" class="edge"/>
+<path d="M600 540V590" class="edge"/>
+<path d="M440 110H360" class="edge"/>
+<path d="M440 135H400V240H360" class="edge"/>
+<path d="M360 370H440" class="edge"/>
+<path d="M440 500H360" class="edge"/>
+<path d="M440 630H360" class="edge"/>
+<path d="M760 630H840" class="edge" stroke-dasharray="7 5"/>
+<path d="M760 110H1000V590" class="edge" stroke-dasharray="7 5"/>
+<text x="1070" y="345" class="sub" text-anchor="middle">当前标准答案</text>
+<rect x="410" y="730" width="380" height="116" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="600" y="760" class="name" text-anchor="middle">audit_jobs</text>
+<text x="600" y="788" class="sub" text-anchor="middle">file_review_runs / file_review_ai_tasks</text>
+<text x="600" y="818" class="sub" text-anchor="middle">单脚本 / 多步骤审核</text>
+<path d="M600 670V730" class="edge"/>
+<rect x="440" y="900" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="600" y="931" class="name" style="font-size:17px" text-anchor="middle">manual_reviews / manual_feedback</text>
+<text x="600" y="959" class="sub" text-anchor="middle">人工审核与正式反馈</text>
+<rect x="840" y="900" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
+<text x="1000" y="931" class="name" text-anchor="middle">manual_feedback_files</text>
+<text x="1000" y="959" class="sub" text-anchor="middle">批改稿 / 反馈附件</text>
+<path d="M600 846V900" class="edge"/>
+<path d="M760 940H840" class="edge"/>
+<text x="40" y="1020" class="sub" text-anchor="start">连线表示核心业务关联；虚线表示计算读取。实时成绩不落表，连线不等同于数据库外键。</text>
+</svg>
