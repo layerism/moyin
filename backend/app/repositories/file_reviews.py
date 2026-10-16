@@ -95,7 +95,7 @@ def file_review_evidence(connection, instance_id, config, node_key):
                                          'requirement': original.get('requirement', '')}]}
         legacy_hash = hashlib.sha256(json.dumps(legacy, ensure_ascii=False, sort_keys=True,
                                                 separators=(',', ':')).encode()).hexdigest()
-        draft = connection.execute("""SELECT d.evidence_hash FROM manual_feedback_drafts d
+        draft = connection.execute("""SELECT d.evidence_hash FROM audit_manual_feedback_drafts d
             JOIN node_instances n ON n.id = d.node_instance_id
             WHERE n.flow_instance_id = ? AND n.node_key = ?""", (instance_id, node_key)).fetchone()
         if draft and draft['evidence_hash'] == legacy_hash:
@@ -108,7 +108,7 @@ def file_review_detail(connection, row, config, node, status):
     from app.repositories.manual_feedback import draft_feedback, published_feedback
     evidence, fingerprint = file_review_evidence(connection, row['flow_instance_id'], config, row['node_key'])
     submission_id = evidence['sources'][0]['submissionId']
-    history = connection.execute('''SELECT m.*, a.name AS teacher_name FROM manual_reviews m
+    history = connection.execute('''SELECT m.*, a.name AS teacher_name FROM audit_manual_reviews m
         LEFT JOIN teacher_accounts a ON a.id = m.teacher_id WHERE m.flow_instance_id = ? AND m.node_key = ?
         ORDER BY m.created_at DESC, m.id DESC''', (row['flow_instance_id'], row['node_key'])).fetchall()
     reference_files = []
@@ -156,8 +156,8 @@ def decide_file_review(connection, row, config, node, status, teacher_id, eviden
         raise ManualReviewConflict('本次材料或审核状态已变化，请刷新后重试')
     publish_feedback(connection, row['id'], teacher_id, fingerprint, revision, remark)
     now = utc_now_iso()
-    connection.execute('UPDATE manual_feedback_drafts SET revision = revision + 1 WHERE node_instance_id = ?', (row['id'],))
-    connection.execute('''INSERT INTO manual_reviews
+    connection.execute('UPDATE audit_manual_feedback_drafts SET revision = revision + 1 WHERE node_instance_id = ?', (row['id'],))
+    connection.execute('''INSERT INTO audit_manual_reviews
         (id, flow_instance_id, node_instance_id, node_key, evidence_hash, evidence_snapshot, teacher_id, remark, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
         (str(uuid.uuid4()), row['flow_instance_id'], row['id'], row['node_key'], fingerprint,

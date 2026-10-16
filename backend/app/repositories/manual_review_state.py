@@ -8,7 +8,7 @@ def review_evidence(connection, instance_id, config, node_key):
 
 def current_rejection(connection, node_instance_id):
     return connection.execute(
-        """SELECT r.* FROM manual_node_rejections r JOIN node_instances n ON n.id = r.node_instance_id
+        """SELECT r.* FROM audit_manual_node_rejections r JOIN node_instances n ON n.id = r.node_instance_id
            WHERE r.node_instance_id = ? AND r.attempt_no = n.attempt_no
              AND (n.approved_at IS NULL OR n.approved_at <= r.created_at)
            ORDER BY r.created_at DESC, r.id DESC LIMIT 1""", (node_instance_id,),

@@ -56,10 +56,11 @@
 <text x="600" y="818" class="sub" text-anchor="middle">审核步骤推进 / 自动任务执行</text>
 <path d="M600 670V730" class="edge"/>
 <rect x="440" y="900" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
-<text x="600" y="931" class="name" style="font-size:17px" text-anchor="middle">manual_reviews / manual_feedback</text>
-<text x="600" y="959" class="sub" text-anchor="middle">人工审核与正式反馈</text>
+<text x="600" y="922" class="name" style="font-size:17px" text-anchor="middle">audit_manual_reviews</text>
+<text x="600" y="946" class="name" style="font-size:17px" text-anchor="middle">audit_manual_feedback</text>
+<text x="600" y="970" class="sub" text-anchor="middle">人工审核与正式反馈</text>
 <rect x="840" y="900" width="320" height="80" rx="10" fill="#fff" stroke="#a8b9cd"/>
-<text x="1000" y="931" class="name" text-anchor="middle">manual_feedback_files</text>
+<text x="1000" y="931" class="name" style="font-size:17px" text-anchor="middle">audit_manual_feedback_files</text>
 <text x="1000" y="959" class="sub" text-anchor="middle">批改稿 / 反馈附件</text>
 <path d="M600 846V900" class="edge"/>
 <path d="M760 940H840" class="edge"/>

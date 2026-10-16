@@ -4,6 +4,16 @@ from datetime import UTC, datetime
 
 MIGRATION_ID = '20261016_unified_audit_jobs'
 
+MANUAL_AUDIT_TABLE_RENAMES = {
+    'manual_reviews': 'audit_manual_reviews',
+    'manual_feedback': 'audit_manual_feedback',
+    'manual_feedback_drafts': 'audit_manual_feedback_drafts',
+    'manual_feedback_files': 'audit_manual_feedback_files',
+    'manual_node_rejections': 'audit_manual_node_rejections',
+    'manual_source_reviews': 'audit_manual_source_reviews',
+    'audit_feedback_context': 'audit_manual_feedback_context',
+}
+
 AUDIT_JOBS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS audit_jobs (
     id TEXT PRIMARY KEY,
@@ -37,9 +47,30 @@ CREATE TABLE IF NOT EXISTS audit_jobs (
 
 def rename_audit_tables(connection):
     for old, new in [('file_review_runs', 'audit_runs'),
-                     ('file_review_feedback_context', 'audit_feedback_context')]:
+                     ('file_review_feedback_context', 'audit_manual_feedback_context')]:
         if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (old,)).fetchone():
             connection.execute(f'ALTER TABLE {old} RENAME TO {new}')
+
+
+def rename_manual_audit_tables(connection):
+    # Run before SCHEMA; ALTER TABLE preserves records and updates foreign keys.
+    connection.execute('SAVEPOINT audit_manual_rename')
+    try:
+        for old, new in MANUAL_AUDIT_TABLE_RENAMES.items():
+            if connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (old,)).fetchone():
+                connection.execute(f'ALTER TABLE {old} RENAME TO {new}')
+        # SQLite renames autoindexes, but explicitly named indexes retain old names.
+        for old in ('manual_reviews', 'manual_feedback', 'manual_node_rejections'):
+            name = f'idx_{old}_node'
+            index = connection.execute("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?", (name,)).fetchone()
+            if index:
+                connection.execute(f'DROP INDEX {name}')
+                connection.execute(index[0].replace(name, f'idx_audit_{old}_node', 1))
+    except Exception:
+        connection.execute('ROLLBACK TO audit_manual_rename')
+        raise
+    finally:
+        connection.execute('RELEASE audit_manual_rename')
 
 
 def migrate_audit_jobs(connection):

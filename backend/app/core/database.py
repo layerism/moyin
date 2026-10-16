@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core.config import settings
-from app.core.audit_migration import AUDIT_JOBS_SCHEMA, rename_audit_tables, migrate_audit_jobs
+from app.core.audit_migration import AUDIT_JOBS_SCHEMA, rename_audit_tables, rename_manual_audit_tables, migrate_audit_jobs
 
 
 SCHEMA = """
@@ -260,7 +260,7 @@ CREATE TABLE IF NOT EXISTS node_instances (
     UNIQUE(flow_instance_id, node_key)
 );
 
-CREATE TABLE IF NOT EXISTS manual_reviews (
+CREATE TABLE IF NOT EXISTS audit_manual_reviews (
     id TEXT PRIMARY KEY,
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
     node_instance_id TEXT NOT NULL,
@@ -271,9 +271,9 @@ CREATE TABLE IF NOT EXISTS manual_reviews (
     remark TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_manual_reviews_node ON manual_reviews(node_instance_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_manual_reviews_node ON audit_manual_reviews(node_instance_id, created_at);
 
-CREATE TABLE IF NOT EXISTS manual_source_reviews (
+CREATE TABLE IF NOT EXISTS audit_manual_source_reviews (
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
     evidence_hash TEXT NOT NULL,
     source_node_key TEXT NOT NULL,
@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS manual_source_reviews (
     PRIMARY KEY (node_instance_id, evidence_hash, source_node_key)
 );
 
-CREATE TABLE IF NOT EXISTS manual_feedback_files (
+CREATE TABLE IF NOT EXISTS audit_manual_feedback_files (
     id TEXT PRIMARY KEY,
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
     node_instance_id TEXT NOT NULL,
@@ -295,13 +295,13 @@ CREATE TABLE IF NOT EXISTS manual_feedback_files (
     size_bytes INTEGER NOT NULL,
     created_at TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS manual_feedback_drafts (
+CREATE TABLE IF NOT EXISTS audit_manual_feedback_drafts (
     node_instance_id TEXT PRIMARY KEY REFERENCES node_instances(id) ON DELETE CASCADE,
     evidence_hash TEXT NOT NULL,
     revision INTEGER NOT NULL,
     files_json TEXT NOT NULL DEFAULT '[]'
 );
-CREATE TABLE IF NOT EXISTS manual_feedback (
+CREATE TABLE IF NOT EXISTS audit_manual_feedback (
     id TEXT PRIMARY KEY,
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
     node_instance_id TEXT NOT NULL,
@@ -313,26 +313,26 @@ CREATE TABLE IF NOT EXISTS manual_feedback (
     created_at TEXT NOT NULL,
     UNIQUE(node_instance_id, revision)
 );
-CREATE INDEX IF NOT EXISTS idx_manual_feedback_node ON manual_feedback(flow_instance_id, node_key);
-CREATE TABLE IF NOT EXISTS audit_feedback_context (
-    feedback_id TEXT PRIMARY KEY REFERENCES manual_feedback(id) ON DELETE CASCADE,
+CREATE INDEX IF NOT EXISTS idx_audit_manual_feedback_node ON audit_manual_feedback(flow_instance_id, node_key);
+CREATE TABLE IF NOT EXISTS audit_manual_feedback_context (
+    feedback_id TEXT PRIMARY KEY REFERENCES audit_manual_feedback(id) ON DELETE CASCADE,
     submission_id TEXT NOT NULL REFERENCES node_submissions(id) ON DELETE CASCADE,
     step_index INTEGER NOT NULL
 );
 
 
-CREATE TABLE IF NOT EXISTS manual_node_rejections (
+CREATE TABLE IF NOT EXISTS audit_manual_node_rejections (
     id TEXT PRIMARY KEY,
     node_instance_id TEXT NOT NULL REFERENCES node_instances(id) ON DELETE CASCADE,
     reviewer_node_instance_id TEXT REFERENCES node_instances(id) ON DELETE SET NULL,
-    feedback_id TEXT REFERENCES manual_feedback(id) ON DELETE SET NULL,
+    feedback_id TEXT REFERENCES audit_manual_feedback(id) ON DELETE SET NULL,
     attempt_no INTEGER NOT NULL,
     teacher_id INTEGER NOT NULL,
     remark TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_manual_node_rejections_node
-    ON manual_node_rejections(node_instance_id, attempt_no, created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_manual_node_rejections_node
+    ON audit_manual_node_rejections(node_instance_id, attempt_no, created_at);
 
 CREATE TABLE IF NOT EXISTS node_drafts (
     node_instance_id TEXT PRIMARY KEY REFERENCES node_instances(id) ON DELETE CASCADE,
@@ -460,6 +460,7 @@ def initialize_database() -> None:
         _apply_teacher_drive_files_rename(connection)
         _apply_node_template_download_events_rename(connection)
         rename_audit_tables(connection)
+        rename_manual_audit_tables(connection)
         connection.executescript(SCHEMA)
         _apply_registration_allowlist_migration(connection)
         from app.services.sms_recovery import initialize_sms_schema

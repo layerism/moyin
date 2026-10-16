@@ -61,7 +61,7 @@ def mark_preview_for_cleanup(teacher_id: int) -> list[str]:
             JOIN node_instances n ON n.id = u.node_instance_id
             WHERE n.flow_instance_id = ?
             UNION ALL
-            SELECT storage_key FROM manual_feedback_files WHERE flow_instance_id = ?
+            SELECT storage_key FROM audit_manual_feedback_files WHERE flow_instance_id = ?
             """,
             (session["flow_instance_id"], session["flow_instance_id"]),
         ).fetchall()

@@ -291,7 +291,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
             rejection_files = []
             if rejection and rejection["feedback_id"]:
                 from app.repositories.manual_feedback import file_items
-                saved_feedback = connection.execute("SELECT files_json FROM manual_feedback WHERE id = ?", (rejection["feedback_id"],)).fetchone()
+                saved_feedback = connection.execute("SELECT files_json FROM audit_manual_feedback WHERE id = ?", (rejection["feedback_id"],)).fetchone()
                 if saved_feedback:
                     rejection_files = [file for file in file_items(connection, json.loads(saved_feedback["files_json"])) if file["sourceNodeKey"] == row["node_key"]]
             feedback = []

@@ -1026,16 +1026,16 @@ def _node_invalidation_before_data(
         (node["id"],),
     ).fetchall()
     manual_rejections = connection.execute(
-        "SELECT * FROM manual_node_rejections WHERE node_instance_id = ? ORDER BY created_at, id",
+        "SELECT * FROM audit_manual_node_rejections WHERE node_instance_id = ? ORDER BY created_at, id",
         (node["id"],),
     ).fetchall()
     manual_source_reviews = connection.execute(
-        "SELECT * FROM manual_source_reviews WHERE node_instance_id = ? ORDER BY created_at",
+        "SELECT * FROM audit_manual_source_reviews WHERE node_instance_id = ? ORDER BY created_at",
         (node["id"],),
     ).fetchall()
     manual_feedback = connection.execute(
         """SELECT f.*, c.submission_id, c.step_index
-           FROM manual_feedback f LEFT JOIN audit_feedback_context c ON c.feedback_id = f.id
+           FROM audit_manual_feedback f LEFT JOIN audit_manual_feedback_context c ON c.feedback_id = f.id
            WHERE f.node_instance_id = ? ORDER BY f.created_at, f.id""",
         (node["id"],),
     ).fetchall()
