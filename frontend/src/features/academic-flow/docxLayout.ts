@@ -168,6 +168,10 @@ export function supplementDocxLayout(xml: DocxXmlContext, parsed: ParsedDocx) {
     grid(start, paragraphs.length, child(bodyXml, "sectPr"));
   }
   const settings = xml(parsed.settingsPart?.path);
+  const characterSpacingControl = attribute(child(settings?.documentElement, "characterSpacingControl"), "val");
+  if (characterSpacingControl && characterSpacingControl !== "doNotCompress") {
+    (parsed.documentPart.body.cssStyle ??= {})["--docx-punctuation-compression"] = characterSpacingControl;
+  }
   const underlineTrailingSpaces = enabled(child(child(settings?.documentElement, "compat"), "ulTrailSpace"));
   // ISO/IEC 29500 defaultTabStop: 720 twips only when the element is omitted.
   const defaultTab = number(settings?.getElementsByTagNameNS(wordNamespace, "defaultTabStop")[0], "val") ?? 720;
@@ -628,22 +632,21 @@ function supplementTextBoxes(source: Element | undefined, body: DocxNode) {
 
 export function applyDocxLineSpacing(body: HTMLElement): string[] {
   const warnings = new Set<string>();
+  if (Array.from(body.querySelectorAll<HTMLElement>("section.docx")).some((page) =>
+    getComputedStyle(page).getPropertyValue("--docx-punctuation-compression").trim())) {
+    warnings.add("此文档启用了标点压缩；浏览器字形排列尚不能完整复现 Word 的压缩规则。");
+  }
   // Resolve the library's CSS cascade first. auto is the OOXML default after
   // inheritance, not a project-specific line spacing multiplier.
   for (const paragraph of Array.from(body.querySelectorAll<HTMLElement>("section.docx p"))) {
     const style = getComputedStyle(paragraph);
     const line = Number(style.getPropertyValue("--docx-line-value"));
     const rule = style.getPropertyValue("--docx-line-rule").trim() || "auto";
-    const grid = Number(style.getPropertyValue("--docx-line-grid"));
-    const useGrid = grid > 0 && style.getPropertyValue("--docx-snap-to-grid").trim() !== "0"
-      && (!paragraph.closest("td,th") || style.getPropertyValue("--docx-table-grid").trim() === "1");
-    if (!(line > 0) && !(rule === "auto" && useGrid)) continue;
+    if (!(line > 0)) continue;
     if (rule === "auto") {
-      // --docx-line-grid is the section's linePitch in CSS pixels. For aligned
-      // paragraphs it supplies the single-line pitch, rather than the font size.
-      // An omitted spacing value uses single spacing after style inheritance.
-      const multiple = line > 0 ? line / 240 : 1;
-      paragraph.style.lineHeight = useGrid ? `${grid * multiple}px` : String(multiple);
+      // CSS multiple spacing is a fallback, not a Word grid implementation.
+      // Grid pitch alone does not specify font metrics or baseline placement.
+      paragraph.style.lineHeight = String(line / 240);
       paragraph.style.minHeight = "1lh";
     } else if (rule === "exact") {
       paragraph.style.lineHeight = `${line / 20}pt`;
@@ -680,9 +683,8 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
     paragraph.dataset.docxKeepLines = entry.keepLines;
     paragraph.dataset.docxKeepNext = entry.keepNext;
     paragraph.dataset.docxWidow = entry.widow;
-    // Grid-based automatic line pitch is applied above. Exact baseline placement
-    // with mixed fonts, oversized runs and minimum spacing still needs additional
-    // geometry; retain the warning rather than claim full Word layout parity.
+    // Grid alignment needs baseline/font metrics and compatibility handling.
+    // Keep this limitation visible while using the browser's line layout.
     if (entry.grid > 0 && entry.snap !== "0" && entry.rule !== "exact"
       && (!paragraph.closest("td,th") || entry.tableGrid === "1")) {
       warnings.add("此文档使用文档网格；网格基线对齐尚不能保证与 Word 一致。");

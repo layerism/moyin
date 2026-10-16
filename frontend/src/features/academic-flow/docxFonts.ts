@@ -1,4 +1,5 @@
 import type { DocxFontTheme } from "./docxFontConfig";
+import { characterSpacing } from "./docxCharacterSpacing";
 import { docxFontCoverage, docxFontMember, docxFontUnderline } from "./docxFontAsset";
 
 type Face = { weight: string; style: string; file: string; member: number };
@@ -456,6 +457,9 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       }
       element.setAttribute(`data-docx-project-${name}`, "");
       element.style.setProperty(`--docx-project-${name}-fonts`, `"${family}"`);
+      const spacing = characterSpacing(getComputedStyle(element, `::${name}`));
+      element.style.setProperty(`--docx-project-${name}-spacing`, spacing.letterSpacing);
+      element.style.setProperty(`--docx-project-${name}-kerning`, spacing.fontKerning);
       // A single-face Chinese font still needs the requested weight on the
       // pseudo-element; choosing its regular file alone cannot synthesize bold.
       const weights = new Set(groups.map((group) => group.selection.weight));

@@ -32,6 +32,14 @@ const descendants = (node: Node, type: string): Node[] =>
 // Preserve each XML script slot separately; a CSS font-family list cannot express this.
 function properties(run: Element | undefined): Values {
   const values: Values = {};
+  // ISO 29500 17.3.2.35 / 17.3.2.19: signed twips versus half-points.
+  // Preserve zero as an explicit override; an absent property inherits.
+  for (const [name, target] of [["spacing", "character-spacing"], ["kern", "kerning-threshold"]]) {
+    const raw = attr(child(run, name), "val");
+    if (raw !== undefined && raw !== null && /^-?\d+$/.test(raw) && (name !== "kern" || Number(raw) >= 0)) {
+      values[`--docx-${target}`] = raw;
+    }
+  }
   const fonts = child(run, "rFonts");
   for (const [slot, theme] of [["ascii", "asciiTheme"], ["hAnsi", "hAnsiTheme"], ["eastAsia", "eastAsiaTheme"], ["cs", "cstheme"]]) {
     const reference = attr(fonts, theme);
@@ -143,7 +151,9 @@ export function prepareDocxFontConfig(xml: DocxXmlContext, parsed: Parsed): Docx
       const character = id && attr(sources.get(id), "type") === "character" ? resolve(id) : {};
       // Reset absent direct properties so a surrounding drawing/text-box run cannot
       // leak its direct bold into a nested paragraph. Character styles are explicit.
-      return { ...direct, ...toggleLevel(direct, "run"), ...toggleLevel(character, "character") };
+      const characterSpacing = Object.fromEntries(Object.entries(character).filter(([name]) =>
+        name === "--docx-character-spacing" || name === "--docx-kerning-threshold"));
+      return { ...characterSpacing, ...direct, ...toggleLevel(direct, "run"), ...toggleLevel(character, "character") };
     };
     xmlRuns.forEach((run, index) => Object.assign(runs[index].cssStyle ??= {}, runProperties(run)));
     const mathRuns = roots.flatMap((root) => descendants(root, "mmlRun"));

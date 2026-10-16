@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { paginateDocx } from "./docxPagination";
+import { applyDocxCharacterSpacing } from "./docxCharacterSpacing";
 import { applyDocxLineSpacing, applyDocxUnderlines, applyDocxTabs, createDocxXmlContext, prepareDocxBreaks, supplementDocxLayout } from "./docxLayout";
 import { prepareDocxPageNumbers, updateDocxPageNumbers } from "./docxPageNumbers";
 import { applyProjectDocxFonts } from "./docxFonts";
@@ -104,16 +105,22 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
           font-family: var(--docx-project-before-fonts) !important;
           font-weight: var(--docx-project-before-weight, inherit) !important;
           font-style: var(--docx-project-before-style, inherit) !important;
+          letter-spacing: var(--docx-project-before-spacing) !important;
+          font-kerning: var(--docx-project-before-kerning) !important;
         }
         [data-docx-project-after]::after {
           font-family: var(--docx-project-after-fonts) !important;
           font-weight: var(--docx-project-after-weight, inherit) !important;
           font-style: var(--docx-project-after-style, inherit) !important;
+          letter-spacing: var(--docx-project-after-spacing) !important;
+          font-kerning: var(--docx-project-after-kerning) !important;
         }
         [data-docx-project-marker]::marker {
           font-family: var(--docx-project-marker-fonts) !important;
           font-weight: var(--docx-project-marker-weight, inherit) !important;
           font-style: var(--docx-project-marker-style, inherit) !important;
+          letter-spacing: var(--docx-project-marker-spacing) !important;
+          font-kerning: var(--docx-project-marker-kerning) !important;
         }
         [data-docx-project-before-content]::before { content: var(--docx-project-before-content) !important; }
         [data-docx-project-after-content]::after { content: var(--docx-project-after-content) !important; }
@@ -129,6 +136,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       await Promise.all(Array.from(body.querySelectorAll("img"), (image) => image.decode().catch(() => undefined)));
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       if (!active) return;
+      applyDocxCharacterSpacing(body);
       const layoutWarnings = [...applyDocxLineSpacing(body), ...applyDocxTabs(body)];
       stage("layout");
       const pagination = await paginateDocx(body, controller.signal);
