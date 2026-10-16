@@ -630,8 +630,34 @@ function supplementTextBoxes(source: Element | undefined, body: DocxNode) {
   visit(body);
 }
 
+// Measure the loaded face's single-line box, not glyph ink bounds or font-size.
+// A cache per layout pass also keeps mixed-script documents from creating a
+// probe for every run. The probe has no document text, breaks, images or margins.
+function naturalLineHeight(body: HTMLElement, style: CSSStyleDeclaration, cache: Map<string, number>): number {
+  const properties = ["font-family", "font-size", "font-weight", "font-style", "font-stretch",
+    "font-feature-settings", "font-variation-settings", "font-variant", "font-kerning",
+    "font-size-adjust", "font-optical-sizing", "font-synthesis"];
+  const values = properties.map((name) => style.getPropertyValue(name));
+  const key = JSON.stringify(values);
+  const cached = cache.get(key);
+  if (cached !== undefined) return cached;
+  const probe = document.createElement("docx-line-metrics");
+  probe.style.cssText = "position:absolute;visibility:hidden;display:block;width:max-content;height:auto;min-height:0;padding:0;margin:0;border:0;white-space:pre;line-height:normal;";
+  properties.forEach((name, index) => probe.style.setProperty(name, values[index]));
+  probe.textContent = " ";
+  body.appendChild(probe);
+  try {
+    const height = probe.getBoundingClientRect().height;
+    cache.set(key, height);
+    return height;
+  } finally {
+    probe.remove();
+  }
+}
+
 export function applyDocxLineSpacing(body: HTMLElement): string[] {
   const warnings = new Set<string>();
+  const lineHeights = new Map<string, number>();
   if (Array.from(body.querySelectorAll<HTMLElement>("section.docx")).some((page) =>
     getComputedStyle(page).getPropertyValue("--docx-punctuation-compression").trim())) {
     warnings.add("此文档启用了标点压缩；浏览器字形排列尚不能完整复现 Word 的压缩规则。");
@@ -643,25 +669,37 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
     const line = Number(style.getPropertyValue("--docx-line-value"));
     const rule = style.getPropertyValue("--docx-line-rule").trim() || "auto";
     if (!(line > 0)) continue;
-    if (rule === "auto") {
-      // CSS multiple spacing is a fallback, not a Word grid implementation.
-      // Grid pitch alone does not specify font metrics or baseline placement.
-      paragraph.style.lineHeight = String(line / 240);
-      paragraph.style.minHeight = "1lh";
-    } else if (rule === "exact") {
+    if (rule === "exact") {
       paragraph.style.lineHeight = `${line / 20}pt`;
       paragraph.style.minHeight = `${line / 20}pt`;
-    } else if (rule === "atLeast") {
-      // A font-size-based max(1em, ...) is not a measurement of a natural line.
-      // Let the browser measure a normal line with the paragraph's actual runs.
-      const probe = paragraph.cloneNode(true) as HTMLElement;
-      probe.style.cssText += ";position:absolute;visibility:hidden;width:max-content;max-width:none;margin:0;line-height:normal;min-height:0";
-      probe.querySelectorAll("br").forEach((element) => element.remove());
-      paragraph.parentElement!.appendChild(probe);
-      const natural = probe.getBoundingClientRect().height;
-      probe.remove();
-      paragraph.style.lineHeight = `${Math.max(line / 15, natural)}px`;
-      paragraph.style.minHeight = `${line / 20}pt`;
+    } else if (rule === "auto" || rule === "atLeast") {
+      if (!paragraph.getClientRects().length) continue;
+      if (style.writingMode !== "horizontal-tb") {
+        warnings.add("竖排文字的字体行高尚未精确支持，保留原渲染器的行距。");
+        continue;
+      }
+      // Scale each inline font's natural line box independently. Taking the
+      // tallest run in the entire paragraph would enlarge unrelated lines;
+      // setting only the paragraph would make all runs inherit one pixel height.
+      // CSS combines the runs' ascent/descent and half-leading on each line.
+      const elements = [paragraph, ...Array.from(paragraph.querySelectorAll<HTMLElement>("span, a, sup, sub, docx-text"))];
+      const heights = elements.flatMap((element) => {
+        if (element !== paragraph && element.closest("p") !== paragraph) return [];
+        const current = getComputedStyle(element);
+        if ((element !== paragraph && current.display !== "inline") || current.writingMode !== "horizontal-tb"
+          || parseFloat(current.fontSize) === 0 || parseFloat(current.lineHeight) === 0) return [];
+        const natural = naturalLineHeight(body, current, lineHeights);
+        if (!(natural > 0)) {
+          warnings.add("部分字体无法测量单行高度，保留原渲染器的行距。");
+          return [];
+        }
+        return [{ element, height: rule === "auto" ? natural * line / 240 : Math.max(line / 15, natural) }];
+      });
+      // Read all effective styles before writing; repeated layout passes cannot
+      // multiply an already expanded line-height or leak it into a nested run.
+      for (const { element, height } of heights) element.style.lineHeight = `${height}px`;
+      const paragraphHeight = heights.find((entry) => entry.element === paragraph)?.height;
+      if (paragraphHeight !== undefined) paragraph.style.minHeight = `${paragraphHeight}px`;
     }
   }
   // Read once per paragraph before writing; never invent a normal line-height.
