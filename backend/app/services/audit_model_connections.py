@@ -62,6 +62,12 @@ def initialize_model_connections() -> None:
         connection.execute("BEGIN IMMEDIATE")
         if connection.execute("SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)).fetchone():
             return
+        # Only the legacy upgrade chain needs this table; node migration consumes it.
+        connection.execute("""CREATE TABLE IF NOT EXISTS audit_model_bindings (
+            script_id TEXT PRIMARY KEY,
+            card_id TEXT NOT NULL REFERENCES audit_model_cards(id) ON DELETE RESTRICT,
+            revision INTEGER NOT NULL DEFAULT 0
+        )""")
         old_table = connection.execute(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'audit_model_connections'"
         ).fetchone()

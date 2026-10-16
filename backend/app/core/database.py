@@ -465,12 +465,6 @@ CREATE TABLE IF NOT EXISTS audit_model_cards (
     updated_at TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS audit_model_bindings (
-    script_id TEXT PRIMARY KEY,
-    card_id TEXT NOT NULL REFERENCES audit_model_cards(id) ON DELETE RESTRICT,
-    revision INTEGER NOT NULL DEFAULT 0
-);
-
 CREATE TABLE IF NOT EXISTS node_deadline_overrides (
     flow_instance_id TEXT NOT NULL REFERENCES flow_instances(id) ON DELETE CASCADE,
     node_key TEXT NOT NULL,
@@ -533,6 +527,8 @@ def initialize_database() -> None:
     initialize_model_ownership()
     from app.services.node_models import initialize_node_models
     initialize_node_models()
+    with get_connection() as connection:
+        _apply_audit_model_bindings_removal(connection)
     from app.core.node_configuration_migration import migrate_node_configuration
     with get_connection() as connection:
         migrate_node_configuration(connection)
@@ -547,6 +543,21 @@ def initialize_database() -> None:
     from app.core.flow_asset_reference_migration import migrate_flow_asset_references
     with get_connection() as connection:
         migrate_flow_asset_references(connection)
+
+
+def _apply_audit_model_bindings_removal(connection: sqlite3.Connection) -> None:
+    migration_id = "20261016_remove_audit_model_bindings"
+    connection.execute("BEGIN IMMEDIATE")
+    if connection.execute("SELECT 1 FROM schema_migrations WHERE id = ?", (migration_id,)).fetchone():
+        return
+    legacy = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'audit_model_bindings'"
+    ).fetchone()
+    if legacy and connection.execute("SELECT 1 FROM audit_model_bindings LIMIT 1").fetchone():
+        raise ValueError("旧模型绑定尚未迁移完成，删表已取消")
+    connection.execute("DROP TABLE IF EXISTS audit_model_bindings")
+    connection.execute("INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)",
+                       (migration_id, datetime.now(UTC).isoformat()))
 
 
 def _apply_share_tokens_removal(connection: sqlite3.Connection) -> None:

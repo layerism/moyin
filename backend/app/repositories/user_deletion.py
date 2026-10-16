@@ -17,7 +17,7 @@ ORDER = ['file_review_feedback_context', 'manual_node_rejections', 'manual_sourc
          'flow_versions',
          'flow_assets', 'flow_roster_entries', 'flows',
          'flow_groups',
-         'teacher_drive_files', 'audit_model_bindings', 'audit_model_cards', 'teacher_invitations',
+         'teacher_drive_files', 'audit_model_cards', 'teacher_invitations',
          'sms_challenges', 'password_recoveries', 'audit_logs', 'student_sessions',
          'teacher_sessions', 'student_accounts', 'teacher_accounts']
 
@@ -46,7 +46,6 @@ def scope(db, kind, account_id):
         select('flows', 'owner_id = ?', (str(account_id),))
         select('flow_groups', 'owner_teacher_id = ?', (account_id,))
         select('student_accounts', 'preview_owner_teacher_id = ?', (account_id,))
-        select('audit_model_bindings', 'owner_teacher_id = ?', (account_id,))
         select('audit_model_cards', 'owner_teacher_id = ?', (account_id,))
         select('teacher_invitations', 'created_by = ? OR used_by_teacher_id = ? OR employee_no = ?', (account_id, account_id, account['employee_no']))
     else:
