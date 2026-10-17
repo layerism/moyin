@@ -2909,6 +2909,7 @@ function NodeInspector({
         className={`flow-panel inspector-panel node-inspector-modal${showsReviewPanel ? " has-review-panel" : ""}`}
         role="dialog"
       >
+        <div className="node-inspector-mainpage">
         <div className="node-inspector-fields">
         <header className="node-inspector-toolbar">
           <label className="node-basic-title-field" title={editingLocked ? undefined : "点击修改节点标题"}>
@@ -3281,6 +3282,7 @@ function NodeInspector({
             {materialBusy || basicSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
           </button>
         </footer>
+        </div>
         {showsReviewPanel ? <section className="node-review-sidepage" aria-label="审核配置">
           <header><h2>审核配置</h2></header>
           <div className="node-review-sidepage-body" ref={setReviewPanel} />
