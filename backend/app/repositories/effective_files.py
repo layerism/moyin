@@ -14,8 +14,7 @@ def effective_files(connection, rows, *, id_key='id'):
             JOIN node_submissions s ON s.id = u.submission_id
             JOIN node_instances n ON n.id = s.node_instance_id
             WHERE u.id = ? AND s.attempt_no = n.attempt_no
-              AND s.status = 'approved' AND n.status = 'approved'
-              AND n.attempt_no > n.attempt_reset_no''', (source_id,)).fetchone()
+              AND s.status = 'approved' AND n.status = 'approved' ''', (source_id,)).fetchone()
         if context:
             node_id = context['id']
             if node_id not in revisions:
