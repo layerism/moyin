@@ -287,7 +287,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
                   {current.feedbackDraft.files.map((file) => <div className="file-review-attachment-row" key={file.id}><FileFormatIcon filename={file.name} /><span className="file-review-filename"><strong>{file.name}</strong><small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} iconOnly /><button title="删除文件" aria-label={`删除文件：${file.name}`} disabled={busy} type="button" onClick={() => void act(async () => {
                     const draft = await workflowApi.removeManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, file.id);
                     setDetail((value) => value ? { ...value, feedbackDraft: draft } : value);
-                  })}>删除文件</button></div>)}
+                  })}><span aria-hidden="true">×</span></button></div>)}
                 </section>
               </section>
             </div>
