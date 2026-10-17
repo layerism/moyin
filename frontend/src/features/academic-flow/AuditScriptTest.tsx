@@ -1,3 +1,4 @@
+import { Report } from "./AuditHistory";
 import { AuditScriptParameterFields } from "./AuditScriptParameterFields";
 import { getAuditScriptParameterError, type AuditScriptParameter } from "./auditScripts";
 import { LocalMaterialPreviewDialog } from "./MaterialPreviewDialog";
@@ -202,7 +203,7 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
       {running ? <p role="status">正在审核测试文件…</p> : null}
       {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
       {diagnostic ? <p className="audit-script-error">{diagnostic.stage}：{diagnostic.message}</p> : null}
-      {result ? <section className="audit-test-result"><strong>本次测试结果</strong><pre><code>{json}</code></pre></section> : null}
+      {result ? <section className="audit-test-result"><header><strong>本次测试结果</strong><span className={result.passed ? "is-passed" : "is-rejected"}>{result.passed ? "审核通过" : "审核未通过"}</span></header><Report value={typeof result.reason === "string" ? result.reason : ""} /></section> : null}
       {requests.length ? <p className="audit-test-note">关闭预览可查看完整请求 messages。</p> : null}
     </> : undefined} /> : null}
   </>;
