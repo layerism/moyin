@@ -699,7 +699,7 @@ function RuntimeNodeDialog({
         <h3>填写资料</h3>
         {referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label={node.kind === "confirmation" ? "参考示例" : "填写参考"} compact />)}
         {runtime.template ? <section className={`runtime-material-row runtime-template-row${templateDownloadAttention ? " needs-attention" : ""}`} aria-label="填写模板" ref={templateRowRef}>
-          <span className={`runtime-template-cue${runtime.templateDownloaded ? "" : " is-pulsing"}`}><span aria-hidden="true">↓</span> 请使用此模板</span>
+          <span className={`runtime-template-cue${runtime.templateDownloaded ? "" : " is-pulsing"}`} role="img" aria-label="请使用此模板" title="请使用此模板"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9-6.2-3.3-6.2 3.3L7 14.2 2 9.3l6.9-1Z" /></svg></span>
           <FileFormatIcon filename={runtime.template.originalName} />
           <div className="runtime-material-copy">
             <strong>{node.kind === "confirmation" ? "签署模板" : "填写模板"}</strong>
