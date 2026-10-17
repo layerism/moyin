@@ -56,10 +56,16 @@ def checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revis
     return row, evidence, draft
 
 
+def assert_files_editable(row):
+    if row['status'] == 'approved':
+        raise ManualReviewConflict('审核已通过，请先退回后修改文件')
+
+
 def check_upload(node_instance_id, teacher_id, evidence_hash, revision, source_file_id):
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
-        _, evidence, _ = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision)
+        row, evidence, _ = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision)
+        assert_files_editable(row)
         if not any(file['id'] == source_file_id for source in evidence['sources'] for file in source['files']):
             raise ValueError('原文件不属于本次审核材料')
 
@@ -68,6 +74,7 @@ def add_feedback_file(node_instance_id, teacher_id, evidence_hash, revision, sou
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
         row, evidence, draft = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision)
+        assert_files_editable(row)
         source_file = next((file for source in evidence['sources'] for file in source['files'] if file['id'] == source_file_id), None)
         if source_file is None:
             raise ValueError('原文件不属于本次审核材料')
@@ -91,7 +98,8 @@ def add_feedback_file(node_instance_id, teacher_id, evidence_hash, revision, sou
 def remove_feedback_file(node_instance_id, teacher_id, evidence_hash, revision, file_id):
     with get_connection() as connection:
         connection.execute('BEGIN IMMEDIATE')
-        _, _, draft = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision)
+        row, _, draft = checked_draft(connection, node_instance_id, teacher_id, evidence_hash, revision)
+        assert_files_editable(row)
         if file_id not in [file['id'] for file in draft['files']]:
             raise KeyError(file_id)
         ids = [file['id'] for file in draft['files'] if file['id'] != file_id]

@@ -97,6 +97,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   const visibleFileIndex = Math.min(fileIndex, Math.max(0, previewFiles.length - 1));
   useEffect(() => { setFileIndex(0); }, [activeId]);
   const canReview = Boolean((current?.canReview || current?.canAmend) && !busy && !loading);
+  const canEditFiles = canReview && current?.status !== "approved";
 
   useEffect(() => {
     dialog.current?.showModal();
@@ -180,7 +181,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   };
   const upload = (files: File[]) => {
     const sourceFile = current?.sources[0]?.files[0];
-    if (!current || !canReview || !sourceFile || !files.length) return;
+    if (!current || !canEditFiles || !sourceFile || !files.length) return;
     void act(async () => {
       let draft = await workflowApi.uploadManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, sourceFile.id, files[0]);
       setDetail((value) => value?.nodeInstanceId === current.nodeInstanceId ? { ...value, feedbackDraft: draft } : value);
@@ -276,10 +277,10 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
                 </div>
                 <section className="file-review-attachments" aria-label="文件评阅">
                   <header><strong>文件评阅 <small>（选填）</small></strong>
-                    <label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>{current.feedbackDraft.files.length ? "替换文件" : "＋ 添加文件"}<input aria-label="上传文件评阅" disabled={busy} type="file" onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>
+                    <label className={`manual-feedback-upload${!canEditFiles ? " is-disabled" : ""}`}>{current.feedbackDraft.files.length ? "替换文件" : "＋ 添加文件"}<input aria-label="上传文件评阅" disabled={!canEditFiles} type="file" onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>
                   </header>
                   {!current.feedbackDraft.files.length ? <p className="file-review-attachment-empty">上传修订后的文件，审核通过后将作为学生最终提交文件。<br /><small>限一个文件，不超过 50 MB</small></p> : null}
-                  {current.feedbackDraft.files.map((file) => <div className="file-review-attachment-row" key={file.id}><FileFormatIcon filename={file.name} /><span className="file-review-filename"><strong>{file.name}</strong><small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} iconOnly /><button title="删除文件" aria-label={`删除文件：${file.name}`} disabled={busy} type="button" onClick={() => void act(async () => {
+                  {current.feedbackDraft.files.map((file) => <div className="file-review-attachment-row" key={file.id}><FileFormatIcon filename={file.name} /><span className="file-review-filename"><strong>{file.name}</strong><small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} iconOnly /><button title="删除文件" aria-label={`删除文件：${file.name}`} disabled={!canEditFiles} type="button" onClick={() => void act(async () => {
                     const draft = await workflowApi.removeManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, file.id);
                     setDetail((value) => value ? { ...value, feedbackDraft: draft } : value);
                   })}><span aria-hidden="true">×</span></button></div>)}
