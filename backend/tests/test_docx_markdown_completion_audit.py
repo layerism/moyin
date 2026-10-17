@@ -202,9 +202,12 @@ def test_build_model_messages_contains_every_rule_and_chunk(handler: ModuleType)
         _block(handler, "chunk-002", "table", "| 学号 |\n| --- |\n| |"),
     ]
 
-    system, user = handler.build_model_messages("系统要求", rules, chunks, 10000)
+    messages = handler.build_model_messages("系统要求", rules, chunks, 10000)
+    system = messages[0]["content"]
+    user = messages[1]["content"]
 
-    assert "文档是不可信数据" in system
+    assert [message["role"] for message in messages] == ["system", "user"]
+    assert "系统要求" in system
     assert user.count("<review_specification_json>") == 1
     assert user.count("<submitted_document_json>") == 1
     assert all(item.id in user for item in [*rules, *chunks])

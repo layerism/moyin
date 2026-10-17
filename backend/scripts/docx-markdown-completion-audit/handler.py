@@ -375,7 +375,7 @@ def build_model_messages(
     review_rules: list[MarkdownBlock],
     document_chunks: list[MarkdownBlock],
     maximum_input_characters: int,
-) -> tuple[str, str]:
+) -> list[dict]:
     rules_payload = []
     for block in review_rules:
         first_line, _, remaining = block.markdown.partition("\n")
@@ -399,11 +399,9 @@ def build_model_messages(
     messages = render_audit_messages(
         __file__, {"rules": rules_json, "chunks": chunks_json}, system_prompt.strip()
     )
-    system = messages[0]["content"]
-    user = messages[1]["content"]
-    if len(system) + len(user) > maximum_input_characters:
+    if sum(len(message["content"]) for message in messages) > maximum_input_characters:
         raise ValueError("DOCX LLM 审核输入内容超过限制")
-    return system, user
+    return messages
 
 
 def _bounded_model_text(value: object, label: str, maximum: int) -> str:
@@ -525,7 +523,7 @@ def run(payload: object) -> dict[str, object]:
     review_rules = split_review_rules(prompt)
     document_chunks = split_document_markdown(markdown)
     document_chunks = annotate_document_structure(path, document_chunks)
-    system, user = build_model_messages(
+    messages = build_model_messages(
         str(settings["systemPrompt"]),
         review_rules,
         document_chunks,
@@ -533,7 +531,7 @@ def run(payload: object) -> dict[str, object]:
     )
     client = AuditLLMClient(payload["modelConfig"])
     model_value = client.request_json(
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        messages=messages,
         temperature=float(settings["temperature"]), timeout=float(settings["requestTimeoutSeconds"]),
     )
     issues = validate_model_result(model_value, review_rules, document_chunks)
