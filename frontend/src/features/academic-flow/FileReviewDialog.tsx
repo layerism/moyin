@@ -131,10 +131,14 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
     catch (reason) { setError(reason instanceof Error ? reason.message : "操作失败，请刷新后重试"); }
     finally { actionInFlight.current = false; setBusy(false); }
   };
-  const decide = (passed: boolean) => {
+  const returnConfirmation = useRef<HTMLDialogElement>(null);
+  const decide = (passed: boolean, confirmed = false) => {
     if (!current || !canReview) return;
     if (current.feedbackDraft.files.length > 1) { setError("请仅保留一个修订文件后再提交审核结果"); return; }
-    if (current.canAmend && current.status === "approved" && !passed && !window.confirm("改为退回将暂停依赖此节点的所有后续节点，已有材料保留并需重新确认。确定修改？")) return;
+    if (current.canAmend && current.status === "approved" && !passed && !confirmed) {
+      returnConfirmation.current?.showModal();
+      return;
+    }
     void act(async () => {
       if (passed) await workflowApi.approveManualReview(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision, null, "");
       else await workflowApi.rejectManualSource(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, nodeKey, remark);
@@ -294,5 +298,19 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
         </> : <p className="file-review-empty">{active ? "学生尚未提交材料。" : "请选择学生查看材料。"}</p>}
       </section>
     </div>
+    <dialog ref={returnConfirmation} className="runtime-submit-confirm-dialog" aria-labelledby="review-return-title"
+      onKeyDown={(event) => event.stopPropagation()}
+      onCancel={(event) => { event.preventDefault(); event.stopPropagation(); returnConfirmation.current?.close(); }}>
+      <h3 id="review-return-title">确认退回修改</h3>
+      <p className="runtime-submit-confirm-target">{current?.student.name} · {current?.title}</p>
+      <p>退回将暂停依赖此节点的所有后续节点，已有材料保留并需重新确认。</p>
+      <footer>
+        <button type="button" autoFocus onClick={() => returnConfirmation.current?.close()}>取消</button>
+        <button type="button" className="primary-action" disabled={busy} onClick={() => {
+          returnConfirmation.current?.close();
+          decide(false, true);
+        }}>确认退回</button>
+      </footer>
+    </dialog>
   </dialog>;
 }
