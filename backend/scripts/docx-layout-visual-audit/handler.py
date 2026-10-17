@@ -92,7 +92,7 @@ def request_audit(images: list[tuple[int, str]], reviewed_pages: list[int], prom
             {"type": "text", "text": f"实际第 {page} 页"},
             {"type": "image_url", "image_url": {"url": data_url}},
         ])
-    messages = render_audit_messages(__file__, content, settings['systemPrompt'])
+    messages = render_audit_messages(__file__, content)
     value = client.request_json(messages=messages, temperature=float(settings['temperature']), timeout=timeout)
     try:
         return parse_result(value, reviewed_pages)

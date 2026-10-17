@@ -630,14 +630,21 @@ def _resolve_job_binding(connection, job):
     from app.repositories.audit_policies import policy_hash
     from app.repositories.node_configuration import node_metadata
     from app.services.audit_script_catalog import find_audit_script
-    from app.services.audit_script_parameters import validate_script_params
+    from app.services.audit_script_parameters import default_script_settings, validate_script_params, validate_script_settings
     node, step = _review_step(connection, job)
     record = find_audit_script(job['script_id'])
+    state = connection.execute(
+        'SELECT * FROM audit_script_runtime_states WHERE script_id = ?', (record.id,),
+    ).fetchone()
+    if state is None or state['status'] != 'ready' or state['content_hash'] != record.content_hash:
+        raise AuditPolicyConflictError('审核程序正在更新，请稍后重试')
     params = validate_script_params(record.config, step.get('auditScriptParams') or {})
+    settings = validate_script_settings(record.config, default_script_settings(record.config))
     snapshot = {**json.loads(job['snapshot_json']), 'params': params, 'auditScriptParams': params,
-                'auditModelCardId': step.get('auditModelCardId')}
-    return {'scriptId': job['script_id'], 'scriptGeneration': job['script_generation'],
-            'scriptContentHash': job['script_content_hash'],
+                'auditModelCardId': step.get('auditModelCardId'), 'settings': settings,
+                'generation': state['generation'], 'hash': state['content_hash']}
+    return {'scriptId': job['script_id'], 'scriptGeneration': int(state['generation']),
+            'scriptContentHash': state['content_hash'],
             'policyGeneration': node_metadata(node, 'review')['generation'],
             'policyHash': policy_hash(job['script_id'], params, step.get('auditModelCardId')),
             'modelCardId': step.get('auditModelCardId'), 'params': params,

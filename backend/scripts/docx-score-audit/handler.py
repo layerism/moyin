@@ -31,7 +31,6 @@ def run(payload):
     messages = render_audit_messages(
         __file__,
         json.dumps({'评分标准': params['scoringPrompt'], '不可信材料': text}, ensure_ascii=False),
-        settings['systemPrompt'],
     )
     value = client.request_json(messages=messages, temperature=float(settings['temperature']),
                                 timeout=float(settings['requestTimeoutSeconds']))

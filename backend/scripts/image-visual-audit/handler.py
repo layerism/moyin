@@ -15,7 +15,7 @@ def request_review(files, params, settings, client: AuditLLMClient):
                 {"type": "text", "text": f"第 {file_number} 个文件，第 {page_number} 页"},
                 {"type": "image_url", "image_url": {"url": data_url}},
             ])
-    messages = render_audit_messages(__file__, content, settings['systemPrompt'])
+    messages = render_audit_messages(__file__, content)
     value = client.request_json(messages=messages, temperature=float(settings["temperature"]),
                                 timeout=float(settings["requestTimeoutSeconds"]))
     if not isinstance(value.get("passed"), bool) or not isinstance(value.get("reason"), str) or not value["reason"].strip():
