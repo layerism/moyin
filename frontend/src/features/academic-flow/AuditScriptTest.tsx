@@ -137,23 +137,17 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
             }
             event.currentTarget.value = "";
           }} />
-        <div className={`audit-test-upload${files.length && !scans ? " has-file" : ""}`}>
+        <div className="audit-test-upload">
           <button type="button" disabled={running} onClick={() => inputRef.current?.click()}>＋ {files.length && !scans ? "替换文件" : "添加文件"}</button>
-          {scans ? <button type="button" disabled={!files.length} onClick={() => setPreviewIndex(0)}>预览</button> : null}
-          {files.length && !scans ? <>
-            <span className="audit-test-file-name" title={files[0].name}>{files[0].name}</span>
-            <button type="button" onClick={() => setPreviewIndex(0)}>预览</button>
-            <small className="audit-test-file-size">{(files[0].size / 1024).toFixed(1)} KB</small>
-            <button type="button" className="audit-test-file-remove" disabled={running} aria-label={`移除 ${files[0].name}`}
-              onClick={() => { setFiles([]); clearOutput(); }}>×</button>
-          </> : <small>{scans ? "最多 10 个文件、20 页；单文件 10 MB，合计 30 MB" : "选择一个文件，最大 50 MB"}{accept ? ` · ${accept.replace(/\./g, "").toUpperCase()}` : ""}</small>}
+          <button type="button" disabled={!files.length} onClick={() => setPreviewIndex(0)}>预览</button>
+          <small>{scans ? "最多 10 个文件、20 页；单文件 10 MB，合计 30 MB" : "选择一个文件，最大 50 MB"}{accept ? ` · ${accept.replace(/\./g, "").toUpperCase()}` : ""}</small>
         </div>
-        {files.length ? scans ? <ul className="audit-test-files">{files.map((file, index) => <li key={`${index}-${file.name}`}>
+        {files.length ? <ul className="audit-test-files">{files.map((file, index) => <li key={`${index}-${file.name}`}>
           <span><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(1)} KB</small></span>
           <button type="button" disabled={running} aria-label={`移除 ${file.name}`} onClick={() => {
             setFiles(files.filter((_, position) => position !== index)); clearOutput();
           }}>×</button>
-        </li>)}</ul> : null : null}
+        </li>)}</ul> : null}
         {running ? <p className="audit-test-running" role="status">正在执行审核，请稍候…</p> : null}
         {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
         {diagnostic ? <section className="audit-test-result"><strong>失败诊断 · {diagnostic.stage}</strong>
