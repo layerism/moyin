@@ -139,7 +139,8 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
           }} />
         <div className="audit-test-upload">
           <button type="button" disabled={running} onClick={() => inputRef.current?.click()}>＋ {files.length && !scans ? "替换文件" : "添加文件"}</button>
-          <button type="button" disabled={!files.length} onClick={() => setPreviewIndex(0)}>预览</button>
+          <button type="button" disabled={running || loading || (!!onParametersChange && (!parametersReady || invalid)) || (configurable && (!configuration || (configuration.usesAi && !modelId))) || !files.length || (scans && files.length > 10)}
+            onClick={() => onParametersChange ? setPreviewIndex(0) : void run()}>{running ? "审核中…" : "测试"}</button>
           <small>{scans ? "最多 10 个文件、20 页；单文件 10 MB，合计 30 MB" : "选择一个文件，最大 50 MB"}{accept ? ` · ${accept.replace(/\./g, "").toUpperCase()}` : ""}</small>
         </div>
         {files.length ? <ul className="audit-test-files">{files.map((file, index) => <li key={`${index}-${file.name}`}>
@@ -188,13 +189,12 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
           </section>
         </> : null}
       </div>
-      <footer><div style={{ marginLeft: "auto" }}>
+      {copyText ? <footer><div style={{ marginLeft: "auto" }}>
         {copyText ? <button type="button" onClick={async () => {
           try { await navigator.clipboard.writeText(copyText); setCopied(true); }
           catch { setError("复制失败，请选中内容手动复制。"); }
         }}>{copied ? "已复制" : view === "messages" ? "复制 messages" : "复制 JSON"}</button> : null}
-        <button type="button" className="primary-action" disabled={running || loading || (!!onParametersChange && (!parametersReady || invalid)) || (configurable && (!configuration || (configuration.usesAi && !modelId))) || !files.length || (scans && files.length > 10)} onClick={() => void run()}>{running ? "审核中…" : result ? "重新测试" : "开始测试"}</button>
-      </div></footer>
+      </div></footer> : null}
     </dialog>, document.body)}
     {previewIndex !== null ? <LocalMaterialPreviewDialog files={files} initialIndex={previewIndex} onClose={() => setPreviewIndex(null)} sidebar={onParametersChange ? <>
       <h3>节点审核配置</h3>
