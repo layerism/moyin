@@ -1,6 +1,5 @@
 import { DocxPreview } from "./DocxPreview";
 import { PdfPreview } from "./PdfPreview";
-import { saveDownloadFile } from "./saveStudentFile";
 import { saveDownload } from "./download";
 import { DownloadIcon } from "./DownloadIcon";
 import { FileFormatIcon } from "./FileFormatIcon";
@@ -15,22 +14,8 @@ const category = (student: ManualReviewStudent): Exclude<Filter, "all"> => stude
   : student.status === "rejected" ? "returned" : student.canReview ? "pending" : "waiting";
 
 function OriginalDownload({ nodeId, fileId, filename }: { nodeId: string; fileId: string; filename: string }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const endpoint = `/api/workflow-admin/node-instances/${encodeURIComponent(nodeId)}/manual-review/files/${encodeURIComponent(fileId)}/download`;
-  const download = async () => {
-    setBusy(true); setError("");
-    try {
-      await saveDownloadFile(endpoint, filename);
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "下载失败，请重试");
-    } finally { setBusy(false); }
-  };
-  // A native attachment link stays inside the active dialog and avoids Blob downloads.
-  if (!("showSaveFilePicker" in window)) {
-    return <a className="review-download-icon" href={endpoint} download={filename} title="下载原件" aria-label={`下载原件：${filename}`}><DownloadIcon /></a>;
-  }
-  return <span><button type="button" className="review-download-icon" disabled={busy} title={busy ? "正在下载…" : "下载原件"} aria-label={`下载原件：${filename}`} onClick={() => void download()}><DownloadIcon /></button>{error && <small className="dialog-error" role="alert">{error}</small>}</span>;
+  return <a className="review-download-icon" href={endpoint} download={filename} title="下载文件" aria-label={`下载文件：${filename}`}><DownloadIcon /></a>;
 }
 
 export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo = "", allowBulkDownload = true }: { versionId: string; nodeKey: string; onClose: () => void; initialStudentNo?: string; allowBulkDownload?: boolean }) {
