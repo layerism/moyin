@@ -341,4 +341,5 @@ def get_uploaded_file_for_download(file_id: str, student_id: int) -> dict[str, o
         if row is None:
             raise KeyError(file_id)
         assert_student_roster_access(connection, row["flow_id"], student_id)
-    return dict(row)
+        from app.repositories.effective_files import effective_files
+        return effective_files(connection, [row])[0]

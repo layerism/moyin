@@ -1,3 +1,4 @@
+from app.repositories.effective_files import effective_submission, effective_files
 from app.repositories.review_timeline import review_timeline
 import json
 import math
@@ -316,7 +317,7 @@ def get_instance(instance_id: str, student_id: int | None = None) -> dict[str, o
                     "reviewTimeline": review_timeline(connection, row["id"], _audit_history(connection, row, config_node)) if config_node.get("kind") in {"file", "confirmation"} else [],
                     "attemptsRemaining": attempts_remaining,
                     "draft": _json_object(row["draft_payload"]),
-                    "submission": _json_object(row["submission_payload"]),
+                    "submission": effective_submission(connection, _json_object(row["submission_payload"]), row["submission_id"]),
                     "effectiveDeadline": deadline,
                     "effectiveStartAt": None if preview or config_node.get("kind") in {"branch", "or_gate"} else config_node.get("startAt"),
                     "template": {
@@ -1163,10 +1164,12 @@ def get_teacher_submission_detail(
                ORDER BY display_order, created_at, id""",
             (row["submission_id"],),
         ).fetchall() if row["submission_id"] else []
+        scans = effective_files(connection, scans)
+        submission = effective_submission(connection, _json_object(row["submission_payload"]), row["submission_id"])
     return {
         "nodeInstanceId": row["id"],
         "submissionId": row["submission_id"],
-        "submission": _json_object(row["submission_payload"]),
+        "submission": submission,
         "attemptNo": int(row["attempt_no"]),
         "nodeTitle": node.get("title") or row["node_key"],
         "student": {"studentNo": row["student_no"], "name": row["student_name"]},

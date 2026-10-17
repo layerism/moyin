@@ -130,6 +130,7 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   };
   const decide = (passed: boolean) => {
     if (!current || !canReview) return;
+    if (current.feedbackDraft.files.length > 1) { setError("请仅保留一个修订文件后再提交审核结果"); return; }
     if (current.canAmend && current.status === "approved" && !passed && !window.confirm("改为退回将暂停依赖此节点的所有后续节点，已有材料保留并需重新确认。确定修改？")) return;
     void act(async () => {
       if (passed) await workflowApi.approveManualReview(current.nodeInstanceId, current.evidenceHash, remark, current.feedbackDraft.revision, null, "");
@@ -179,9 +180,12 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
     const sourceFile = current?.sources[0]?.files[0];
     if (!current || !canReview || !sourceFile || !files.length) return;
     void act(async () => {
-      let draft = current.feedbackDraft;
-      for (const file of files) {
-        draft = await workflowApi.uploadManualFeedback(current.nodeInstanceId, current.evidenceHash, draft.revision, sourceFile.id, file);
+      let draft = await workflowApi.uploadManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, sourceFile.id, files[0]);
+      setDetail((value) => value?.nodeInstanceId === current.nodeInstanceId ? { ...value, feedbackDraft: draft } : value);
+      // Also retire legacy extra attachments after the new upload succeeds.
+      for (const previous of current.feedbackDraft.files) {
+        if (!draft.files.some((file) => file.id === previous.id)) continue;
+        draft = await workflowApi.removeManualFeedback(current.nodeInstanceId, current.evidenceHash, draft.revision, previous.id);
         setDetail((value) => value?.nodeInstanceId === current.nodeInstanceId ? { ...value, feedbackDraft: draft } : value);
       }
     });
@@ -268,11 +272,11 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
                   </div>}
                   {quickRemarkError && <small role="alert" className="dialog-error">{quickRemarkError}</small>}
                 </div>
-                <section className="file-review-attachments" aria-label="评阅附件">
-                  <header><strong>评阅附件 <small>（选填）</small></strong>
-                    <label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>＋ 添加文件<input aria-label="上传评阅附件" disabled={busy} type="file" multiple onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>
+                <section className="file-review-attachments" aria-label="文件评阅">
+                  <header><strong>文件评阅 <small>（选填）</small></strong>
+                    <label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>{current.feedbackDraft.files.length ? "替换文件" : "＋ 添加文件"}<input aria-label="上传文件评阅" disabled={busy} type="file" onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>
                   </header>
-                  {!current.feedbackDraft.files.length ? <p className="file-review-attachment-empty">可添加批改文档或审批意见书<br /><small>单文件不超过 50 MB</small></p> : null}
+                  {!current.feedbackDraft.files.length ? <p className="file-review-attachment-empty">上传修订后的文件，审核通过后将作为学生最终提交文件。<br /><small>限一个文件，不超过 50 MB</small></p> : null}
                   {current.feedbackDraft.files.map((file) => <div className="file-review-attachment-row" key={file.id}><FileFormatIcon filename={file.name} /><span className="file-review-filename"><strong>{file.name}</strong><small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} iconOnly /><button title="移除附件" aria-label={`移除附件：${file.name}`} disabled={busy} type="button" onClick={() => void act(async () => {
                     const draft = await workflowApi.removeManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, file.id);
                     setDetail((value) => value ? { ...value, feedbackDraft: draft } : value);

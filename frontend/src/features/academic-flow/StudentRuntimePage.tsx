@@ -538,7 +538,7 @@ function RuntimeNodeDialog({
   );
   const pendingFile = needsFileReplacement ? null : draftFile;
   const fileReady = Boolean(pendingFile?.fileId);
-  const downloadableFile = pendingFile ?? submittedFile;
+  const downloadableFile = readonly ? submittedFile : pendingFile ?? submittedFile;
   const downloadableFileId = typeof downloadableFile?.fileId === "string"
     ? downloadableFile.fileId
     : null;
@@ -1246,7 +1246,7 @@ function ReadonlySubmission({
       <ul className="runtime-submitted-scan-list">{scans.map((value, index) => {
         const scan = value && typeof value === "object" ? value as Record<string, unknown> : {};
         const fileId = typeof scan.fileId === "string" ? scan.fileId : "";
-        return <li key={fileId || index}><FileFormatIcon filename={formatSubmittedValue(scan.name)} /><span className="runtime-submitted-file-name" title={formatSubmittedValue(scan.name)}>{formatSubmittedValue(scan.name)}</span><small>{formatSubmittedValue(scan.pageCount)} 页</small>{fileId && onDownloadFile ? <SubmissionDownloadButton filename={formatSubmittedValue(scan.name)} onDownload={() => onDownloadFile(fileId)} /> : null}</li>;
+        return <li key={fileId || index}><FileFormatIcon filename={formatSubmittedValue(scan.name)} /><span className="runtime-submitted-file-name" title={formatSubmittedValue(scan.name)}>{formatSubmittedValue(scan.name)}</span><small>{Number(scan.pageCount) > 0 ? `${formatSubmittedValue(scan.pageCount)} 页` : "页数未统计"}</small>{fileId && onDownloadFile ? <SubmissionDownloadButton filename={formatSubmittedValue(scan.name)} onDownload={() => onDownloadFile(fileId)} /> : null}</li>;
       })}</ul>
     </section>;
   }

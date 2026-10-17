@@ -190,7 +190,7 @@ def get_node_submission_export(
             placeholders = ", ".join("?" for _ in submission_ids)
             file_rows = connection.execute(
                 f"""
-                SELECT submission_id, original_name, content_type, size_bytes,
+                SELECT id, submission_id, original_name, content_type, size_bytes,
                        page_count, storage_key
                 FROM student_uploaded_files
                 WHERE submission_id IN ({placeholders})
@@ -198,7 +198,8 @@ def get_node_submission_export(
                 """,
                 tuple(submission_ids),
             ).fetchall()
-            for file_row in file_rows:
+            from app.repositories.effective_files import effective_files
+            for file_row in effective_files(connection, file_rows):
                 files_by_submission.setdefault(str(file_row["submission_id"]), []).append(
                     TeacherNodeExportFile(
                         content_type=str(file_row["content_type"]),

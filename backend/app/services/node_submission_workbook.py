@@ -244,7 +244,7 @@ def _row_values(
                     len(student.files) if submitted else None,
                     "\n".join(file.original_name for file in student.files) if submitted else None,
                     (
-                        "\n".join(str(file.page_count) for file in student.files)
+                        "\n".join((str(file.page_count) if file.page_count > 0 else "未统计") for file in student.files)
                         if submitted
                         else None
                     ),

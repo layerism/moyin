@@ -143,6 +143,9 @@ def list_teacher_material_library(
                 (*version_ids, str(teacher_id), *CURRENT_MATERIAL_STATUSES),
             ).fetchall()
 
+        from app.repositories.effective_files import effective_files
+        file_rows = effective_files(connection, file_rows, id_key="file_id")
+
     material_nodes_by_version: dict[str, list[dict[str, object]]] = {}
     for row in version_rows:
         version_id = str(row["version_id"])
@@ -246,6 +249,9 @@ def get_teacher_material_library_file(
             """,
             (file_id, str(teacher_id), *CURRENT_MATERIAL_STATUSES),
         ).fetchone()
+        if row is not None:
+            from app.repositories.effective_files import effective_files
+            row = effective_files(connection, [row], id_key="file_id")[0]
     if row is None:
         raise KeyError(file_id)
     config = json.loads(row["config_snapshot"])
@@ -314,6 +320,9 @@ def get_version_materials(
             """,
             tuple(parameters),
         ).fetchall()
+
+        from app.repositories.effective_files import effective_files
+        rows = effective_files(connection, rows, id_key="file_id")
 
     files = tuple(
         sorted(
@@ -386,6 +395,9 @@ def get_node_instance_materials(
             """,
             (node_instance_id, int(context["attempt_no"]), *CURRENT_MATERIAL_STATUSES),
         ).fetchall()
+
+        from app.repositories.effective_files import effective_files
+        rows = effective_files(connection, rows, id_key="file_id")
 
     node_title = str(node.get("title") or context["node_key"])
     files = tuple(
