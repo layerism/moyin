@@ -1,3 +1,5 @@
+import { AuditScriptParameterFields } from "./AuditScriptParameterFields";
+import { getAuditScriptParameterError, type AuditScriptParameter } from "./auditScripts";
 import { LocalMaterialPreviewDialog } from "./MaterialPreviewDialog";
 import { createParameterDefaultDraft, type AuditScriptConfigDetail } from "./auditScriptConfig";
 import { modelCardsApi, type ModelCard } from "../admin/modelCardsApi";
@@ -7,7 +9,14 @@ import type { FileReviewStep } from "../../types";
 import { workflowApi, type AuditLLMMessage } from "./api";
 import { AuditMessageViewer } from "./AuditMessageViewer";
 
-export function AuditScriptTest({ step, disabled, configurable = false }: { step: FileReviewStep; disabled: boolean; configurable?: boolean }) {
+export function AuditScriptTest({ step, disabled, configurable = false, onParametersChange }: { step: FileReviewStep; disabled: boolean; configurable?: boolean; onParametersChange?: (params: Record<string, string | number | boolean>) => void }) {
+  const [parameters, setParameters] = useState<AuditScriptParameter[]>([]);
+  const [draft, setDraft] = useState<Record<string, string | number | boolean> | null>(null);
+  const [parameterError, setParameterError] = useState("");
+  const [parametersReady, setParametersReady] = useState(false);
+  const values = draft ?? step.auditScriptParams ?? {};
+  const invalid = parameters.some(item => getAuditScriptParameterError(item, values[item.key] ?? item.default));
+  const dirty = parameters.some(item => (values[item.key] ?? item.default) !== (step.auditScriptParams?.[item.key] ?? item.default));
   const [configuration, setConfiguration] = useState<AuditScriptConfigDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<ModelCard[]>([]);
@@ -37,14 +46,14 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
   useEffect(() => () => { requestRef.current?.abort(); }, []);
 
   const run = async () => {
-    if (!step.auditScriptId || !files.length || requestRef.current) return;
+    if (!step.auditScriptId || !files.length || requestRef.current || (onParametersChange && (!parametersReady || invalid))) return;
     const controller = new AbortController();
     requestRef.current = controller;
     setRunning(true);
     clearOutput();
     try {
       const response = await workflowApi.testAuditScript(step.auditScriptId, {
-        params: configurable && configuration ? createParameterDefaultDraft(configuration) : step.auditScriptParams ?? {}, modelCardId: configurable ? modelId : step.auditModelCardId ?? null,
+        params: configurable && configuration ? createParameterDefaultDraft(configuration) : values, modelCardId: configurable ? modelId : step.auditModelCardId ?? null,
       }, files, controller.signal);
       if (!controller.signal.aborted) {
         setDiagnostic(response.diagnostic ?? null);
@@ -66,6 +75,16 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
       aria-haspopup="dialog" onClick={async () => {
         setFiles([]); clearOutput();
         dialogRef.current?.showModal();
+        if (onParametersChange && step.auditScriptId) {
+          setLoading(true); setParametersReady(false); setParameterError("");
+          try {
+            const scripts = await workflowApi.listAuditScripts();
+            const selected = scripts.find(script => script.id === step.auditScriptId);
+            if (!selected) throw new Error("未找到当前审核脚本配置");
+            setParameters(selected.parameters); setParametersReady(true);
+          } catch (reason) { setParameterError(reason instanceof Error ? reason.message : "读取节点配置失败"); }
+          finally { setLoading(false); }
+        }
         if (configurable && step.auditScriptId) {
           setLoading(true); setConfiguration(null); setModelId(null);
           try {
@@ -87,6 +106,8 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
       </header>
       <div className="node-script-config-body audit-test-body">
         {!configurable ? <p className="audit-test-note">使用当前审核要点和模型配置，测试结果不写入学生流程。</p> : null}
+        {parameterError ? <p role="alert" className="audit-script-error">{parameterError}</p> : null}
+        {dirty ? <p className="audit-test-note">预览中有尚未应用的配置，测试将使用当前编辑内容。</p> : null}
         {loading ? <p role="status">正在读取测试配置…</p> : null}
         {configurable && configuration?.usesAi ? <div className="audit-test-configuration">
           <label className="audit-test-model"><span>审核模型</span>
@@ -161,14 +182,32 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
           </section>
         </> : null}
       </div>
-      <footer><small>测试不写入学生流程，使用脚本预设配置。</small><div>
+      <footer><small>测试不写入学生流程，{configurable ? "使用脚本预设配置。" : "使用当前审核配置。"}</small><div>
         {copyText ? <button type="button" onClick={async () => {
           try { await navigator.clipboard.writeText(copyText); setCopied(true); }
           catch { setError("复制失败，请选中内容手动复制。"); }
         }}>{copied ? "已复制" : view === "messages" ? "复制 messages" : "复制 JSON"}</button> : null}
-        <button type="button" className="primary-action" disabled={running || loading || (configurable && (!configuration || (configuration.usesAi && !modelId))) || !files.length || (scans && files.length > 10)} onClick={() => void run()}>{running ? "审核中…" : result ? "重新测试" : "开始测试"}</button>
+        <button type="button" className="primary-action" disabled={running || loading || (!!onParametersChange && (!parametersReady || invalid)) || (configurable && (!configuration || (configuration.usesAi && !modelId))) || !files.length || (scans && files.length > 10)} onClick={() => void run()}>{running ? "审核中…" : result ? "重新测试" : "开始测试"}</button>
       </div></footer>
     </dialog>, document.body)}
-    {previewIndex !== null ? <LocalMaterialPreviewDialog files={files} initialIndex={previewIndex} onClose={() => setPreviewIndex(null)} /> : null}
+    {previewIndex !== null ? <LocalMaterialPreviewDialog files={files} initialIndex={previewIndex} onClose={() => setPreviewIndex(null)} sidebar={onParametersChange ? <>
+      <h3>节点审核配置</h3>
+      <p className="audit-test-note">{step.auditScriptName} · {dirty ? "尚未应用" : "与节点配置一致"}</p>
+      <p className="audit-test-note">应用后还需点击节点“完成”保存。关闭预览会保留本次编辑。</p>
+      {loading ? <p role="status">正在读取配置…</p> : parameterError ? <p role="alert">{parameterError}</p> : parametersReady ?
+        <AuditScriptParameterFields parameters={parameters} value={values} disabled={disabled || running}
+          onChange={(key, value) => { setDraft({ ...values, [key]: value }); clearOutput(); }} /> : null}
+      <div className="audit-preview-actions">
+        <button type="button" disabled={disabled || running || !parametersReady || invalid || !dirty}
+          onClick={() => { onParametersChange({ ...Object.fromEntries(parameters.map(item => [item.key, item.default])), ...values }); setDraft(null); }}>应用到节点配置</button>
+        <button type="button" disabled={disabled || running || !parametersReady || invalid || !files.length || (scans && files.length > 10)}
+          onClick={() => void run()}>{running ? "审核中…" : "测试当前配置"}</button>
+      </div>
+      {running ? <p role="status">正在审核测试文件…</p> : null}
+      {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
+      {diagnostic ? <p className="audit-script-error">{diagnostic.stage}：{diagnostic.message}</p> : null}
+      {result ? <section className="audit-test-result"><strong>本次测试结果</strong><pre><code>{json}</code></pre></section> : null}
+      {requests.length ? <p className="audit-test-note">关闭预览可查看完整请求 messages。</p> : null}
+    </> : undefined} /> : null}
   </>;
 }

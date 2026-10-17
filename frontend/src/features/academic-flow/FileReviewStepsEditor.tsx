@@ -267,6 +267,7 @@ function FileReviewStepsFields(props: ComponentProps<typeof AuditScriptSelector>
           <div className="file-review-step-model">
             {requiresReviewModel(step) ? <NodeModelSelector value={step.auditModelCardId ?? null} disabled={props.parameterDisabled ?? disabled} onChange={(cardId) => update(step.id, { auditModelCardId: cardId ?? undefined })} /> : null}
             <AuditScriptTest key={`${node.id}-${step.id}-${step.auditScriptId}`} step={step}
+              onParametersChange={params => update(step.id, { auditScriptParams: params })}
               disabled={(props.parameterDisabled ?? disabled) || (requiresReviewModel(step) && !step.auditModelCardId)} />
           </div>
         </> : null}

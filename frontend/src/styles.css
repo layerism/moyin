@@ -14904,3 +14904,22 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
 .runtime-material-download.is-template-pending:not(:disabled) > svg { animation: runtime-template-download-bounce 1.8s ease-in-out infinite; }
 @keyframes runtime-template-download-bounce { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(2px); } }
 @media (prefers-reduced-motion: reduce) { .runtime-material-download.is-template-pending:not(:disabled) > svg { animation: none; } }
+
+/* Audit test composes the shared document preview with the node parameter editor. */
+.material-preview-dialog.has-sidebar { width: min(1500px, calc(100vw - 32px)); }
+.material-preview-sidebar { flex: 0 0 380px; min-width: 0; padding: 18px; overflow-y: auto; border-left: 1px solid #dce3ed; background: #fff; }
+.material-preview-sidebar h3 { margin: 0 0 10px; font-size: 16px; }
+.material-preview-sidebar .audit-script-parameters { display: flex; flex-direction: column; }
+.material-preview-sidebar .audit-script-parameter { min-width: 0; }
+.audit-preview-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.material-preview-sidebar pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 800px) {
+  .material-preview-dialog.has-sidebar .material-preview-body { flex-wrap: wrap; overflow-y: auto; }
+  .material-preview-dialog.has-sidebar .material-preview-content { flex-basis: 100%; height: 55vh; }
+  .material-preview-sidebar { flex: 1 1 100%; border-left: 0; border-top: 1px solid #dce3ed; overflow-y: visible; }
+}
+.material-preview-sidebar .audit-script-parameters { padding: 0; border: 0; gap: 18px; align-items: stretch; }
+.material-preview-sidebar .audit-script-parameter input:not([type="checkbox"]),
+.material-preview-sidebar .audit-script-parameter select,
+.material-preview-sidebar .audit-script-parameter textarea { box-sizing: border-box; width: 100%; border: 1px solid #ccd7e6; border-radius: 6px; padding: 9px 11px; color: inherit; font: inherit; }
+.material-preview-sidebar .audit-script-long-text-input > textarea { min-height: 320px; padding-bottom: 30px; line-height: 1.7; }

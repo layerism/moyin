@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { NodeTemplateAsset } from "../../types";
 import { DocxPreview } from "./DocxPreview";
@@ -12,8 +12,8 @@ type PreviewAsset = Pick<NodeTemplateAsset, "assetId" | "originalName" | "sizeBy
 type PreviewSource = { context: MaterialPreviewContext; assets: NodeTemplateAsset[]; localUrls?: never }
   | { context?: never; assets: PreviewAsset[]; localUrls: Record<string, string> };
 
-export function LocalMaterialPreviewDialog({ files, initialIndex, onClose }: {
-  files: File[]; initialIndex: number; onClose: () => void;
+export function LocalMaterialPreviewDialog({ files, initialIndex, onClose, sidebar }: {
+  files: File[]; initialIndex: number; onClose: () => void; sidebar?: ReactNode;
 }) {
   const [urls, setUrls] = useState<Record<string, string> | null>(null);
   useEffect(() => {
@@ -24,12 +24,13 @@ export function LocalMaterialPreviewDialog({ files, initialIndex, onClose }: {
   if (!urls) return null;
   return <MaterialPreviewDialog localUrls={urls}
     assets={files.map((file, index) => ({ assetId: String(index), originalName: file.name, sizeBytes: file.size }))}
-    initialId={String(initialIndex)} label="审核测试文件" onClose={onClose} />;
+    initialId={String(initialIndex)} label="审核测试文件" onClose={onClose} sidebar={sidebar} />;
 }
 
-export function MaterialPreviewDialog({ context, assets, localUrls, initialId, label, onClose }: PreviewSource & {
+export function MaterialPreviewDialog({ context, assets, localUrls, initialId, label, onClose, sidebar }: PreviewSource & {
   initialId: string;
   label: string;
+  sidebar?: ReactNode;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -54,7 +55,7 @@ export function MaterialPreviewDialog({ context, assets, localUrls, initialId, l
     catch (error) { setDownloadError(error instanceof Error ? error.message : "下载失败，请重试"); }
     finally { setDownloading(false); }
   };
-  return createPortal(<dialog ref={dialog} className="material-preview-dialog" aria-labelledby="material-preview-title"
+  return createPortal(<dialog ref={dialog} className={`material-preview-dialog${sidebar ? " has-sidebar" : ""}`} aria-labelledby="material-preview-title"
     onCancel={(event) => { event.preventDefault(); onClose(); }}
     onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }}>
     <header className="material-preview-header">
@@ -79,6 +80,7 @@ export function MaterialPreviewDialog({ context, assets, localUrls, initialId, l
             ? <MaterialImagePreview url={url} filename={asset.originalName} />
             : <p className="material-preview-message">此格式暂不支持在线预览，请下载原件查看。</p>}
       </div>
+      {sidebar ? <aside className="material-preview-sidebar" aria-label="节点审核配置">{sidebar}</aside> : null}
     </div>
     <footer className="material-preview-footer">
       <span>{extension === "docx" ? "DOCX 为浏览器排版预览，实际效果以原文件为准。" : ""}</span>
