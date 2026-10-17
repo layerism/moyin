@@ -1,3 +1,4 @@
+import { LocalMaterialPreviewDialog } from "./MaterialPreviewDialog";
 import { createParameterDefaultDraft, type AuditScriptConfigDetail } from "./auditScriptConfig";
 import { modelCardsApi, type ModelCard } from "../admin/modelCardsApi";
 import { useEffect, useId, useRef, useState } from "react";
@@ -16,6 +17,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
   const inputRef = useRef<HTMLInputElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [requests, setRequests] = useState<Array<{ messages: AuditLLMMessage[]; response?: string; responseTruncated?: boolean }>>([]);
@@ -106,6 +108,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
           <button type="button" disabled={running} onClick={() => inputRef.current?.click()}>＋ {files.length && !scans ? "替换文件" : "添加文件"}</button>
           {files.length && !scans ? <>
             <span className="audit-test-file-name" title={files[0].name}>{files[0].name}</span>
+            <button type="button" onClick={() => setPreviewIndex(0)}>预览</button>
             <small className="audit-test-file-size">{(files[0].size / 1024).toFixed(1)} KB</small>
             <button type="button" className="audit-test-file-remove" disabled={running} aria-label={`移除 ${files[0].name}`}
               onClick={() => { setFiles([]); clearOutput(); }}>×</button>
@@ -113,6 +116,7 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
         </div>
         {files.length ? scans ? <ul className="audit-test-files">{files.map((file, index) => <li key={`${index}-${file.name}`}>
           <span><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(1)} KB</small></span>
+          <button type="button" onClick={() => setPreviewIndex(index)}>预览</button>
           <button type="button" disabled={running} aria-label={`移除 ${file.name}`} onClick={() => {
             setFiles(files.filter((_, position) => position !== index)); clearOutput();
           }}>×</button>
@@ -165,5 +169,6 @@ export function AuditScriptTest({ step, disabled, configurable = false }: { step
         <button type="button" className="primary-action" disabled={running || loading || (configurable && (!configuration || (configuration.usesAi && !modelId))) || !files.length || (scans && files.length > 10)} onClick={() => void run()}>{running ? "审核中…" : result ? "重新测试" : "开始测试"}</button>
       </div></footer>
     </dialog>, document.body)}
+    {previewIndex !== null ? <LocalMaterialPreviewDialog files={files} initialIndex={previewIndex} onClose={() => setPreviewIndex(null)} /> : null}
   </>;
 }

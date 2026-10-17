@@ -8,9 +8,26 @@ import { saveDownloadFile } from "./saveStudentFile";
 
 export type MaterialPreviewContext = { flowId: string; nodeKey: string };
 
-export function MaterialPreviewDialog({ context, assets, initialId, label, onClose }: {
-  context: MaterialPreviewContext;
-  assets: NodeTemplateAsset[];
+type PreviewAsset = Pick<NodeTemplateAsset, "assetId" | "originalName" | "sizeBytes">;
+type PreviewSource = { context: MaterialPreviewContext; assets: NodeTemplateAsset[]; localUrls?: never }
+  | { context?: never; assets: PreviewAsset[]; localUrls: Record<string, string> };
+
+export function LocalMaterialPreviewDialog({ files, initialIndex, onClose }: {
+  files: File[]; initialIndex: number; onClose: () => void;
+}) {
+  const [urls, setUrls] = useState<Record<string, string> | null>(null);
+  useEffect(() => {
+    const entries = Object.fromEntries(files.map((file, index) => [String(index), URL.createObjectURL(file)]));
+    setUrls(entries);
+    return () => Object.values(entries).forEach((url) => URL.revokeObjectURL(url));
+  }, [files]);
+  if (!urls) return null;
+  return <MaterialPreviewDialog localUrls={urls}
+    assets={files.map((file, index) => ({ assetId: String(index), originalName: file.name, sizeBytes: file.size }))}
+    initialId={String(initialIndex)} label="审核测试文件" onClose={onClose} />;
+}
+
+export function MaterialPreviewDialog({ context, assets, localUrls, initialId, label, onClose }: PreviewSource & {
   initialId: string;
   label: string;
   onClose: () => void;
@@ -28,8 +45,8 @@ export function MaterialPreviewDialog({ context, assets, initialId, label, onClo
     return () => { element?.close(); target?.focus(); };
   }, []);
   if (!asset) return null;
-  const endpoint = `/api/workflows/${encodeURIComponent(context.flowId)}/nodes/${encodeURIComponent(context.nodeKey)}/materials/${encodeURIComponent(asset.assetId)}/download`;
-  const url = `${endpoint}?preview=true`;
+  const endpoint = localUrls ? localUrls[asset.assetId] : `/api/workflows/${encodeURIComponent(context!.flowId)}/nodes/${encodeURIComponent(context!.nodeKey)}/materials/${encodeURIComponent(asset.assetId)}/download`;
+  const url = localUrls ? endpoint : `${endpoint}?preview=true`;
   const extension = asset.originalName.split(".").pop()?.toLowerCase();
   const download = async () => {
     setDownloading(true); setDownloadError("");
