@@ -12,6 +12,7 @@ from pathlib import Path
 import pymupdf as fitz
 
 from app.services.audit_llm_client import AuditLLMClient, AuditLLMError
+from app.services.audit_prompt import render_audit_messages
 
 
 class LayoutAuditError(RuntimeError):
@@ -91,10 +92,7 @@ def request_audit(images: list[tuple[int, str]], reviewed_pages: list[int], prom
             {"type": "text", "text": f"实际第 {page} 页"},
             {"type": "image_url", "image_url": {"url": data_url}},
         ])
-    messages = [
-        {"role": "system", "content": settings['systemPrompt']},
-        {"role": "user", "content": content},
-    ]
+    messages = render_audit_messages(__file__, content, settings['systemPrompt'])
     value = client.request_json(messages=messages, temperature=float(settings['temperature']), timeout=timeout)
     try:
         return parse_result(value, reviewed_pages)

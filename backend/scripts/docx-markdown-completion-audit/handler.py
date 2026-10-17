@@ -11,6 +11,7 @@ from docx import Document
 from markitdown import MarkItDown
 
 from app.services.audit_llm_client import AuditLLMClient
+from app.services.audit_prompt import render_audit_messages
 
 MAX_CHUNK_CHARACTERS = 12_000
 MAX_ISSUES = 100
@@ -393,13 +394,13 @@ def build_model_messages(
         }
         for block in document_chunks
     ]
-    system = system_prompt.strip()
     rules_json = json.dumps(rules_payload, ensure_ascii=False, indent=2)
     chunks_json = json.dumps(chunks_payload, ensure_ascii=False, indent=2)
-    user = (
-        f"<review_specification_json>\n{rules_json}\n</review_specification_json>\n\n"
-        f"<submitted_document_json>\n{chunks_json}\n</submitted_document_json>"
+    messages = render_audit_messages(
+        __file__, {"rules": rules_json, "chunks": chunks_json}, system_prompt.strip()
     )
+    system = messages[0]["content"]
+    user = messages[1]["content"]
     if len(system) + len(user) > maximum_input_characters:
         raise ValueError("DOCX LLM 审核输入内容超过限制")
     return system, user

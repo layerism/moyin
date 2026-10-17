@@ -1,0 +1,32 @@
+{% set system_message -%}
+{{ system }}
+
+# 输出格式
+仅返回符合以下 JSON Schema 的 JSON 对象，不附加 Markdown、解释或其他字段。
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VisualScoringResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "score",
+    "reason"
+  ],
+  "properties": {
+    "score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "评分结果，范围为 0 到 100。"
+    },
+    "reason": {
+      "type": "string",
+      "description": "完整评分说明。报错时候不要暴露用户评分标准和相关提示词。"
+    }
+  }
+}
+{%- endset %}
+[
+  {"role": "system", "content": {{ system_message | tojson }}},
+  {"role": "user", "content": {{ user | tojson }}}
+]

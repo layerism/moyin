@@ -1,0 +1,71 @@
+{% set system_message -%}
+{{ system }}
+
+# 输出格式
+仅返回符合以下 JSON Schema 的 JSON 对象，不附加 Markdown、解释或其他字段。
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DocumentVisualReviewResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "passed",
+    "readable",
+    "reviewedPages",
+    "issues"
+  ],
+  "properties": {
+    "passed": {
+      "type": "boolean",
+      "description": "是否通过审核。通过时 issues 为空；不通过时至少有一项具体问题。"
+    },
+    "readable": {
+      "type": "boolean",
+      "description": "页面是否清晰可辨。不能看清页面时为 false，不要猜测通过。"
+    },
+    "reviewedPages": {
+      "type": "array",
+      "description": "必须完整列出全文要求审核的实际物理页码。",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "issues": {
+      "type": "array",
+      "description": "具体排版问题列表，每项包含 page、location、problem、suggestion 四个字段。",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "page",
+          "location",
+          "problem",
+          "suggestion"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "问题所在的实际物理页码。"
+          },
+          "location": {
+            "type": "string",
+            "description": "问题在页面中的具体位置。必须简洁具体，不要输出 HTML、链接、代码或内部标识。"
+          },
+          "problem": {
+            "type": "string",
+            "description": "明确可见的问题现象。必须简洁具体，不能只说“排版不规范”，不要输出 HTML、链接、代码或内部标识。"
+          },
+          "suggestion": {
+            "type": "string",
+            "description": "针对该问题的具体修改建议。必须简洁具体，不要输出 HTML、链接、代码或内部标识。"
+          }
+        }
+      }
+    }
+  }
+}
+{%- endset %}
+[
+  {"role": "system", "content": {{ system_message | tojson }}},
+  {"role": "user", "content": {{ user | tojson }}}
+]

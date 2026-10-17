@@ -7,6 +7,7 @@ import pymupdf as fitz
 from markitdown import MarkItDown
 
 from app.services.audit_llm_client import AuditLLMClient
+from app.services.audit_prompt import render_audit_messages
 
 
 def run(payload):
@@ -27,10 +28,11 @@ def run(payload):
     if not text.strip() or len(text) > settings['maximumInputCharacters']:
         raise ValueError('文档无可读取正文或超出审核长度限制')
     client = AuditLLMClient(payload['modelConfig'])
-    messages = [
-        {'role': 'system', 'content': settings['systemPrompt']},
-        {'role': 'user', 'content': json.dumps({'评分标准': params['scoringPrompt'], '不可信材料': text}, ensure_ascii=False)},
-    ]
+    messages = render_audit_messages(
+        __file__,
+        json.dumps({'评分标准': params['scoringPrompt'], '不可信材料': text}, ensure_ascii=False),
+        settings['systemPrompt'],
+    )
     value = client.request_json(messages=messages, temperature=float(settings['temperature']),
                                 timeout=float(settings['requestTimeoutSeconds']))
     score = value.get('score')

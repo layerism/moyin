@@ -1,0 +1,30 @@
+{% set system_message -%}
+{{ system }}
+
+# 输出格式
+仅返回符合以下 JSON Schema 的 JSON 对象，不附加 Markdown、解释或其他字段。
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AuditResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "passed",
+    "reason"
+  ],
+  "properties": {
+    "passed": {
+      "type": "boolean",
+      "description": "是否通过审核，取值为 true 或 false。"
+    },
+    "reason": {
+      "type": "string",
+      "description": "审核原因。"
+    }
+  }
+}
+{%- endset %}
+[
+  {"role": "system", "content": {{ system_message | tojson }}},
+  {"role": "user", "content": {{ user | tojson }}}
+]

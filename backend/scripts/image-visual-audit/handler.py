@@ -4,6 +4,7 @@ import sys
 
 from app.services.audit_image_materials import material_images
 from app.services.audit_llm_client import AuditLLMClient
+from app.services.audit_prompt import render_audit_messages
 
 
 def request_review(files, params, settings, client: AuditLLMClient):
@@ -14,10 +15,7 @@ def request_review(files, params, settings, client: AuditLLMClient):
                 {"type": "text", "text": f"第 {file_number} 个文件，第 {page_number} 页"},
                 {"type": "image_url", "image_url": {"url": data_url}},
             ])
-    messages = [
-        {"role": "system", "content": settings["systemPrompt"]},
-        {"role": "user", "content": content},
-    ]
+    messages = render_audit_messages(__file__, content, settings['systemPrompt'])
     value = client.request_json(messages=messages, temperature=float(settings["temperature"]),
                                 timeout=float(settings["requestTimeoutSeconds"]))
     if not isinstance(value.get("passed"), bool) or not isinstance(value.get("reason"), str) or not value["reason"].strip():

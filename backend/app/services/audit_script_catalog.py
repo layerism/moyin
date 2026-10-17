@@ -394,8 +394,13 @@ def _record_for_manifest(manifest: _AuditScriptManifest) -> AuditScriptRecord:
         try:
             content_identity["requestClientHash"] = hashlib.sha256(client_path.read_bytes()).hexdigest()
             client_modified_at = client_path.stat().st_mtime
+            for dependency in (
+                manifest.script_dir / "prompt.jinja", Path(__file__).with_name("audit_prompt.py")
+            ):
+                content_identity[dependency.name] = hashlib.sha256(dependency.read_bytes()).hexdigest()
+                client_modified_at = max(client_modified_at, dependency.stat().st_mtime)
         except OSError as exc:
-            raise AuditScriptCatalogError("审核模型客户端不可用") from exc
+            raise AuditScriptCatalogError("审核模型客户端或提示词模板不可用") from exc
     if manifest.id in {"image-visual-audit", "image-visual-score-audit"}:
         image_path = Path(__file__).with_name("audit_image_materials.py")
         try:
