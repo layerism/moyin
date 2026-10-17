@@ -15,17 +15,10 @@ from app.services.audit_prompt import render_audit_messages
 
 MAX_CHUNK_CHARACTERS = 12_000
 MAX_ISSUES = 100
-MAX_TARGET_CHARACTERS = 300
-MAX_EVIDENCE_CHARACTERS = 1000
-MAX_CORRECTION_CHARACTERS = 1000
+MAX_ISSUE_CHARACTERS = 1000
 MAX_REASON_CHARACTERS = 16_000
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 TABLE_SEPARATOR_CELL_PATTERN = re.compile(r":?-{3,}:?")
-ALLOWED_ISSUE_CODES = {
-    "REQUIRED_CONTENT_MISSING",
-    "CONTENT_REQUIREMENT_NOT_MET",
-}
-
 
 @dataclass(frozen=True)
 class MarkdownBlock:
@@ -409,15 +402,9 @@ def _bounded_model_text(value: object, label: str, maximum: int) -> str:
     return value.strip()
 
 
-def validate_model_result(
-    value: object,
-    review_rules: list[MarkdownBlock],
-    document_chunks: list[MarkdownBlock],
-) -> list[dict[str, object]]:
+def validate_model_result(value: object) -> list[str]:
     if not isinstance(value, dict) or set(value) != {"passed", "issues"}:
         raise ValueError("模型返回字段无效")
-    rule_ids = {block.id for block in review_rules}
-    chunk_ids = {block.id for block in document_chunks}
     issue_values = value["issues"]
     if not isinstance(issue_values, list) or len(issue_values) > MAX_ISSUES:
         raise ValueError("模型返回问题数量无效")
@@ -425,45 +412,12 @@ def validate_model_result(
         raise ValueError("模型返回通过标记无效")
     if value["passed"] != (not issue_values):
         raise ValueError("模型返回通过标记与问题列表不一致")
-
-    issues: list[dict[str, object]] = []
-    seen_issues: set[tuple[object, ...]] = set()
-    expected_fields = {"ruleId", "chunkId", "code", "target", "evidence", "correction"}
-    for issue_value in issue_values:
-        if not isinstance(issue_value, dict) or set(issue_value) != expected_fields:
-            raise ValueError("模型返回问题字段无效")
-        rule_id = issue_value["ruleId"]
-        chunk_id = issue_value["chunkId"]
-        code = issue_value["code"]
-        if not isinstance(rule_id, str) or rule_id not in rule_ids:
-            raise ValueError("模型返回问题规则无效")
-        if not isinstance(code, str) or code not in ALLOWED_ISSUE_CODES:
-            raise ValueError("模型返回问题代码无效")
-        if not isinstance(chunk_id, str) or chunk_id not in chunk_ids:
-            raise ValueError("模型返回问题文档位置无效")
-        target = _bounded_model_text(
-            issue_value["target"], "问题位置", MAX_TARGET_CHARACTERS
-        )
-        evidence = _bounded_model_text(
-            issue_value["evidence"], "问题证据", MAX_EVIDENCE_CHARACTERS
-        )
-        correction = _bounded_model_text(
-            issue_value["correction"], "修改方法", MAX_CORRECTION_CHARACTERS
-        )
-        duplicate_key = (rule_id, chunk_id, code, target)
-        if duplicate_key in seen_issues:
-            raise ValueError("模型返回重复问题")
-        seen_issues.add(duplicate_key)
-        issues.append(
-            {
-                "ruleId": rule_id,
-                "chunkId": chunk_id,
-                "code": code,
-                "target": target,
-                "evidence": evidence,
-                "correction": correction,
-            }
-        )
+    issues = [
+        _bounded_model_text(issue, "问题描述", MAX_ISSUE_CHARACTERS)
+        for issue in issue_values
+    ]
+    if len(set(issues)) != len(issues):
+        raise ValueError("模型返回重复问题")
     return issues
 
 
@@ -472,17 +426,8 @@ def _escape_markdown(value: str) -> str:
     return re.sub(r"([\\`*_{}\[\]()#+.!|>\-])", r"\\\1", value)
 
 
-def merge_issues_to_markdown(issues: list[dict[str, object]]) -> str:
-    if not issues:
-        return ""
-    lines = ["文档未通过审核，请修改以下内容：", ""]
-    for issue in issues:
-        target = _escape_markdown(str(issue["target"]))
-        correction = _escape_markdown(str(issue["correction"]))
-        if correction[-1] not in "。！？.!?":
-            correction += "。"
-        lines.append(f"- **{target}**：{correction}")
-    reason = "\n".join(lines)
+def merge_issues_to_markdown(issues: list[str]) -> str:
+    reason = "\n".join(f"- {_escape_markdown(issue)}" for issue in issues)
     if len(reason) > MAX_REASON_CHARACTERS:
         raise ValueError("学生修改说明超过限制")
     return reason
@@ -532,15 +477,12 @@ def run(payload: object) -> dict[str, object]:
         messages=messages,
         temperature=float(settings["temperature"]), timeout=float(settings["requestTimeoutSeconds"]),
     )
-    issues = validate_model_result(model_value, review_rules, document_chunks)
+    issues = validate_model_result(model_value)
     final_issues = [
         {
             "fileId": file_id,
-            "code": issue["code"],
-            "message": issue["correction"],
-            "ruleId": issue["ruleId"],
-            "chunkId": issue["chunkId"],
-            "target": issue["target"],
+            "code": "CONTENT_REQUIREMENT_NOT_MET",
+            "message": issue,
         }
         for issue in issues
     ]
