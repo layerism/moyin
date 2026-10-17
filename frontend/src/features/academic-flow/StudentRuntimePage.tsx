@@ -699,14 +699,14 @@ function RuntimeNodeDialog({
         <h3>填写资料</h3>
         {referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label={node.kind === "confirmation" ? "参考示例" : "填写参考"} compact />)}
         {runtime.template ? <section className={`runtime-material-row runtime-template-row${templateDownloadAttention ? " needs-attention" : ""}`} aria-label="填写模板" ref={templateRowRef}>
-          <button className={`runtime-template-cue${runtime.templateDownloaded ? "" : " is-pulsing"}`} type="button" aria-label="下载填写模板" title="下载填写模板" disabled={busy} onClick={onDownloadTemplate}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="runtime-template-cue-arrow" d="M12 3v12m-4-4 4 4 4-4" /><path d="M5 17v4h14v-4" /></svg></button>
+          <span className="runtime-template-cue" role="img" aria-label="请使用此模板" title="请使用此模板"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 15 9 22 12 15 15 12 22 9 15 2 12 9 9Z" /></svg></span>
           <FileFormatIcon filename={runtime.template.originalName} />
           <div className="runtime-material-copy">
             <strong>{node.kind === "confirmation" ? "签署模板" : "填写模板"}</strong>
             <p title={`${runtime.template.originalName} · ${formatFileSize(runtime.template.sizeBytes)}`}>{runtime.template.originalName}</p>
           </div>
           <small aria-live="polite" className={`runtime-material-status${runtime.templateDownloaded ? " is-downloaded" : ""}`}>{runtime.templateDownloaded ? "已下载" : templateDownloadAttention ? "请先下载" : "待下载"}</small>
-          <button className="runtime-material-download" aria-label={runtime.templateDownloaded ? "重新下载模板" : "下载模板"} title={runtime.templateDownloaded ? "重新下载模板" : "下载模板"} disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
+          <button className={`runtime-material-download${runtime.templateDownloaded ? "" : " is-template-pending"}`} aria-label={runtime.templateDownloaded ? "重新下载模板" : "下载模板"} title={runtime.templateDownloaded ? "重新下载模板" : "下载模板"} disabled={busy} onClick={onDownloadTemplate} ref={templateDownloadButtonRef} type="button">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg>
           </button>
         </section> : null}
