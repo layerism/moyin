@@ -104,8 +104,9 @@ export function NodePackageDownloadDialog({
   const fileOptionAvailable = Boolean(
     options?.supportsFiles && options.students.some((student) => student.fileCount > 0),
   );
-  const allFilteredSelected = filteredStudents.length > 0
-    && filteredStudents.every((student) => selectedIds.has(student.rosterEntryId));
+  const filteredSelectedCount = filteredStudents.filter((student) => selectedIds.has(student.rosterEntryId)).length;
+  const hiddenSelectedCount = selectedStudents.length - filteredSelectedCount;
+  const allFilteredSelected = filteredStudents.length > 0 && filteredSelectedCount === filteredStudents.length;
   const canDownload = selectedStudents.length > 0
     && (includeWorkbook || (includeFiles && selectedFileCount > 0));
   const downloadLabel = includeWorkbook && includeFiles
@@ -164,9 +165,8 @@ export function NodePackageDownloadDialog({
       >
         <header>
           <div>
-            <span>节点资料下载</span>
             <h2 id="node-package-dialog-title">{options?.nodeTitle ?? "加载中…"}</h2>
-            <p>{options ? `${options.flowName} · 当前发布版本` : "正在读取下载范围"}</p>
+            <p>{options ? `节点资料下载 · ${options.flowName} · 当前发布版本` : "正在读取下载范围"}</p>
           </div>
           <button aria-label="关闭下载弹窗" disabled={downloading} onClick={onClose} type="button">×</button>
         </header>
@@ -186,7 +186,7 @@ export function NodePackageDownloadDialog({
                     onChange={(event) => setIncludeWorkbook(event.target.checked)}
                     type="checkbox"
                   />
-                  <span><strong>填写数据 Excel</strong><small>每名所选学生一行，包含提交状态、填写内容和审核结果</small></span>
+                  <strong>填写数据 Excel</strong>
                 </label>
                 <label className={includeFiles ? "is-selected" : ""}>
                   <input
@@ -195,11 +195,12 @@ export function NodePackageDownloadDialog({
                     onChange={(event) => setIncludeFiles(event.target.checked)}
                     type="checkbox"
                   />
-                  <span>
-                    <strong>学生提交文件</strong>
-                    <small>{fileOptionAvailable ? "仅包含当前有效提交中的原始文件" : "当前节点暂无学生文件"}</small>
-                  </span>
+                  <strong>{fileOptionAvailable ? "学生提交文件" : "学生文件（暂无）"}</strong>
                 </label>
+                <details className="node-package-content-help">
+                  <summary>内容说明</summary>
+                  <p>Excel：包含所选学生的提交状态、填写内容和审核结果。<br />学生文件：仅包含当前有效提交中的原始文件。</p>
+                </details>
               </section>
 
               <section className="node-package-student-section">
@@ -234,13 +235,22 @@ export function NodePackageDownloadDialog({
                   <label>
                     <input
                       checked={allFilteredSelected}
+                      ref={(element) => {
+                        if (element) element.indeterminate = filteredSelectedCount > 0 && !allFilteredSelected;
+                      }}
                       disabled={downloading || filteredStudents.length === 0}
                       onChange={toggleFilteredStudents}
                       type="checkbox"
                     />
                     全选当前筛选结果
                   </label>
-                  <span>显示 {filteredStudents.length} 人 · 已选 {selectedStudents.length} 人</span>
+                  <div className="node-package-selection-actions">
+                    <span aria-live="polite">显示 {filteredStudents.length} 人 · 已选 {selectedStudents.length} 人
+                      {hiddenSelectedCount > 0 ? `（含筛选外 ${hiddenSelectedCount} 人）` : ""}
+                    </span>
+                    <button type="button" disabled={downloading || selectedStudents.length === 0}
+                      onClick={() => setSelectedIds(new Set())}>清空选择</button>
+                  </div>
                 </div>
                 <div className="node-package-student-list">
                   {filteredStudents.map((student) => (

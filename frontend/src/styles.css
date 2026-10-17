@@ -4829,6 +4829,7 @@ button {
 
 .node-package-dialog {
   width: min(780px, 100%);
+  height: min(790px, calc(100dvh - 48px));
   max-height: calc(100vh - 48px);
   min-width: 0;
   display: grid;
@@ -4886,9 +4887,11 @@ button {
 
 .node-package-dialog-body {
   min-width: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding: 18px 20px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  padding: 0 20px 14px;
 }
 
 .node-package-dialog-error,
@@ -4922,17 +4925,22 @@ button {
 }
 
 .node-package-content-section {
-  display: grid;
-  gap: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf2f7;
 }
 
 .node-package-content-section > label {
   min-width: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 10px;
-  padding: 12px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
   border: 1px solid #d9e2ef;
   border-radius: 7px;
   background: #ffffff;
@@ -4966,7 +4974,52 @@ button {
 }
 
 .node-package-student-section {
-  margin-top: 20px;
+  margin-top: 14px;
+  min-height: 180px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.node-package-content-help {
+  position: relative;
+  margin-left: auto;
+  color: #667085;
+  font-size: 12px;
+}
+
+.node-package-content-help summary { cursor: pointer; }
+
+.node-package-content-help p {
+  position: absolute;
+  right: 0;
+  top: 24px;
+  z-index: 1;
+  width: min(260px, calc(100vw - 80px));
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #d9e2ef;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  line-height: 1.8;
+}
+
+.node-package-selection-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.node-package-selection-actions button {
+  padding: 3px;
+  border: 0;
+  background: none;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .node-package-section-heading,
@@ -5017,7 +5070,8 @@ button {
 }
 
 .node-package-student-list {
-  max-height: 280px;
+  flex: 1;
+  min-height: 0;
   min-width: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -5029,6 +5083,7 @@ button {
   min-width: 0;
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto 78px;
+  min-height: 44px;
   align-items: center;
   gap: 9px;
   padding: 9px 11px;
@@ -5054,7 +5109,9 @@ button {
 .node-package-student-identity {
   min-width: 0;
   display: grid;
-  gap: 2px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 12px;
 }
 
 .node-package-student-identity strong,
@@ -5160,8 +5217,16 @@ button {
   }
 
   .node-package-dialog {
+    height: min(790px, calc(100dvh - 24px));
     max-height: calc(100vh - 24px);
   }
+
+  .node-package-content-section { gap: 8px; }
+  .node-package-content-section h3 { flex-basis: 100%; }
+  .node-package-content-help { margin-left: 0; }
+  .node-package-content-help p { left: 0; right: auto; }
+  .node-package-student-identity { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .node-package-select-summary { flex-wrap: wrap; }
 
   .node-package-filter-row {
     grid-template-columns: 1fr;
