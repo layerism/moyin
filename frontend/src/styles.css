@@ -14898,3 +14898,9 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
 }
 
 .preview-zoom-group { display: flex; align-items: center; gap: 6px; }
+
+.runtime-template-row { position: relative; padding-top: 30px; }
+.runtime-template-cue { position: absolute; top: 5px; left: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 4px; color: #1d4ed8; background: #eff6ff; font-size: 11px; font-weight: 600; pointer-events: none; }
+.runtime-template-cue.is-pulsing { animation: runtime-template-cue-pulse 2s ease-in-out infinite; }
+@keyframes runtime-template-cue-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgb(37 99 235 / 0%); } 50% { box-shadow: 0 0 0 3px rgb(37 99 235 / 20%); } }
+@media (prefers-reduced-motion: reduce) { .runtime-template-cue.is-pulsing { animation: none; } }
