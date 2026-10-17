@@ -528,6 +528,10 @@ function supplementTables(source: Element | undefined, roots: DocxNode[], resolv
       const style = parsedRows[rowIndex].cssStyle ??= {};
       const rule = attribute(height, "hRule");
       if (rule === "auto") style.height = "auto";
+      if (height && rule !== "exact" && rule !== "auto") {
+        const twips = Number(attribute(height, "val"));
+        if (Number.isFinite(twips) && twips > 0) style["--docx-row-min-height"] = String(twips / 15);
+      }
       for (const name of ["cantSplit", "tblHeader"]) {
         const setting = child(child(row, "trPr"), name);
         if (setting) style[`--docx-${name.toLowerCase()}`] = enabled(setting) ? "1" : "0";

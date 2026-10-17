@@ -50,7 +50,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       const styles = document.createElement("div");
       const options = {
         useBase64URL: true, renderAltChunks: false, breakPages: true, keepOrigin: true,
-        ignoreLastRenderedPageBreak: false, ignoreWidth: false, ignoreHeight: false, ignoreFonts: true,
+        ignoreLastRenderedPageBreak: true, ignoreWidth: false, ignoreHeight: false, ignoreFonts: true,
         h: (value: HElement | Node | string) => {
           // docx-preview renders w:tab as a generated EM SPACE string. Represent its
           // advance with measured XML tab stops, without requesting a generated glyph.

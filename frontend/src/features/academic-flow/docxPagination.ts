@@ -294,15 +294,13 @@ function splitTableGroup(
     }
   }
   if (rows.slice(start, end).some((row) => row.dataset.docxCantSplit === "1")) return null;
-  // The renderer carries w:trHeight into inline height. Splitting only the text
-  // cannot distribute a row's reserved writing space between two pages. Keep
-  // height-constrained rows (and their vertical merge group) intact instead of
-  // discarding that space or duplicating the full height on both fragments.
-  // The caller can still split at row boundaries or move the group to a new page;
-  // oversized groups use the existing visible-overflow fallback and warning.
+  // Only a single, splittable minimum-height row can distribute its reserved
+  // height. Fixed-height rows and height-constrained vertical merges stay intact.
+  const minimumHeight = end === start + 1
+    ? Number(rows[start].style.getPropertyValue("--docx-row-min-height")) : 0;
   const hasReservedHeight = (element: HTMLElement) =>
     [element.style.height, element.style.minHeight].some((value) => parseFloat(value) > 0);
-  if (rows.slice(start, end).some((row) => hasReservedHeight(row)
+  if (rows.slice(start, end).some((row) => (hasReservedHeight(row) && !minimumHeight)
     || Array.from(row.cells).some(hasReservedHeight))) return null;
   const remainder = source.cloneNode(true) as HTMLTableElement;
   while (table.rows.length > end) table.deleteRow(table.rows.length - 1);
@@ -349,6 +347,22 @@ function splitTableGroup(
   if (!consumed) {
     table.replaceChildren(...Array.from(source.cloneNode(true).childNodes));
     return null;
+  }
+  if (minimumHeight > 0) {
+    const currentRow = table.rows[start];
+    const nextRow = remainder.rows[start];
+    if (!continued) {
+      currentRow.style.height = `${minimumHeight}px`;
+      if (!fits(table)) {
+        table.replaceChildren(...Array.from(source.cloneNode(true).childNodes));
+        return null;
+      }
+    } else {
+      const remainingHeight = Math.max(0, minimumHeight - currentRow.getBoundingClientRect().height);
+      currentRow.style.setProperty("--docx-row-min-height", "0");
+      nextRow.style.height = `${remainingHeight}px`;
+      nextRow.style.setProperty("--docx-row-min-height", String(remainingHeight));
+    }
   }
   if (!continued) {
     for (let index = end - 1; index >= start; index--) remainder.deleteRow(index);
