@@ -1,8 +1,11 @@
 {% set system_message -%}
 {{ system }}
 
-# 输出格式
-仅返回符合以下 JSON Schema 的 JSON 对象，不附加 Markdown、解释或其他字段。
+# 输出要求
+- 仅返回符合下方 Schema 的结果 JSON，不附加其他内容。
+- location、problem、suggestion 应简洁具体，不含 HTML、链接、代码或内部标识。
+
+# 输出 Schema
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "DocumentVisualReviewResult",
@@ -32,7 +35,7 @@
     },
     "issues": {
       "type": "array",
-      "description": "具体排版问题列表，每项包含 page、location、problem、suggestion 四个字段。",
+      "description": "具体排版问题列表。",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -49,15 +52,15 @@
           },
           "location": {
             "type": "string",
-            "description": "问题在页面中的具体位置。必须简洁具体，不要输出 HTML、链接、代码或内部标识。"
+            "description": "问题在页面中的具体位置。"
           },
           "problem": {
             "type": "string",
-            "description": "明确可见的问题现象。必须简洁具体，不能只说“排版不规范”，不要输出 HTML、链接、代码或内部标识。"
+            "description": "明确可见的问题现象，不能只说“排版不规范”。"
           },
           "suggestion": {
             "type": "string",
-            "description": "针对该问题的具体修改建议。必须简洁具体，不要输出 HTML、链接、代码或内部标识。"
+            "description": "针对该问题的具体修改建议。"
           }
         }
       }
