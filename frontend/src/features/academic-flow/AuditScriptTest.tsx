@@ -105,9 +105,7 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
         <button type="button" aria-label="关闭审核测试" disabled={running || loading} onClick={() => dialogRef.current?.close()}>×</button>
       </header>
       <div className="node-script-config-body audit-test-body">
-        {!configurable ? <p className="audit-test-note">使用当前审核要点和模型配置，测试结果不写入学生流程。</p> : null}
         {parameterError ? <p role="alert" className="audit-script-error">{parameterError}</p> : null}
-        {dirty ? <p className="audit-test-note">预览中有尚未应用的配置，测试将使用当前编辑内容。</p> : null}
         {loading ? <p role="status">正在读取测试配置…</p> : null}
         {configurable && configuration?.usesAi ? <div className="audit-test-configuration">
           <label className="audit-test-model"><span>审核模型</span>
@@ -182,7 +180,7 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
           </section>
         </> : null}
       </div>
-      <footer><small>测试不写入学生流程，{configurable ? "使用脚本预设配置。" : "使用当前审核配置。"}</small><div>
+      <footer><div style={{ marginLeft: "auto" }}>
         {copyText ? <button type="button" onClick={async () => {
           try { await navigator.clipboard.writeText(copyText); setCopied(true); }
           catch { setError("复制失败，请选中内容手动复制。"); }
