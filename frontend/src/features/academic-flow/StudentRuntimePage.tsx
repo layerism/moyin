@@ -647,6 +647,7 @@ function RuntimeNodeDialog({
     event.preventDefault();
     setIsDraggingFile(false);
     const file = event.dataTransfer.files?.[0];
+    if (file && !uploadUnlocked) { handleTemplateRequired(); return; }
     if (file && !fileBusy) void uploadSelectedFile(file);
   };
 
@@ -850,6 +851,17 @@ function RuntimeNodeDialog({
             <strong className="runtime-upload-step-title">上传已填写文件</strong>
             <div
               className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${needsFileReplacement ? " is-rejected" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
+              role={!uploadUnlocked ? "button" : undefined}
+              tabIndex={!uploadUnlocked ? 0 : undefined}
+              aria-label={!uploadUnlocked ? "上传前请先下载填写模板" : undefined}
+              onClickCapture={(event) => {
+                if (!uploadUnlocked) { event.preventDefault(); event.stopPropagation(); handleTemplateRequired(); }
+              }}
+              onKeyDown={(event) => {
+                if (!uploadUnlocked && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault(); handleTemplateRequired();
+                }
+              }}
               onDragEnter={(event) => {
                 event.preventDefault();
                 if (!fileBusy) setIsDraggingFile(true);
