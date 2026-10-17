@@ -2,7 +2,6 @@
 import json
 import uuid
 from datetime import UTC, datetime
-from pathlib import Path
 from urllib.parse import urlsplit
 
 from cryptography.fernet import Fernet
@@ -219,17 +218,22 @@ def _card_config(row) -> dict[str, object]:
 
 
 def initialize_model_thinking() -> None:
+    from app.services.audit_script_catalog import _valid_manifests
     from app.services.model_thinking import thinking_profile
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(audit_model_cards)")}
         if "thinking_json" in columns:
             return
+        script_directories = {manifest.id: manifest.script_dir for manifest in _valid_manifests()}
         connection.execute("ALTER TABLE audit_model_cards ADD COLUMN thinking_json TEXT NOT NULL DEFAULT '{\"mode\":\"default\",\"effort\":\"default\",\"budget\":null}'")
         for card in connection.execute("SELECT * FROM audit_model_cards").fetchall():
             modes = set()
             for binding in connection.execute("SELECT script_id FROM audit_model_bindings WHERE card_id = ?", (card["id"],)):
-                config_path = Path(settings.audit_scripts_root) / binding["script_id"] / "config.json"
+                script_dir = script_directories.get(binding["script_id"])
+                if script_dir is None:
+                    continue
+                config_path = script_dir / "config.json"
                 if config_path.exists():
                     config = json.loads(config_path.read_text(encoding="utf-8"))
                     modes.update("on" if item["value"] else "off" for item in config.get("runtimeSettings", []) if item["key"] == "thinkingEnabled")
