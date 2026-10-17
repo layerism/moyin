@@ -35,7 +35,7 @@ def effective_files(connection, rows, *, id_key='id'):
                 revisions[node_id] = replacements
             revision = revisions[node_id].get(source_id)
             if revision:
-                item.update(original_name=revision['original_name'], storage_key=revision['storage_key'],
+                item.update(content_version=revision['id'], original_name=revision['original_name'], storage_key=revision['storage_key'],
                             size_bytes=revision['size_bytes'],
                             content_type=mimetypes.guess_type(revision['original_name'])[0] or 'application/octet-stream',
                             sha256='', etag=None, page_count=0)

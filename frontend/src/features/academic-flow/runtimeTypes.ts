@@ -189,6 +189,7 @@ export type ManualFeedbackFile = { id: string; sourceFileId: string; sourceNodeK
 export type ManualFeedback = { id: string; remark: string; publishedAt: string; historical: boolean; files: ManualFeedbackFile[] };
 export type ManualFeedbackDraft = { revision: number; remark: string; files: ManualFeedbackFile[] };
 export type ManualReviewDetail = {
+  previewFiles: Array<{ id: string; original_name: string; size_bytes: number; content_version?: string }>;
   referenceFiles?: Array<{ id: string; label: string; original_name: string; url: string }>;
   canReview?: boolean;
   canAmend?: boolean;

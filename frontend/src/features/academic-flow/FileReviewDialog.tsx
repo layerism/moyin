@@ -91,14 +91,9 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   const active = students.find((student) => student.id === selected) ?? students[0];
   const activeId = active?.nodeInstanceId;
   const current = detail?.nodeInstanceId === activeId ? detail : null;
-  const originalFiles = current?.sources.flatMap((source) => source.files) ?? [];
-  const revisionFile = current?.feedbackDraft.files.slice(-1)[0];
-  const previewFiles = revisionFile
-    ? [{ id: revisionFile.id, original_name: revisionFile.name, size_bytes: revisionFile.sizeBytes }]
-    : originalFiles;
-  const previewUrl = (fileId: string, inline = false) => revisionFile
-    ? `/api/workflow-admin/manual-feedback/files/${encodeURIComponent(fileId)}/content`
-    : `/api/workflow-admin/node-instances/${encodeURIComponent(current!.nodeInstanceId)}/manual-review/files/${encodeURIComponent(fileId)}/download${inline ? "?preview=true" : ""}`;
+  const previewFiles = current?.previewFiles ?? [];
+  const previewUrl = (fileId: string, inline = false) =>
+    `/api/workflow-admin/node-instances/${encodeURIComponent(current!.nodeInstanceId)}/manual-review/files/${encodeURIComponent(fileId)}/download?version=${encodeURIComponent(previewFiles.find((file) => file.id === fileId)?.content_version ?? "original")}${inline ? "&preview=true" : ""}`;
   const visibleFileIndex = Math.min(fileIndex, Math.max(0, previewFiles.length - 1));
   useEffect(() => { setFileIndex(0); }, [activeId]);
   const canReview = Boolean((current?.canReview || current?.canAmend) && !busy && !loading);
@@ -237,14 +232,14 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
           <div className="file-review-body">
           <div className="manual-review-content">
             <div className="manual-review-student-heading"><h3>{current.student.name}<small>学号 {current.student.studentNo}</small></h3><span className={`file-review-status is-${active ? category(active) : "waiting"}`}>{active ? labels[category(active)] : ""}</span></div>
-            <section className="manual-review-source" aria-label={revisionFile ? "教师修订文件预览" : "本次提交原件"}>
+            <section className="manual-review-source" aria-label="当前有效文件预览">
               {previewFiles.length > 1 ? <div className="file-review-file-navigation" aria-label="切换原件">
                 <button type="button" disabled={visibleFileIndex === 0} onClick={() => setFileIndex(visibleFileIndex - 1)}>‹ 上一个文件</button>
                 <span aria-live="polite">文件 {visibleFileIndex + 1} / {previewFiles.length}</span>
                 <button type="button" disabled={visibleFileIndex === previewFiles.length - 1} onClick={() => setFileIndex(visibleFileIndex + 1)}>下一个文件 ›</button>
               </div> : null}
-              {previewFiles.slice(visibleFileIndex, visibleFileIndex + 1).map((file) => <div className="file-review-document" key={file.id}>
-                <div className="file-review-original"><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span>{revisionFile ? <FeedbackDownload fileId={file.id} filename={file.original_name} iconOnly /> : <OriginalDownload nodeId={current.nodeInstanceId} fileId={file.id} filename={file.original_name} />}</div>
+              {previewFiles.slice(visibleFileIndex, visibleFileIndex + 1).map((file) => <div className="file-review-document" key={`${file.id}-${file.content_version ?? "original"}`}>
+                <div className="file-review-original"><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span><OriginalDownload nodeId={current.nodeInstanceId} fileId={file.id} filename={file.original_name} /></div>
                 {/\.(jpe?g|png)$/i.test(file.original_name)
                   ? <img className="file-review-image-preview" loading="lazy" alt={file.original_name} src={previewUrl(file.id, true)} /> : null}
                 {/\.pdf$/i.test(file.original_name) ? <PdfPreview key={`${current.nodeInstanceId}-${file.id}`} filename={file.original_name} url={previewUrl(file.id, true)} /> : null}

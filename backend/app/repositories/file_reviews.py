@@ -131,7 +131,9 @@ def file_review_detail(connection, row, config, node, status):
             snapshot = json.loads(task['snapshot_json'])
             prior_ai.append({'step': task['step_index'] + 1, 'scriptName': snapshot.get('scriptName', 'AI 审核'),
                              'passed': result['passed'], 'reason': result.get('reason', '')})
-    return {'referenceFiles': reference_files, 'nodeInstanceId': row['id'], 'title': node['title'], 'requirement': node.get('requirement', ''),
+    from app.repositories.effective_files import effective_files
+    preview_files = effective_files(connection, evidence['sources'][0]['files'])
+    return {'previewFiles': preview_files, 'referenceFiles': reference_files, 'nodeInstanceId': row['id'], 'title': node['title'], 'requirement': node.get('requirement', ''),
             'student': {'name': row['name'], 'studentNo': row['student_no']}, 'status': status,
             'canAmend': can_amend_review(connection, submission_id, status),
             'canReview': status == 'reviewing' and review_stage(connection, submission_id) == 'manual',

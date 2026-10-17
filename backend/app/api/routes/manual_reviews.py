@@ -43,6 +43,8 @@ def detail(node_instance_id: str, teacher=Depends(get_current_teacher)):
             for file in source['files']:
                 storage_key = file.pop('storage_key')
                 file['url'] = get_object_storage().signed_download_url(storage_key, file['original_name'])
+        for file in result.get('previewFiles', []):
+            file.pop('storage_key', None)
         for file in result.get('referenceFiles', []):
             storage_key = file.pop('storage_key')
             file['url'] = get_object_storage().signed_download_url(storage_key, file['original_name'])
@@ -208,8 +210,7 @@ def download_review_original(node_instance_id: str, file_id: str, preview: bool 
         raise HTTPException(404, '审核节点不存在或预览已失效') from exc
     except RosterAccessError as exc:
         raise HTTPException(403, str(exc)) from exc
-    record = next((file for source in review['sources'] for file in source['files']
-                   if file['id'] == file_id), None)
+    record = next((file for file in review['previewFiles'] if file['id'] == file_id), None)
     if record is None:
         raise HTTPException(404, '原件不存在或已不属于本次审核，请刷新后重试')
     image_type = str(record.get('content_type') or '')
