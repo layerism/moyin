@@ -14900,7 +14900,7 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
 .preview-zoom-group { display: flex; align-items: center; gap: 6px; }
 
 .runtime-template-row { position: relative; }
-.runtime-template-cue { position: absolute; top: 2px; left: 2px; display: inline-flex; width: 12px; height: 12px; color: #2563eb; }
-.runtime-template-cue.is-pulsing { animation: runtime-template-cue-pulse 2s ease-in-out infinite; }
-@keyframes runtime-template-cue-pulse { 0%, 100% { opacity: .45; transform: scale(.85); } 50% { opacity: 1; transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .runtime-template-cue.is-pulsing { animation: none; } }
+ .runtime-material-row > button.runtime-template-cue { position: absolute; top: 0; left: 0; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; min-height: 0; padding: 0; border: 0; border-radius: 3px; background: #fff; color: #2563eb; animation: none; }
+.runtime-template-cue.is-pulsing:not(:disabled) .runtime-template-cue-arrow { animation: runtime-template-cue-pulse 1.8s ease-in-out infinite; }
+@keyframes runtime-template-cue-pulse { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(1px); } }
+@media (prefers-reduced-motion: reduce) { .runtime-template-cue.is-pulsing:not(:disabled) .runtime-template-cue-arrow { animation: none; } }

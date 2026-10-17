@@ -699,7 +699,7 @@ function RuntimeNodeDialog({
         <h3>填写资料</h3>
         {referenceFiles.map((asset) => <NodeReferenceCard key={asset.assetId} asset={asset} nodeInstanceId={runtime.id} label={node.kind === "confirmation" ? "参考示例" : "填写参考"} compact />)}
         {runtime.template ? <section className={`runtime-material-row runtime-template-row${templateDownloadAttention ? " needs-attention" : ""}`} aria-label="填写模板" ref={templateRowRef}>
-          <span className={`runtime-template-cue${runtime.templateDownloaded ? "" : " is-pulsing"}`} role="img" aria-label="请使用此模板" title="请使用此模板"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9-6.2-3.3-6.2 3.3L7 14.2 2 9.3l6.9-1Z" /></svg></span>
+          <button className={`runtime-template-cue${runtime.templateDownloaded ? "" : " is-pulsing"}`} type="button" aria-label="下载填写模板" title="下载填写模板" disabled={busy} onClick={onDownloadTemplate}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="runtime-template-cue-arrow" d="M12 3v12m-4-4 4 4 4-4" /><path d="M5 17v4h14v-4" /></svg></button>
           <FileFormatIcon filename={runtime.template.originalName} />
           <div className="runtime-material-copy">
             <strong>{node.kind === "confirmation" ? "签署模板" : "填写模板"}</strong>
