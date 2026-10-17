@@ -7,14 +7,14 @@ GlobalWorkerOptions.workerSrc = workerUrl;
 export function PdfPreview({ url, filename }: { url: string; filename: string }) {
   const [document, setDocument] = useState<PDFDocumentProxy | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.75);
   const [width, setWidth] = useState(0);
   const [error, setError] = useState("");
   const viewport = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let active = true;
-    setDocument(null); setError(""); setPageNumber(1); setZoom(1);
+    setDocument(null); setError(""); setPageNumber(1); setZoom(0.75);
     const task = getDocument({ url, withCredentials: true });
     task.promise.then((value) => { if (active) setDocument(value); }).catch(() => {
       if (active) setError("PDF 加载失败，请重新打开审核页或下载原件查看。");

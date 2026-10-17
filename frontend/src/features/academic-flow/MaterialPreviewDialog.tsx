@@ -98,7 +98,7 @@ export function MaterialPreviewDialog({ context, assets, localUrls, initialId, l
 }
 
 function MaterialImagePreview({ url, filename }: { url: string; filename: string }) {
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.75);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   return <section className="material-image-preview" aria-label={`图片预览：${filename}`}>
