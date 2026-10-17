@@ -46,6 +46,8 @@ export function MaterialPreviewDialog({ context, assets, localUrls, initialId, l
     return () => { element?.close(); target?.focus(); };
   }, []);
   if (!asset) return null;
+  const selectedIndex = assets.indexOf(asset);
+  const selectFile = (index: number) => { setSelectedId(assets[index].assetId); setDownloadError(""); };
   const endpoint = localUrls ? localUrls[asset.assetId] : `/api/workflows/${encodeURIComponent(context!.flowId)}/nodes/${encodeURIComponent(context!.nodeKey)}/materials/${encodeURIComponent(asset.assetId)}/download`;
   const url = localUrls ? endpoint : `${endpoint}?preview=true`;
   const extension = asset.originalName.split(".").pop()?.toLowerCase();
@@ -69,7 +71,7 @@ export function MaterialPreviewDialog({ context, assets, localUrls, initialId, l
       {assets.length > 1 ? <nav className="material-preview-files" aria-label={label}>
         {assets.map((item) => <button type="button" key={item.assetId} title={item.originalName}
           aria-current={asset.assetId === item.assetId ? "true" : undefined}
-          onClick={() => { setSelectedId(item.assetId); setDownloadError(""); }}>
+          onClick={() => selectFile(assets.indexOf(item))}>
           <FileFormatIcon filename={item.originalName} /><span>{item.originalName}</span>
         </button>)}
       </nav> : null}
@@ -83,6 +85,11 @@ export function MaterialPreviewDialog({ context, assets, localUrls, initialId, l
       {sidebar ? <aside className="material-preview-sidebar" aria-label="节点审核配置">{sidebar}</aside> : null}
     </div>
     <footer className="material-preview-footer">
+      {assets.length > 1 ? <div className="material-preview-navigation" role="group" aria-label="切换预览文件">
+        <button type="button" disabled={selectedIndex === 0} onClick={() => selectFile(selectedIndex - 1)}>上一个</button>
+        <span aria-live="polite">{selectedIndex + 1} / {assets.length}</span>
+        <button type="button" disabled={selectedIndex === assets.length - 1} onClick={() => selectFile(selectedIndex + 1)}>下一个</button>
+      </div> : null}
       <span>{extension === "docx" ? "DOCX 为浏览器排版预览，实际效果以原文件为准。" : ""}</span>
       {downloadError ? <span role="alert">{downloadError}</span> : null}
       <button type="button" onClick={() => setRevision((value) => value + 1)}>重新加载</button>

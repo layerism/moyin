@@ -139,6 +139,7 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
           }} />
         <div className={`audit-test-upload${files.length && !scans ? " has-file" : ""}`}>
           <button type="button" disabled={running} onClick={() => inputRef.current?.click()}>＋ {files.length && !scans ? "替换文件" : "添加文件"}</button>
+          {scans ? <button type="button" disabled={!files.length} onClick={() => setPreviewIndex(0)}>预览</button> : null}
           {files.length && !scans ? <>
             <span className="audit-test-file-name" title={files[0].name}>{files[0].name}</span>
             <button type="button" onClick={() => setPreviewIndex(0)}>预览</button>
@@ -149,7 +150,6 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
         </div>
         {files.length ? scans ? <ul className="audit-test-files">{files.map((file, index) => <li key={`${index}-${file.name}`}>
           <span><strong>{file.name}</strong><small>{(file.size / 1024).toFixed(1)} KB</small></span>
-          <button type="button" onClick={() => setPreviewIndex(index)}>预览</button>
           <button type="button" disabled={running} aria-label={`移除 ${file.name}`} onClick={() => {
             setFiles(files.filter((_, position) => position !== index)); clearOutput();
           }}>×</button>
