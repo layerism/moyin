@@ -14907,9 +14907,9 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
 
 /* Audit test composes the shared document preview with the node parameter editor. */
 .material-preview-dialog.has-sidebar { width: min(1500px, calc(100vw - 32px)); }
-.material-preview-sidebar { flex: 0 0 380px; min-width: 0; padding: 18px; overflow-y: auto; border-left: 1px solid #dce3ed; background: #fff; }
+.material-preview-sidebar { display: flex; flex-direction: column; flex: 0 0 clamp(380px, 38vw, 520px); min-width: 0; padding: 18px; overflow-y: auto; border-left: 1px solid #dce3ed; background: #fff; }
 .material-preview-sidebar h3 { margin: 0 0 10px; font-size: 16px; }
-.material-preview-sidebar .audit-script-parameters { display: flex; flex-direction: column; }
+.material-preview-sidebar .audit-script-parameters { display: flex; flex-direction: column; flex: 1 0 auto; }
 .material-preview-sidebar .audit-script-parameter { min-width: 0; }
 .audit-preview-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .material-preview-sidebar pre { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -14923,3 +14923,11 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
 .material-preview-sidebar .audit-script-parameter select,
 .material-preview-sidebar .audit-script-parameter textarea { box-sizing: border-box; width: 100%; border: 1px solid #ccd7e6; border-radius: 6px; padding: 9px 11px; color: inherit; font: inherit; }
 .material-preview-sidebar .audit-script-long-text-input > textarea { min-height: 320px; padding-bottom: 30px; line-height: 1.7; }
+
+.material-preview-sidebar > h3,
+.material-preview-sidebar > .audit-preview-actions { flex-shrink: 0; }
+.material-preview-sidebar .audit-script-parameter.is-long-text { display: flex; flex-direction: column; flex: 1; }
+.material-preview-sidebar .audit-script-long-text-input { display: flex; flex: 1; }
+.material-preview-sidebar .audit-script-long-text-input > textarea { flex: 1; }
+/* Keep the single prompt label accessible without repeating the panel heading. */
+.material-preview-sidebar .audit-script-parameter.is-long-text:only-child > span:first-child { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

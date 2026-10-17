@@ -192,8 +192,6 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
     </dialog>, document.body)}
     {previewIndex !== null ? <LocalMaterialPreviewDialog files={files} initialIndex={previewIndex} onClose={() => setPreviewIndex(null)} sidebar={onParametersChange ? <>
       <h3>节点审核配置</h3>
-      <p className="audit-test-note">{step.auditScriptName} · {dirty ? "尚未应用" : "与节点配置一致"}</p>
-      <p className="audit-test-note">应用后还需点击节点“完成”保存。关闭预览会保留本次编辑。</p>
       {loading ? <p role="status">正在读取配置…</p> : parameterError ? <p role="alert">{parameterError}</p> : parametersReady ?
         <AuditScriptParameterFields parameters={parameters} value={values} disabled={disabled || running}
           onChange={(key, value) => { setDraft({ ...values, [key]: value }); clearOutput(); }} /> : null}
