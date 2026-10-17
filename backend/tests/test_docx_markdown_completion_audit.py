@@ -14,7 +14,7 @@ from docx.shared import Inches
 HANDLER_PATH = (
     Path(__file__).resolve().parents[1]
     / "scripts"
-    / "docx-markdown-completion-audit"
+    / "docx-completion-audit"
     / "handler.py"
 )
 

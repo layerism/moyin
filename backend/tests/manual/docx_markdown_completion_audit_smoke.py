@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 HANDLER_PATH = (
-    BACKEND_ROOT / "scripts" / "docx-markdown-completion-audit" / "handler.py"
+    BACKEND_ROOT / "scripts" / "docx-completion-audit" / "handler.py"
 )
 CONFIG_PATH = HANDLER_PATH.with_name("config.json")
 
