@@ -46,7 +46,7 @@ export function MaterialPreviewDialog({ context, assets, localUrls, initialId, l
     return () => { element?.close(); target?.focus(); };
   }, []);
   if (!asset) return null;
-  const selectedIndex = assets.indexOf(asset);
+  const selectedIndex = assets.findIndex((item) => item.assetId === asset.assetId);
   const selectFile = (index: number) => { setSelectedId(assets[index].assetId); setDownloadError(""); };
   const endpoint = localUrls ? localUrls[asset.assetId] : `/api/workflows/${encodeURIComponent(context!.flowId)}/nodes/${encodeURIComponent(context!.nodeKey)}/materials/${encodeURIComponent(asset.assetId)}/download`;
   const url = localUrls ? endpoint : `${endpoint}?preview=true`;
@@ -69,9 +69,9 @@ export function MaterialPreviewDialog({ context, assets, localUrls, initialId, l
     </header>
     <div className="material-preview-body">
       {assets.length > 1 ? <nav className="material-preview-files" aria-label={label}>
-        {assets.map((item) => <button type="button" key={item.assetId} title={item.originalName}
+        {assets.map((item, index) => <button type="button" key={item.assetId} title={item.originalName}
           aria-current={asset.assetId === item.assetId ? "true" : undefined}
-          onClick={() => selectFile(assets.indexOf(item))}>
+          onClick={() => selectFile(index)}>
           <FileFormatIcon filename={item.originalName} /><span>{item.originalName}</span>
         </button>)}
       </nav> : null}
