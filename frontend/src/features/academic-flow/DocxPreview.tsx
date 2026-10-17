@@ -14,7 +14,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [fontWarnings, setFontWarnings] = useState<string[]>([]);
-  const [zoom, setZoom] = useState(0.5);
+  const [zoom, setZoom] = useState(0.75);
   const [pageCount, setPageCount] = useState(0);
   const [paper, setPaper] = useState<"original" | "A4" | "A3">("original");
 
@@ -26,7 +26,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
     let active = true;
     let releaseFonts: (() => void) | undefined;
     root.replaceChildren();
-    setLoading(true); setError(""); setFontWarnings([]); setZoom(0.5); setPageCount(0);
+    setLoading(true); setError(""); setFontWarnings([]); setZoom(0.75); setPageCount(0);
     void (async () => {
       const timings: Record<string, number> = {};
       let stageStart = performance.now();
