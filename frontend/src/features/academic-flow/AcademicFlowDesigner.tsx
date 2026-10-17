@@ -2,7 +2,7 @@ import { nodeReferences } from "./nodeReferences";
 import { NodeReferenceFiles } from "./NodeReferenceFiles";
 import { resolveFlowSchedule, getFlowTimeIssues } from "./flowDeadlines";
 import { NodeFileRow } from "./NodeFileRow";
-import { fileReviewAcceptedExtensions, fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasSequentialManualReview } from "./FileReviewStepsEditor";
+import { ReviewSettingsPanelContext, fileReviewAcceptedExtensions, fileReviewError, fileReviewSteps, FileReviewStepsEditor, hasSequentialManualReview } from "./FileReviewStepsEditor";
 import { FileReviewDialog } from "./FileReviewDialog";
 import { NodeModelSelector } from "./NodeModelSelector";
 import { ManualReviewDialog } from "./ManualReviewDialog";
@@ -2851,6 +2851,7 @@ function NodeInspector({
     };
   }, [closeInspector, timeSettingsOpen]);
 
+  const [reviewPanel, setReviewPanel] = useState<HTMLDivElement | null>(null);
   if (!node) {
     return null;
   }
@@ -2887,6 +2888,7 @@ function NodeInspector({
     });
   };
   const settingCapabilities = getNodeSettingCapabilities(node.kind);
+  const showsReviewPanel = node.kind === "file" || settingCapabilities.configuresConfirmationScan;
   const timeSettingsLabel = getTimeSettingsLabel(node);
   const fileTypeRestrictionPreset = getFileTypeRestrictionPreset(node.fileExtensions);
   const hasFileTypeRestriction = node.fileExtensions.trim().length > 0;
@@ -2901,9 +2903,10 @@ function NodeInspector({
 
   return (
     <div className="node-inspector-backdrop">
+      <ReviewSettingsPanelContext.Provider value={reviewPanel}>
       <aside
         aria-modal="true"
-        className="flow-panel inspector-panel node-inspector-modal"
+        className={`flow-panel inspector-panel node-inspector-modal${showsReviewPanel ? " has-review-panel" : ""}`}
         role="dialog"
       >
         <div className="node-inspector-fields">
@@ -3278,7 +3281,12 @@ function NodeInspector({
             {materialBusy || basicSaving || answerKeySaving || auditPolicySaving ? "保存中…" : "完成"}
           </button>
         </footer>
+        {showsReviewPanel ? <section className="node-review-sidepage" aria-label="审核配置">
+          <header><h2>审核配置</h2></header>
+          <div className="node-review-sidepage-body" ref={setReviewPanel} />
+        </section> : null}
       </aside>
+      </ReviewSettingsPanelContext.Provider>
       {timeSettingsOpen && node.kind !== "branch" && node.kind !== "or_gate" ? (
         <NodeTimeSettingsDialog
           minimumDeadline={minimumDeadline}
