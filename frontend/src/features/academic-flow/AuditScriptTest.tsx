@@ -13,12 +13,10 @@ import { AuditMessageViewer } from "./AuditMessageViewer";
 
 export function AuditScriptTest({ step, disabled, configurable = false, onParametersChange }: { step: FileReviewStep; disabled: boolean; configurable?: boolean; onParametersChange?: (params: Record<string, string | number | boolean>) => void }) {
   const [parameters, setParameters] = useState<AuditScriptParameter[]>([]);
-  const [draft, setDraft] = useState<Record<string, string | number | boolean> | null>(null);
   const [parameterError, setParameterError] = useState("");
   const [parametersReady, setParametersReady] = useState(false);
-  const values = draft ?? step.auditScriptParams ?? {};
+  const values = step.auditScriptParams ?? {};
   const invalid = parameters.some(item => getAuditScriptParameterError(item, values[item.key] ?? item.default));
-  const dirty = parameters.some(item => (values[item.key] ?? item.default) !== (step.auditScriptParams?.[item.key] ?? item.default));
   const reportRef = useRef<HTMLDialogElement>(null);
   const [report, setReport] = useState<{ reason: string; passed: boolean | null; completedAt: string } | null>(null);
   useEffect(() => { if (report) reportRef.current?.showModal(); }, [report]);
@@ -200,10 +198,8 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
       <h3>节点审核配置</h3>
       {loading ? <p role="status">正在读取配置…</p> : parameterError ? <p role="alert">{parameterError}</p> : parametersReady ?
         <AuditScriptParameterFields parameters={parameters} value={values} disabled={disabled || running}
-          onChange={(key, value) => { setDraft({ ...values, [key]: value }); clearOutput(); }} /> : null}
+          onChange={(key, value) => { onParametersChange({ ...Object.fromEntries(parameters.map(item => [item.key, item.default])), ...values, [key]: value }); clearOutput(); }} /> : null}
       <div className="audit-preview-actions">
-        <button type="button" disabled={disabled || running || !parametersReady || invalid || !dirty}
-          onClick={() => { onParametersChange({ ...Object.fromEntries(parameters.map(item => [item.key, item.default])), ...values }); setDraft(null); }}>应用到节点配置</button>
         <button type="button" disabled={disabled || running || !parametersReady || invalid || !files.length || (scans && files.length > 10)}
           onClick={() => void run(true)}>{running ? "审核中…" : "测试当前配置"}</button>
       </div>
