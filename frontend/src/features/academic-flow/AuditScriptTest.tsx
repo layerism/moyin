@@ -1,3 +1,4 @@
+import { AuditReportDialog } from "./AuditReportDialog";
 import { Report } from "./AuditHistory";
 import { AuditScriptParameterFields } from "./AuditScriptParameterFields";
 import { getAuditScriptParameterError, type AuditScriptParameter } from "./auditScripts";
@@ -18,6 +19,9 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
   const values = draft ?? step.auditScriptParams ?? {};
   const invalid = parameters.some(item => getAuditScriptParameterError(item, values[item.key] ?? item.default));
   const dirty = parameters.some(item => (values[item.key] ?? item.default) !== (step.auditScriptParams?.[item.key] ?? item.default));
+  const reportRef = useRef<HTMLDialogElement>(null);
+  const [report, setReport] = useState<{ reason: string; passed: boolean | null; completedAt: string } | null>(null);
+  useEffect(() => { if (report) reportRef.current?.showModal(); }, [report]);
   const [configuration, setConfiguration] = useState<AuditScriptConfigDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [models, setModels] = useState<ModelCard[]>([]);
@@ -46,7 +50,7 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
   };
   useEffect(() => () => { requestRef.current?.abort(); }, []);
 
-  const run = async () => {
+  const run = async (showReport = false) => {
     if (!step.auditScriptId || !files.length || requestRef.current || (onParametersChange && (!parametersReady || invalid))) return;
     const controller = new AbortController();
     requestRef.current = controller;
@@ -59,12 +63,21 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
       if (!controller.signal.aborted) {
         setDiagnostic(response.diagnostic ?? null);
         setResult(response.result);
+        if (showReport) setReport({
+          reason: typeof response.result?.reason === "string" ? response.result.reason : response.error || response.diagnostic?.message || "审核未提供文字说明。",
+          passed: typeof response.result?.passed === "boolean" ? response.result.passed : null,
+          completedAt: new Date().toISOString(),
+        });
         setRequests(response.requests);
         setError(response.error ?? "");
         if (configurable || !response.requests.length) setView("result");
       }
     } catch (reason) {
-      if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "审核测试失败");
+      if (!controller.signal.aborted) {
+        const message = reason instanceof Error ? reason.message : "审核测试失败";
+        setError(message);
+        if (showReport) setReport({ reason: message, passed: null, completedAt: new Date().toISOString() });
+      }
     } finally {
       if (!controller.signal.aborted) setRunning(false);
       requestRef.current = null;
@@ -198,13 +211,12 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
         <button type="button" disabled={disabled || running || !parametersReady || invalid || !dirty}
           onClick={() => { onParametersChange({ ...Object.fromEntries(parameters.map(item => [item.key, item.default])), ...values }); setDraft(null); }}>应用到节点配置</button>
         <button type="button" disabled={disabled || running || !parametersReady || invalid || !files.length || (scans && files.length > 10)}
-          onClick={() => void run()}>{running ? "审核中…" : "测试当前配置"}</button>
+          onClick={() => void run(true)}>{running ? "审核中…" : "测试当前配置"}</button>
       </div>
-      {running ? <p role="status">正在审核测试文件…</p> : null}
-      {error ? <p className="audit-script-error" role="alert">{error}</p> : null}
-      {diagnostic ? <p className="audit-script-error">{diagnostic.stage}：{diagnostic.message}</p> : null}
-      {result ? <section className="audit-test-result"><header><strong>本次测试结果</strong><span className={result.passed ? "is-passed" : "is-rejected"}>{result.passed ? "审核通过" : "审核未通过"}</span></header><Report value={typeof result.reason === "string" ? result.reason : ""} /></section> : null}
-      {requests.length ? <p className="audit-test-note">关闭预览可查看完整请求 messages。</p> : null}
     </> : undefined} /> : null}
+    <AuditReportDialog dialogRef={reportRef} title="本次测试结果" subtitle={step.auditScriptName ?? "当前审核步骤"}
+      passed={report?.passed ?? null} reviewedAt={report?.completedAt ?? null} reason={report?.reason ?? ""} returnLabel="返回文档预览">
+      <Report value={report?.reason ?? ""} />
+    </AuditReportDialog>
   </>;
 }
