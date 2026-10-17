@@ -92,7 +92,14 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
   const activeId = active?.nodeInstanceId;
   const current = detail?.nodeInstanceId === activeId ? detail : null;
   const originalFiles = current?.sources.flatMap((source) => source.files) ?? [];
-  const visibleFileIndex = Math.min(fileIndex, Math.max(0, originalFiles.length - 1));
+  const revisionFile = current?.feedbackDraft.files.slice(-1)[0];
+  const previewFiles = revisionFile
+    ? [{ id: revisionFile.id, original_name: revisionFile.name, size_bytes: revisionFile.sizeBytes }]
+    : originalFiles;
+  const previewUrl = (fileId: string, inline = false) => revisionFile
+    ? `/api/workflow-admin/manual-feedback/files/${encodeURIComponent(fileId)}/content`
+    : `/api/workflow-admin/node-instances/${encodeURIComponent(current!.nodeInstanceId)}/manual-review/files/${encodeURIComponent(fileId)}/download${inline ? "?preview=true" : ""}`;
+  const visibleFileIndex = Math.min(fileIndex, Math.max(0, previewFiles.length - 1));
   useEffect(() => { setFileIndex(0); }, [activeId]);
   const canReview = Boolean((current?.canReview || current?.canAmend) && !busy && !loading);
 
@@ -230,21 +237,21 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
           <div className="file-review-body">
           <div className="manual-review-content">
             <div className="manual-review-student-heading"><h3>{current.student.name}<small>学号 {current.student.studentNo}</small></h3><span className={`file-review-status is-${active ? category(active) : "waiting"}`}>{active ? labels[category(active)] : ""}</span></div>
-            <section className="manual-review-source" aria-label="本次提交原件">
-              {originalFiles.length > 1 ? <div className="file-review-file-navigation" aria-label="切换原件">
+            <section className="manual-review-source" aria-label={revisionFile ? "教师修订文件预览" : "本次提交原件"}>
+              {previewFiles.length > 1 ? <div className="file-review-file-navigation" aria-label="切换原件">
                 <button type="button" disabled={visibleFileIndex === 0} onClick={() => setFileIndex(visibleFileIndex - 1)}>‹ 上一个文件</button>
-                <span aria-live="polite">文件 {visibleFileIndex + 1} / {originalFiles.length}</span>
-                <button type="button" disabled={visibleFileIndex === originalFiles.length - 1} onClick={() => setFileIndex(visibleFileIndex + 1)}>下一个文件 ›</button>
+                <span aria-live="polite">文件 {visibleFileIndex + 1} / {previewFiles.length}</span>
+                <button type="button" disabled={visibleFileIndex === previewFiles.length - 1} onClick={() => setFileIndex(visibleFileIndex + 1)}>下一个文件 ›</button>
               </div> : null}
-              {originalFiles.slice(visibleFileIndex, visibleFileIndex + 1).map((file) => <div className="file-review-document" key={file.id}>
-                <div className="file-review-original"><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span><OriginalDownload nodeId={current.nodeInstanceId} fileId={file.id} filename={file.original_name} /></div>
+              {previewFiles.slice(visibleFileIndex, visibleFileIndex + 1).map((file) => <div className="file-review-document" key={file.id}>
+                <div className="file-review-original"><FileFormatIcon filename={file.original_name} /><span className="file-review-filename">{file.original_name}<small>{(file.size_bytes / 1024).toFixed(1)} KB</small></span>{revisionFile ? <FeedbackDownload fileId={file.id} filename={file.original_name} iconOnly /> : <OriginalDownload nodeId={current.nodeInstanceId} fileId={file.id} filename={file.original_name} />}</div>
                 {/\.(jpe?g|png)$/i.test(file.original_name)
-                  ? <img className="file-review-image-preview" loading="lazy" alt={file.original_name} src={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download?preview=true`} /> : null}
-                {/\.pdf$/i.test(file.original_name) ? <PdfPreview key={`${current.nodeInstanceId}-${file.id}`} filename={file.original_name} url={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download?preview=true`} /> : null}
-                {/\.docx$/i.test(file.original_name) ? <DocxPreview key={`${current.nodeInstanceId}-${file.id}`} filename={file.original_name} url={`/api/workflow-admin/node-instances/${encodeURIComponent(current.nodeInstanceId)}/manual-review/files/${encodeURIComponent(file.id)}/download`} /> : null}
-                {!/\.(docx|pdf|jpe?g|png)$/i.test(file.original_name) ? <p className="file-review-muted">此格式请下载原件查看。</p> : null}
+                  ? <img className="file-review-image-preview" loading="lazy" alt={file.original_name} src={previewUrl(file.id, true)} /> : null}
+                {/\.pdf$/i.test(file.original_name) ? <PdfPreview key={`${current.nodeInstanceId}-${file.id}`} filename={file.original_name} url={previewUrl(file.id, true)} /> : null}
+                {/\.docx$/i.test(file.original_name) ? <DocxPreview key={`${current.nodeInstanceId}-${file.id}`} filename={file.original_name} url={previewUrl(file.id)} /> : null}
+                {!/\.(docx|pdf|jpe?g|png)$/i.test(file.original_name) ? <p className="file-review-muted">此格式请下载文件查看。</p> : null}
               </div>)}
-              {!originalFiles.length ? <p className="file-review-muted">暂无已提交原件。</p> : null}
+              {!previewFiles.length ? <p className="file-review-muted">暂无已提交原件。</p> : null}
             </section>
             <details className="file-review-secondary"><summary>材料要求与历史记录</summary>
               {current.requirement ? <section className="manual-review-instructions"><h4>材料要求</h4><p>{current.requirement}</p></section> : null}
@@ -277,10 +284,10 @@ export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo
                     <label className={`manual-feedback-upload${busy ? " is-disabled" : ""}`}>{current.feedbackDraft.files.length ? "替换文件" : "＋ 添加文件"}<input aria-label="上传文件评阅" disabled={busy} type="file" onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); event.currentTarget.value = ""; upload(files); }} /></label>
                   </header>
                   {!current.feedbackDraft.files.length ? <p className="file-review-attachment-empty">上传修订后的文件，审核通过后将作为学生最终提交文件。<br /><small>限一个文件，不超过 50 MB</small></p> : null}
-                  {current.feedbackDraft.files.map((file) => <div className="file-review-attachment-row" key={file.id}><FileFormatIcon filename={file.name} /><span className="file-review-filename"><strong>{file.name}</strong><small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} iconOnly /><button title="移除附件" aria-label={`移除附件：${file.name}`} disabled={busy} type="button" onClick={() => void act(async () => {
+                  {current.feedbackDraft.files.map((file) => <div className="file-review-attachment-row" key={file.id}><FileFormatIcon filename={file.name} /><span className="file-review-filename"><strong>{file.name}</strong><small>{(file.sizeBytes / 1024).toFixed(1)} KB</small></span><FeedbackDownload fileId={file.id} filename={file.name} iconOnly /><button title="删除文件" aria-label={`删除文件：${file.name}`} disabled={busy} type="button" onClick={() => void act(async () => {
                     const draft = await workflowApi.removeManualFeedback(current.nodeInstanceId, current.evidenceHash, current.feedbackDraft.revision, file.id);
                     setDetail((value) => value ? { ...value, feedbackDraft: draft } : value);
-                  })}>×</button></div>)}
+                  })}>删除文件</button></div>)}
                 </section>
               </section>
             </div>

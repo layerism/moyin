@@ -71,6 +71,11 @@ def add_feedback_file(node_instance_id, teacher_id, evidence_hash, revision, sou
         source_file = next((file for source in evidence['sources'] for file in source['files'] if file['id'] == source_file_id), None)
         if source_file is None:
             raise ValueError('原文件不属于本次审核材料')
+        from pathlib import PurePosixPath
+        from app.repositories.flow_templates import get_version_template_original_name
+        template_name = get_version_template_original_name(connection, row['flow_version_id'], row['node_key'])
+        base_name = template_name or source_file['original_name']
+        name = PurePosixPath(base_name).stem + PurePosixPath(name).suffix
         file_id = str(uuid.uuid4())
         connection.execute('''INSERT INTO audit_manual_feedback_files
             (id, flow_instance_id, node_instance_id, evidence_hash, source_file_id, source_name, original_name, storage_key, size_bytes, created_at)

@@ -163,6 +163,33 @@ def teacher_download(file_id: str, teacher=Depends(get_current_teacher)):
     return download_result(file_id, teacher_id=int(teacher['id']))
 
 
+@router.get('/manual-feedback/files/{file_id}/content')
+def preview_feedback(file_id: str, teacher=Depends(get_current_teacher)):
+    import mimetypes
+    import tempfile
+    from pathlib import Path
+    from fastapi.responses import FileResponse
+    from starlette.background import BackgroundTask
+
+    try:
+        record = feedback_download(file_id, teacher_id=int(teacher['id']))
+    except (KeyError, ValueError, RosterAccessError) as exc:
+        raise feedback_error(exc) from exc
+    media_type = mimetypes.guess_type(record['original_name'])[0]
+    if PurePosixPath(record['original_name']).suffix.lower() not in {'.docx', '.pdf', '.jpg', '.jpeg', '.png'}:
+        raise HTTPException(415, '此格式请下载查看')
+    with tempfile.NamedTemporaryFile(prefix='moyin-feedback-preview-', delete=False) as temporary:
+        path = Path(temporary.name)
+    try:
+        get_object_storage().download_to_file(record['storage_key'], path)
+    except Exception as exc:
+        path.unlink(missing_ok=True)
+        raise HTTPException(502, '评阅文件读取失败，请稍后重试') from exc
+    return FileResponse(path, media_type=media_type,
+                        headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff'},
+                        background=BackgroundTask(path.unlink, missing_ok=True))
+
+
 @router.get('/manual-feedback/files/{file_id}/student-download')
 def student_download(file_id: str, student=Depends(get_current_runtime_student)):
     return download_result(file_id, student_id=int(student['id']))
