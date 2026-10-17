@@ -371,7 +371,6 @@ def split_review_points(markdown: str) -> list[str]:
 
 
 def build_model_messages(
-    system_prompt: str,
     review_rules: list[MarkdownBlock],
     document_chunks: list[MarkdownBlock],
     maximum_input_characters: int,
@@ -397,7 +396,7 @@ def build_model_messages(
     rules_json = json.dumps(rules_payload, ensure_ascii=False, indent=2)
     chunks_json = json.dumps(chunks_payload, ensure_ascii=False, indent=2)
     messages = render_audit_messages(
-        __file__, {"rules": rules_json, "chunks": chunks_json}, system_prompt.strip()
+        __file__, {"rules": rules_json, "chunks": chunks_json}
     )
     if sum(len(message["content"]) for message in messages) > maximum_input_characters:
         raise ValueError("DOCX LLM 审核输入内容超过限制")
@@ -524,7 +523,6 @@ def run(payload: object) -> dict[str, object]:
     document_chunks = split_document_markdown(markdown)
     document_chunks = annotate_document_structure(path, document_chunks)
     messages = build_model_messages(
-        str(settings["systemPrompt"]),
         review_rules,
         document_chunks,
         int(settings["maximumInputCharacters"]),

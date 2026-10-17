@@ -42,7 +42,6 @@ def _block(
 
 def _settings() -> dict[str, object]:
     return {
-        "systemPrompt": "只依据审核规则检查文档。",
         "temperature": 0,
         "requestTimeoutSeconds": 60,
         "maximumInputCharacters": 120000,
@@ -202,12 +201,12 @@ def test_build_model_messages_contains_every_rule_and_chunk(handler: ModuleType)
         _block(handler, "chunk-002", "table", "| 学号 |\n| --- |\n| |"),
     ]
 
-    messages = handler.build_model_messages("系统要求", rules, chunks, 10000)
+    messages = handler.build_model_messages(rules, chunks, 10000)
     system = messages[0]["content"]
     user = messages[1]["content"]
 
     assert [message["role"] for message in messages] == ["system", "user"]
-    assert "系统要求" in system
+    assert "你是 MARKDOWN 文档审核器。" in system
     assert user.count("<review_specification_json>") == 1
     assert user.count("<submitted_document_json>") == 1
     assert all(item.id in user for item in [*rules, *chunks])
@@ -218,7 +217,7 @@ def test_build_model_messages_rejects_oversized_input(handler: ModuleType) -> No
     chunks = [_block(handler, "chunk-001", "section", "正文")]
 
     with pytest.raises(ValueError, match="输入内容超过限制"):
-        handler.build_model_messages("系统要求", rules, chunks, 10)
+        handler.build_model_messages(rules, chunks, 10)
 
 
 def test_validate_model_result_accepts_failed_issue(handler: ModuleType) -> None:
