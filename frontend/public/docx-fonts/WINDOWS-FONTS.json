@@ -3980,6 +3980,258 @@
           ]
         }
       ]
+    },
+    {
+      "file": "segoeui.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/segoeui.ttf",
+      "git_blob_sha1": "fc18ebd0ad42f4c1dc52fe87952224adc13695c9",
+      "sha256": "5f2331a860c6bef0945e85c610dcdd10573b7c7aa348fa1ca3c5fa8dff4b0e15",
+      "size_bytes": 910308,
+      "faces": [
+        {
+          "names": {
+            "2": [
+              "Normal",
+              "obyčejné",
+              "normal",
+              "Standard",
+              "Κανονικά",
+              "Regular",
+              "Normaali",
+              "Normál",
+              "Normale",
+              "Standaard",
+              "Normalny",
+              "Обычный",
+              "Normálne",
+              "Navadno",
+              "Arrunta"
+            ],
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved. "
+            ],
+            "1": [
+              "Segoe UI"
+            ],
+            "4": [
+              "Segoe UI"
+            ],
+            "5": [
+              "Version 5.53"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "segoeuib.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/segoeuib.ttf",
+      "git_blob_sha1": "5f31e0ca6b31189e3fab0bb996da3b0b6558a6fe",
+      "sha256": "9b64c9988af89d510e050b94cdc2e49fbdf5c1e9c18835b5ddd127a4ccfdf6dd",
+      "size_bytes": 898564,
+      "faces": [
+        {
+          "names": {
+            "2": [
+              "Negreta",
+              "tučné",
+              "fed",
+              "Fett",
+              "Έντονα",
+              "Bold",
+              "Negrita",
+              "Lihavoitu",
+              "Gras",
+              "Félkövér",
+              "Grassetto",
+              "Vet",
+              "Halvfet",
+              "Pogrubiony",
+              "Negrito",
+              "Полужирный",
+              "Tučné",
+              "Fet",
+              "Kalın",
+              "Krepko",
+              "Lodia"
+            ],
+            "4": [
+              "Segoe UI Negreta",
+              "Segoe UI tučné",
+              "Segoe UI fed",
+              "Segoe UI Fett",
+              "Segoe UI Έντονα",
+              "Segoe UI Bold",
+              "Segoe UI Negrita",
+              "Segoe UI Lihavoitu",
+              "Segoe UI Gras",
+              "Segoe UI Félkövér",
+              "Segoe UI Grassetto",
+              "Segoe UI Vet",
+              "Segoe UI Halvfet",
+              "Segoe UI Pogrubiony",
+              "Segoe UI Negrito",
+              "Segoe UI Полужирный",
+              "Segoe UI Tučné",
+              "Segoe UI Fet",
+              "Segoe UI Kalın",
+              "Segoe UI Krepko",
+              "Segoe UI Lodia"
+            ],
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved. "
+            ],
+            "1": [
+              "Segoe UI"
+            ],
+            "5": [
+              "Version 5.52"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content.  You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content.\r\n\r\nThe following license, based on the MIT license (http://en.wikipedia.org/wiki/MIT_License), applies to the OpenType Layout logic for Biblical Hebrew “Layout Logic” as jointly developed by Ralph Hancock and John Hudson. \r\n\r\nPermission is hereby granted, free of charge, to any person obtaining a copy of the OpenType Layout logic for Biblical Hebrew and associated documentation files (the “Layout Logic Software”), to deal in the Layout Logic Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Layout Logic Software, and to permit persons to whom the Layout Logic Software is furnished to do so, subject to the following conditions:\r\n\r\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Layout Logic Software.\r\n\r\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "segoeuii.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/segoeuii.ttf",
+      "git_blob_sha1": "7efb70d6046b00cf783283278fe938a7c805a8b6",
+      "sha256": "96773b40f779b9e9c3236ccdfe7297a67b4ba509270c97ee691a5690483277cc",
+      "size_bytes": 508344,
+      "faces": [
+        {
+          "names": {
+            "2": [
+              "Cursiva",
+              "kurzíva",
+              "kursiv",
+              "Kursiv",
+              "Πλάγια",
+              "Italic",
+              "Kursivoitu",
+              "Italique",
+              "Dőlt",
+              "Corsivo",
+              "Cursief",
+              "Kursywa",
+              "Itálico",
+              "Курсив",
+              "Kurzíva",
+              "İtalik",
+              "Poševno",
+              "Etzana"
+            ],
+            "4": [
+              "Segoe UI Cursiva",
+              "Segoe UI kurzíva",
+              "Segoe UI kursiv",
+              "Segoe UI Kursiv",
+              "Segoe UI Πλάγια",
+              "Segoe UI Italic",
+              "Segoe UI Kursivoitu",
+              "Segoe UI Italique",
+              "Segoe UI Dőlt",
+              "Segoe UI Corsivo",
+              "Segoe UI Cursief",
+              "Segoe UI Kursywa",
+              "Segoe UI Itálico",
+              "Segoe UI Курсив",
+              "Segoe UI Kurzíva",
+              "Segoe UI İtalik",
+              "Segoe UI Poševno",
+              "Segoe UI Etzana"
+            ],
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Segoe UI"
+            ],
+            "5": [
+              "Version 5.28"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "segoeuiz.ttf",
+      "source_url": "https://raw.githubusercontent.com/taveevut/Windows-10-Fonts-Default/33c53b34c725dbaf3d85c047456268c458a1df80/segoeuiz.ttf",
+      "git_blob_sha1": "d7bb186b3e3a31da07e45b42183579c33326791d",
+      "sha256": "b311ff9901fc3e00d7cbfb552634bd3839a6aceb1beaf8c9c74dc9619d3551f2",
+      "size_bytes": 522076,
+      "faces": [
+        {
+          "names": {
+            "2": [
+              "Negreta cursiva",
+              "tučné kurzíva",
+              "fed kursiv",
+              "Fett Kursiv",
+              "Έντονα Πλάγια",
+              "Bold Italic",
+              "Negrita Cursiva",
+              "Lihavoitu Kursivoi",
+              "Gras Italique",
+              "Félkövér dőlt",
+              "Grassetto Corsivo",
+              "Vet Cursief",
+              "Halvfet Kursiv",
+              "Pogrubiona kursywa",
+              "Negrito Itálico",
+              "Полужирный Курсив",
+              "Tučná kurzíva",
+              "Fet Kursiv",
+              "Kalın İtalik",
+              "Krepko poševno",
+              "Lodi etzana"
+            ],
+            "4": [
+              "Segoe UI Negreta cursiva",
+              "Segoe UI tučné kurzíva",
+              "Segoe UI fed kursiv",
+              "Segoe UI Fett Kursiv",
+              "Segoe UI Έντονα Πλάγια",
+              "Segoe UI Bold Italic",
+              "Segoe UI Negrita Cursiva",
+              "Segoe UI Lihavoitu Kursivoi",
+              "Segoe UI Gras Italique",
+              "Segoe UI Félkövér dőlt",
+              "Segoe UI Grassetto Corsivo",
+              "Segoe UI Vet Cursief",
+              "Segoe UI Halvfet Kursiv",
+              "Segoe UI Pogrubiona kursywa",
+              "Segoe UI Negrito Itálico",
+              "Segoe UI Полужирный Курсив",
+              "Segoe UI Tučná kurzíva",
+              "Segoe UI Fet Kursiv",
+              "Segoe UI Kalın İtalik",
+              "Segoe UI Krepko poševno",
+              "Segoe UI Lodi etzana"
+            ],
+            "0": [
+              "© 2015 Microsoft Corporation. All Rights Reserved."
+            ],
+            "1": [
+              "Segoe UI"
+            ],
+            "5": [
+              "Version 5.28"
+            ],
+            "13": [
+              "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
     }
   ]
 }

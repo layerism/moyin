@@ -42,6 +42,7 @@ TTC 保留原文件，在浏览器内存中取出指定成员并重建 sfnt 容�
 | 等线 Light | `dengl.ttf` |
 | Times New Roman | `times.ttf`、`timesbd.ttf`、`timesi.ttf`、`timesbi.ttf` |
 | Arial | `arial.ttf`、`arialbd.ttf`、`ariali.ttf`、`arialbi.ttf` |
+| Segoe UI | `segoeui.ttf`、`segoeuib.ttf`、`segoeuii.ttf`、`segoeuiz.ttf` |
 | Calibri | `calibri.ttf`、`calibrib.ttf`、`calibrii.ttf`、`calibriz.ttf` |
 | Calibri Light | `calibril.ttf`、`calibrili.ttf` |
 | Aptos | `aptos.ttf`、`aptos-bold.ttf`、`aptos-italic.ttf`、`aptos-bold-italic.ttf` |

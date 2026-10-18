@@ -35,6 +35,7 @@ const fonts = [
   chinese("KaiLegacy", ["楷体_GB2312", "KaiTi_GB2312"], "kaiti_gb2312.ttf"),
   latin("Times", ["Times New Roman"], ["times.ttf", "timesbd.ttf", "timesi.ttf", "timesbi.ttf"]),
   latin("Arial", ["Arial"], ["arial.ttf", "arialbd.ttf", "ariali.ttf", "arialbi.ttf"]),
+  latin("SegoeUI", ["Segoe UI"], ["segoeui.ttf", "segoeuib.ttf", "segoeuii.ttf", "segoeuiz.ttf"]),
   latin("Calibri", ["Calibri"], ["calibri.ttf", "calibrib.ttf", "calibrii.ttf", "calibriz.ttf"]),
   latin("Aptos", ["Aptos"], ["aptos.ttf", "aptos-bold.ttf", "aptos-italic.ttf", "aptos-bold-italic.ttf"]),
   ...["Display", "Narrow", "Mono", "Serif"].map((variant) => {
