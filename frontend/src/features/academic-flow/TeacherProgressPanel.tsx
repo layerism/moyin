@@ -38,6 +38,7 @@ export function TeacherProgressPanel({
   versionId: string;
 }) {
   const [progress, setProgress] = useState<WorkflowProgress | null>(null);
+  const [presence, setPresence] = useState<Record<string, boolean>>({});
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>("all");
   const [activityDescending, setActivityDescending] = useState(true);
   const [menuPosition, setMenuPosition] = useState<CSSProperties>({});
@@ -82,6 +83,30 @@ export function TeacherProgressPanel({
       )
       && (node.status !== "approved" || formNodeKeys.has(node.nodeKey)),
   );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let pending = false;
+    setPresence({});
+    const refreshPresence = async () => {
+      if (pending || controller.signal.aborted) return;
+      pending = true;
+      try {
+        const response = await fetch(`/api/workflow-admin/versions/${encodeURIComponent(versionId)}/presence`, {
+          credentials: "include", cache: "no-store",
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]),
+        });
+        if (!response.ok) throw new Error("在线状态读取失败");
+        const value: Record<string, boolean> = await response.json();
+        if (!controller.signal.aborted) setPresence(value);
+      } catch {
+        if (!controller.signal.aborted) setPresence({});
+      } finally { pending = false; }
+    };
+    void refreshPresence();
+    const timer = window.setInterval(() => void refreshPresence(), 15_000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [versionId]);
 
   const refresh = async () => {
     const value = await workflowApi.getProgress(versionId);
@@ -467,7 +492,10 @@ export function TeacherProgressPanel({
                   return (
                     <tr key={student.rosterId}>
                       <td className="progress-student-cell">
-                        <strong>{student.name}</strong>
+                        <strong>{student.name} <span className={`student-presence ${presence[student.rosterId] === true ? "is-online" : ""}`}
+                          title="最近 90 秒收到心跳视为在线；表示在线本系统，不代表正在操作此流程">
+                          {presence[student.rosterId] === true ? "● 在线" : presence[student.rosterId] === false ? "○ 离线" : "状态未知"}
+                        </span></strong>
                         <small>{student.studentNo}</small>
                       </td>
                       <td>

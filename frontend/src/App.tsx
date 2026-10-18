@@ -1,3 +1,4 @@
+import { useStudentPresence } from "./features/auth/useStudentPresence";
 import { ExportTasksProvider } from "./features/academic-flow/ExportTasks";
 import { mapServerFlow } from "./features/academic-flow/flowMapping";
 import { RequiredPhoneBinding } from "./features/auth/SmsPasswordRecovery";
@@ -181,6 +182,7 @@ export function App() {
   const [authReady, setAuthReady] = useState(false);
   const [teacherIdentity, setTeacherIdentity] = useState<AuthIdentity | null>(null);
   const [studentIdentity, setStudentIdentity] = useState<AuthIdentity | null>(null);
+  useStudentPresence(authReady && authRole === "student" ? studentIdentity?.id ?? null : null);
   const [tab, setTab] = useState<Tab>("edit");
   const [students, setStudents] = useState<Student[]>(initialStudents);
   const [accounts, setAccounts] = useState<StudentAccount[]>(initialAccounts);

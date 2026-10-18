@@ -14949,3 +14949,6 @@ html:has(.audit-test-dialog[open]), body:has(.audit-test-dialog[open]) { overflo
   .node-inspector-modal.has-review-panel { display: flex; flex-direction: column; align-items: stretch; overflow-y: auto; gap: 12px; width: calc(100vw - 24px); }
   .has-review-panel > .node-inspector-mainpage, .node-review-sidepage { flex-shrink: 0; max-height: calc(100dvh - 48px); }
 }
+
+.student-presence { font-size: 11px; font-weight: 400; color: #64748b; white-space: nowrap; margin-left: 6px; }
+.student-presence.is-online { color: #15803d; }

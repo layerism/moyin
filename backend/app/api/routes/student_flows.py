@@ -52,10 +52,19 @@ from app.services.object_storage import (
     object_key,
     timestamped_object_name,
 )
-from app.services.security import get_current_runtime_student, get_current_student
+from app.services.security import get_authenticated_student, get_current_runtime_student, get_current_student
 from app.services.scan_materials import inspect_scan_material
 
+from app.services.student_presence import record_heartbeat
+
 router = APIRouter()
+
+
+@router.post("/presence/heartbeat")
+def presence_heartbeat(student: dict = Depends(get_authenticated_student)) -> dict[str, str]:
+    record_heartbeat(int(student["id"]))
+    return {"status": "ok"}
+
 
 
 class DraftRequest(BaseModel):

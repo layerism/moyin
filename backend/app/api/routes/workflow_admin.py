@@ -197,6 +197,19 @@ def put_student_deadline(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+@router.get("/versions/{version_id}/presence")
+def version_presence(version_id: str, teacher: dict = Depends(get_current_teacher)) -> dict[str, bool]:
+    from app.repositories.student_presence import get_presence_roster
+    from app.services.student_presence import online_students
+
+    try:
+        roster = get_presence_roster(version_id, int(teacher["id"]))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="流程版本不存在") from exc
+    online = online_students()
+    return {str(row["roster_id"]): row["student_id"] in online for row in roster}
+
+
 @router.get("/versions/{version_id}/progress")
 def version_progress(
     version_id: str,
