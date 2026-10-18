@@ -232,20 +232,34 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     }
     return groups;
   };
+  // These caches belong only to the synchronous, read-only collection below.
+  // Do not reuse them after font loading or any DOM/style changes.
+  const computedStyles = new WeakMap<Element, CSSStyleDeclaration>();
+  const visibility = new WeakMap<Element, boolean>();
+  const readStyle = (element: Element) => {
+    let style = computedStyles.get(element);
+    if (!style) { style = getComputedStyle(element); computedStyles.set(element, style); }
+    return style;
+  };
+  const isVisible = (element: Element) => {
+    let visible = visibility.get(element);
+    if (visible === undefined) { visible = element.getClientRects().length > 0; visibility.set(element, visible); }
+    return visible;
+  };
   const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
   const texts: { node: Text; groups: ReturnType<typeof select>; fontSize: string; underline: string; underlineColor: string }[] = [];
   while (walker.nextNode()) {
     const node = walker.currentNode as Text, parent = node.parentElement;
     if (!parent || parent.closest("style, script") || !node.data) continue;
-    if (parent.getClientRects().length === 0) continue;
-    const style = getComputedStyle(parent);
+    if (!isVisible(parent)) continue;
+    const style = readStyle(parent);
     const underline = value(style, "--docx-underline");
     let decoration = style;
     if (underline === "single" && !style.textDecorationLine.includes("underline")) {
       // Text decoration propagates rather than inheriting; an ancestor may own
       // its color when underline formatting came from a paragraph/table style.
       for (let ancestor = parent.parentElement; ancestor && ancestor !== body; ancestor = ancestor.parentElement) {
-        const candidate = getComputedStyle(ancestor);
+        const candidate = readStyle(ancestor);
         if (candidate.textDecorationLine.includes("underline")) { decoration = candidate; break; }
       }
     }
@@ -254,9 +268,9 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
   }
   // Paragraph struts (including blank lines) also need XML fonts for stable line metrics.
   const paragraphs = Array.from(body.querySelectorAll<HTMLElement>("p, li"))
-    .filter((element) => element.getClientRects().length > 0)
+    .filter(isVisible)
     .map((element) => {
-      const style = getComputedStyle(element);
+      const style = readStyle(element);
       const complex = style.getPropertyValue("--docx-mark-run-cs").trim() === "1"
         || style.getPropertyValue("--docx-mark-run-rtl").trim() === "1";
       const slot = complex ? "cs" : "normal";
@@ -266,10 +280,10 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     });
   const pseudos: { element: HTMLElement; name: string; counters: string; groups: ReturnType<typeof select> }[] = [];
   for (const element of Array.from(body.querySelectorAll<HTMLElement>("*"))) {
-    if (!(element instanceof HTMLElement) || element.getClientRects().length === 0) continue;
+    if (!(element instanceof HTMLElement) || !isVisible(element)) continue;
+    const list = readStyle(element);
     for (const name of ["before", "after", "marker"]) {
       const style = getComputedStyle(element, `::${name}`);
-      const list = getComputedStyle(element);
       const marker = name === "marker" && list.display === "list-item" && list.listStyleType !== "none";
       if (!marker && (style.display === "none" || ["none", "normal", '""'].includes(style.content))) continue;
       // CSSOM does not expose counter output; collect characters from its XML number format.

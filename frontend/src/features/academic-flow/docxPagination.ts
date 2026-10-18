@@ -21,7 +21,14 @@ export async function paginateDocx(body: HTMLElement, signal: AbortSignal): Prom
       original.style.overflow = "visible";
       continue;
     }
-    const template = original.cloneNode(true) as HTMLElement;
+    // A new page keeps only its shell and headers/footers. Avoid copying the
+    // entire section body merely to discard it before the first page split.
+    const template = original.cloneNode(false) as HTMLElement;
+    for (const child of Array.from(original.childNodes)) {
+      if (!(child instanceof Element) || ["HEADER", "FOOTER"].includes(child.tagName)) {
+        template.appendChild(child.cloneNode(true));
+      }
+    }
     const blocks = Array.from(original.children).flatMap((child) =>
       child.tagName === "ARTICLE"
         ? Array.from(child.children).map((block) => ({ shell: child, block: block as HTMLElement }))
@@ -36,7 +43,6 @@ export async function paginateDocx(body: HTMLElement, signal: AbortSignal): Prom
         if (!["HEADER", "FOOTER"].includes(child.tagName)) child.remove();
       }
     };
-    clear(template);
     clear(page);
     const nextPage = (reason = "overflow") => {
       const next = template.cloneNode(true) as HTMLElement;
