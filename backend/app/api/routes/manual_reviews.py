@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 from pathlib import PurePosixPath
 from fastapi import APIRouter, Depends, HTTPException, File, Form, UploadFile, Query
@@ -198,7 +199,7 @@ def student_download(file_id: str, student=Depends(get_current_runtime_student))
 
 
 @router.get('/node-instances/{node_instance_id}/manual-review/files/{file_id}/download')
-def download_review_original(node_instance_id: str, file_id: str, preview: bool = Query(False), teacher=Depends(get_current_teacher)):
+def download_review_original(node_instance_id: str, file_id: str, preview: bool = Query(False), append_student_name: bool = Query(False), teacher=Depends(get_current_teacher)):
     import tempfile
     from pathlib import Path
     from fastapi.responses import FileResponse
@@ -223,7 +224,15 @@ def download_review_original(node_instance_id: str, file_id: str, preview: bool 
     except Exception as exc:
         path.unlink(missing_ok=True)
         raise HTTPException(502, '原件下载失败，请稍后重试') from exc
-    return FileResponse(path, filename=None if preview else str(record['original_name']),
+    filename = str(record['original_name'])
+    if append_student_name and not preview:
+        student_name = re.sub(r'[<>:"/\\|?*\x00-\x1f\x7f]', '_', review['student']['name']).strip().rstrip('.')
+        if student_name:
+            suffix = PurePosixPath(filename).suffix
+            stem = filename[:-len(suffix)] if suffix else filename
+            if not stem.endswith(f'-{student_name}'):
+                filename = f'{stem}-{student_name}{suffix}'
+    return FileResponse(path, filename=None if preview else filename,
                         media_type=image_type if preview else 'application/octet-stream',
                         headers={'Cache-Control': 'no-store'}, background=BackgroundTask(path.unlink, missing_ok=True))
 

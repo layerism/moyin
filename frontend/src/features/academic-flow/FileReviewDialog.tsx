@@ -14,8 +14,8 @@ const category = (student: ManualReviewStudent): Exclude<Filter, "all"> => stude
   : student.status === "rejected" ? "returned" : student.canReview ? "pending" : "waiting";
 
 function OriginalDownload({ nodeId, fileId, filename }: { nodeId: string; fileId: string; filename: string }) {
-  const endpoint = `/api/workflow-admin/node-instances/${encodeURIComponent(nodeId)}/manual-review/files/${encodeURIComponent(fileId)}/download`;
-  return <a className="review-download-icon" href={endpoint} download={filename} title="下载文件" aria-label={`下载文件：${filename}`}><DownloadIcon /></a>;
+  const endpoint = `/api/workflow-admin/node-instances/${encodeURIComponent(nodeId)}/manual-review/files/${encodeURIComponent(fileId)}/download?append_student_name=true`;
+  return <a className="review-download-icon" href={endpoint} download title="下载文件" aria-label={`下载文件：${filename}`}><DownloadIcon /></a>;
 }
 
 export function FileReviewDialog({ versionId, nodeKey, onClose, initialStudentNo = "", allowBulkDownload = true }: { versionId: string; nodeKey: string; onClose: () => void; initialStudentNo?: string; allowBulkDownload?: boolean }) {
