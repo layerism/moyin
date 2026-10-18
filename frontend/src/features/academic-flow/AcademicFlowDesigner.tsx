@@ -7,7 +7,7 @@ import { FileReviewDialog } from "./FileReviewDialog";
 import { NodeModelSelector } from "./NodeModelSelector";
 import { ManualReviewDialog } from "./ManualReviewDialog";
 import { FlowNodeIcon } from "./FlowNodeIcon";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent, PointerEvent } from "react";
 
 import type {
@@ -946,6 +946,7 @@ export function AcademicFlowDesigner({
         <section className="flow-designer-grid">
           <ComponentPalette locked={editorLocked} onAddNode={addNode} />
           <FlowNodeCanvas
+            key={workingProcess.id}
             layoutBounds={layoutBounds}
             onViewportSize={expandLayoutToViewport}
             onNodeHeights={recordNodeHeights}
@@ -1330,6 +1331,33 @@ function FlowNodeCanvas({
   const [nodeContextMenu, setNodeContextMenu] = useState<NodeContextMenuState | null>(null);
   const [viewportOffset, setViewportOffset] = useState(() => ({ x: -layoutBounds.left * 0.5, y: -layoutBounds.top * 0.5 }));
   const [zoom, setZoom] = useState(0.5);
+  const initiallyCentered = useRef(false);
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || initiallyCentered.current) return;
+    const center = () => {
+      if (initiallyCentered.current || !canvas.clientWidth || !canvas.clientHeight) return;
+      const elements = [...nodeElementsRef.current.values()];
+      if (nodes.length && elements.length !== nodes.length) return;
+      const surface = canvasSurfaceRef.current;
+      if (!surface) return;
+      const origin = surface.getBoundingClientRect();
+      const rectangles = elements.map(element => element.getBoundingClientRect());
+      const centerX = rectangles.length
+        ? (Math.min(...rectangles.map(rect => rect.left)) + Math.max(...rectangles.map(rect => rect.right))) / 2 - origin.left
+        : (layoutBounds.left + layoutBounds.right) * zoom / 2;
+      const centerY = rectangles.length
+        ? (Math.min(...rectangles.map(rect => rect.top)) + Math.max(...rectangles.map(rect => rect.bottom))) / 2 - origin.top
+        : (layoutBounds.top + layoutBounds.bottom) * zoom / 2;
+      initiallyCentered.current = true;
+      setViewportOffset({ x: canvas.clientWidth / 2 - centerX, y: canvas.clientHeight / 2 - centerY });
+    };
+    center();
+    const observer = new ResizeObserver(center);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, [nodes, layoutBounds, zoom]);
+
   useEffect(() => {
     if (!timeFocus) return;
     const element = nodeElementsRef.current.get(timeFocus.nodeId);
