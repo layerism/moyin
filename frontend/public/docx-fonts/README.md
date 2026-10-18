@@ -43,6 +43,7 @@ TTC 保留原文件，在浏览器内存中取出指定成员并重建 sfnt 容�
 | Times New Roman | `times.ttf`、`timesbd.ttf`、`timesi.ttf`、`timesbi.ttf` |
 | Arial | `arial.ttf`、`arialbd.ttf`、`ariali.ttf`、`arialbi.ttf` |
 | Segoe UI | `segoeui.ttf`、`segoeuib.ttf`、`segoeuii.ttf`、`segoeuiz.ttf` |
+| Open Sans | `OpenSans-Regular.ttf`、`OpenSans-Bold.ttf`、`OpenSans-Italic.ttf`、`OpenSans-BoldItalic.ttf` |
 | Calibri | `calibri.ttf`、`calibrib.ttf`、`calibrii.ttf`、`calibriz.ttf` |
 | Calibri Light | `calibril.ttf`、`calibrili.ttf` |
 | Aptos | `aptos.ttf`、`aptos-bold.ttf`、`aptos-italic.ttf`、`aptos-bold-italic.ttf` |
@@ -62,7 +63,7 @@ Aptos 使用微软官方下载包（下载页面版本 4.40，字体内部版本
 
 符号编码依据：[OpenType cmap 的 Windows Symbol 编码](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap#windows-platform-platform-id--3)。
 
-Aptos 来自 [微软下载中心](https://www.microsoft.com/en-us/download/details.aspx?id=106087)，清单记录下载 URL、原包 SHA256 与原始包内文件名。其他文件来自固定提交的社区上传仓库，并非字体厂商的官方下载；核对内部名称、版本和校验值不能证明取得 Web 分发授权。来源、Git blob（仓库来源）、内部名称、版权、版本及 SHA256 见 `WINDOWS-FONTS.json`。`SHA256SUMS` 仅记录保留的原字体。
+Aptos 来自 [微软下载中心](https://www.microsoft.com/en-us/download/details.aspx?id=106087)，清单记录下载 URL、原包 SHA256 与原始包内文件名。Open Sans 来自 [Google Fonts 官方仓库](https://github.com/googlefonts/opensans/tree/bd7e37632246368c60fdcbd374dbf9bad11969b6)，保留四个原始静态 TTF 文件及 `OpenSans-OFL.txt` 授权文本。其余文件来自固定提交的社区上传仓库，并非字体厂商的官方下载；核对内部名称、版本和校验值不能证明取得 Web 分发授权。来源、Git blob（仓库来源）、内部名称、版权、版本及 SHA256 见 `WINDOWS-FONTS.json`。`SHA256SUMS` 仅记录保留的原字体。
 
 替换或补充文件后刷新整个页面，以清除旧加载缓存。生产环境需要重新发布前端，确保 `dist/docx-fonts/` 同步删除旧备用文件。
 

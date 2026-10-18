@@ -1,5 +1,5 @@
 {
-  "source_notice": "Aptos files come from the official Microsoft download package; other font files come from fixed community repository revisions. Names, versions and checksums were inspected; Web distribution authorization is not asserted.",
+  "source_notice": "Aptos files come from the official Microsoft download package; Open Sans files come from the official Google Fonts repository with their OFL license; other font files come from fixed community repository revisions. Names, versions and checksums were inspected; Web distribution authorization for proprietary fonts is not asserted.",
   "files": [
     {
       "file": "simfang.ttf",
@@ -4228,6 +4228,130 @@
             ],
             "13": [
               "You may use this font as permitted by the EULA for the product in which this font is included to display and print content. You may only (i) embed this font in content as permitted by the embedding restrictions included in this font; and (ii) temporarily download this font to a printer or other output device to help print content."
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "OpenSans-Bold.ttf",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/fonts/ttf/OpenSans-Bold.ttf",
+      "git_blob_sha1": "b7fadfa4aa59c43b38f7efd87cd438fab49679ca",
+      "sha256": "27da758f4dcac9a65abe914c13b463b42982b9909bc65713424099f4810bd1e6",
+      "size_bytes": 147264,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)"
+            ],
+            "1": [
+              "Open Sans"
+            ],
+            "2": [
+              "Bold"
+            ],
+            "4": [
+              "Open Sans Bold"
+            ],
+            "5": [
+              "Version 3.003; ttfautohint (v1.8.4)"
+            ],
+            "13": [
+              "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "OpenSans-BoldItalic.ttf",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/fonts/ttf/OpenSans-BoldItalic.ttf",
+      "git_blob_sha1": "136a4b4c0ec48cc90ce6ad554a556e8396c88d18",
+      "sha256": "d672a770037104b6af45e1336b3d3c1729c8aea940f81e010f5a8a7319c29a21",
+      "size_bytes": 153308,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)"
+            ],
+            "1": [
+              "Open Sans"
+            ],
+            "2": [
+              "Bold Italic"
+            ],
+            "4": [
+              "Open Sans Bold Italic"
+            ],
+            "5": [
+              "Version 3.003; ttfautohint (v1.8.4)"
+            ],
+            "13": [
+              "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "OpenSans-Italic.ttf",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/fonts/ttf/OpenSans-Italic.ttf",
+      "git_blob_sha1": "e99cb92d49a8ffa47d8a0d946c78ac292f0e44a7",
+      "sha256": "93bc1bb6abf4e6b7c75d7131714061d5b57cc478abcabe4cb3519bb38fb917aa",
+      "size_bytes": 153256,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)"
+            ],
+            "1": [
+              "Open Sans"
+            ],
+            "2": [
+              "Italic"
+            ],
+            "4": [
+              "Open Sans Italic"
+            ],
+            "5": [
+              "Version 3.003; ttfautohint (v1.8.4)"
+            ],
+            "13": [
+              "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "file": "OpenSans-Regular.ttf",
+      "source_url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/fonts/ttf/OpenSans-Regular.ttf",
+      "git_blob_sha1": "8529c432ce34f0bc582e409c420f6bfa6ad0198b",
+      "sha256": "c53aceea2dcf5b4098099c0c4d0a061d17e178a049317b42a422b1a9f7f8eb59",
+      "size_bytes": 147528,
+      "faces": [
+        {
+          "names": {
+            "0": [
+              "Copyright 2020 The Open Sans Project Authors (https://github.com/googlefonts/opensans)"
+            ],
+            "1": [
+              "Open Sans"
+            ],
+            "2": [
+              "Regular"
+            ],
+            "4": [
+              "Open Sans Regular"
+            ],
+            "5": [
+              "Version 3.003; ttfautohint (v1.8.4)"
+            ],
+            "13": [
+              "This Font Software is licensed under the SIL Open Font License, Version 1.1. This license is available with a FAQ at: https://scripts.sil.org/OFL"
             ]
           }
         }

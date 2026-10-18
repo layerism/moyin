@@ -36,6 +36,7 @@ const fonts = [
   latin("Times", ["Times New Roman"], ["times.ttf", "timesbd.ttf", "timesi.ttf", "timesbi.ttf"]),
   latin("Arial", ["Arial"], ["arial.ttf", "arialbd.ttf", "ariali.ttf", "arialbi.ttf"]),
   latin("SegoeUI", ["Segoe UI"], ["segoeui.ttf", "segoeuib.ttf", "segoeuii.ttf", "segoeuiz.ttf"]),
+  latin("OpenSans", ["Open Sans"], ["OpenSans-Regular.ttf", "OpenSans-Bold.ttf", "OpenSans-Italic.ttf", "OpenSans-BoldItalic.ttf"]),
   latin("Calibri", ["Calibri"], ["calibri.ttf", "calibrib.ttf", "calibrii.ttf", "calibriz.ttf"]),
   latin("Aptos", ["Aptos"], ["aptos.ttf", "aptos-bold.ttf", "aptos-italic.ttf", "aptos-bold-italic.ttf"]),
   ...["Display", "Narrow", "Mono", "Serif"].map((variant) => {
