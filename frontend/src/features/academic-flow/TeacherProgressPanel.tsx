@@ -43,6 +43,8 @@ export function TeacherProgressPanel({
   const [activityDescending, setActivityDescending] = useState(true);
   const [menuPosition, setMenuPosition] = useState<CSSProperties>({});
   const [notice, setNotice] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
+  const [copying, setCopying] = useState(false);
   const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
   const [savingExtension, setSavingExtension] = useState(false);
   const [submissionDetail, setSubmissionDetail] = useState<TeacherSubmissionDetail | null>(null);
@@ -354,6 +356,17 @@ export function TeacherProgressPanel({
     const difference = new Date(a.lastActiveAt).getTime() - new Date(b.lastActiveAt).getTime();
     return (activityDescending ? -difference : difference) || a.studentNo.localeCompare(b.studentNo);
   });
+  useEffect(() => { setCopyStatus(""); }, [progressFilter, progress, versionId]);
+  async function copyMentions() {
+    if (copying || !visibleStudents.length) return;
+    setCopying(true); setCopyStatus("");
+    try {
+      await navigator.clipboard.writeText(visibleStudents.map(student => `@${student.name}`).join(" "));
+      setCopyStatus(`已复制 ${visibleStudents.length} 位学生的 @姓名名单`);
+    } catch {
+      setCopyStatus("复制失败，请允许浏览器访问剪贴板后重试");
+    } finally { setCopying(false); }
+  }
   const progressSummary: { filter: ProgressFilter; label: string; tone: string; value: number | string }[] = [
     { filter: "all", label: "全部", tone: "neutral", value: progress ? progressStudents.length : "—" },
     { filter: "completed", label: "已完成", tone: "success", value: progress ? completedStudentCount : "—" },
@@ -445,6 +458,11 @@ export function TeacherProgressPanel({
                   <strong>{item.value}</strong>
                 </button>
               ))}
+              <button className="progress-operation-button" type="button"
+                disabled={copying || !visibleStudents.length}
+                title="复制当前筛选结果的 @姓名文本" onClick={() => void copyMentions()}>
+                {copying ? "复制中…" : "一键 @ 复制"}
+              </button>
             </section>
 
             {nodes.length > 0 ? (
@@ -608,7 +626,7 @@ export function TeacherProgressPanel({
               </table>
             </section>
             <footer className="progress-panel-footer" aria-live="polite">
-              {progress ? `显示 ${visibleStudents.length} / ${progressStudents.length} 位学生` : notice ? "进度加载失败" : "正在读取进度"}
+              {copyStatus || (progress ? `显示 ${visibleStudents.length} / ${progressStudents.length} 位学生` : notice ? "进度加载失败" : "正在读取进度")}
             </footer>
           </div>
         </aside>
