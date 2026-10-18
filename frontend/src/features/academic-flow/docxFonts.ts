@@ -124,8 +124,9 @@ const counterFormats: Record<string, string> = {
   "simp-chinese-formal": "chineseLegalSimplified",
 };
 // Word's documented script-slot rules (MS-OI29500 2.1.88), including punctuation hints.
-function slot(character: string, style: CSSStyleDeclaration): string {
-  if (["cs", "rtl"].some((name) => style.getPropertyValue(`--docx-run-${name}`).trim() === "1")) return "cs";
+type ScriptContext = { complex: boolean; eastAsiaHint: boolean; chinese: boolean };
+function slot(character: string, context: ScriptContext): string {
+  if (context.complex) return "cs";
   const code = character.codePointAt(0)!;
   if (code < 0x80) return "ascii";
   if ((code >= 0x590 && code <= 0x7bf) || (code >= 0xfb1d && code <= 0xfdff) || (code >= 0xfe70 && code <= 0xfefe)) return "ascii";
@@ -134,14 +135,13 @@ function slot(character: string, style: CSSStyleDeclaration): string {
     || (code >= 0xa000 && code <= 0xa4cf) || (code >= 0xac00 && code <= 0xd7af)
     || (code >= 0xf900 && code <= 0xfaff) || (code >= 0xfe30 && code <= 0xfe6f)
     || (code >= 0xff00 && code <= 0xffef) || /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(character)) return "eastasia";
-  if (value(style, "--docx-font-hint") === "eastAsia") {
-    const chinese = value(style, "--docx-language-eastasia").toLowerCase().startsWith("zh");
+  if (context.eastAsiaHint) {
     if ([0xa1, 0xa4, 0xaa, 0xad, 0xaf, 0xd7, 0xf7].includes(code) || (code >= 0xa7 && code <= 0xa8)
       || (code >= 0xb0 && code <= 0xb4) || (code >= 0xb6 && code <= 0xba) || (code >= 0xbc && code <= 0xbf)
       || (code >= 0x2b0 && code <= 0x4ff) || (code >= 0x2000 && code <= 0x27bf)
       || (code >= 0x2e80 && code <= 0x2eff) || (code >= 0xe000 && code <= 0xf8ff)
       || (code >= 0xfb00 && code <= 0xfb1c)) return "eastasia";
-    if (chinese && ((code >= 0x100 && code <= 0x2af) || (code >= 0x1e00 && code <= 0x1eff)
+    if (context.chinese && ((code >= 0x100 && code <= 0x2af) || (code >= 0x1e00 && code <= 0x1eff)
       || [0xe0, 0xe1, 0xe8, 0xe9, 0xea, 0xec, 0xed, 0xf2, 0xf3, 0xf9, 0xfa, 0xfc].includes(code))) return "eastasia";
   }
   return "hansi";
@@ -184,6 +184,12 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
   const select = (text: string, style: CSSStyleDeclaration, paragraphMark = false) => {
     const groups: { text: string; selection: Selection }[] = [];
     const names = new Map<string, string>();
+    const selections = new Map<string, Selection>();
+    const scriptContext: ScriptContext = {
+      complex: ["cs", "rtl"].some((name) => style.getPropertyValue(`--docx-run-${name}`).trim() === "1"),
+      eastAsiaHint: value(style, "--docx-font-hint") === "eastAsia",
+      chinese: value(style, "--docx-language-eastasia").toLowerCase().startsWith("zh"),
+    };
     // Formatting is constant for this run; do not re-read the cascade per glyph.
     const regular = { weight: runToggle(style, "b", paragraphMark) ? "700" : "400",
       fontStyle: runToggle(style, "i", paragraphMark) ? "italic" : "normal" };
@@ -199,8 +205,10 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       const name = configured.startsWith("theme:") ? theme(configured.slice(6), languages) : configured;
       names.set(scriptSlot, name); return name;
     };
-    for (const character of text) {
-      let scriptSlot = slot(character, style);
+    const selectSlot = (sourceSlot: string) => {
+      const cached = selections.get(sourceSlot);
+      if (cached) return cached;
+      let scriptSlot = sourceSlot;
       if (scriptSlot === "eastasia" && configuredName("eastasia").toLowerCase() === "times new roman"
         && configuredName("ascii") && configuredName("ascii") === configuredName("hansi")) scriptSlot = "ascii";
       const name = configuredName(scriptSlot);
@@ -210,11 +218,16 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       const { weight, fontStyle } = scriptSlot === "cs" ? complex : regular;
       // Synthesize only within this same family if an independent face does not exist.
       const selection = selectionFor(font, weight, fontStyle);
+      selections.set(sourceSlot, selection);
+      return selection;
+    };
+    for (const character of text) {
+      const selection = selectSlot(slot(character, scriptContext));
       const key = selection.key;
       const code = character.codePointAt(0)!;
       if (!/\p{Cc}|\p{Default_Ignorable_Code_Point}/u.test(character)) selection.characters.add(code);
       const previous = groups[groups.length - 1];
-      if (previous?.selection.key === key && previous.selection.weight === weight && previous.selection.style === fontStyle) previous.text += character;
+      if (previous?.selection.key === key && previous.selection.weight === selection.weight && previous.selection.style === selection.style) previous.text += character;
       else groups.push({ text: character, selection });
     }
     return groups;

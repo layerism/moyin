@@ -178,16 +178,13 @@ function splitBlock(block: HTMLElement, fits: (block: HTMLElement) => boolean): 
     const before = document.createRange();
     before.selectNodeContents(source);
     before.setEnd(node, offset);
-    const after = document.createRange();
-    after.selectNodeContents(source);
-    after.setStart(node, offset);
-    return [before.cloneContents(), after.cloneContents()];
+    return before;
   };
   let low = 0;
   let high = length - 1;
   while (low < high) {
     const mid = Math.ceil((low + high) / 2);
-    block.replaceChildren(cut(mid)[0]);
+    block.replaceChildren(cut(mid).cloneContents());
     if (fits(block)) low = mid;
     else high = mid - 1;
   }
@@ -207,8 +204,8 @@ function splitBlock(block: HTMLElement, fits: (block: HTMLElement) => boolean): 
     block.style.marginBottom = source.style.marginBottom;
     block.replaceChildren(...Array.from(source.childNodes)); return null;
   }
-  const [before, after] = cut(low);
-  block.replaceChildren(before);
+  const before = cut(low);
+  block.replaceChildren(before.cloneContents());
   if (widowControl) {
     const range = document.createRange();
     range.selectNodeContents(block);
@@ -233,8 +230,13 @@ function splitBlock(block: HTMLElement, fits: (block: HTMLElement) => boolean): 
       });
     }
   }
+  // Only the accepted split needs a continuation. Binary-search probes and
+  // rejected widow/orphan splits must not clone the unused tail of the paragraph.
+  const after = document.createRange();
+  after.selectNodeContents(source);
+  after.setStart(before.endContainer, before.endOffset);
   const remainder = source.cloneNode(false) as HTMLElement;
-  remainder.appendChild(after);
+  remainder.appendChild(after.cloneContents());
   remainder.style.textIndent = "0";
   remainder.style.marginTop = "0";
   // Generated list labels must only appear on the first fragment.

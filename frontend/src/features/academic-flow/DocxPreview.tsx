@@ -34,20 +34,31 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       const timings: Record<string, number> = {};
       let stageStart = performance.now();
       const stage = (name: string) => { timings[name] = performance.now() - stageStart; stageStart = performance.now(); };
-      let data = sourceFile.current?.url === url ? sourceFile.current.data : undefined;
-      if (!data) {
-        sourceFile.current = null;
-        const response = await fetch(url, { credentials: "include", signal: controller.signal });
-        if (!response.ok) throw new Error(response.status === 401 || response.status === 403
-          ? "登录已失效或无权查看此文件，请重新登录后重试。"
-          : "DOCX 加载失败，请重新打开审核页或下载原件查看。");
-        data = await response.arrayBuffer();
-        if (!active) return;
-        // One component session only; no cross-user or cross-open document cache.
-        sourceFile.current = { url, data };
-      }
-      stage("download");
-      const { parseAsync, renderDocument, defaultOptions } = await import("docx-preview");
+      const loadStart = performance.now();
+      // These independent operations overlap. Record their durations separately;
+      // neither a rejected import nor a cancelled download is left unhandled.
+      const [data, { parseAsync, renderDocument, defaultOptions }] = await Promise.all([
+        (async () => {
+          let data = sourceFile.current?.url === url ? sourceFile.current.data : undefined;
+          if (!data) {
+            sourceFile.current = null;
+            const response = await fetch(url, { credentials: "include", signal: controller.signal });
+            if (!response.ok) throw new Error(response.status === 401 || response.status === 403
+              ? "登录已失效或无权查看此文件，请重新登录后重试。"
+              : "DOCX 加载失败，请重新打开审核页或下载原件查看。");
+            data = await response.arrayBuffer();
+            // One component session only; no cross-user or cross-open document cache.
+            if (active) sourceFile.current = { url, data };
+          }
+          timings.download = performance.now() - loadStart;
+          return data;
+        })(),
+        import("docx-preview").then((module) => {
+          timings.module = performance.now() - loadStart;
+          return module;
+        }),
+      ]);
+      stageStart = performance.now();
       if (!active) return;
       const body = document.createElement("div");
       const styles = document.createElement("div");
