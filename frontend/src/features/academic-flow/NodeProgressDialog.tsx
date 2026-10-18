@@ -12,6 +12,8 @@ export function NodeProgressDialog({ versionId, nodeKey, onClose }: { versionId:
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
+  const [copying, setCopying] = useState(false);
   const [filter, setFilter] = useState("all");
   const [history, setHistory] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -75,6 +77,17 @@ export function NodeProgressDialog({ versionId, nodeKey, onClose }: { versionId:
   const students = data?.students ?? [];
   const matches = (s: NodeProgressStudent) => filter === "all" || (filter === "pending" ? !["approved", "reviewing", "skipped"].includes(s.status) : s.status === filter);
   const visible = students.filter(s => matches(s) && `${s.name} ${s.studentNo}`.includes(search.trim()));
+  useEffect(() => { setCopyStatus(""); }, [filter, search, data]);
+  async function copyMentions() {
+    if (loading || copying || !visible.length) return;
+    setCopying(true); setCopyStatus("");
+    try {
+      await navigator.clipboard.writeText(visible.map(student => `@${student.name}`).join(" "));
+      setCopyStatus(`已复制 ${visible.length} 位学生的 @姓名名单`);
+    } catch {
+      setCopyStatus("复制失败，请允许浏览器访问剪贴板后重试");
+    } finally { setCopying(false); }
+  }
   return <>
     <dialog className="node-progress-dialog" ref={dialog} onCancel={e => { e.preventDefault(); onClose(); }}>
       <header><div><h2>节点进度管理</h2><p>{data?.title ?? "正在读取节点…"}</p></div><button type="button" aria-label="关闭进度管理" onClick={onClose}>×</button></header>
@@ -83,8 +96,9 @@ export function NodeProgressDialog({ versionId, nodeKey, onClose }: { versionId:
         {error && <p className="np-error" role="alert">{error} <button type="button" onClick={() => void refresh()}>重新加载</button></p>}
         {notice && <p className="np-success" role="status">{notice}</p>}
         {history ? <div className="np-history">{data?.logs.map((log, i) => <article className="np-record" key={`${log.created_at}-${i}`}><b>{log.action === "node_progress_reset" ? "撤销通过" : "节点延期"} · {log.name}（{log.student_no}）</b><p>{new Date(log.created_at).toLocaleString("zh-CN")} · 教师 {log.actor_id}</p><div>{log.reason}</div>{(() => { const details = JSON.parse(log.after_data); return details.deadlineAt ? <p>延期至 {new Date(details.deadlineAt).toLocaleString("zh-CN")}</p> : null; })()}</article>)}{!loading && !data?.logs.length && <p className="np-empty">暂无操作记录</p>}</div> : <>
-          <div className="np-filters">{[["all", "全部"], ["approved", "已通过"], ["reviewing", "审核中"], ["pending", "待完成"]].map(([value, label]) => <button type="button" key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}{value === "all" ? ` ${students.length}` : ""}</button>)}<button type="button" disabled={loading} onClick={() => void refresh()}>刷新</button></div>
+          <div className="np-filters">{[["all", "全部"], ["approved", "已通过"], ["reviewing", "审核中"], ["pending", "待完成"]].map(([value, label]) => <button type="button" key={value} className={filter === value ? "active" : ""} onClick={() => setFilter(value)}>{label}{value === "all" ? ` ${students.length}` : ""}</button>)}<button type="button" disabled={loading || copying || !visible.length} title="复制当前筛选结果的 @姓名文本" onClick={() => void copyMentions()}>{copying ? "复制中…" : "一键 @ 复制"}</button><button type="button" disabled={loading} onClick={() => void refresh()}>刷新</button></div>
           <input aria-label="搜索学生" placeholder="搜索姓名或学号" value={search} onChange={e => setSearch(e.target.value)} />
+          {copyStatus && <p className="np-hint" role="status">{copyStatus}</p>}
           <div className="np-table"><table><thead><tr><th>学生</th><th>状态</th><th>有效截止时间</th><th>操作</th></tr></thead><tbody>{visible.map(s => <tr key={s.instanceId}><td><b>{s.name}</b><small>{s.studentNo}</small></td><td><span className={`np-status ${s.status}`}>{statusNames[s.status] ?? s.status}</span></td><td>{dateLabel(s.effectiveDeadline)}{s.overrideDeadline && <small>已延期</small>}</td><td><div className="np-actions">{s.canRevoke && <button type="button" className="np-danger-link" onClick={() => void openAction("reset", s)}>撤销通过</button>}{s.canExtend && <button type="button" disabled={extending !== null || loading} onClick={() => void extendFiveDays(s)}>{extending === s.instanceId ? "处理中…" : "延期 5 天"}</button>}{!s.canRevoke && !s.canExtend && <span>—</span>}</div></td></tr>)}</tbody></table></div>
           {!visible.length && <p className="np-empty">{loading ? "正在读取…" : "暂无匹配学生"}</p>}
           <p className="np-hint">仅显示已进入流程的学生。撤销会重置所选学生的当前节点及下游进度。</p>
