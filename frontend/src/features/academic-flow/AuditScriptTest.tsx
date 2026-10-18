@@ -62,7 +62,13 @@ export function AuditScriptTest({ step, disabled, configurable = false, onParame
         setDiagnostic(response.diagnostic ?? null);
         setResult(response.result);
         if (showReport) setReport({
-          reason: typeof response.result?.reason === "string" ? response.result.reason : response.error || response.diagnostic?.message || "审核未提供文字说明。",
+          // Diagnostics belong to this teacher-only test report, never persisted review results.
+          reason: response.diagnostic ? [
+            response.error || "审核测试失败",
+            `失败阶段：${response.diagnostic.stage}`,
+            `错误原因：${response.diagnostic.message}`,
+            ...(response.diagnostic.exitCode !== undefined ? [`退出码：${response.diagnostic.exitCode}`] : []),
+          ].join("\n\n") : typeof response.result?.reason === "string" ? response.result.reason : response.error || "审核未提供文字说明。",
           passed: typeof response.result?.passed === "boolean" ? response.result.passed : null,
           completedAt: new Date().toISOString(),
         });
