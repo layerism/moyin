@@ -678,9 +678,16 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
         || style.getPropertyValue("--docx-table-grid").trim() === "1") ? pitch : 0;
     // An omitted auto spacing is single spacing. Empty paragraphs still have
     // a paragraph-mark line, even though HTML creates no inline line box.
-    const blank = !paragraph.textContent && !paragraph.querySelector("img, svg, math, br");
+    const blank = !paragraph.textContent?.trim() && !paragraph.querySelector("img, svg, math, br");
+    // Whole-slot rounding is only used for blank paragraph-mark lines. Applying
+    // it to text after the spacing multiplier can turn 1.5 spacing into 2 slots.
+    // Keep text on its declared spacing until per-line baseline layout is supported.
+    const blankGrid = blank && rule === "auto" && (!declaredLine || declaredLine === 240) ? grid : 0;
+    if (grid && !blankGrid) {
+      warnings.add("正文及指定非单倍行距的段落按原有行距排版；文档网格的逐行基线对齐暂未完整支持。");
+    }
     const line = declaredLine > 0 ? declaredLine : rule === "auto" ? 240 : 0;
-    if (!(line > 0) || (!declaredLine && !grid && !blank)) continue;
+    if (!(line > 0) || (!declaredLine && !blank)) continue;
     if (rule === "exact") {
       paragraph.style.lineHeight = `${line / 20}pt`;
       paragraph.style.minHeight = `${line / 20}pt`;
@@ -706,10 +713,10 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
           return [];
         }
         const height = rule === "auto" ? natural * line / 240 : Math.max(line / 15, natural);
-        // Quantize the natural line to whole grid pitches, rather than replacing
-        // font metrics with the font size. A 26pt mark may occupy several slots.
+        // Quantize a blank mark's line to whole grid pitches, rather than
+        // replacing font metrics with font size. A 26pt mark may occupy several slots.
         // Work in twips to avoid adding a slot due to CSS subpixel rounding.
-        const gridHeight = grid ? Math.ceil(Math.round(height * 15) / Math.round(grid * 15)) * grid : height;
+        const gridHeight = blankGrid ? Math.ceil(Math.round(height * 15) / Math.round(blankGrid * 15)) * blankGrid : height;
         return [{ element, height: gridHeight }];
       });
       // Read all effective styles before writing; repeated layout passes cannot
@@ -717,10 +724,6 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
       for (const { element, height } of heights) element.style.lineHeight = `${height}px`;
       const paragraphHeight = heights.find((entry) => entry.element === paragraph)?.height;
       if (paragraphHeight !== undefined) paragraph.style.minHeight = `${paragraphHeight}px`;
-      if (grid && (paragraph.querySelector("img, svg, math, sup, sub")
-        || new Set(heights.map((entry) => entry.height)).size > 1)) {
-        warnings.add("含图形、上下标或不同行高文字的网格段落仍使用浏览器基线布局，可能与 Word 有差异。");
-      }
     }
   }
   // Read once per paragraph before writing; never invent a normal line-height.
