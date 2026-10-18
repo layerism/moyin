@@ -185,7 +185,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       <summary>预览差异说明</summary>
       <ul>{fontWarnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
     </details> : null}
-    <div className="docx-preview-viewport" aria-busy={loading}>
+    <div className="docx-preview-viewport" aria-busy={loading} style={{ background: !loading && !error ? "gray" : undefined }}>
       {loading ? <p role="status">正在加载 DOCX…</p> : null}
       {error ? <p role="alert">{error}</p> : null}
       <div style={{
