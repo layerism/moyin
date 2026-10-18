@@ -7,7 +7,7 @@ import { workflowApi } from "./api";
 import { saveDownload } from "./download";
 import type { TeacherSubmissionDetail, WorkflowProgress, WorkflowProgressNode, WorkflowProgressStudent } from "./runtimeTypes";
 
-type ProgressFilter = "all" | "completed" | "in_progress" | "not_entered" | "overdue";
+type ProgressFilter = "all" | "completed" | "in_progress" | "not_entered" | "overdue" | "online" | "offline";
 
 function toLocalDateTimeInput(timestamp: number) {
   const date = new Date(timestamp);
@@ -346,7 +346,9 @@ export function TeacherProgressPanel({
   ).length;
   const visibleStudents = progressStudents.filter((student) => (
     progressFilter === "all"
-    || (progressFilter === "overdue" ? student.expiredCount > 0
+    || (progressFilter === "online" ? presence[student.rosterId] === true
+      : progressFilter === "offline" ? presence[student.rosterId] === false
+      : progressFilter === "overdue" ? student.expiredCount > 0
       : student.status === progressFilter)
   )).sort((a, b) => {
     // Missing activity remains at the bottom in either time-sort direction.
@@ -367,8 +369,11 @@ export function TeacherProgressPanel({
       setCopyStatus("复制失败，请允许浏览器访问剪贴板后重试");
     } finally { setCopying(false); }
   }
+  const presenceKnown = progress !== null && progressStudents.every(student => typeof presence[student.rosterId] === "boolean");
   const progressSummary: { filter: ProgressFilter; label: string; tone: string; value: number | string }[] = [
     { filter: "all", label: "全部", tone: "neutral", value: progress ? progressStudents.length : "—" },
+    { filter: "online", label: "在线", tone: "success", value: presenceKnown ? progressStudents.filter(student => presence[student.rosterId] === true).length : "—" },
+    { filter: "offline", label: "离线", tone: "neutral", value: presenceKnown ? progressStudents.filter(student => presence[student.rosterId] === false).length : "—" },
     { filter: "completed", label: "已完成", tone: "success", value: progress ? completedStudentCount : "—" },
     {
       filter: "in_progress",
