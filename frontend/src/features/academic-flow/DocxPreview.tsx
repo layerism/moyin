@@ -16,6 +16,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
   const [fontWarnings, setFontWarnings] = useState<string[]>([]);
   const [zoom, setZoom] = useState(0.75);
   const [pageCount, setPageCount] = useState(0);
+  const [documentSize, setDocumentSize] = useState({ width: 0, height: 0 });
   const [paper, setPaper] = useState<"original" | "A4" | "A3">("original");
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
     let releaseFonts: (() => void) | undefined;
     root.replaceChildren();
     setLoading(true); setError(""); setFontWarnings([]); setZoom(0.75); setPageCount(0);
+    setDocumentSize({ width: 0, height: 0 });
     void (async () => {
       const timings: Record<string, number> = {};
       let stageStart = performance.now();
@@ -150,6 +152,9 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       stage("decoration");
       setFontWarnings([...fonts.warnings, ...layoutWarnings, ...pagination.warnings, ...decorationWarnings]);
       setPageCount(pagination.pageCount);
+      // Keep layout at 100%. Only the completed document (text and SVG together)
+      // is transformed; the outer frame reserves its scaled scroll dimensions.
+      setDocumentSize({ width: element.scrollWidth, height: element.scrollHeight });
       // Inspectable without logging document content or adding product controls.
       body.dataset.docxTimings = JSON.stringify(timings);
       setLoading(false);
@@ -183,7 +188,17 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
     <div className="docx-preview-viewport" aria-busy={loading}>
       {loading ? <p role="status">正在加载 DOCX…</p> : null}
       {error ? <p role="alert">{error}</p> : null}
-      <div ref={host} style={{ zoom: loading ? 1 : zoom, display: error ? "none" : "block", visibility: loading ? "hidden" : "visible", position: loading ? "absolute" : "relative", pointerEvents: loading ? "none" : undefined }} />
+      <div style={{
+        position: "relative", margin: "0 auto", overflow: "hidden",
+        width: documentSize.width * zoom, height: documentSize.height * zoom,
+        display: error ? "none" : "block", visibility: loading ? "hidden" : "visible",
+        pointerEvents: loading ? "none" : undefined,
+      }}>
+        <div ref={host} style={{
+          position: "absolute", top: 0, left: 0, width: "max-content",
+          transform: loading ? "none" : `scale(${zoom})`, transformOrigin: "top left",
+        }} />
+      </div>
     </div>
   </section>;
 }
