@@ -8891,6 +8891,10 @@ button {
   color: #667085;
 }
 
+.runtime-audit-retry > .runtime-node-actions {
+  margin-left: auto;
+}
+
 .runtime-node-form {
   display: grid;
   gap: 14px;
