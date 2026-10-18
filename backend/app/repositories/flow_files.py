@@ -68,7 +68,7 @@ def get_upload_context(node_instance_id: str, student_id: int) -> FileUploadCont
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )
         if state != "available" or row["status"] not in {
-            "available", "draft", "rejected", "scheduled", "locked", "expired"
+            "available", "draft", "rejected", "scheduled", "locked", "expired", "audit_error"
         }:
             raise FileContextError("当前节点尚未开放或已截止")
         try:

@@ -6,7 +6,7 @@ import { FileFormatIcon } from "./FileFormatIcon";
 import type { RuntimeNodeInstance } from "./runtimeTypes";
 
 type Attempt = NonNullable<RuntimeNodeInstance["reviewTimeline"]>[number];
-const labels: Record<string, string> = { passed: "通过", rejected: "未通过", active: "审核中", waiting: "待开始", stopped: "未执行" };
+const labels: Record<string, string> = { error: "审核异常", passed: "通过", rejected: "未通过", active: "审核中", waiting: "待开始", stopped: "未执行" };
 const date = (value: string) => new Date(value).toLocaleString("zh-CN");
 
 function latestAnnotations(items: Attempt["steps"][number]["annotations"]) {
@@ -21,25 +21,26 @@ export function ReviewProgress({ runtime, onPreviewReview }: { runtime: RuntimeN
   return <section className="runtime-review-progress" aria-label="审核进度">
     <header><h3>审核进度</h3><small>本次审核</small></header>
     {runtime.status === "reviewing" ? <p className="review-progress-notice" role="status">{runtime.reviewStage === "manual" ? "等待教师最终审核" : "正在进行 AI 审核"} · 结果自动刷新</p> : null}
-    {current ? <Steps attempt={current} onPreviewReview={(runtime.reviewStage === "manual" || runtime.status === "approved" || runtime.status === "rejected") ? onPreviewReview : undefined} /> : null}
+    {current ? <Steps auditError={runtime.status === "audit_error"} attempt={current} onPreviewReview={(runtime.reviewStage === "manual" || runtime.status === "approved" || runtime.status === "rejected") ? onPreviewReview : undefined} /> : null}
   </section>;
 }
 
-function Steps({ attempt, onPreviewReview }: { attempt: Attempt; onPreviewReview?: () => void }) {
+function Steps({ attempt, onPreviewReview, auditError = false }: { auditError?: boolean; attempt: Attempt; onPreviewReview?: () => void }) {
   return <ol className="review-progress-steps">{attempt.steps.map((step) => {
+    const status = auditError && step.status === "active" && step.kind !== "manual" ? "error" : step.status;
     const annotations = latestAnnotations(step.annotations);
     const showReport = Boolean(step.audit?.reason) && !(step.kind === "score" && step.status === "passed");
     return <li key={step.index}>
     <span className="review-step-number">{step.index + 1}</span>
     <details className="review-step-disclosure">
       <summary><span className="review-step-heading"><strong>{step.kind === "manual" ? "人工审核" : step.kind === "score" ? "AI 评分审核" : "AI 审核"}</strong><small className={`review-step-description${step.kind === "manual" ? " is-manual" : ""}`}>{step.kind === "manual" ? "由教师复核材料并给出最终结论" : step.kind === "score" ? "依据评分标准评估提交内容并给出分数" : step.audit?.scriptName.replace(/^第 \d+ 步 · /, "") || "按配置的规则检查提交文件"}</small>
-        {step.kind === "manual" ? <small className="review-step-feedback-count">{annotations.length} 条反馈 · {annotations.reduce((count, item) => count + item.files.length, 0)} 个附件</small> : null}</span>{showReport && step.audit ? <AuditReportAction audit={step.audit} stepNumber={step.index + 1} /> : null}{step.kind === "manual" && step.status === "rejected" && annotations[0] ? <ManualReportAction annotation={annotations[0]} stepNumber={step.index + 1} /> : null}<span className={`review-status is-${step.status}`}>{labels[step.status] ?? "待开始"}</span>{step.kind === "manual" && (step.status === "active" || (step.index === attempt.steps.length - 1 && ["passed", "rejected"].includes(step.status))) && onPreviewReview ? <button type="button" className="review-preview-action" onClick={(event) => {
+        {step.kind === "manual" ? <small className="review-step-feedback-count">{annotations.length} 条反馈 · {annotations.reduce((count, item) => count + item.files.length, 0)} 个附件</small> : null}</span>{showReport && step.audit ? <AuditReportAction audit={step.audit} stepNumber={step.index + 1} /> : null}{step.kind === "manual" && step.status === "rejected" && annotations[0] ? <ManualReportAction annotation={annotations[0]} stepNumber={step.index + 1} /> : null}<span className={`review-status is-${status}`}>{labels[status] ?? "待开始"}</span>{step.kind === "manual" && (step.status === "active" || (step.index === attempt.steps.length - 1 && ["passed", "rejected"].includes(step.status))) && onPreviewReview ? <button type="button" className="review-preview-action" onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
         onPreviewReview();
       }}>{step.status === "active" ? "模拟审核" : "修改审核结果"}</button> : null}</summary>
       <div className="review-step-detail">
-        {step.kind === "score" && !showReport ? <span>{labels[step.status] ?? "待开始"}</span> : null}
+        {step.kind === "score" && !showReport ? <span>{labels[status] ?? "待开始"}</span> : null}
         {showReport && step.audit ? <AuditDetail audit={step.audit} /> : null}
         {annotations.map((item) => <ManualReviewAnnotation key={item.id} item={item} />)}
         {!step.audit && !annotations.length ? <p className="review-progress-empty">{step.status === "active" ? "暂未发布审核意见。" : step.status === "passed" ? "此步骤已完成，未记录详细意见。" : "此步骤尚无审核结论。"}</p> : null}

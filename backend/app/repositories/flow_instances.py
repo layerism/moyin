@@ -509,6 +509,7 @@ def save_node_draft(
                 "available", "draft", "rejected", "scheduled", "locked", "expired"
             }
             and not approved_resubmission
+            and not (row["status"] == "audit_error" and node.get("kind") in {"file", "confirmation"})
         ):
             raise RuntimeConflictError("当前节点不可暂存")
         if node.get("kind") == "answer_sheet":
@@ -601,6 +602,7 @@ def submit_node(
                         "available", "draft", "rejected", "scheduled", "locked", "expired"
                     }
                     and not approved_resubmission
+                    and not (row["status"] == "audit_error" and node.get("kind") in {"file", "confirmation"})
                 )
             ):
                 raise RuntimeConflictError("当前节点不可提交")

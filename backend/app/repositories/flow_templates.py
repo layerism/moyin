@@ -305,7 +305,7 @@ def get_student_template(node_instance_id: str, student_id: int) -> dict[str, ob
             effective_deadline(connection, row["flow_instance_id"], row["flow_version_id"], row["node_key"]),
         )
         if state != "available" or row["status"] not in {
-            "available", "draft", "rejected", "scheduled", "locked", "expired"
+            "available", "draft", "rejected", "scheduled", "locked", "expired", "audit_error"
         }:
             raise TemplateDownloadError("当前节点尚未开放或已截止")
         asset = get_node_template(connection, row['flow_id'], node)

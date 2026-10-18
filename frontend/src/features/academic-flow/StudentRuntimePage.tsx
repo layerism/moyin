@@ -498,12 +498,15 @@ function RuntimeNodeDialog({
   const [touchedFieldIds, setTouchedFieldIds] = useState<Set<string>>(() => new Set());
   const [scanState, setScanState] = useState<{ scans: RuntimeScanFile[]; uploading: boolean }>({ scans: [], uploading: false });
   const updateScanState = useCallback((value: { scans: RuntimeScanFile[]; uploading: boolean }) => setScanState(value), []);
+  const [replacingAuditMaterial, setReplacingAuditMaterial] = useState(false);
   const approvedForm = runtime.status === "approved" && node.kind === "form";
   const awaitingReview = runtime.status === "reviewing" || runtime.status === "submitted";
   const deadlinePassed = Boolean(
     runtime.effectiveDeadline
       && new Date(runtime.effectiveDeadline).getTime() <= clock,
   );
+  const canReplaceAuditMaterial = runtime.status === "audit_error"
+    && ["file", "confirmation"].includes(node.kind) && !deadlinePassed;
   const canAmendApprovedForm = approvedForm && !deadlinePassed;
   const canRetryApprovedAnswerSheet = runtime.status === "approved"
     && node.kind === "answer_sheet"
@@ -511,7 +514,7 @@ function RuntimeNodeDialog({
     && !deadlinePassed;
   const writable = writableStatuses.has(runtime.status) || (
     approvedForm && amendingApprovedForm && !deadlinePassed
-  ) || canRetryApprovedAnswerSheet;
+  ) || canRetryApprovedAnswerSheet || (canReplaceAuditMaterial && replacingAuditMaterial);
   const answerSheetAttemptsExhausted = node.kind === "answer_sheet"
     && runtime.attemptsRemaining === 0;
   const effectivelyWritable = writable && !answerSheetAttemptsExhausted;
@@ -532,7 +535,7 @@ function RuntimeNodeDialog({
     : 0;
   const draftFile = getDraftFile(draft.file);
   const submittedFile = getDraftFile(runtime.submission.file);
-  const needsFileReplacement = (runtime.status === "rejected" || runtime.requiresResubmission) && Boolean(
+  const needsFileReplacement = (runtime.status === "rejected" || runtime.status === "audit_error" || runtime.requiresResubmission) && Boolean(
     submittedFile?.fileId
       && (!draftFile?.fileId || draftFile.fileId === submittedFile.fileId),
   );
@@ -590,7 +593,8 @@ function RuntimeNodeDialog({
 
   useEffect(() => {
     if (
-      runtime.status !== "scheduled"
+      !(runtime.status === "audit_error" && runtime.effectiveDeadline)
+      && runtime.status !== "scheduled"
       && !(approvedForm && runtime.effectiveDeadline)
     ) return;
     const timer = window.setInterval(() => setClock(Date.now()), 1_000);
@@ -600,6 +604,7 @@ function RuntimeNodeDialog({
   useEffect(() => {
     setSubmitAttempted(false);
     setTouchedFieldIds(new Set());
+    setReplacingAuditMaterial(false);
   }, [runtime.attemptNo]);
 
   useEffect(() => {
@@ -895,7 +900,7 @@ function RuntimeNodeDialog({
                   {isUploadingFile
                     ? "正在上传文件"
                     : needsFileReplacement
-                      ? "审核未通过，请重新上传文件"
+                      ? runtime.status === "audit_error" ? "请选择替换文件，上传后重新提交" : "审核未通过，请重新上传文件"
                       : fileReady
                         ? "文件已上传，可提交"
                         : "点击选择或拖拽文件到此处"}
@@ -972,12 +977,15 @@ function RuntimeNodeDialog({
           </div>
         ) : answerSheetAttemptsExhausted ? (
           <p className="runtime-state-hint">已达到最大作答次数，当前成绩不能继续重答。</p>
-        ) : runtime.status === "audit_error" && runtime.audit?.canRetry ? (
+        ) : runtime.status === "audit_error" ? (
           <div className="runtime-audit-retry">
-            <p>{getStateHint(runtime.status)}</p>
-            <button className="primary-action" disabled={busy} onClick={onRetryAudit}>
+            <p>{deadlinePassed ? "自动审核异常，当前已截止；如需更换材料，请联系教师。" : getStateHint(runtime.status)}</p>
+            <div className="runtime-node-actions">
+            {canReplaceAuditMaterial ? <button disabled={busy} onClick={() => setReplacingAuditMaterial(true)}>重新上传</button> : null}
+            {runtime.audit?.canRetry ? <button className="primary-action" disabled={busy} onClick={onRetryAudit}>
               {busy ? "正在发起" : "重新审核"}
-            </button>
+            </button> : null}
+            </div>
           </div>
         ) : <p className="runtime-state-hint">{getStateHint(runtime.status)}</p>}
       </section>
@@ -1277,7 +1285,7 @@ function getStateHint(status: RuntimeNodeStatus) {
   if (status === "scheduled") return "前置节点已完成，请等待到达起始时间。";
   if (status === "expired") return "节点已截止，请联系教师申请延期。";
   if (status === "reviewing" || status === "submitted") return "材料已提交，正在等待审核。";
-  if (status === "audit_error") return "自动审核暂时失败，可直接重新审核，无需重新上传文件。";
+  if (status === "audit_error") return "自动审核异常，可重试审核；如需更换材料，请重新上传后提交。";
   if (status === "approved") return "该节点已完成，提交内容已锁定。";
   return "请根据退回意见修改后重新提交。";
 }
