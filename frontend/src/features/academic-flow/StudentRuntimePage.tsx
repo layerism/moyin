@@ -769,7 +769,7 @@ function RuntimeNodeDialog({
         ) : null}
         {runtime.progressResetReason != null ? <p className="runtime-state-hint">教师已撤销通过，需要重新完成。{runtime.progressResetReason ? `原因：${runtime.progressResetReason}` : ""}</p> : null}
         {runtime.requiresResubmission && runtime.progressResetReason == null && runtime.status !== "approved" ? <p className="runtime-state-hint">前置材料已变更，本节点需要重新完成，原提交记录仍保留。</p> : null}
-        {runtime.audit && !awaitingReview && !(["file", "confirmation"].includes(node.kind) && runtime.reviewTimeline?.length && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
+        {runtime.audit && !replacingAuditMaterial && !awaitingReview && !(["file", "confirmation"].includes(node.kind) && runtime.reviewTimeline?.length && runtime.status !== "audit_error") ? <AuditResult audit={runtime.audit} /> : null}
         {(node.kind === "file" || (node.kind === "confirmation" && Boolean(node.fileReviewSteps?.length))) && !awaitingReview ? <ReviewProgress runtime={runtime} onPreviewReview={onPreviewReview} /> : null}
         {["file", "confirmation"].includes(node.kind) && runtime.status === "approved" ? <CompletedReviewFeedback runtime={runtime} /> : null}
         {["file", "confirmation"].includes(node.kind) && !runtime.reviewTimeline?.length ? <ManualFeedbackList feedback={(runtime.feedback ?? []).filter((item) => !item.historical)} student /> : null}
