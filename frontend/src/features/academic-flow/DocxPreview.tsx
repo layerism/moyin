@@ -1,3 +1,4 @@
+import { prepareDocxDrawingLines, renderDocxDrawingLines } from "./docxDrawingLines";
 import { useEffect, useRef, useState } from "react";
 import { paginateDocx } from "./docxPagination";
 import { applyDocxCharacterSpacing } from "./docxCharacterSpacing";
@@ -78,6 +79,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       const parsed = await parseAsync(data, options);
       const xml = createDocxXmlContext(parsed);
       supplementDocxLayout(xml, parsed);
+      const drawingWarnings = prepareDocxDrawingLines(xml, parsed);
       const pageMargins = prepareDocxPageMargins(xml, parsed);
       const fontTheme = prepareDocxFontConfig(xml, parsed);
       const numbering = prepareDocxPageNumbers(parsed);
@@ -148,7 +150,7 @@ export function DocxPreview({ url, filename }: { url: string; filename: string }
       if (!active) return;
       applyDocxMirrorMargins(body, pageMargins.mirror);
       updateDocxPageNumbers(body, numbering);
-      const decorationWarnings = applyDocxUnderlines(body);
+      const decorationWarnings = [...applyDocxUnderlines(body), ...drawingWarnings, ...renderDocxDrawingLines(body)];
       stage("decoration");
       setFontWarnings([...fonts.warnings, ...layoutWarnings, ...pagination.warnings, ...decorationWarnings]);
       setPageCount(pagination.pageCount);
