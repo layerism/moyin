@@ -646,6 +646,7 @@ function RuntimeNodeDialog({
   const handleFileDrop = (event: ReactDragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setIsDraggingFile(false);
+    if (busy || isUploadingFile) return;
     const file = event.dataTransfer.files?.[0];
     if (file && !uploadUnlocked) { handleTemplateRequired(); return; }
     if (file && !fileBusy) void uploadSelectedFile(file);
@@ -850,16 +851,21 @@ function RuntimeNodeDialog({
             {materialsSection}
             <strong className="runtime-upload-step-title">上传已填写文件</strong>
             <div
-              className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${needsFileReplacement ? " is-rejected" : ""}${fileReady ? " is-ready" : ""}${fileBusy ? " is-busy" : ""}`}
+              className={`runtime-file-workspace${isDraggingFile ? " is-dragging" : ""}${isUploadingFile ? " is-uploading" : ""}${needsFileReplacement ? " is-rejected" : ""}${fileReady ? " is-ready" : ""}${busy || isUploadingFile ? " is-busy" : ""}`}
               role={!uploadUnlocked ? "button" : undefined}
-              tabIndex={!uploadUnlocked ? 0 : undefined}
+              tabIndex={!uploadUnlocked ? busy || isUploadingFile ? -1 : 0 : undefined}
               aria-label={!uploadUnlocked ? "上传前请先下载填写模板" : undefined}
               onClickCapture={(event) => {
-                if (!uploadUnlocked) { event.preventDefault(); event.stopPropagation(); handleTemplateRequired(); }
+                if (!uploadUnlocked) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (!busy && !isUploadingFile) handleTemplateRequired();
+                }
               }}
               onKeyDown={(event) => {
                 if (!uploadUnlocked && (event.key === "Enter" || event.key === " ")) {
-                  event.preventDefault(); handleTemplateRequired();
+                  event.preventDefault();
+                  if (!busy && !isUploadingFile) handleTemplateRequired();
                 }
               }}
               onDragEnter={(event) => {
@@ -886,26 +892,22 @@ function RuntimeNodeDialog({
               </span>
               <span className="runtime-file-workspace-copy" aria-live="polite">
                 <strong>
-                  {!uploadUnlocked
-                    ? "请先下载填写模板"
-                    : isUploadingFile
-                      ? "正在上传文件"
-                      : needsFileReplacement
-                        ? "审核未通过，请重新上传文件"
-                        : fileReady
-                          ? "文件已上传，可提交"
-                          : "点击选择或拖拽文件到此处"}
+                  {isUploadingFile
+                    ? "正在上传文件"
+                    : needsFileReplacement
+                      ? "审核未通过，请重新上传文件"
+                      : fileReady
+                        ? "文件已上传，可提交"
+                        : "点击选择或拖拽文件到此处"}
                 </strong>
                 <small>
-                  {!uploadUnlocked
-                    ? "下载成功后自动解锁上传"
-                    : isUploadingFile
-                      ? `${uploadingFileName}，请勿关闭窗口`
-                      : needsFileReplacement
-                        ? `${getDraftFileName(runtime.submission.file)} · ${formatFileSize(submittedFile?.size)}`
-                        : fileReady
-                          ? `${getDraftFileName(draft.file)} · ${formatFileSize(pendingFile?.size)}`
-                          : "选择后将自动上传"}
+                  {isUploadingFile
+                    ? `${uploadingFileName}，请勿关闭窗口`
+                    : needsFileReplacement
+                      ? `${getDraftFileName(runtime.submission.file)} · ${formatFileSize(submittedFile?.size)}`
+                      : fileReady
+                        ? `${getDraftFileName(draft.file)} · ${formatFileSize(pendingFile?.size)}`
+                        : "选择后将自动上传"}
                 </small>
               </span>
               </label>
