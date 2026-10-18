@@ -32,6 +32,10 @@ const descendants = (node: Node, type: string): Node[] =>
 // Preserve each XML script slot separately; a CSS font-family list cannot express this.
 function properties(run: Element | undefined): Values {
   const values: Values = {};
+  for (const [name, slot] of [["sz", "normal"], ["szCs", "cs"]]) {
+    const size = Number(attr(child(run, name), "val"));
+    if (size > 0) values[`--docx-font-size-${slot}`] = `${size / 2}pt`;
+  }
   // ISO 29500 17.3.2.35 / 17.3.2.19: signed twips versus half-points.
   // Preserve zero as an explicit override; an absent property inherits.
   for (const [name, target] of [["spacing", "character-spacing"], ["kern", "kerning-threshold"]]) {
@@ -168,7 +172,8 @@ export function prepareDocxFontConfig(xml: DocxXmlContext, parsed: Parsed): Docx
       const style = id && attr(sources.get(id), "type") === "paragraph" ? sources.get(id) : defaultStyles.get("paragraph");
       Object.assign(paragraphs[index].cssStyle ??= {},
         toggleLevel(style ? resolve(attr(style, "styleId")!) : {}, "paragraph"),
-        toggleLevel({}, "character"), toggleLevel({}, "run"), toggleLevel({}, "mark-run"));
+        toggleLevel({}, "character"), toggleLevel({}, "run"), toggleLevel({}, "mark-run"),
+        { "--docx-mark-font-size-normal": "initial", "--docx-mark-font-size-cs": "initial" });
       // Paragraph-mark formatting affects line metrics, but must not override text runs.
       const mark = properties(child(child(paragraph, "pPr"), "rPr"));
       Object.assign(paragraphs[index].cssStyle ??= {}, Object.fromEntries(Object.entries(mark)

@@ -218,7 +218,7 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
     return groups;
   };
   const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
-  const texts: { node: Text; groups: ReturnType<typeof select>; underline: string; underlineColor: string }[] = [];
+  const texts: { node: Text; groups: ReturnType<typeof select>; fontSize: string; underline: string; underlineColor: string }[] = [];
   while (walker.nextNode()) {
     const node = walker.currentNode as Text, parent = node.parentElement;
     if (!parent || parent.closest("style, script") || !node.data) continue;
@@ -234,13 +234,21 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
         if (candidate.textDecorationLine.includes("underline")) { decoration = candidate; break; }
       }
     }
-    texts.push({ node, groups: select(node.data, style), underline,
+    texts.push({ node, groups: select(node.data, style), fontSize: style.fontSize, underline,
       underlineColor: value(style, "--docx-underline-color") || decoration.textDecorationColor });
   }
   // Paragraph struts (including blank lines) also need XML fonts for stable line metrics.
   const paragraphs = Array.from(body.querySelectorAll<HTMLElement>("p, li"))
     .filter((element) => element.getClientRects().length > 0)
-    .map((element) => ({ element, selection: select(" ", getComputedStyle(element), true)[0].selection }));
+    .map((element) => {
+      const style = getComputedStyle(element);
+      const complex = style.getPropertyValue("--docx-mark-run-cs").trim() === "1"
+        || style.getPropertyValue("--docx-mark-run-rtl").trim() === "1";
+      const slot = complex ? "cs" : "normal";
+      const fontSize = style.getPropertyValue(`--docx-mark-font-size-${slot}`).trim()
+        || style.getPropertyValue(`--docx-font-size-${slot}`).trim() || style.fontSize;
+      return { element, fontSize, selection: select(" ", style, true)[0].selection };
+    });
   const pseudos: { element: HTMLElement; name: string; counters: string; groups: ReturnType<typeof select> }[] = [];
   for (const element of Array.from(body.querySelectorAll<HTMLElement>("*"))) {
     if (!(element instanceof HTMLElement) || element.getClientRects().length === 0) continue;
@@ -337,14 +345,21 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       return code >= 0x20 && code <= 0xff && !/\p{Cc}|\p{Default_Ignorable_Code_Point}/u.test(character)
         ? String.fromCodePoint(code + 0xf000) : character;
     }).join("") : text;
-  for (const { element, selection } of paragraphs) {
+  // Freeze text sizes before changing the paragraph strut: paragraph-mark
+  // formatting controls blank-line metrics, not the sizes of existing runs.
+  for (const { node, fontSize } of texts) {
+    const parent = node.parentElement as HTMLElement;
+    if (!parent.matches("p, li")) parent.style.fontSize = fontSize;
+  }
+  for (const { element, selection, fontSize } of paragraphs) {
+    element.style.fontSize = fontSize;
     element.style.setProperty("font-family", `"${selection.font.family}"`, "important");
     element.style.setProperty("font-weight", selection.weight, "important");
     element.style.setProperty("font-style", selection.style, "important");
     element.style.setProperty("font-synthesis", "weight style", "important");
   }
   const decorationWarnings = new Set<string>();
-  for (const { node, groups: originalGroups, underline, underlineColor } of texts) {
+  for (const { node, groups: originalGroups, fontSize, underline, underlineColor } of texts) {
     const groups = replaceGroups(originalGroups);
     const parent = node.parentElement!;
     if (new Set(groups.map((group) => `${group.selection.weight}:${group.selection.style}`)).size === 1) {
@@ -375,6 +390,7 @@ export async function applyProjectDocxFonts(body: HTMLElement, theme: DocxFontTh
       for (const piece of pieces) {
         const span = document.createElement("docx-text");
         span.textContent = glyphText(piece, selection);
+        span.style.fontSize = fontSize;
         span.style.setProperty("font-family", `"${selection.font.family}"`, "important");
         span.style.setProperty("font-weight", selection.weight, "important");
         span.style.setProperty("font-style", selection.style, "important");

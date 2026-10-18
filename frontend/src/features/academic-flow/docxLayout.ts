@@ -670,9 +670,17 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
   // inheritance, not a project-specific line spacing multiplier.
   for (const paragraph of Array.from(body.querySelectorAll<HTMLElement>("section.docx p"))) {
     const style = getComputedStyle(paragraph);
-    const line = Number(style.getPropertyValue("--docx-line-value"));
     const rule = style.getPropertyValue("--docx-line-rule").trim() || "auto";
-    if (!(line > 0)) continue;
+    const declaredLine = Number(style.getPropertyValue("--docx-line-value"));
+    const pitch = Number(style.getPropertyValue("--docx-line-grid"));
+    const grid = pitch > 0 && style.getPropertyValue("--docx-snap-to-grid").trim() !== "0"
+      && rule !== "exact" && (!paragraph.closest("td,th")
+        || style.getPropertyValue("--docx-table-grid").trim() === "1") ? pitch : 0;
+    // An omitted auto spacing is single spacing. Empty paragraphs still have
+    // a paragraph-mark line, even though HTML creates no inline line box.
+    const blank = !paragraph.textContent && !paragraph.querySelector("img, svg, math, br");
+    const line = declaredLine > 0 ? declaredLine : rule === "auto" ? 240 : 0;
+    if (!(line > 0) || (!declaredLine && !grid && !blank)) continue;
     if (rule === "exact") {
       paragraph.style.lineHeight = `${line / 20}pt`;
       paragraph.style.minHeight = `${line / 20}pt`;
@@ -697,13 +705,22 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
           warnings.add("部分字体无法测量单行高度，保留原渲染器的行距。");
           return [];
         }
-        return [{ element, height: rule === "auto" ? natural * line / 240 : Math.max(line / 15, natural) }];
+        const height = rule === "auto" ? natural * line / 240 : Math.max(line / 15, natural);
+        // Quantize the natural line to whole grid pitches, rather than replacing
+        // font metrics with the font size. A 26pt mark may occupy several slots.
+        // Work in twips to avoid adding a slot due to CSS subpixel rounding.
+        const gridHeight = grid ? Math.ceil(Math.round(height * 15) / Math.round(grid * 15)) * grid : height;
+        return [{ element, height: gridHeight }];
       });
       // Read all effective styles before writing; repeated layout passes cannot
       // multiply an already expanded line-height or leak it into a nested run.
       for (const { element, height } of heights) element.style.lineHeight = `${height}px`;
       const paragraphHeight = heights.find((entry) => entry.element === paragraph)?.height;
       if (paragraphHeight !== undefined) paragraph.style.minHeight = `${paragraphHeight}px`;
+      if (grid && (paragraph.querySelector("img, svg, math, sup, sub")
+        || new Set(heights.map((entry) => entry.height)).size > 1)) {
+        warnings.add("含图形、上下标或不同行高文字的网格段落仍使用浏览器基线布局，可能与 Word 有差异。");
+      }
     }
   }
   // Read once per paragraph before writing; never invent a normal line-height.
@@ -715,22 +732,13 @@ export function applyDocxLineSpacing(body: HTMLElement): string[] {
       keepLines: style.getPropertyValue("--docx-keeplines").trim(),
       keepNext: style.getPropertyValue("--docx-keepnext").trim(),
       widow: style.getPropertyValue("--docx-widowcontrol").trim(),
-      grid: parseFloat(style.getPropertyValue("--docx-line-grid")),
-      snap: style.getPropertyValue("--docx-snap-to-grid").trim(),
-      rule: style.getPropertyValue("--docx-line-rule").trim(),
-      tableGrid: style.getPropertyValue("--docx-table-grid").trim() };
+    };
   });
   for (const entry of paragraphs) {
     const { paragraph, lineHeight } = entry;
     paragraph.dataset.docxKeepLines = entry.keepLines;
     paragraph.dataset.docxKeepNext = entry.keepNext;
     paragraph.dataset.docxWidow = entry.widow;
-    // Grid alignment needs baseline/font metrics and compatibility handling.
-    // Keep this limitation visible while using the browser's line layout.
-    if (entry.grid > 0 && entry.snap !== "0" && entry.rule !== "exact"
-      && (!paragraph.closest("td,th") || entry.tableGrid === "1")) {
-      warnings.add("此文档使用文档网格；网格基线对齐尚不能保证与 Word 一致。");
-    }
     for (const [lines, property] of [[entry.before, "marginTop"], [entry.after, "marginBottom"]] as const) {
       if (!lines) continue;
       if (Number(lines) === 0) paragraph.style[property] = "0px";
